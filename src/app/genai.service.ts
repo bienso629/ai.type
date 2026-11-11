@@ -4,7 +4,6 @@ import {
     type GenerateContentParameters,
     type GenerateContentResponse,
 } from '@google/genai';
-import { MultiAccountService } from './_services/multi-account.service';
 import { getModelverseConfig, getTextModelConfig, TextModelConfig } from './modelverse.config';
 import { ToastrService } from 'ngx-toastr';
 import { PdfTextService } from './_services/pdf-text.service';
@@ -13,6 +12,8 @@ type Scope = string | number;
 
 // Domain máy chủ AI Agent Plugin
 const AI_AGENT_BASE_URL = 'https://agent.type.vn';
+
+import { getSettings } from './_services/user-settings.service';
 
 @Injectable({ providedIn: 'root' })
 export class GenaiService {
@@ -59,7 +60,6 @@ export class GenaiService {
     }
 
     constructor(
-        private multiAccountService: MultiAccountService,
         private toastr: ToastrService,
         private _pdfTextService: PdfTextService
     ) { }
@@ -150,26 +150,8 @@ export class GenaiService {
     }
 
     private getSettingsFromStorage(): any {
-        try {
-            let settings = this.multiAccountService.getItem('settings') || {};
-            
-            const localSettings = localStorage.getItem('settings');
-            if (localSettings) {
-                const parsed = JSON.parse(localSettings);
-                if (parsed && typeof parsed === 'object') {
-                    settings = { ...settings, ...parsed };
-                }
-            }
-
-            if (settings && Object.keys(settings).length > 0) return settings;
-
-            const sessionData = localStorage.getItem('sessionData');
-            if (sessionData) {
-                const parsed = JSON.parse(sessionData);
-                if (parsed && parsed.settings) return parsed.settings;
-            }
-        } catch (e) {}
-        return {};
+        // [Refactor 2026-11-11] Settings chi doc tu server (cache RAM cua du lieu server).
+        return getSettings() || {};
     }
 
     /** Tóm tắt ngắn gọn lỗi của một API Key để hiển thị trong thông báo tổng hợp */

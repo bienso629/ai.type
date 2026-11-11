@@ -13,6 +13,8 @@ import { Subject, takeUntil } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 
+import { getSettings, updateUserSettingsCache, isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'settings-domain',
     templateUrl: './domain.component.html',
@@ -108,7 +110,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     }
 
     fetch() {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
 
         if (isAutoSaveLocal && electron && electron.listLocalDomains) {
@@ -116,7 +118,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
             electron.listLocalDomains({ username: currentUname }).then((res: any) => {
                 if (res && res.success && res.data) {
                     this.rows = res.data;
-                    let settings = this.multiAccountService.getItem('settings') || {};
+                    let settings = getSettings() || {};
                     this.domainTargets = settings.domainTargets || {};
                     this.domainStyles = settings.domainStyles || {};
                     
@@ -150,7 +152,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
 
     private fetchServerDomains() {
         const electron = (window as any).electron;
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (electron && isAutoSaveLocal) return;
         const currentUname = this.user?.name || this.multiAccountService.getItem('username') || localStorage.getItem('username');
         if (!currentUname) return;
@@ -164,7 +166,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
                     if (result && result.success) {
                         this.rows = result.data;
                         
-                        let settings = this.multiAccountService.getItem('settings') || {};
+                        let settings = getSettings() || {};
                         this.domainTargets = settings.domainTargets || {};
                         this.domainStyles = settings.domainStyles || {};
                         
@@ -311,13 +313,14 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     }
 
     saveWritingStyle(domain: string, styleName: string) {
-        let settings = this.multiAccountService.getItem('settings') || {};
+        let settings = getSettings() || {};
         if (!settings.domainStyles) settings.domainStyles = {};
         
         settings.domainStyles[domain] = styleName;
         this.domainStyles[domain] = styleName;
         
-        this.multiAccountService.setItem('settings', settings);
+        // [Refactor 2026-11-11] Cap nhat cache RAM; luu len server do updateProfile ben duoi thuc hien
+        updateUserSettingsCache(settings);
         let editor = this.multiAccountService.getItem('editor');
         let following_users = this.multiAccountService.getItem('following_users');
 
@@ -333,7 +336,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     }
 
     saveTarget(domain: string, target: number) {
-        let settings = this.multiAccountService.getItem('settings') || {};
+        let settings = getSettings() || {};
         if (!settings.domainTargets) settings.domainTargets = {};
         if (!settings.domainTargets[domain] || typeof settings.domainTargets[domain] === 'number') {
              settings.domainTargets[domain] = {};
@@ -347,7 +350,8 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
         settings.domainTargets[domain][y][this.selectedMonthNum] = target;
         this.domainTargets[domain] = settings.domainTargets[domain];
         
-        this.multiAccountService.setItem('settings', settings);
+        // [Refactor 2026-11-11] Cap nhat cache RAM; luu len server do updateProfile ben duoi thuc hien
+        updateUserSettingsCache(settings);
         let editor = this.multiAccountService.getItem('editor');
         let following_users = this.multiAccountService.getItem('following_users');
 

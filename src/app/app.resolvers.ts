@@ -13,6 +13,8 @@ import { UserClientService } from 'app/_services/user';
 import { CrawlService } from 'app/_services/crawl';
 import { DomainService } from 'app/_services/domain';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { isAutoSaveLocalEnabled, updateUserSettingsCache } from 'app/_services/user-settings.service';
+import { appConfig } from 'app/core/config/app.config';
 
 @Injectable({
     providedIn: 'root'
@@ -93,10 +95,10 @@ export class InitialDataResolver
                             if (result.data.editor) this._multiAccountService.setItem('editor', result.data.editor);
                             if (result.data.following_users) this._multiAccountService.setItem('following_users', result.data.following_users);
                             if (result.data.settings) {
-                                this._multiAccountService.setItem('settings', result.data.settings);
-                                if (result.data.settings.domainTargets) {
-                                    localStorage.setItem('domainTargets', JSON.stringify(result.data.settings.domainTargets));
-                                }
+                                // [Refactor 2026-11-11] Settings chi nam tren server: cap nhat
+                                // cache RAM + appConfig, khong ghi ban sao local nua.
+                                updateUserSettingsCache(result.data.settings);
+                                Object.assign(appConfig.settings, result.data.settings);
                             }
                         }
                     }),
@@ -104,7 +106,7 @@ export class InitialDataResolver
                 );
 
 
-                const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+                const isAutoSaveLocal = isAutoSaveLocalEnabled();
 
                 const collections$ = (isAutoSaveLocal && (window as any).electron && (window as any).electron.listLocalCollections)
                     ? new Observable(observer => {

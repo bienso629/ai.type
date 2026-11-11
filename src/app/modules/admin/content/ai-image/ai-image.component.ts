@@ -35,7 +35,6 @@ import { ForumService } from 'app/_services/forum';
 import * as uuid from 'uuid';
 import { BlogService } from 'app/_services/blog';
 import { DomainService } from 'app/_services/domain';
-import { MultiAccountService } from 'app/_services/multi-account.service';
 import { MyKeysService } from 'app/_services/mykey';
 import { WordpressService } from 'app/_services/wordpress';
 import {
@@ -60,6 +59,8 @@ interface ReferenceFile {
     mimeType: string;
     fileName: string;
 }
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'ai-image',
@@ -1340,7 +1341,6 @@ export class AIImageComponent
         private http: HttpClient,
         private _voice: MyKeysService,
         private cd: ChangeDetectorRef,
-        private multiAccountService: MultiAccountService,
         private _genaiService: GenaiService,
         private _forumService: ForumService,
         private _h: HelperService,
@@ -1348,7 +1348,7 @@ export class AIImageComponent
     ) {
         this.titleService.setTitle(`tạo hình | ai.type - công cụ tạo content`);
 
-        this.settings = this.multiAccountService.getItem('settings');
+        this.settings = getSettings();
 
         this.secretKey = this.settings.secretKey
             ? this.settings.secretKey.split(';')

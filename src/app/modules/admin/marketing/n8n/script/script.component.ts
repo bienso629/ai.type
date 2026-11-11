@@ -43,6 +43,8 @@ interface CommentGroup {
     items: any[];
 }
 
+import { getSettings } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'amxh-script',
     templateUrl: './script.component.html',
@@ -1846,7 +1848,7 @@ Hãy cập nhật kết quả phân tích theo thời gian thực:
     ) {
         this.titleService.setTitle(`lên kịch bản | ai.type - công cụ tạo content`);
 
-        this.settings = this.multiAccountService.getItem('settings');
+        this.settings = getSettings();
         if (this.settings) {
             this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
             this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;

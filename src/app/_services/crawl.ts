@@ -16,6 +16,8 @@ let options = {
     })
 };
 
+import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+
 @Injectable()
 export class CrawlService {
     year: number = 2023;
@@ -176,7 +178,7 @@ export class CrawlService {
     }
 
     public facePosts(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.listLocalFacebookPosts) {
             return from(electron.listLocalFacebookPosts(dataForm)).pipe(
@@ -285,7 +287,7 @@ export class CrawlService {
     }
 
     public facePost2Node(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.saveLocalArticle) {
             const htmlContent = Array.isArray(dataForm?.content?.p) ? dataForm.content.p.join('\n\n') : (dataForm?.content?.p || dataForm?.content || '');
@@ -354,7 +356,7 @@ export class CrawlService {
     }
 
     public statistics(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.getLocalStatistics) {
             return from(electron.getLocalStatistics()).pipe(
@@ -426,7 +428,7 @@ export class CrawlService {
     }
 
     public links(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.listLocalLinks) {
             return from(electron.listLocalLinks({
@@ -461,7 +463,7 @@ export class CrawlService {
     }
 
     public addLink(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.addLocalLink) {
             return from(electron.addLocalLink({
@@ -499,7 +501,7 @@ export class CrawlService {
     }
 
     public updateLink(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.updateLocalLink) {
             return from(electron.updateLocalLink({
@@ -613,7 +615,7 @@ export class CrawlService {
     }
 
     public nodes(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.listLocalNodes) {
             return from(electron.listLocalNodes({
@@ -652,7 +654,7 @@ export class CrawlService {
     }
 
     public totalSearchNode(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.getLocalNodesTotal) {
             return from(electron.getLocalNodesTotal({
@@ -689,7 +691,7 @@ export class CrawlService {
     }
 
     public nodeDetails(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.getLocalNodeDetails) {
             return from(electron.getLocalNodeDetails({
@@ -725,7 +727,7 @@ export class CrawlService {
     }
 
     public convert(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.getLocalNodeDetails) {
             return from(electron.getLocalNodeDetails({ id: dataForm?.id || dataForm?._id })).pipe(
@@ -781,7 +783,7 @@ export class CrawlService {
     }
 
     public storeNode(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.saveLocalNode) {
             return from(electron.saveLocalNode({
@@ -820,7 +822,7 @@ export class CrawlService {
     }
 
     public archive(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if ((isAutoSaveLocal || dataForm?.forceLocal) && electron && electron.listLocalArticles) {
             return from(electron.listLocalArticles({
@@ -940,7 +942,7 @@ export class CrawlService {
     }
 
     public searchTotalArchive(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.getLocalStatistics) {
             return from(electron.getLocalStatistics()).pipe(
@@ -980,7 +982,7 @@ export class CrawlService {
     }
 
     public storeArchive(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.saveLocalArticle) {
             return from(electron.saveLocalArticle(dataForm)).pipe(
@@ -1014,7 +1016,7 @@ export class CrawlService {
     }
 
     public archiveUpdate(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.saveLocalArticle) {
             return from(electron.saveLocalArticle(dataForm)).pipe(
@@ -1048,7 +1050,7 @@ export class CrawlService {
     }
 
     public removeArchive(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.deleteLocalArticle) {
             return from(electron.deleteLocalArticle({
@@ -1082,7 +1084,7 @@ export class CrawlService {
     }
 
     public detail(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.readLocalArticle) {
             return from(electron.readLocalArticle({
@@ -1183,7 +1185,7 @@ export class CrawlService {
     }
 
     public archiveTogetherCheck(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.checkLocalTogether) {
             return from(electron.checkLocalTogether(dataForm)).pipe(
@@ -1242,7 +1244,7 @@ export class CrawlService {
     }
 
     public archiveBlockComment(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.saveLocalComment) {
             return from(electron.saveLocalComment(dataForm)).pipe(
@@ -1276,7 +1278,7 @@ export class CrawlService {
     }
 
     public archiveComments(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.listLocalComments) {
             return from(electron.listLocalComments(dataForm)).pipe(
@@ -1360,7 +1362,7 @@ export class CrawlService {
     }
 
     public collections(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if ((isAutoSaveLocal || dataForm?.forceLocal) && electron && electron.listLocalCollections) {
             return from(electron.listLocalCollections({
@@ -1396,7 +1398,7 @@ export class CrawlService {
     }
 
     public nodeInCollection(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if ((isAutoSaveLocal || dataForm?.forceLocal) && electron && electron.listLocalCollections) {
             return from(electron.listLocalCollections({
@@ -1439,7 +1441,7 @@ export class CrawlService {
     }
 
     public createCollection(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.saveLocalCollection) {
             return from(electron.saveLocalCollection({
@@ -1478,7 +1480,7 @@ export class CrawlService {
     }
 
     public storeCollection(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.storeLocalCollection) {
             return from(electron.storeLocalCollection({
@@ -1516,7 +1518,7 @@ export class CrawlService {
     }
 
     public removeCollection(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.removeLocalCollection) {
             return from(electron.removeLocalCollection({
@@ -1554,7 +1556,7 @@ export class CrawlService {
     }
 
     public updateCollection(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.updateLocalCollection) {
             return from(electron.updateLocalCollection({
@@ -1593,7 +1595,7 @@ export class CrawlService {
     }
 
     public linkCollections(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.listLocalLinkCollections) {
             return from(electron.listLocalLinkCollections(dataForm)).pipe(
@@ -1627,7 +1629,7 @@ export class CrawlService {
     }
 
     public linksInCollection(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.getLocalLinksInCollection) {
             return from(electron.getLocalLinksInCollection(dataForm)).pipe(

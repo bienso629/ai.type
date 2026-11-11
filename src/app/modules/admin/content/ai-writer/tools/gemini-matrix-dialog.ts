@@ -22,6 +22,8 @@ import { Router } from '@angular/router';
 import { MatSelectionList } from '@angular/material/list';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 
+import { getSettings } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'gemini-matrix-dialog',
     template: `<div class="flex items-center justify-between mb-4">
@@ -411,7 +413,7 @@ export class GeminiMatrixDialog {
         private _genaiService: GenaiService,
     ) {
         // lấy secretKey và searchAPIKey
-        this.settings = this.multiAccountService.getItem('settings');
+        this.settings = getSettings();
         if (this.settings) {
             this.secretKey = this.settings.secretKey
                 ? this.settings.secretKey.split(';')

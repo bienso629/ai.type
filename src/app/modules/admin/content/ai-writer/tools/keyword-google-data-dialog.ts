@@ -17,10 +17,11 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { BlogService } from 'app/_services/blog';
 import { CrawlService } from 'app/_services/crawl';
-import { MultiAccountService } from 'app/_services/multi-account.service';
 import { Subject, takeUntil } from 'rxjs';
 
 import * as uuid from 'uuid';
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'keyword-google-data-dialog',
@@ -276,10 +277,9 @@ export class KeywordGoogleDataDialog implements OnInit, OnDestroy {
         private _formBuilder: UntypedFormBuilder,
         private _userService: UserService,
         private _crawlService: CrawlService,
-        private multiAccountService: MultiAccountService,
     ) {
         // lấy secretKey và searchAPIKey
-        this.settings = this.multiAccountService.getItem('settings');
+        this.settings = getSettings();
         if (this.settings) {
             this.secretKey = this.settings.secretKey
                 ? this.settings.secretKey.split(';')

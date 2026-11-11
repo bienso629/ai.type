@@ -17,6 +17,8 @@ let options = {
     })
 };
 
+import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+
 @Injectable({
     providedIn: 'root'
 })
@@ -355,7 +357,7 @@ export class ForumService {
             catchError((err) => {
                 this._categoriesCache$ = null;
                 console.warn('[ForumService] Lỗi gọi https://type.vn/api/categories trực tiếp, fallback sang local/server:', err);
-                const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+                const isAutoSaveLocal = isAutoSaveLocalEnabled();
                 const electron = (window as any).electron;
                 if (isAutoSaveLocal && electron && electron.listLocalForumCategories) {
                     return from(electron.listLocalForumCategories(dataForm || {})).pipe(

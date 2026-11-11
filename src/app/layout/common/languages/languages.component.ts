@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnIni
 import { take } from 'rxjs';
 import { AvailableLangs, TranslocoService } from '@jsverse/transloco';
 import { FuseNavigationService, FuseVerticalNavigationComponent } from '@fuse/components/navigation';
-import { MultiAccountService } from 'app/_services/multi-account.service';
+
+import { saveSettingsPartial } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'languages',
@@ -24,7 +25,6 @@ export class LanguagesComponent implements OnInit, OnDestroy {
         private _changeDetectorRef: ChangeDetectorRef,
         private _fuseNavigationService: FuseNavigationService,
         private _translocoService: TranslocoService,
-        private multiAccountService: MultiAccountService
     ) {
     }
 
@@ -73,9 +73,8 @@ export class LanguagesComponent implements OnInit, OnDestroy {
     setActiveLang(lang: string): void {
         // Set the active lang
         this._translocoService.setActiveLang(lang);
-        let settings: any = this.multiAccountService.getItem('settings') || {};
-        settings.language = lang;
-        this.multiAccountService.setItem('settings', settings);
+        // [Refactor 2026-11-11] Luu ngon ngu vao settings tren server, khong ghi local.
+        saveSettingsPartial({ language: lang });
     }
 
     /**

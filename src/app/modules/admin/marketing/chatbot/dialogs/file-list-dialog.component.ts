@@ -25,6 +25,8 @@ import {
 } from 'rxjs';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 
+import { getSettings } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'app-file-list-dialog',
     providers: [ChatbotService],
@@ -263,7 +265,7 @@ export class FileListDialogComponent implements AfterViewInit {
                                     console.warn('[Dialog] MinerU lỗi, fallback sang OpenAI API:', ipcErr);
                                     this.progressStatus = 'Chuyển sang phân tích OpenAI API...';
                                     this.cdr.markForCheck();
-                                    const settings = this._multiAccountService.getItem('settings') || {};
+                                    const settings = getSettings() || {};
                                     configData = {
                                         url: settings.umodelverseUrl || '',
                                         key: settings.umodelverseKey || '',

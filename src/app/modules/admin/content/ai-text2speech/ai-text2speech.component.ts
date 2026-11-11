@@ -24,7 +24,8 @@ import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { ToastrService } from 'ngx-toastr';
 import { MatSelectChange } from '@angular/material/select';
-import { MultiAccountService } from 'app/_services/multi-account.service';
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'ai-text2speech',
@@ -76,7 +77,6 @@ export class AIText2SpeechComponent
         private toastr: ToastrService,
         private router: Router,
         private titleService: Title,
-        private multiAccountService: MultiAccountService,
         private cd: ChangeDetectorRef,
         @Optional() @Inject(MAT_DIALOG_DATA) public data: any,
         @Optional() public dialogRef?: MatDialogRef<AIText2SpeechComponent>,
@@ -134,12 +134,9 @@ export class AIText2SpeechComponent
             let connected = false;
             let pluginActive = false;
 
-            let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
+            let settings = getSettings() || {};
             try {
-                const lsSettings = localStorage.getItem('settings');
-                if (lsSettings) {
-                    settings = { ...settings, ...JSON.parse(lsSettings) };
-                }
+                
             } catch (e) {}
             const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
             if (settings && settings.colabPluginEnabled) {
@@ -510,13 +507,7 @@ export class AIText2SpeechComponent
             : `${targetVoiceName}.wav`;
         const selectedVoiceObj = this.voiceList.find(v => v.id === voice);
 
-        let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
-        try {
-            const lsSettings = localStorage.getItem('settings');
-            if (lsSettings) {
-                settings = { ...settings, ...JSON.parse(lsSettings) };
-            }
-        } catch (e) {}
+        let settings = getSettings() || {};
         const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
 
         const username = this.user?.name || 'anonymous';

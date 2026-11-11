@@ -23,7 +23,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ToastrService } from 'ngx-toastr';
 import { GenaiService } from 'app/genai.service';
-import { MultiAccountService } from 'app/_services/multi-account.service';
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'app-controlnet-dialog',
@@ -64,7 +65,6 @@ export class ControlNetDialogComponent implements OnInit {
         @Inject(MAT_DIALOG_DATA) public data: any,
         private dialogRef: MatDialogRef<ControlNetDialogComponent>,
         private toastr: ToastrService,
-        private multiAccountService: MultiAccountService,
         private cd: ChangeDetectorRef,
         private _genaiService: GenaiService,
         private sanitizer: DomSanitizer,
@@ -120,7 +120,7 @@ export class ControlNetDialogComponent implements OnInit {
     }
 
     private getGeminiKey(): string | null {
-        const settings = this.multiAccountService.getItem('settings');
+        const settings = getSettings();
         let secretKey;
         try {
             secretKey = settings.secretKey

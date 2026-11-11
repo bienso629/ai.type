@@ -17,6 +17,7 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { UserClientService } from 'app/_services/user';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { ProjectStoreService } from 'app/_services/project-store.service';
 import { CrawlService } from 'app/_services/crawl';
 import { Subject, takeUntil } from 'rxjs';
 import { TranslocoService } from '@jsverse/transloco';
@@ -30,6 +31,8 @@ import {
     tryDecryptWithMasterFallback,
     isMasterKey,
 } from 'app/core/auth/crypto.helper';
+
+import { getSettings, updateUserSettingsCache, isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'dashboard',
@@ -85,9 +88,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         icon: 'trending_up',
     };
 
-    domainTargets: { [key: string]: any } = JSON.parse(
-        localStorage.getItem('domainTargets') || '{}',
-    );
+    domainTargets: { [key: string]: any } = getSettings()?.domainTargets || {};
     domainChartOptions: any;
     evalMonthToDisplay: number;
 
@@ -189,8 +190,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             return;
         }
 
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (
             isAutoSaveLocal &&
             (window as any).electron &&
@@ -312,10 +312,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
                                 result.data.following_users,
                             );
                         if (result.data.settings) {
-                            this.multiAccountService.setItem(
-                                'settings',
-                                result.data.settings,
-                            );
+                            // [Refactor 2026-11-11] Cap nhat cache RAM tu server, khong ghi local
+                            updateUserSettingsCache(result.data.settings);
                             if (result.data.settings.domainTargets) {
                                 const rawTargets =
                                     result.data.settings.domainTargets;
@@ -329,10 +327,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
                                         rawTargets[rawDomain];
                                 }
                                 this.domainTargets = normalizedTargets;
-                                localStorage.setItem(
-                                    'domainTargets',
-                                    JSON.stringify(this.domainTargets),
-                                );
                                 this.updateChart();
                             }
                         }
@@ -381,8 +375,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             return;
         }
 
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (
             isAutoSaveLocal &&
             (window as any).electron &&
@@ -494,8 +487,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             return;
         }
 
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (
             isAutoSaveLocal &&
             (window as any).electron &&
@@ -651,6 +643,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         private router: Router,
         private _fuseConfigService: FuseConfigService,
         private multiAccountService: MultiAccountService,
+        private projectStore: ProjectStoreService,
         private _crawlService: CrawlService,
         private translocoService: TranslocoService,
         private _fuseSplashScreenService: FuseSplashScreenService,
@@ -701,47 +694,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
                     }
                 }, 100);
 
-                // Get video projects being built
+                // Get video projects being built (nguồn sự thật: đĩa qua project-store)
                 setTimeout(() => {
-                    let projects =
-                        this.multiAccountService.getItemsByPrefix(
-                            'ai_type_audio_merger_data_',
-                        ) || [];
-                    const allProjects = projects
-                        .filter((p) => p.uuid && p.title)
-                        .reverse()
-                        .map((p) => {
-                            // Calculate dynamic status
-                            let statusLabel = 'app.draft';
-                            let statusClass = 'bg-blue-100 text-blue-600';
-
-                            if (!p.clips || p.clips.length === 0) {
-                                statusLabel = 'app.empty';
-                                statusClass = 'bg-gray-100 text-gray-600';
-                            } else {
-                                const hasAudio = p.clips.some(
-                                    (c: any) =>
-                                        c.localFilePath || c.audioFileName,
-                                );
-                                const allAudio = p.clips.every(
-                                    (c: any) =>
-                                        c.localFilePath || c.audioFileName,
-                                );
-
-                                if (allAudio) {
-                                    statusLabel = 'app.ready';
-                                    statusClass = 'bg-green-100 text-green-600';
-                                } else if (hasAudio) {
-                                    statusLabel = 'app.working';
-                                    statusClass = 'bg-amber-100 text-amber-600';
-                                }
-                            }
-
-                            return { ...p, statusLabel, statusClass };
-                        });
-                    this.totalVideoProjects = allProjects.length;
-                    this.videoProjects = allProjects.slice(0, 12);
-                }, 500); // wait a bit to ensure multiAccountService has loaded if needed
+                    this.projectStore
+                        .list(this.user?.name || null)
+                        .then((projects) => {
+                            const allProjects = projects
+                                .filter((p) => p.uuid && p.title)
+                                .map((p) => {
+                                    const st =
+                                        this.projectStore.computeStatus(p);
+                                    return { ...p, ...st };
+                                });
+                            this.totalVideoProjects = allProjects.length;
+                            this.videoProjects = allProjects.slice(0, 12);
+                        })
+                        .catch((e) =>
+                            console.error('[dashboard] Lỗi load video projects:', e),
+                        );
+                }, 500); // wait a bit to ensure user profile đã sẵn sàng
             });
     }
 
@@ -824,15 +795,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         dialogRef.afterClosed().subscribe(async (result) => {
             if (result === 'confirmed') {
-                // Xóa localStorage
-                this.multiAccountService.removeItem(
-                    `ai_type_audio_merger_data_${project.uuid}`,
-                );
-                this.multiAccountService.removeItem(
-                    `ai_type_video_ready_data_${project.uuid}`,
-                );
-                this.multiAccountService.removeItem(
-                    `casting_list_${project.uuid}`,
+                // Xóa dữ liệu cấu trúc trên đĩa (meta/timeline/casting) + registry
+                await this.projectStore.remove(
+                    this.user?.name || null,
+                    project.uuid,
                 );
 
                 // Cập nhật mảng trên UI

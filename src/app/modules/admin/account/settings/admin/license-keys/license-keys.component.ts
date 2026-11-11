@@ -15,8 +15,9 @@ import { AppConfig } from 'app/core/config/app.config';
 import { FuseConfigService } from '@fuse/services/config';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
-import { MultiAccountService } from 'app/_services/multi-account.service';
 import { EmailDialogComponent } from 'app/modules/admin/account/settings/admin/dialogs/email-dialog/email-dialog.component';
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'license-keys',
@@ -326,7 +327,6 @@ export class SettingsLicenseKeysComponent implements OnInit, OnDestroy {
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         public dialog: MatDialog,
-        private multiAccountService: MultiAccountService,
         private cd: ChangeDetectorRef) {
         this.titleService.setTitle(`key hoạt động của app | ai.type - công cụ tạo content`);
 
@@ -395,7 +395,7 @@ Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!`;
 
         dialogRef.afterClosed().subscribe(async (emailComposer) => {
             if (emailComposer) {
-                const settings = this.multiAccountService.getItem('settings') || {};
+                const settings = getSettings() || {};
                 const emailConfig = {
                     nodebbUrl: settings.emailConfig_nodebbUrl || 'https://type.vn',
                     nodebbToken: settings.emailConfig_nodebbToken || '',

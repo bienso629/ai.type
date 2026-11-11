@@ -52,6 +52,7 @@ import { FuseConfirmationService } from '@fuse/services/confirmation/confirmatio
 import { Router, ActivatedRoute } from '@angular/router';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { ProjectStoreService } from 'app/_services/project-store.service';
 import { EditScenePromptDialogComponent } from './edit-scene-prompt-dialog.component';
 import { GenaiService } from 'app/genai.service';
 import { VideoProjectConfigDialogComponent } from './video-project-config-dialog.component';
@@ -85,6 +86,8 @@ export interface VideoFrameTemplate {
     canvasWidth: number;
     canvasHeight: number;
 }
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'app-video-timeline-dialog',
@@ -4868,12 +4871,9 @@ export class VideoTimelineDialogComponent
                         : `${targetVoiceName}.wav`;
                     const niceFilename = `${prefix}_${slug}`;
 
-                    let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
+                    let settings = getSettings() || {};
                     try {
-                        const lsSettings = localStorage.getItem('settings');
-                        if (lsSettings) {
-                            settings = { ...settings, ...JSON.parse(lsSettings) };
-                        }
+                        
                     } catch (e) {}
                     const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
 
@@ -7075,7 +7075,7 @@ export class VideoTimelineDialogComponent
     cancelLinking() {}
 
     private getGeminiKey(): string | null {
-        const settings = this.multiAccountService.getItem('settings');
+        const settings = getSettings();
         let secretKey;
         try {
             secretKey = settings.secretKey
@@ -9239,12 +9239,15 @@ export class VideoTimelineDialogComponent
         this.cd.detectChanges();
 
         try {
-            const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
-            await this.multiAccountService.setItem(
-                storageKey,
-                this.projectData,
+            // Lưu cấu trúc timeline xuống đĩa qua project-store (không nhét vào session IndexedDB)
+            await this.projectStore.save(
+                this.data?.username || null,
+                this.data.uuid,
+                { timeline: this.projectData },
             );
-            await this.multiAccountService.forceSave();
+            this.multiAccountService.removeItem(
+                `ai_type_video_ready_data_${this.data.uuid}`,
+            );
             this.hasUnsavedChanges = false;
             this.cd.detectChanges();
             this.toastr.success('Đã lưu thành công!');
@@ -15353,6 +15356,7 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         private route: ActivatedRoute,
         private clipboard: Clipboard,
         private multiAccountService: MultiAccountService,
+        private projectStore: ProjectStoreService,
         private toastr: ToastrService,
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
@@ -16057,94 +16061,42 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
         this.loadCustomFrames();
         this.loadSystemFonts();
         this.isSvgReady = false;
-        const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
-        const readyKey = `ai_type_video_ready_data_${this.data.uuid}`;
-        this.projectData =
-            this.data?.projectData ||
-            this.multiAccountService.getItem(readyKey) ||
-            this.multiAccountService.getItem(storageKey);
 
-        const audioStorageKey = `ai_type_audio_merger_data_${this.data.uuid}`;
-        const audioData = this.multiAccountService.getItem(audioStorageKey);
-        this.allClips = audioData && audioData.clips ? audioData.clips : [];
+        // Nạp dữ liệu cấu trúc: ưu tiên data truyền vào, sau đó session, cuối cùng là đĩa (project-store)
+        const bootProject = (parts: any | null) => {
+            const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
+            const readyKey = `ai_type_video_ready_data_${this.data.uuid}`;
+            this.projectData =
+                this.data?.projectData ||
+                this.multiAccountService.getItem(readyKey) ||
+                this.multiAccountService.getItem(storageKey) ||
+                parts?.timeline ||
+                null;
 
-        // Backward compatibility: Convert old scenes to grouped videos format
-        if (this.projectData && this.projectData.scenes) {
-            this.projectData.scenes.forEach((scene: any) => {
-                // Clear any stale generating flags
-                if (scene.videos) {
-                    scene.videos.forEach((video: any) => {
-                        video.isGeneratingImage = false;
-                        video.isGeneratingVideo = false;
-                        video.isExtractingAudio = false;
-                        video.isAnalyzingScenes = false;
-                        video.isSplittingScenes = false;
-                    });
-                }
+            const audioStorageKey = `ai_type_audio_merger_data_${this.data.uuid}`;
+            const audioData =
+                this.multiAccountService.getItem(audioStorageKey) ||
+                parts?.meta ||
+                null;
+            this.allClips = audioData && audioData.clips ? audioData.clips : [];
+            this.bootFromDiskData(parts);
+            this.afterProjectDataLoaded();
+        };
 
-                if (
-                    !scene.videos &&
-                    (scene.prompt || scene.imageUrl || scene.videoUrl)
-                ) {
-                    let defaultDuration = scene.forcedDuration || 5;
-                    if (!scene.forcedDuration && scene.subtitles) {
-                        let totalSecs = 0;
-                        for (const sub of scene.subtitles) {
-                            if (sub.duration) totalSecs += sub.duration;
-                            else if (sub.text)
-                                totalSecs += Math.max(
-                                    1,
-                                    sub.text.trim().split(/\s+/).length / 4,
-                                );
-                        }
-                        if (totalSecs > 0)
-                            defaultDuration = Math.round(totalSecs);
-                    }
-                    scene.videos = [
-                        {
-                            id: 1,
-                            prompt: scene.prompt || '',
-                            imageUrl: scene.imageUrl || null,
-                            videoUrl: scene.videoUrl || null,
-                            duration: defaultDuration,
-                        },
-                    ];
-                } else if (!scene.videos) {
-                    scene.videos = [];
-                }
-            });
+        if (this.data?.projectData) {
+            bootProject(null);
+        } else {
+            this.projectStore
+                .load(this.data?.username || null, this.data.uuid)
+                .then((parts) => bootProject(parts))
+                .catch(() => bootProject(null));
         }
 
-        // Khởi tạo Timeline (gán startTime cho các video)
-        this.normalizeData();
-        this.syncVideoDurationsWithDisk();
-        this.autoScanAndLoadCompanionAssets();
-        this.autoGenerateMissingVideoThumbnails();
-        this.syncSubtitlesWithExtractedAudios();
-        const allSubs = this.getAllProjectSubtitles();
-        if (allSubs.length > 0) {
-            const viCount = allSubs.filter((s) =>
-                this.isLikelyVietnamese(s.text),
-            ).length;
-            this.currentSubtitleLang =
-                viCount > allSubs.length / 2 ? 'vi' : 'original';
-        }
-        this.updateFilteredMediaItems();
-
-        // Select the first video by default
-        if (
-            this.projectData &&
-            this.projectData.scenes &&
-            this.projectData.scenes.length > 0
-        ) {
-            const firstScene = this.projectData.scenes[0];
-            if (firstScene.videos && firstScene.videos.length > 0) {
-                const firstVideo = firstScene.videos[0];
-                this.setActiveItem(firstVideo);
-                this.currentTimelineTime = firstVideo.startTime || 0;
-                this.updateTimelineSync();
-            }
-        }
+        // Đảm bảo dự án có mặt trong registry (phục vụ các kiểm tra hasVideoProject)
+        this.projectStore.ensureRegistered(
+            this.data?.username || null,
+            this.data.uuid,
+        );
 
         // Lắng nghe sự kiện tải ảnh từ webview (Gemini/Labs)
         const electron = (window as any).electron;
@@ -16178,6 +16130,93 @@ ${JSON.stringify(subsToTranslate, null, 2)}`;
             this.isSvgReady = true;
             this.cd.detectChanges();
         }, 150);
+    }
+
+    /** Cờ báo dữ liệu đã boot xong (dùng cho afterProjectDataLoaded) */
+    private bootedFromDisk: boolean = false;
+
+    private bootFromDiskData(parts: any | null): void {
+        this.bootedFromDisk = true;
+        if (parts?.timeline && !this.multiAccountService.getItem(`ai_type_video_ready_data_${this.data.uuid}`)) {
+            // Giữ tương thích: đổ vào session nếu session thiếu (sẽ được dọn khi lưu qua projectStore)
+            this.multiAccountService.setItem(
+                `ai_type_video_ready_data_${this.data.uuid}`,
+                parts.timeline,
+            );
+        }
+    }
+
+    /** Toàn bộ khởi tạo phụ thuộc projectData được gom về đây, chạy sau khi dữ liệu đã nạp xong */
+    private afterProjectDataLoaded(): void {
+        // Backward compatibility: Convert old scenes to grouped videos format
+        if (this.projectData && this.projectData.scenes) {
+            this.projectData.scenes.forEach((scene: any) => {
+                if (scene.videos) {
+                    scene.videos.forEach((video: any) => {
+                        video.isGeneratingImage = false;
+                        video.isGeneratingVideo = false;
+                        video.isExtractingAudio = false;
+                        video.isAnalyzingScenes = false;
+                        video.isSplittingScenes = false;
+                    });
+                }
+                if (
+                    !scene.videos &&
+                    (scene.prompt || scene.imageUrl || scene.videoUrl)
+                ) {
+                    let defaultDuration = scene.forcedDuration || 5;
+                    if (!scene.forcedDuration && scene.subtitles) {
+                        let totalSecs = 0;
+                        for (const sub of scene.subtitles) {
+                            if (sub.duration) totalSecs += sub.duration;
+                            else if (sub.text)
+                                totalSecs += Math.max(1, sub.text.trim().split(/\s+/).length / 4);
+                        }
+                        if (totalSecs > 0) defaultDuration = Math.round(totalSecs);
+                    }
+                    scene.videos = [
+                        {
+                            id: 1,
+                            prompt: scene.prompt || '',
+                            imageUrl: scene.imageUrl || null,
+                            videoUrl: scene.videoUrl || null,
+                            duration: defaultDuration,
+                        },
+                    ];
+                } else if (!scene.videos) {
+                    scene.videos = [];
+                }
+            });
+        }
+
+        this.normalizeData();
+        this.syncVideoDurationsWithDisk();
+        this.autoScanAndLoadCompanionAssets();
+        this.autoGenerateMissingVideoThumbnails();
+        this.syncSubtitlesWithExtractedAudios();
+        const allSubs = this.getAllProjectSubtitles();
+        if (allSubs.length > 0) {
+            const viCount = allSubs.filter((s: any) =>
+                this.isLikelyVietnamese(s.text),
+            ).length;
+            this.currentSubtitleLang =
+                viCount > allSubs.length / 2 ? 'vi' : 'original';
+        }
+        this.updateFilteredMediaItems();
+
+        if (
+            this.projectData &&
+            this.projectData.scenes &&
+            this.projectData.scenes.length > 0
+        ) {
+            const firstScene = this.projectData.scenes[0];
+            if (firstScene.videos && firstScene.videos.length > 0) {
+                const firstVideo = firstScene.videos[0];
+                this.setActiveItem(firstVideo);
+                this.currentTimelineTime = firstVideo.startTime || 0;
+                this.updateTimelineSync();
+            }
+        }
     }
 
     ngOnDestroy() {

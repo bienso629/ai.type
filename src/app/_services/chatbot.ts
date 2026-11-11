@@ -1,4 +1,5 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { getSettings } from './user-settings.service';
 import { Injectable } from '@angular/core';
 import { FuseConfigService } from '@fuse/services/config';
 import { AuthUtils } from 'app/core/auth/auth.utils';
@@ -60,7 +61,7 @@ export class ChatbotService {
     private getApiUrl(): string {
         let apiUrl = "https://bot.type.vn";
         try {
-            const settings = this.multiAccountService.getItem('settings');
+            const settings = getSettings();
             if (settings && settings.chatbot) {
                 apiUrl = settings.chatbot.trim();
             } else if (this.config && this.config.settings && this.config.settings.chatbot) {

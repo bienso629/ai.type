@@ -21,6 +21,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ToastrService } from 'ngx-toastr';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { ProjectStoreService } from 'app/_services/project-store.service';
 import { CharacterDialogComponent } from './character-dialog.component';
 import { DirectorModeComponent } from './director-mode.component';
 import { GenaiService } from 'app/genai.service';
@@ -66,6 +67,7 @@ export class VideoProjectConfigDialogComponent implements OnInit {
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
         private multiAccountService: MultiAccountService,
+        private projectStore: ProjectStoreService,
         private dialog: MatDialog,
         private cd: ChangeDetectorRef,
         private _genaiService: GenaiService,
@@ -486,10 +488,7 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
                 }
 
                 if (this.data.uuid) {
-                    this.multiAccountService.setItem(
-                        `casting_list_${this.data.uuid}`,
-                        this.projectData.characters,
-                    );
+                    this.projectStore.save(null, this.data.uuid, { casting: this.projectData.characters });
                 }
                 this.save();
 
@@ -604,10 +603,7 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
             this.projectData.characters.push(newChar);
 
             if (this.data.uuid) {
-                this.multiAccountService.setItem(
-                    `casting_list_${this.data.uuid}`,
-                    this.projectData.characters,
-                );
+                this.projectStore.save(null, this.data.uuid, { casting: this.projectData.characters });
             }
             this.save();
 
@@ -625,10 +621,7 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
                 : 'Phiên bản mới';
             this.projectData.characters.push(fallbackChar);
             if (this.data.uuid) {
-                this.multiAccountService.setItem(
-                    `casting_list_${this.data.uuid}`,
-                    this.projectData.characters,
-                );
+                this.projectStore.save(null, this.data.uuid, { casting: this.projectData.characters });
             }
             this.save();
             this.toastr.warning(
@@ -660,10 +653,7 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
             if (result === 'confirmed') {
                 this.projectData.characters.splice(index, 1);
                 if (this.data.uuid) {
-                    this.multiAccountService.setItem(
-                        `casting_list_${this.data.uuid}`,
-                        this.projectData.characters,
-                    );
+                    this.projectStore.save(null, this.data.uuid, { casting: this.projectData.characters });
                 }
                 this.save();
                 this.toastr.warning('Đã xóa nhân vật');

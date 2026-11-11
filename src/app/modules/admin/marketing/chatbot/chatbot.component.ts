@@ -29,6 +29,8 @@ import { LogService } from 'app/_services/link';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 import { GenaiService } from 'app/genai.service';
 
+import { getSettings } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'chatbot',
     templateUrl: './chatbot.component.html',
@@ -1798,7 +1800,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 try {
                     let serverApiUrl = 'http://localhost:8002'; // Mặc định
                     try {
-                        const settings = this.multiAccountService.getItem('settings');
+                        const settings = getSettings();
                         if (settings && settings.umodelverseUrl) {
                             serverApiUrl = settings.umodelverseUrl;
                         }
@@ -2165,7 +2167,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             } catch(e) {}
         }
 
-        const settings = this.settings || this.multiAccountService.getItem('settings') || {};
+        const settings = this.settings || getSettings() || {};
         const secretKeys = settings?.secretKey ? settings.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
         const geminiKey = secretKeys.length > 0 ? secretKeys[Math.floor(Math.random() * secretKeys.length)] : '';
 
@@ -2372,7 +2374,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                         let configData = undefined;
                         if (!isMinerUEnabled) {
                             try {
-                                const currentSettings = this.multiAccountService.getItem('settings') || this.settings;
+                                const currentSettings = getSettings() || this.settings;
                                 if (currentSettings) {
                                     configData = {
                                         url: currentSettings.umodelverseUrl || '',
@@ -2392,7 +2394,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                                 console.warn('[Chatbot] MinerU cục bộ thất bại, tự động chuyển sang OpenAI API:', ipcErr);
                                 this.progressStatus = 'Chuyển sang phân tích bằng AI API...';
                                 this.cd.markForCheck();
-                                const currentSettings = this.multiAccountService.getItem('settings') || this.settings;
+                                const currentSettings = getSettings() || this.settings;
                                 configData = {
                                     url: currentSettings?.umodelverseUrl || '',
                                     key: currentSettings?.umodelverseKey || '',
@@ -3102,7 +3104,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
     }
 
     ngOnInit(): void {
-        this.settings = this.multiAccountService.getItem('settings');
+        this.settings = getSettings();
         this.currentDocType = localStorage.getItem('last_doc_type');
 
         this.chatbotMessage = this._formBuilder.group({

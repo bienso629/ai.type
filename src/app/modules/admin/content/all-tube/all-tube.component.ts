@@ -17,6 +17,8 @@ import { YoutubeService } from 'app/_services/youtube';
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
 
+import { getSettings } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'alltube',
     templateUrl: './all-tube.component.html',
@@ -65,13 +67,8 @@ export class AllTubeComponent implements OnInit, OnDestroy {
             this.toastr.info('Đang bắt đầu tải video...');
             this._changeDetectorRef.detectChanges();
 
-            const settingsStr = localStorage.getItem('settings');
-            let customCookies = '';
-            if (settingsStr) {
-                try {
-                    customCookies = JSON.parse(settingsStr).customCookies || '';
-                } catch (e) {}
-            }
+            const settings = getSettings() || {};
+            let customCookies = settings.customCookies || '';
             (window as any).electron
                 .invoke('download-video', {
                     urls: urls,

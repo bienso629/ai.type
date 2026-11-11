@@ -25,6 +25,7 @@ import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { ProjectStoreService } from 'app/_services/project-store.service';
 import { GenaiService } from 'app/genai.service';
 import { BlogService } from 'app/_services/blog';
 
@@ -35,6 +36,8 @@ import {
     tryDecryptWithMasterFallback,
     isMasterKey,
 } from 'app/core/auth/crypto.helper';
+
+import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'app-collection',
@@ -92,6 +95,7 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         private toastr: ToastrService,
         private _fuseConfirmationService: FuseConfirmationService,
         private multiAccountService: MultiAccountService,
+    private projectStore: ProjectStoreService,
         private router: Router,
         private _genaiService: GenaiService,
         private _blogService: BlogService,
@@ -163,8 +167,7 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     loadCollections() {
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (
             isAutoSaveLocal &&
             (window as any).electron &&
@@ -334,8 +337,7 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
             ...this.page,
         };
 
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (
             isAutoSaveLocal &&
             (window as any).electron &&
@@ -984,12 +986,7 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         if (!uuid) return false;
         if (typeof row === 'object' && (row.has_video || row.hasVideo))
             return true;
-        if (this.multiAccountService) {
-            return !!this.multiAccountService.getItem(
-                `ai_type_audio_merger_data_${uuid}`,
-            );
-        }
-        return false;
+        return this.projectStore.hasProject(uuid);
     }
 
     hasScriptProject(row: any): boolean {
@@ -1178,9 +1175,7 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
         if (uuids.length > 0 && this.multiAccountService) {
             return uuids.some(
                 (uId) =>
-                    !!this.multiAccountService.getItem(
-                        `ai_type_audio_merger_data_${uId}`,
-                    ),
+                    this.projectStore.hasProject(uId),
             );
         }
         return false;
@@ -1488,10 +1483,7 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
                                         `ai_type_script_data_${art.uuid}`,
                                         true,
                                     );
-                                    const isAutoSaveLocal =
-                                        localStorage.getItem(
-                                            'ai_type_auto_save_local',
-                                        ) !== 'false';
+                                    const isAutoSaveLocal = isAutoSaveLocalEnabled();
                                     if (
                                         isAutoSaveLocal &&
                                         (window as any).electron &&
@@ -1552,9 +1544,7 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
 
                     if (scriptText) {
                         const scriptTitle = `${collectionTitle}`;
-                        const isAutoSaveLocal =
-                            localStorage.getItem('ai_type_auto_save_local') !==
-                            'false';
+                        const isAutoSaveLocal = isAutoSaveLocalEnabled();
                         const outlineText = `Toàn bộ Collection (${uuids.length} chương)`;
 
                         if (

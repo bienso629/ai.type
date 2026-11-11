@@ -12,6 +12,7 @@ import { BlogService } from 'app/_services/blog';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { ToastrService } from 'ngx-toastr';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { ProjectStoreService } from 'app/_services/project-store.service';
 import { Subject, takeUntil, firstValueFrom } from 'rxjs';
 import { GenaiService } from 'app/genai.service';
 import { CrawlService } from 'app/_services/crawl';
@@ -28,6 +29,8 @@ interface ScreenplayLine {
     type: string;
     text: string;
 }
+
+import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'ai-script-view',
@@ -1237,6 +1240,7 @@ export class AIScriptComponent implements OnInit, OnDestroy {
         private cd: ChangeDetectorRef,
         private _genaiService: GenaiService,
         private _multiAccountService: MultiAccountService,
+        private projectStore: ProjectStoreService,
         private _crawlService: CrawlService,
         private dialog: MatDialog,
     ) {}
@@ -1476,8 +1480,7 @@ export class AIScriptComponent implements OnInit, OnDestroy {
             },
         });
 
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (
             isAutoSaveLocal &&
             (window as any).electron &&
@@ -2068,8 +2071,7 @@ export class AIScriptComponent implements OnInit, OnDestroy {
             this.draftTitleFallback ||
             'Kịch bản tiểu thuyết';
         const outlineText = this.scriptDoc?.outline || 'Toàn bộ Collection';
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
 
         if (
             isAutoSaveLocal &&
@@ -2811,7 +2813,6 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
             return;
         }
 
-        const storageKeyAudio = `ai_type_audio_merger_data_${this.uuid}`;
         const dataToSave = {
             uuid: this.uuid,
             title: scriptTitle,
@@ -2822,7 +2823,10 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
             clips: audioClips,
         };
 
-        this._multiAccountService.setItem(storageKeyAudio, dataToSave);
+        // Lưu cấu trúc dự án xuống đĩa qua project-store (không nhét vào session IndexedDB)
+        this.projectStore.save(this.name || null, this.uuid, {
+            meta: dataToSave,
+        });
         this.toastr.success(
             `Đã trích xuất ${audioClips.length} câu thoại từ kịch bản để chuẩn bị dựng video!`,
             'Chuyển sang Dựng video',

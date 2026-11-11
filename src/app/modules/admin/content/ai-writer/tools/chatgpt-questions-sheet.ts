@@ -26,7 +26,8 @@ import { Subject, takeUntil } from 'rxjs';
 import * as uuid from 'uuid';
 import { ToastrService } from 'ngx-toastr';
 import { GenaiService } from 'app/genai.service';
-import { MultiAccountService } from 'app/_services/multi-account.service';
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'chatgpt-questions-sheet',
@@ -338,12 +339,11 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
         private _chatGPTService: ChatGPTService,
         private _userService: UserService,
         public dialog: MatDialog,
-        private multiAccountService: MultiAccountService,
         private _genaiService: GenaiService,
         @Inject(MAT_BOTTOM_SHEET_DATA) public data: { content: string },
     ) {
         // lấy secretKey và searchAPIKey
-        this.settings = this.multiAccountService.getItem('settings');
+        this.settings = getSettings();
         if (this.settings) {
             this.secretKey = this.settings.secretKey
                 ? this.settings.secretKey.split(';')

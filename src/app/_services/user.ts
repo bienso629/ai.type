@@ -10,6 +10,7 @@ import { HelperService } from 'app/helper.service';
 import { Observable, Subject, of } from 'rxjs';
 import { catchError, tap, map, takeUntil } from 'rxjs/operators';
 import { MultiAccountService } from './multi-account.service';
+import { getSettings, updateUserSettingsCache } from './user-settings.service';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 
@@ -152,7 +153,7 @@ export class UserClientService {
         // Cập nhật ngay vào cache local để giao diện tức thời
         if (dataForm && dataForm.profile) {
             if (dataForm.profile.settings) {
-                this.multiAccountService.setItem('settings', dataForm.profile.settings);
+                updateUserSettingsCache(dataForm.profile.settings);
             }
             if (dataForm.profile.editor) {
                 this.multiAccountService.setItem('editor', dataForm.profile.editor);
@@ -177,7 +178,7 @@ export class UserClientService {
 
         const activeUser = activeInfoObj['user'];
         const appToken = activeUser['appToken'];
-        const activeOwner = activeUser['username'] || activeUser['name'] || activeUser['email'];
+        const activeOwner = (activeUser['info'] && activeUser['info']['email']) || activeUser['email'] || activeUser['username'] || activeUser['name'];
 
         dataForm = dataForm || {};
         dataForm.year = dataForm.year || this.year;
@@ -210,7 +211,7 @@ export class UserClientService {
             }),
             tap(res => {
                 if (res && res.success && res.data) {
-                    if (res.data.settings) this.multiAccountService.setItem('settings', res.data.settings);
+                    if (res.data.settings) updateUserSettingsCache(res.data.settings);
                 }
             }),
             catchError((err) => {
@@ -227,7 +228,7 @@ export class UserClientService {
             try { activeInfoStr = localStorage.getItem('active_info'); } catch (e) { }
         }
         if (!activeInfoStr) {
-            const localSettings = this.multiAccountService.getItem('settings') || {};
+            const localSettings = getSettings();
             const localEditor = this.multiAccountService.getItem('editor') || {};
             const localFollowing = this.multiAccountService.getItem('following_users') || [];
             const sessionUserName = this.multiAccountService.currentAccountId || 'user';
@@ -245,7 +246,7 @@ export class UserClientService {
 
         const activeInfoObj = AuthUtils._getActiveInfo(activeInfoStr);
         if (!activeInfoObj || !activeInfoObj['user']) {
-            const localSettings = this.multiAccountService.getItem('settings') || {};
+            const localSettings = getSettings();
             const localEditor = this.multiAccountService.getItem('editor') || {};
             const localFollowing = this.multiAccountService.getItem('following_users') || [];
             const sessionUserName = this.multiAccountService.currentAccountId || 'user';
@@ -263,7 +264,7 @@ export class UserClientService {
 
         const activeUser = activeInfoObj['user'];
         const appToken = activeUser['appToken'];
-        const activeOwner = activeUser['username'] || activeUser['name'] || activeUser['email'];
+        const activeOwner = (activeUser['info'] && activeUser['info']['email']) || activeUser['email'] || activeUser['username'] || activeUser['name'];
 
         dataForm = dataForm || {};
         dataForm.year = dataForm.year || this.year;
@@ -294,7 +295,7 @@ export class UserClientService {
             catchError((err) => {
                 this.checkAndHandleTokenMismatch(err);
                 console.warn('Không thể tải profile từ server, dùng dữ liệu cục bộ:', err);
-                const localSettings = this.multiAccountService.getItem('settings') || {};
+                const localSettings = getSettings();
                 const localEditor = this.multiAccountService.getItem('editor') || {};
                 const localFollowing = this.multiAccountService.getItem('following_users') || [];
                 const sessionUserName = targetUsername || this.multiAccountService.currentAccountId || 'user';
@@ -523,7 +524,7 @@ export class UserClientService {
         const sessionUser: any = this.multiAccountService.getItem('user') || this.user;
         const activeUser = activeInfo['user'];
         const appToken = activeUser['appToken'];
-        const activeOwner = activeUser['username'] || activeUser['name'] || activeUser['email'];
+        const activeOwner = (activeUser['info'] && activeUser['info']['email']) || activeUser['email'] || activeUser['username'] || activeUser['name'];
 
         dataForm = dataForm || {};
         dataForm.year = dataForm.year || 2023;
@@ -567,7 +568,7 @@ export class UserClientService {
         const sessionUser: any = this.multiAccountService.getItem('user') || this.user;
         const activeUser = activeInfo['user'];
         const appToken = activeUser['appToken'];
-        const activeOwner = activeUser['username'] || activeUser['name'] || activeUser['email'];
+        const activeOwner = (activeUser['info'] && activeUser['info']['email']) || activeUser['email'] || activeUser['username'] || activeUser['name'];
 
         dataForm = dataForm || {};
         dataForm.year = dataForm.year || this.year;

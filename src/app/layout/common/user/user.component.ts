@@ -6,6 +6,8 @@ import { User } from 'app/core/user/user.types';
 import { UserService } from 'app/core/user/user.service';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 
+import { getSettings } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'user',
     templateUrl: './user.component.html',
@@ -94,8 +96,10 @@ export class UserComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe(async sessionData => {
                 let isAiAgentActive = false;
-                if (sessionData && sessionData.settings) {
-                    isAiAgentActive = sessionData.settings.enableAiAgent === true;
+                // [Refactor 2026-11-11] enableAiAgent doc tu settings tren server
+                const srvSettings = getSettings();
+                if (srvSettings && srvSettings.enableAiAgent !== undefined) {
+                    isAiAgentActive = srvSettings.enableAiAgent === true;
                 }
                 if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
                     try {

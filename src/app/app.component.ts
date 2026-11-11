@@ -20,6 +20,7 @@ import { Subject, takeUntil, take, filter } from 'rxjs';
 import { User } from './core/user/user.types';
 import { MatDialog } from '@angular/material/dialog';
 import { MultiAccountService } from './_services/multi-account.service';
+import { UserSettingsService, getSettings } from './_services/user-settings.service';
 import { ToastrService } from 'ngx-toastr';
 import { LicenseKeyService } from 'app/_services/licensekey';
 
@@ -243,6 +244,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         private _fontService: FontService,
         private _titleService: Title,
         private _genaiService: GenaiService,
+        private _userSettingsService: UserSettingsService,
     ) {
         // Khôi phục tài khoản đang Active và chờ DB nạp xong trước khi đọc settings
         // [Fix 2026-11-10] loadActiveAccount là async (nạp IndexedDB mất vài trăm ms).
@@ -251,39 +253,19 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         // isReady đã tự gọi loadActiveAccount() trong constructor của service;
         // chỉ cần chờ promise này xong thì RAM chắc chắn đã có session thật.
         this.multiAccountService.isReady.then(() => {
-        let settings: any = this.multiAccountService.getItem('settings');
-        if (!settings || settings == 'undefined') {
-            settings = {
-                saveimages: false,
-                statusTypeLite: false,
-                autosave: true,
-                closethread: true,
-                proccessing: false,
-                linkDonate: null,
-                language: 'vi',
-                secretKey: null,
-                defaultlinks: null,
-                port: 12345,
-                styles: [],
-                typelite_plugin: 'http://localhost:12345', // Type Lite Plugin
-                downloader_plugin: 'http://localhost:12345', // Downloader Plugin
-                tts: '', // Text to Speech Plugin
-                sst: '', // Speech to Text Plugin
-                mxhauto: '', // MXH tự động Plugin
-                chatbot: '', // Chatbot Api
-                bigdata: '', // Big Data Plugin
-                customer: '', // Device Token Api
-                searchAPIKey: '', // API key for search functionality
-                n8n: '', // API key for n8n functionality
-            };
+            // [Refactor 2026-11-11] Settings chi luu/doc tren server: doc ban sao cache RAM
+            // cua du lieu server, khong tao/ghi settings mac dinh vao local nua.
+            const settings: any = getSettings();
+            if (settings && settings.language) {
+                this._translocoService.setActiveLang(settings.language);
+            }
+        });
 
-            this.multiAccountService.setItem('settings', settings);
-        }
-
-        // Set transloco language
-        if (settings.language) {
-            this._translocoService.setActiveLang(settings.language);
-        }
+        // Khi settings moi duoc tai/luu tu server (resolver, luu cau hinh...) => dong bo ngon ngu
+        this._userSettingsService.settings$.subscribe((s: any) => {
+            if (s && s.language) {
+                this._translocoService.setActiveLang(s.language);
+            }
         });
 
         // We use native DOM events in ngAfterViewInit instead of ResizeObserver to prevent lag
@@ -957,8 +939,7 @@ if tunnel_url:
                             window as any
                         ).electron.invoke('save-system-audio', uint8Array);
 
-                        const settings =
-                            this.multiAccountService.getItem('settings');
+                        const settings = getSettings();
                         const secretKeyStr = settings?.secretKey || '';
                         const secretKeys = secretKeyStr
                             ? secretKeyStr.split(';')

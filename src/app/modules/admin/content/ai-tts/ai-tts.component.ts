@@ -35,6 +35,7 @@ import WaveSurfer from 'wavesurfer.js';
 import { MatDialog } from '@angular/material/dialog';
 import { VideoTimelineDialogComponent } from './tools/video-timeline-dialog.component';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { ProjectStoreService } from 'app/_services/project-store.service';
 import { GenaiService } from 'app/genai.service';
 import { MyKeysService } from 'app/_services/mykey';
 import { SharedService } from 'app/shared.service';
@@ -67,6 +68,8 @@ export interface AudioClip {
     isEditing?: boolean;
     tempDescription?: string;
 }
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'ai-tts',
@@ -170,12 +173,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             let pluginActive = false;
 
             // Kiểm tra cấu hình sst từ cài đặt người dùng
-            let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
+            let settings = getSettings() || {};
             try {
-                const lsSettings = localStorage.getItem('settings');
-                if (lsSettings) {
-                    settings = { ...settings, ...JSON.parse(lsSettings) };
-                }
             } catch (e) {}
             const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
 
@@ -648,12 +647,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         : `${targetVoiceName}.wav`;
                     const selectedVoiceObj = this.voiceList.find(v => v.id === clipVoice);
 
-                    let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
+                    let settings = getSettings() || {};
                     try {
-                        const lsSettings = localStorage.getItem('settings');
-                        if (lsSettings) {
-                            settings = { ...settings, ...JSON.parse(lsSettings) };
-                        }
                     } catch (e) {}
                     const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
 
@@ -1172,25 +1167,35 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             })),
         };
 
-        const storageKeyAudio = `${this.STORAGE_AUDIO_KEY}_${targetUuid}`;
-        this.multiAccountService.setItem(storageKeyAudio, dataToSave);
+        // Lưu cấu trúc dự án xuống đĩa qua project-store (không nhét vào session IndexedDB)
+        this.projectStore.save(this.currentName || null, targetUuid, {
+            meta: dataToSave,
+            timeline: this.videoProject
+                ? Object.assign(
+                      this.multiAccountService.getItem(
+                          `ai_type_video_ready_data_${targetUuid}`,
+                      ) || {},
+                      this.videoProject,
+                      { aspectRatio: this.aspectRatio || '16:9' },
+                  )
+                : null,
+        });
 
         // 2. [MỚI] LƯU VIDEO TIMELINE (SCENES) NẾU CÓ DỮ LIỆU
         if (this.videoProject) {
             this.videoProject.aspectRatio = this.aspectRatio || '16:9';
-            const storageKeyVideo = `${this.STORAGE_CLIPS_KEY}_${targetUuid}`;
-            this.multiAccountService.setItem(
-                storageKeyVideo,
-                this.videoProject,
-            );
         }
     }
 
     loadAudiosFromLocal(currentUuid: string): boolean {
         if (!currentUuid) return false;
 
+        // Ưu tiên đọc từ đĩa (project-store); nếu chưa có thì dùng session
         const storageKey = `${this.STORAGE_AUDIO_KEY}_${currentUuid}`;
-        const parsed = this.multiAccountService.getItem(storageKey);
+        const parsed =
+            this.multiAccountService.getItem(storageKey) ||
+            this._diskProjectCache?.meta ||
+            null;
 
         if (parsed) {
             try {
@@ -2233,12 +2238,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 aspectRatio: this.aspectRatio, // Lưu tỉ lệ khung hình để render sau này
             };
 
-            // Lưu danh sách nhân vật dưới local
+            // Lưu danh sách nhân vật xuống đĩa (project-store)
             if (aiResponse.characters && aiResponse.characters.length > 0) {
-                this.multiAccountService.setItem(
-                    `casting_list_${data.uuid}`,
-                    aiResponse.characters,
-                );
+                this.projectStore.save(this.currentName || null, data.uuid, {
+                    casting: aiResponse.characters,
+                });
             }
 
             // [QUAN TRỌNG] Xóa editorLayout cũ vì kịch bản đã được tạo mới hoàn toàn
@@ -2710,10 +2714,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 JSON.stringify(this.videoProject),
             );
 
-            // Đảm bảo lấy danh sách nhân vật mới nhất từ localStorage casting_list_${this.uuid}
-            const localCharacters = this.multiAccountService.getItem(
-                `casting_list_${this.uuid}`,
-            );
+            // Đảm bảo lấy danh sách nhân vật mới nhất (ưu tiên session, fallback đĩa qua projectStore)
+            const localCharacters =
+                this.multiAccountService.getItem(
+                    `casting_list_${this.uuid}`,
+                ) || this._diskCastingCache;
             if (localCharacters) {
                 exportData.videoProject.characters = localCharacters;
             }
@@ -2837,10 +2842,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.toastr.info('Đang nạp dự án...', 'Import');
                 const data = res.projectData;
 
-                // Kiểm tra xem kịch bản này đã từng tồn tại trong chương trình chưa
-                const storageKey = `${this.STORAGE_AUDIO_KEY}_${res.targetUuid}`;
-                const isExistingScenario =
-                    !!this.multiAccountService.getItem(storageKey);
+                // Kiểm tra xem kịch bản này đã từng tồn tại chưa (đĩa qua project-store)
+                let isExistingScenario = false;
+                try {
+                    const existingParts = await this.projectStore.load(
+                        this.currentName || null,
+                        res.targetUuid,
+                    );
+                    isExistingScenario = !!(existingParts?.meta || existingParts?.timeline);
+                } catch (e) {}
 
                 // Cập nhật UUID nếu đây là một kịch bản mới/khác kịch bản hiện tại
                 if (res.isNewScenario && res.targetUuid) {
@@ -2860,12 +2870,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 if (data.videoProject) {
                     this.videoProject = data.videoProject;
-                    // Đồng bộ hóa danh sách nhân vật vào localStorage casting_list_${this.uuid}
+                    // Đồng bộ danh sách nhân vật xuống đĩa (project-store)
                     if (this.videoProject.characters) {
-                        this.multiAccountService.setItem(
-                            `casting_list_${this.uuid}`,
-                            this.videoProject.characters,
-                        );
+                        this.projectStore.save(this.currentName || null, this.uuid, {
+                            casting: this.videoProject.characters,
+                        });
+                        this._diskCastingCache = this.videoProject.characters;
                     }
                 }
 
@@ -3542,6 +3552,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         private clipboard: Clipboard,
         private dialog: MatDialog,
         private multiAccountService: MultiAccountService,
+        private projectStore: ProjectStoreService,
         private router: Router,
         private route: ActivatedRoute,
         private _fuseConfigService: FuseConfigService,
@@ -3551,7 +3562,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     ) {
         this.titleService.setTitle(`chương trình làm video | ai.type`);
 
-        this.settings = this.multiAccountService.getItem('settings');
+        this.settings = getSettings();
         if (this.settings) {
             try {
                 this.secretKey = this.settings.secretKey
@@ -3572,14 +3583,37 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             });
     }
 
+    // Cache RAM cho danh sách nhân vật đọc từ đĩa (project-store)
+    private _diskCastingCache: any = null;
+
+    // Cache RAM cho dữ liệu meta đọc từ đĩa (project-store)
+    private _diskProjectCache: any = null;
+
     ngOnInit(): void {
+        // Nạp dữ liệu dự án từ đĩa (project-store) ở nền để loadAudiosFromLocal dùng được
+        this.route.params
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe(async (params: Params) => {
+                if (!params['uuid']) return;
+                try {
+                    const parts = await this.projectStore.load(
+                        params['name'] || null,
+                        params['uuid'],
+                    );
+                    this._diskProjectCache = parts?.meta || null;
+                    this._diskCastingCache = parts?.casting || null;
+                } catch (e) {
+                    console.warn('[ai-tts] Không nạp được dự án từ đĩa:', e);
+                }
+            });
+
         this.saveSubject
             .pipe(debounceTime(2500), takeUntil(this._unsubscribeAll))
             .subscribe((uuid) => {
                 this.saveToLocal(uuid);
             });
 
-        let settings = this.multiAccountService.getItem('settings');
+        let settings = getSettings();
         if (settings) {
             try {
                 if (settings['tts']) {
@@ -3674,6 +3708,40 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     executeLoadProject(uuid: string, name: string, detailRes?: any) {
+        // Nạp đồng bộ dữ liệu từ đĩa (nếu chưa có trong session) trước khi quyết định fetch server
+        this.projectStore
+            .load(name || null, uuid)
+            .then((parts) => {
+                if (parts?.meta) {
+                    this._diskProjectCache = parts.meta;
+                    // Chỉ đổ vào session nếu session đang thiếu (giữ tương thích luồng cũ)
+                    if (
+                        !this.multiAccountService.getItem(
+                            `ai_type_audio_merger_data_${uuid}`,
+                        )
+                    ) {
+                        this.multiAccountService.setItem(
+                            `ai_type_audio_merger_data_${uuid}`,
+                            parts.meta,
+                        );
+                        if (parts.timeline) {
+                            this.multiAccountService.setItem(
+                                `ai_type_video_ready_data_${uuid}`,
+                                parts.timeline,
+                            );
+                        }
+                    }
+                }
+            })
+            .catch(() => {})
+            .finally(() => this.executeLoadProjectInner(uuid, name, detailRes));
+    }
+
+    private executeLoadProjectInner(
+        uuid: string,
+        name: string,
+        detailRes?: any,
+    ) {
         const hasAudioLocal = this.loadAudiosFromLocal(uuid);
         const isEncryptedPlaceholder =
             this.audioList &&

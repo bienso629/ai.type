@@ -30,6 +30,7 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
 import { Page, PageInfo } from 'app/core/navigation/navigation.types';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { ProjectStoreService } from 'app/_services/project-store.service';
 import { MatDialog } from '@angular/material/dialog';
 import { GenaiService } from 'app/genai.service';
 import { ArticlePasswordDialog } from '../ai-writer/tools/article-password-dialog';
@@ -39,6 +40,8 @@ import {
     decryptPbkdf2AesCbc,
     isMasterKey,
 } from 'app/core/auth/crypto.helper';
+
+import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'archives',
@@ -977,12 +980,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         if (!uuid) return false;
         if (typeof row === 'object' && (row.has_video || row.hasVideo))
             return true;
-        if (this.multiAccountService) {
-            return !!this.multiAccountService.getItem(
-                `ai_type_audio_merger_data_${uuid}`,
-            );
-        }
-        return false;
+        return this.projectStore.hasProject(uuid);
     }
 
     hasScriptProject(row: any): boolean {
@@ -1109,8 +1107,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         this.cd.markForCheck();
 
         const username = this.getCurrentUsername();
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
 
         if (this.uuids.length > 0) {
             // Nếu có keyword khi đang trong Collection thì filter local
@@ -1311,8 +1308,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         };
 
         const username = this.getCurrentUsername();
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (
             isAutoSaveLocal &&
             (window as any).electron &&
@@ -1606,8 +1602,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                 }
             }
 
-            const isAutoSaveLocal =
-                localStorage.getItem('ai_type_auto_save_local') !== 'false';
+            const isAutoSaveLocal = isAutoSaveLocalEnabled();
             if (
                 isAutoSaveLocal &&
                 (window as any).electron &&
@@ -1700,8 +1695,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
      * Lấy toàn bộ collection
      */
     collection() {
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (
             isAutoSaveLocal &&
             (window as any).electron &&
@@ -1782,6 +1776,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         private router: Router,
         private cd: ChangeDetectorRef,
         private multiAccountService: MultiAccountService,
+    private projectStore: ProjectStoreService,
         private _genaiService: GenaiService,
         private _blogService: BlogService,
         public _matDialog: MatDialog,
@@ -1980,8 +1975,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         item.uuid &&
                         electron &&
                         electron.readLocalArticle &&
-                        localStorage.getItem('ai_type_auto_save_local') !==
-                            'false'
+                        isAutoSaveLocalEnabled()
                     ) {
                         try {
                             const vr = await electron.readLocalArticle({
@@ -2222,8 +2216,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     ngOnInit(): void {
         // Nạp trạng thái ghim (sticky) đã lưu từ lần chạy trước
         this.loadStickyState();
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (isAutoSaveLocal) {
             this.loadLocalArticles();
             this.setPage({
@@ -2621,8 +2614,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         let docsMap: Record<string, any> = {};
 
         // Nạp từ local SQLite nếu có
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (
             isAutoSaveLocal &&
             (window as any).electron &&
@@ -2940,10 +2932,7 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
                                     `ai_type_script_data_${art.uuid}`,
                                     true,
                                 );
-                                const isAutoSaveLocal =
-                                    localStorage.getItem(
-                                        'ai_type_auto_save_local',
-                                    ) !== 'false';
+                                const isAutoSaveLocal = isAutoSaveLocalEnabled();
                                 if (
                                     isAutoSaveLocal &&
                                     (window as any).electron &&
@@ -3004,9 +2993,7 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
 
                 if (scriptText) {
                     const scriptTitle = `${collectionTitle}`;
-                    const isAutoSaveLocal =
-                        localStorage.getItem('ai_type_auto_save_local') !==
-                        'false';
+                    const isAutoSaveLocal = isAutoSaveLocalEnabled();
                     const outlineText = `Toàn bộ Collection (${uuids.length} chương)`;
 
                     if (

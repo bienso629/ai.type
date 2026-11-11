@@ -19,7 +19,8 @@ import { ToastrService } from 'ngx-toastr';
 import { LogService } from 'app/_services/link';
 
 import { GenaiService } from 'app/genai.service';
-import { MultiAccountService } from 'app/_services/multi-account.service';
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'scanvideolinkform',
@@ -355,13 +356,8 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
             this.toastr.info('Đang bắt đầu tải video...');
             this.cd.detectChanges();
 
-            const settingsStr = localStorage.getItem('settings');
-            let customCookies = '';
-            if (settingsStr) {
-                try {
-                    customCookies = JSON.parse(settingsStr).customCookies || '';
-                } catch (e) {}
-            }
+            const settings = getSettings() || {};
+            let customCookies = settings.customCookies || '';
 
             (window as any).electron
                 .invoke('download-video', {
@@ -465,7 +461,6 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
         private _youtubeService: YoutubeService,
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
-        private multiAccountService: MultiAccountService,
         private _genaiService: GenaiService,
     ) {
         // Subscribe to user changes

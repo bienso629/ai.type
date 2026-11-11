@@ -17,6 +17,8 @@ let options = {
     })
 };
 
+import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+
 @Injectable()
 export class ChatGPTService {
     year: number = 2023;
@@ -48,7 +50,7 @@ export class ChatGPTService {
     }
 
     public fetch(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.listLocalChats) {
             return from(electron.listLocalChats({
@@ -85,7 +87,7 @@ export class ChatGPTService {
     }
 
     public total(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.getLocalChatTotal) {
             return from(electron.getLocalChatTotal({
@@ -180,7 +182,7 @@ export class ChatGPTService {
     }
 
     public store(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.saveLocalChat) {
             return from(electron.saveLocalChat({
@@ -223,7 +225,7 @@ export class ChatGPTService {
     }
 
     public destroy(id: string, username: string): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.deleteLocalChat) {
             return from(electron.deleteLocalChat({ id })).pipe(

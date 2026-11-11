@@ -17,6 +17,8 @@ let options = {
     })
 };
 
+import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+
 @Injectable()
 export class DomainService {
     year: number = 2023;
@@ -48,7 +50,7 @@ export class DomainService {
     }
 
     public fetch(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (electron && isAutoSaveLocal) {
             if (electron.listLocalDomains) {
@@ -98,7 +100,7 @@ export class DomainService {
     }
 
     public add(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.saveLocalDomain) {
             const domainPayload = dataForm && dataForm.domain ? dataForm.domain : dataForm;
@@ -137,7 +139,7 @@ export class DomainService {
     }
 
     public edit(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.saveLocalDomain) {
             const domainPayload = dataForm && dataForm.domain ? dataForm.domain : dataForm;

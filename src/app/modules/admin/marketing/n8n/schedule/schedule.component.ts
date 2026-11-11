@@ -71,6 +71,8 @@ interface CommentGroup {
     items: any[];
 }
 
+import { getSettings } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'amxh-schedule',
     templateUrl: './schedule.component.html',
@@ -250,7 +252,6 @@ Yêu cầu:${styleInstructions}
             let rawText = response.text || (response as any).response?.text() || '';
             let articleData = this.parseArticleDataSafely(rawText, task.name);
 
-            const pendingArticles = this.multiAccountService.getItem('pending_articles') || [];
             let archivePayload = this.buildArchivePayload({
                 title: articleData.title || task.name,
                 content: articleData.content || '',
@@ -262,14 +263,10 @@ Yêu cầu:${styleInstructions}
                 taskId: task._id || task.id
             });
 
-            // 1. Save to Crawl Service archive
+            // 1. Save to Crawl Service archive (nguồn dữ liệu duy nhất - server)
             try {
                 await firstValueFrom(this._crawlService.storeArchive(archivePayload)).catch(() => null);
             } catch (e) {}
-
-            // 2. Save to pending_articles in MultiAccountService
-            pendingArticles.push(archivePayload);
-            this.multiAccountService.setItem('pending_articles', pendingArticles);
 
             // 3. Mark task as DONE in RAM and CouchDB!
             task.done = true;
@@ -423,7 +420,7 @@ Yêu cầu:${styleInstructions}
     ) {
         this.titleService.setTitle(`lên kịch bản | ai.type - công cụ tạo content`);
 
-        this.settings = this.multiAccountService.getItem('settings');
+        this.settings = getSettings();
         if (this.settings) {
             this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
             this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
@@ -2172,20 +2169,8 @@ Không dùng markdown \`\`\`json.`;
     getResolvedTarget(domain: string, month?: number, selectedYear?: number): number {
         const m = month || this.month || (new Date().getMonth() + 1);
         const y = selectedYear || new Date().getFullYear();
-        this.settings = this.multiAccountService.getItem('settings');
-        let domainTargets = this.settings?.domainTargets;
-        if (!domainTargets) {
-            try {
-                const localTargets = localStorage.getItem('domainTargets');
-                if (localTargets) domainTargets = JSON.parse(localTargets);
-            } catch (e) {}
-        }
-        if (!domainTargets) {
-            try {
-                const localSettings = localStorage.getItem('settings');
-                if (localSettings) domainTargets = JSON.parse(localSettings)?.domainTargets;
-            } catch (e) {}
-        }
+        this.settings = getSettings();
+        const domainTargets = this.settings?.domainTargets;
         if (!domainTargets) return 0;
 
         const norm = (s: string) => (String(s || '')).toLowerCase().trim().replace(/https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
@@ -3847,7 +3832,6 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                 this.scrollToBottom();
 
                 let successCount = 0;
-                let pendingArticles = this.multiAccountService.getItem('pending_articles') || [];
 
                 for (let i = 0; i < tasksToProcess.length; i++) {
                     if (!this.isChatting) {
@@ -3913,9 +3897,6 @@ Yêu cầu:${styleInstructions}
                             await firstValueFrom(this._crawlService.storeArchive(archivePayload)).catch(() => null);
                         } catch (e) {}
 
-                        // 2. Save to pending_articles in MultiAccountService so articles appear in UI!
-                        pendingArticles.push(archivePayload);
-                        this.multiAccountService.setItem('pending_articles', pendingArticles);
 
                         // 3. Mark task as DONE in RAM and CouchDB!
                         if (task.originalTask) {

@@ -18,6 +18,8 @@ let options = {
     })
 };
 
+import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+
 @Injectable()
 export class GoLoginService {
     year: number = 2023;
@@ -49,7 +51,7 @@ export class GoLoginService {
     }
 
     public listProfiles(token: string): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.listLocalGoLoginTokens) {
             return from(electron.listLocalGoLoginTokens({
@@ -143,7 +145,7 @@ export class GoLoginService {
     }
 
     public allTokens(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal) {
             if (electron && electron.listLocalGoLoginTokens) {
@@ -181,7 +183,7 @@ export class GoLoginService {
     }
 
     public addToken(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal) {
             if (electron && electron.addLocalGoLoginToken) {
@@ -220,7 +222,7 @@ export class GoLoginService {
     }
 
     public updateToken(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal) {
             if (electron && electron.updateLocalGoLoginToken) {
@@ -412,7 +414,7 @@ export class GoLoginService {
     }
 
     public deleteProfile(token: string, profileId: string): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.deleteLocalGoLoginProfile) {
             return from(electron.deleteLocalGoLoginProfile({

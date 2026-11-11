@@ -23,10 +23,11 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { GenaiService } from 'app/genai.service';
 import { HelperService } from 'app/helper.service';
-import { MultiAccountService } from 'app/_services/multi-account.service';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { GlobalAgentService } from '../../../_services/global-agent.service';
 import { Router } from '@angular/router';
+
+import { getSettings, isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'chatgpt2s',
@@ -473,7 +474,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     this.cdref.detectChanges();
                 };
 
-                const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+                const isAutoSaveLocal = isAutoSaveLocalEnabled();
                 if (isAutoSaveLocal && (window as any).electron?.deleteLocalChat) {
                     (window as any).electron.deleteLocalChat({
                         id: row._id || row.id,
@@ -508,7 +509,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         const file: File = e.target.files[0];
 
         if (file) {
-            const settings = this.multiAccountService.getItem('settings');
+            const settings = getSettings();
             let isAiAgentEnabled = settings?.enableAiAgent === true;
             if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
                 try {
@@ -607,7 +608,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         const username = this.getCurrentUsername();
         if (!username) return;
 
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (isAutoSaveLocal && (window as any).electron?.getLocalChatTotal) {
             (window as any).electron.getLocalChatTotal({ username }).then((res: any) => {
                 if (res && res.success && res.data) {
@@ -693,7 +694,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             size: 25 // Fix cứng size
         };
 
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (isAutoSaveLocal && (window as any).electron?.listLocalChats) {
             (window as any).electron.listLocalChats({
                 username: username,
@@ -950,7 +951,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             const hasAi = this._genaiService.isAiAvailable() || !!this.secretKey;
             if (hasAi) {
                 // Đọc cài đặt
-                const settings = this.multiAccountService.getItem('settings');
+                const settings = getSettings();
                 let isAiAgentEnabled = settings?.enableAiAgent === true;
                 if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
                     try {
@@ -1234,7 +1235,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             username: username
         };
 
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (isAutoSaveLocal && (window as any).electron?.saveLocalChat) {
             (window as any).electron.saveLocalChat(payload).then((result: any) => {
                 if (result && result.success) {
@@ -1312,7 +1313,6 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         private _overlay: Overlay,
         private _h: HelperService,
         private cdref: ChangeDetectorRef,
-        private multiAccountService: MultiAccountService,
         private _viewContainerRef: ViewContainerRef,
         private _genaiService: GenaiService,
         private _fuseConfirmationService: FuseConfirmationService,
@@ -1320,7 +1320,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         public globalAgentService: GlobalAgentService
     ) {
         // lấy secretKey và searchAPIKey
-        this.settings = this.multiAccountService.getItem('settings');
+        this.settings = getSettings();
         if (this.settings) {
             this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
             this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
@@ -1535,7 +1535,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         
         this.getMessages(row);
         
-        const settings = this.multiAccountService.getItem('settings');
+        const settings = getSettings();
         const isAiAgentEnabled = settings?.enableAiAgent === true;
 
         const followUpTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1732,7 +1732,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                 }
                 finalDisplayText = row.answer || finalDisplayText;
                 
-                const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+                const isAutoSaveLocal = isAutoSaveLocalEnabled();
                 const username = this.getCurrentUsername();
                 const chatPayload: any = {
                     _id: row._id,

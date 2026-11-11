@@ -17,6 +17,8 @@ let options = {
     })
 };
 
+import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+
 @Injectable()
 export class TasksService {
     year: number = 2023;
@@ -48,7 +50,7 @@ export class TasksService {
     }
 
     public fetch(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
 
         if (isAutoSaveLocal) {
@@ -83,7 +85,7 @@ export class TasksService {
     }
 
     public add(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
 
         if (isAutoSaveLocal) {
@@ -120,7 +122,7 @@ export class TasksService {
     }
 
     public edit(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
 
         if (isAutoSaveLocal) {
@@ -157,7 +159,7 @@ export class TasksService {
     }
 
     public delete(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
 
         if (isAutoSaveLocal) {

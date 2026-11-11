@@ -19,11 +19,12 @@ import { TextFieldModule } from '@angular/cdk/text-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { ToastrService } from 'ngx-toastr';
-import { MultiAccountService } from 'app/_services/multi-account.service';
 import { GenaiService } from 'app/genai.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'app-character-dialog',
@@ -60,7 +61,6 @@ export class CharacterDialogComponent {
         public dialogRef: MatDialogRef<CharacterDialogComponent>,
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
-        private multiAccountService: MultiAccountService,
         private cd: ChangeDetectorRef,
         private _genaiService: GenaiService,
         private sanitizer: DomSanitizer,
@@ -261,7 +261,7 @@ export class CharacterDialogComponent {
             return;
         }
 
-        const settings = this.multiAccountService.getItem('settings');
+        const settings = getSettings();
         let secretKey;
         try {
             secretKey = settings.secretKey
