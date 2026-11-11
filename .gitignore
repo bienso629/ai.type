@@ -88,3 +88,8 @@ uploads/
 
 # Ban trich xuat settings cuc bo (chua secret, khong commit)
 extracted-settings/
+
+# Cache cong cu phan tich (ten chua dau gach cheo nguoc - khong hop le tren Windows)
+
+# Cache cong cu phan tich - ten bat dau bang dau gach cheo nguoc, khong hop le tren Windows
+*knowledge-cache/
