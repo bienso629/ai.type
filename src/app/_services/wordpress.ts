@@ -18,6 +18,8 @@ let options = {
     })
 };
 
+import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+
 @Injectable()
 export class WordpressService {
     year: number = 2023;
@@ -85,7 +87,7 @@ export class WordpressService {
             return this._typeVnCategoriesCache$;
         }
 
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.wpCategories) {
             return from(electron.wpCategories({
@@ -168,7 +170,7 @@ export class WordpressService {
     }
 
     public posts(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.wpPosts) {
             return from(electron.wpPosts({
@@ -224,7 +226,7 @@ export class WordpressService {
     }
 
     public delete_post(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.wpDeletePost) {
             return from(electron.wpDeletePost({
@@ -277,7 +279,7 @@ export class WordpressService {
     }
 
     public update_post(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.wpUpdatePost) {
             return from(electron.wpUpdatePost({
@@ -395,7 +397,7 @@ export class WordpressService {
     }
 
     public upload_media(domain: string, b64: string, uname: string, pass: string, domainObj?: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.wpUploadMedia) {
             return from(electron.wpUploadMedia({
@@ -456,7 +458,7 @@ export class WordpressService {
     }
 
     public create_category(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.wpCreateCategory) {
             return from(electron.wpCreateCategory({
@@ -501,7 +503,7 @@ export class WordpressService {
     }
 
     public tags(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.wpTags) {
             return from(electron.wpTags({
@@ -543,7 +545,7 @@ export class WordpressService {
     }
 
     public create_tag(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.wpCreateTag) {
             return from(electron.wpCreateTag({
@@ -604,7 +606,7 @@ export class WordpressService {
     }
 
     public create_post(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.wpCreatePost) {
             return from(electron.wpCreatePost({

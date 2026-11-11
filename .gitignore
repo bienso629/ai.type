@@ -85,3 +85,6 @@ uploads/
 
 # Du lieu cache phan tich noi bo (ten chua backslash - pha vo checkout Windows)
 \.knowledge-cache/
+
+# Ban trich xuat settings cuc bo (chua secret, khong commit)
+extracted-settings/

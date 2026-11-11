@@ -22,6 +22,8 @@ export interface SseEvent<T = any> {
     data: T;
 }
 
+import { getSettings } from './user-settings.service';
+
 @Injectable({
     providedIn: 'root'
 })
@@ -86,13 +88,7 @@ export class MXHAutoService {
     }
 
     public getBaseUrl(): string {
-        let settings = this.multiAccountService.getItem('settings') || {};
-        try {
-            const lsSettings = localStorage.getItem('settings');
-            if (lsSettings) {
-                settings = { ...settings, ...JSON.parse(lsSettings) };
-            }
-        } catch (e) {}
+        let settings = getSettings() || {};
 
         // Ưu tiên 1: Cấu hình 'Tự động chơi Tiktok' (mxhauto) nếu có (ví dụ server từ xa 100tiktokers.type.vn)
         const rawMxhauto = settings.mxhauto || (this.config && this.config.settings && this.config.settings.mxhauto);

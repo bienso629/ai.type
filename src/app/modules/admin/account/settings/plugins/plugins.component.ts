@@ -9,6 +9,8 @@ import { Subject, takeUntil } from 'rxjs';
 import { Title } from '@angular/platform-browser';
 import { Browser } from '@capacitor/browser';
 
+import { getSettings, updateUserSettingsCache } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'settings-plugins',
     templateUrl: './plugins.component.html',
@@ -138,15 +140,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 }
             ];
             
-            let settings = this.multiAccountService.getItem('settings') || {};
-            
-            try {
-                const lsSettings = localStorage.getItem('settings');
-                if (lsSettings) {
-                    const parsed = JSON.parse(lsSettings);
-                    settings = { ...settings, ...parsed };
-                }
-            } catch(e) {}
+            let settings = getSettings() || {};
             
             const zaloPlugin = this.plugins.find(p => p.id === 'zalo_reply');
             if (zaloPlugin) zaloPlugin.enabled = settings.zaloPluginEnabled || false;
@@ -179,15 +173,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 this.zaloPluginMode = zalo.mode || 'tool';
             }
             const aiAgent = this.plugins.find(p => p.id === 'ai_agent');
-            let settings = this.multiAccountService.getItem('settings') || {};
-            try {
-                // Luôn ưu tiên đọc từ localStorage vì IndexedDB có thể chưa kịp lưu do debounce 500ms
-                const lsSettings = localStorage.getItem('settings');
-                if (lsSettings) {
-                    const parsed = JSON.parse(lsSettings);
-                    settings = { ...settings, ...parsed };
-                }
-            } catch(e) {}
+            let settings = getSettings() || {};
 
             // Đồng bộ trạng thái từ tài khoản (Settings) sang giao diện nếu máy mới/máy khác chưa có config cục bộ
             if (aiAgent && settings.enableAiAgent !== undefined) {
@@ -275,23 +261,23 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
         if (!(window as any).electronAPI) {
             if (plugin.id === 'ai_agent') {
                 plugin.enabled = event.checked;
-                const settings = this.multiAccountService.getItem('settings') || {};
+                const settings = getSettings() || {};
                 settings.enableAiAgent = event.checked;
-                this.multiAccountService.setItem('settings', settings);
+                updateUserSettingsCache(settings);
                     this.syncSettingsToBackend(settings);
                 this.toastr.success(event.checked ? 'Đã kích hoạt AI Agent trên trình duyệt/mobile.' : 'Đã tắt AI Agent.');
             } else if (plugin.id === 'zalo_reply') {
                 plugin.enabled = event.checked;
-                const settings = this.multiAccountService.getItem('settings') || {};
+                const settings = getSettings() || {};
                 settings.zaloPluginEnabled = event.checked;
-                this.multiAccountService.setItem('settings', settings);
+                updateUserSettingsCache(settings);
                     this.syncSettingsToBackend(settings);
                 this.toastr.success(event.checked ? 'Đã kích hoạt Zalo trên trình duyệt.' : 'Đã tắt Zalo.');
             } else if (plugin.id === 'tiktok_100') {
                 plugin.enabled = event.checked;
-                const settings = this.multiAccountService.getItem('settings') || {};
+                const settings = getSettings() || {};
                 settings.tiktokPluginEnabled = event.checked;
-                this.multiAccountService.setItem('settings', settings);
+                updateUserSettingsCache(settings);
                     this.syncSettingsToBackend(settings);
                 this.toastr.success(event.checked ? 'Đã kích hoạt 100 TikTokers trên trình duyệt.' : 'Đã tắt 100 TikTokers.');
             }
@@ -304,9 +290,9 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 if (res && res.success) {
                     plugin.enabled = event.checked;
 
-                    const settings = this.multiAccountService.getItem('settings') || {};
+                    const settings = getSettings() || {};
                     settings.zaloPluginEnabled = event.checked;
-                    this.multiAccountService.setItem('settings', settings);
+                    updateUserSettingsCache(settings);
                     this.syncSettingsToBackend(settings);
 
                     this.toastr.success(event.checked ? 'Đã kích hoạt Quản lý Zalo.' : 'Đã hủy kích hoạt Quản lý Zalo.');
@@ -318,9 +304,9 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 if (res && res.success) {
                     plugin.enabled = event.checked;
 
-                    const settings = this.multiAccountService.getItem('settings') || {};
+                    const settings = getSettings() || {};
                     settings.tiktokPluginEnabled = event.checked;
-                    this.multiAccountService.setItem('settings', settings);
+                    updateUserSettingsCache(settings);
                     this.syncSettingsToBackend(settings);
 
                     this.toastr.success(event.checked ? 'Đã kích hoạt 100 TikTokers.' : 'Đã hủy kích hoạt 100 TikTokers.');
@@ -328,7 +314,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                     this.toastr.error(res?.error || 'Không thể thay đổi trạng thái plugin 100 TikTokers.');
                 }
             } else if (plugin.id === 'ai_agent') {
-                const settings = this.multiAccountService.getItem('settings') || {};
+                const settings = getSettings() || {};
                 const res = await (window as any).electronAPI.toggleAiAgent(event.checked, this.aiAgentApiKey, {
                     umodelverseUrl: settings.umodelverseUrl,
                     umodelverseKey: settings.umodelverseKey
@@ -336,7 +322,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 if (res && res.success) {
                     plugin.enabled = event.checked;
                     settings.enableAiAgent = event.checked;
-                    this.multiAccountService.setItem('settings', settings);
+                    updateUserSettingsCache(settings);
                     this.syncSettingsToBackend(settings);
 
 
@@ -367,13 +353,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
         this.colabChecking = true;
         try {
             // Lấy cấu hình sst ("Sử dụng Google Colab" trong Cài đặt -> Tài khoản)
-            let settings = this.multiAccountService.getItem('settings') || {};
-            try {
-                const lsSettings = localStorage.getItem('settings');
-                if (lsSettings) {
-                    settings = { ...settings, ...JSON.parse(lsSettings) };
-                }
-            } catch(e) {}
+            let settings = getSettings() || {};
             this.colabConfigUrl = (settings.sst || '').trim().replace(/\/+$/, '');
 
             // Bước 1: Luôn nạp thông tin đăng nhập Google Colab từ Electron (đọc từ ổ đĩa hoặc daemon)
@@ -819,28 +799,28 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
 
     async saveAiAgentKey(plugin: any) {
         if (!(window as any).electronAPI) {
-            const settings = this.multiAccountService.getItem('settings') || {};
+            const settings = getSettings() || {};
             settings.aiAgentApiKey = this.aiAgentApiKey;
             settings.ttsVoice = this.ttsVoice;
             settings.ttsRate = this.ttsRate;
             settings.aiAgentModel = this.aiAgentModel;
             settings.aiAgentMaxTurns = Number(this.aiAgentMaxTurns) || 25;
             settings.aiAgentPrompt = this.aiAgentPrompt;
-            this.multiAccountService.setItem('settings', settings);
+            updateUserSettingsCache(settings);
                     this.syncSettingsToBackend(settings);
 
             this.toastr.success('Đã lưu cấu hình AI Agent trên trình duyệt/mobile.');
             return;
         }
         try {
-            const settings = this.multiAccountService.getItem('settings') || {};
+            const settings = getSettings() || {};
             settings.ttsVoice = this.ttsVoice;
             settings.ttsRate = this.ttsRate;
             settings.aiAgentApiKey = this.aiAgentApiKey;
             settings.aiAgentModel = this.aiAgentModel;
             settings.aiAgentMaxTurns = Number(this.aiAgentMaxTurns) || 25;
             settings.aiAgentPrompt = this.aiAgentPrompt;
-            this.multiAccountService.setItem('settings', settings);
+            updateUserSettingsCache(settings);
                     this.syncSettingsToBackend(settings);
 
 

@@ -111,13 +111,9 @@ export class AppModule {
 }
 
 export function initializeApp(multiAccountService: MultiAccountService): () => Promise<any> {
-    return () =>
-        multiAccountService.isReady.then(() => {
-            const settings = multiAccountService.getItem('settings');
-            if (settings) {
-                // Ghi đè cấu hình settings vào appConfig trước khi các service khác sử dụng
-                Object.assign(appConfig.settings, settings);
-            }
-        });
+    // [Refactor 2026-11-11] Settings chi doc tu server: khong nap settings tu local khi
+    // bootstrap nua. appConfig.settings duoc dong bo trong InitialDataResolver sau khi
+    // profile tai tu server ve.
+    return () => multiAccountService.isReady.then(() => true);
 }
 

@@ -17,7 +17,8 @@ import { A11y, Mousewheel, Navigation, Pagination } from 'swiper/modules';
 import { Subject, takeUntil } from 'rxjs';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { MultiAccountService } from 'app/_services/multi-account.service';
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'ai-tools',
@@ -115,7 +116,6 @@ export class AIToolsComponent implements OnInit, OnDestroy {
         private _fuseConfirmationService: FuseConfirmationService,
         private breakpointObserver: BreakpointObserver,
         private cd: ChangeDetectorRef,
-        private _multiAccountService: MultiAccountService,
     ) {
         this.titleService.setTitle(
             `bộ công cụ | ai.type - công cụ tạo content`,
@@ -177,13 +177,7 @@ export class AIToolsComponent implements OnInit, OnDestroy {
     }
 
     async checkPlugins() {
-        let settings = this._multiAccountService?.getItem('settings') || {};
-        try {
-            const ls = localStorage.getItem('settings');
-            if (ls) {
-                settings = { ...settings, ...JSON.parse(ls) };
-            }
-        } catch (e) {}
+        const settings = getSettings() || {};
 
         if (
             (window as any).electronAPI &&

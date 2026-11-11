@@ -18,6 +18,7 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { ProjectStoreService } from 'app/_services/project-store.service';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -59,6 +60,8 @@ interface NodeConnection {
     path?: string;
     color?: string;
 }
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'app-node-editor',
@@ -127,6 +130,8 @@ export class NodeEditorComponent
     contextMenuCanvasPosition = { x: 0, y: 0 };
 
     uuid: string | null = null;
+
+    name: string | null = null;
     projectData: any = null;
 
     activeCharacters: any[] = [];
@@ -162,6 +167,7 @@ export class NodeEditorComponent
         private route: ActivatedRoute,
         private router: Router,
         private multiAccountService: MultiAccountService,
+        private projectStore: ProjectStoreService,
         private dialog: MatDialog,
         private cdr: ChangeDetectorRef,
         private genaiService: GenaiService,
@@ -227,9 +233,11 @@ export class NodeEditorComponent
         this.multiAccountService.activeAccount$.subscribe(
             async (sessionData) => {
                 let isAiAgentActive = false;
-                if (sessionData && sessionData.settings) {
+                // [Refactor 2026-11-11] enableAiAgent doc tu settings tren server
+                const srvSettings = getSettings();
+                if (srvSettings && srvSettings.enableAiAgent !== undefined) {
                     isAiAgentActive =
-                        sessionData.settings.enableAiAgent === true;
+                        srvSettings.enableAiAgent === true;
                 }
 
                 if (
@@ -265,13 +273,26 @@ export class NodeEditorComponent
         });
 
         this.uuid = this.route.snapshot.paramMap.get('uuid');
+        this.name = this.route.snapshot.paramMap.get('name');
         if (!this.uuid) {
             this.router.navigate(['../'], { relativeTo: this.route });
             return;
         }
 
+        // Ưu tiên session, fallback đĩa qua project-store
         const storageKey = `ai_type_video_ready_data_${this.uuid}`;
-        this.projectData = this.multiAccountService.getItem(storageKey);
+        this.projectData = this.multiAccountService.getItem(storageKey) || null;
+        if (!this.projectData) {
+            this.projectStore
+                .load(this.name || null, this.uuid)
+                .then((parts) => {
+                    if (parts?.timeline && !this.projectData) {
+                        this.projectData = parts.timeline;
+                        this.buildGraphFromData(this.projectData);
+                    }
+                })
+                .catch(() => {});
+        }
 
         if (
             this.projectData &&
@@ -379,7 +400,7 @@ export class NodeEditorComponent
 
     async loadModels() {
         try {
-            const settings = this.multiAccountService.getItem('settings') || {};
+            const settings = getSettings() || {};
             let mitomModels: string[] = [];
             let imageList: string[] = ['Local ComfyUI'];
             let videoList: string[] = [];
@@ -1985,8 +2006,10 @@ export class NodeEditorComponent
         // Nếu gọi saveProject() mà không có immediate=true, ta bỏ qua (không tự động lưu nữa)
         // Người dùng sẽ chủ động bấm Ctrl+S để lưu.
         if (immediate) {
-            const storageKey = `ai_type_video_ready_data_${this.uuid}`;
-            this.multiAccountService.setItem(storageKey, this.projectData);
+            // Lưu timeline xuống đĩa qua project-store
+            this.projectStore.save(this.name || null, this.uuid, {
+                timeline: this.projectData,
+            });
         }
     }
 
@@ -4352,12 +4375,9 @@ export class NodeEditorComponent
                             : `${targetVoiceName}.wav`;
                         const niceFilename = `${prefix}_${slug}`;
 
-                        let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
+                        let settings = getSettings() || {};
                         try {
-                            const lsSettings = localStorage.getItem('settings');
-                            if (lsSettings) {
-                                settings = { ...settings, ...JSON.parse(lsSettings) };
-                            }
+                            
                         } catch (e) {}
                         const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
 

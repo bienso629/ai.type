@@ -19,6 +19,8 @@ let options = {
     })
 };
 
+import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+
 @Injectable()
 export class WP2MDService {
     year: number = 2023;
@@ -50,7 +52,7 @@ export class WP2MDService {
     }
 
     public all(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.listLocalWp2md) {
             return from(electron.listLocalWp2md({
@@ -88,7 +90,7 @@ export class WP2MDService {
     }
 
     public totalWp2mdArchive(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.getLocalWp2mdTotal) {
             return from(electron.getLocalWp2mdTotal({
@@ -125,7 +127,7 @@ export class WP2MDService {
     }
 
     public searchWp2mdArchive(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.getLocalWp2mdTotal) {
             return from(electron.getLocalWp2mdTotal({
@@ -162,7 +164,7 @@ export class WP2MDService {
     }
 
     public details(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.getLocalWp2mdDetails) {
             return from(electron.getLocalWp2mdDetails({
@@ -198,7 +200,7 @@ export class WP2MDService {
     }
 
     public convert(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.convertLocalWp2md) {
             return from(electron.convertLocalWp2md({
@@ -234,7 +236,7 @@ export class WP2MDService {
     }
 
     public store(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal && electron && electron.saveLocalArticle) {
             const htmlContent = Array.isArray(dataForm.p) ? dataForm.p.join('\n\n') : (dataForm.content || dataForm.p || '');

@@ -22,7 +22,6 @@ import { MatInputModule } from '@angular/material/input';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { ToastrService } from 'ngx-toastr';
 import { DirectorModeComponent } from './director-mode.component';
-import { MultiAccountService } from 'app/_services/multi-account.service';
 import { GoogleGenAI } from '@google/genai';
 import { GenaiService } from 'app/genai.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -33,6 +32,8 @@ import { MatMenuModule } from '@angular/material/menu';
 
 import { ControlNetDialogComponent } from './controlnet-dialog.component';
 import { CropVideoDialogComponent } from './crop-video-dialog.component';
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'app-edit-scene-prompt-dialog',
@@ -466,7 +467,6 @@ export class EditScenePromptDialogComponent {
         private dialogRef: MatDialogRef<EditScenePromptDialogComponent>,
         private dialog: MatDialog,
         private toastr: ToastrService,
-        private multiAccountService: MultiAccountService,
         private cd: ChangeDetectorRef,
         private _genaiService: GenaiService,
         private sanitizer: DomSanitizer,
@@ -590,7 +590,7 @@ export class EditScenePromptDialogComponent {
     }
 
     private getGeminiKey(): string | null {
-        const settings = this.multiAccountService.getItem('settings');
+        const settings = getSettings();
         let secretKey;
         try {
             secretKey = settings.secretKey

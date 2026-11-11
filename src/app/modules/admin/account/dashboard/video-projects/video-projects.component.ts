@@ -11,6 +11,7 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { ProjectStoreService } from 'app/_services/project-store.service';
 import { Subject, takeUntil } from 'rxjs';
 
 import { MatDialog } from '@angular/material/dialog';
@@ -40,6 +41,7 @@ export class VideoProjectsComponent implements OnInit, OnDestroy {
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         private multiAccountService: MultiAccountService,
+        private projectStore: ProjectStoreService,
         private _matDialog: MatDialog,
         private toastr: ToastrService,
     ) {
@@ -61,40 +63,31 @@ export class VideoProjectsComponent implements OnInit, OnDestroy {
     }
 
     loadProjects() {
-        let projects =
-            this.multiAccountService.getItemsByPrefix(
-                'ai_type_audio_merger_data_',
-            ) || [];
-        this.videoProjects = projects
-            .filter((p) => p.uuid && p.title)
-            .reverse()
-            .map((p) => {
-                // Calculate dynamic status
-                let statusLabel = 'Bản nháp';
-                let statusClass = 'bg-blue-100 text-blue-600';
-
-                if (!p.clips || p.clips.length === 0) {
-                    statusLabel = 'Trống';
-                    statusClass = 'bg-gray-100 text-gray-600';
-                } else {
-                    const hasAudio = p.clips.some(
-                        (c: any) => c.localFilePath || c.audioFileName,
-                    );
-                    const allAudio = p.clips.every(
-                        (c: any) => c.localFilePath || c.audioFileName,
-                    );
-
-                    if (allAudio) {
-                        statusLabel = 'Sẵn sàng';
-                        statusClass = 'bg-green-100 text-green-600';
-                    } else if (hasAudio) {
-                        statusLabel = 'Đang làm';
-                        statusClass = 'bg-amber-100 text-amber-600';
-                    }
-                }
-
-                return { ...p, statusLabel, statusClass };
-            });
+        // Nguồn sự thật giờ là đĩa (project-store) thay vì session IndexedDB
+        this.projectStore
+            .list(this.user?.name || null)
+            .then((projects) => {
+                this.videoProjects = projects
+                    .filter((p) => p.uuid && p.title)
+                    .map((p) => {
+                        // Tính trạng thái động từ danh sách clip
+                        const st = this.projectStore.computeStatus(p);
+                        let statusLabel = 'Bản nháp';
+                        let statusClass = 'bg-blue-100 text-blue-600';
+                        if (st.statusLabel === 'app.empty') {
+                            statusLabel = 'Trống';
+                            statusClass = 'bg-gray-100 text-gray-600';
+                        } else if (st.statusLabel === 'app.ready') {
+                            statusLabel = 'Sẵn sàng';
+                            statusClass = 'bg-green-100 text-green-600';
+                        } else if (st.statusLabel === 'app.working') {
+                            statusLabel = 'Đang làm';
+                            statusClass = 'bg-amber-100 text-amber-600';
+                        }
+                        return { ...p, ...st, statusLabel, statusClass };
+                    });
+            })
+            .catch((e) => console.error('[video-projects] Lỗi load dự án:', e));
     }
 
     deleteVideoProject(project: any, event: MouseEvent) {
@@ -124,15 +117,8 @@ export class VideoProjectsComponent implements OnInit, OnDestroy {
 
         dialogRef.afterClosed().subscribe(async (result) => {
             if (result === 'confirmed') {
-                this.multiAccountService.removeItem(
-                    `ai_type_audio_merger_data_${project.uuid}`,
-                );
-                this.multiAccountService.removeItem(
-                    `ai_type_video_ready_data_${project.uuid}`,
-                );
-                this.multiAccountService.removeItem(
-                    `casting_list_${project.uuid}`,
-                );
+                // Xóa dữ liệu cấu trúc (meta/timeline/casting) trên đĩa + registry
+                await this.projectStore.remove(this.user?.name || null, project.uuid);
 
                 this.videoProjects = this.videoProjects.filter(
                     (p) => p.uuid !== project.uuid,
@@ -172,15 +158,15 @@ export class VideoProjectsComponent implements OnInit, OnDestroy {
 
                     // Ki?m tra v luu d? li?u
                     if (data) {
-                        const storageKey = `ai_type_audio_merger_data_${targetUuid}`;
-                        this.multiAccountService.setItem(storageKey, data);
-
-                        if (data.videoProject && data.videoProject.characters) {
-                            this.multiAccountService.setItem(
-                                `casting_list_${targetUuid}`,
-                                data.videoProject.characters,
-                            );
-                        }
+                        // Lưu cấu trúc dự án xuống đĩa qua project-store
+                        await this.projectStore.save(
+                            this.user?.name || null,
+                            targetUuid,
+                            {
+                                meta: data,
+                                casting: data.videoProject?.characters || null,
+                            },
+                        );
                     }
 
                     // Chuy?n sang trang ch?nh s?a k?ch b?n m?i

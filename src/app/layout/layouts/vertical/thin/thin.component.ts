@@ -45,6 +45,8 @@ import { User } from 'app/core/user/user.types';
 import { TranslocoModule } from '@jsverse/transloco';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
+import { getSettings, updateUserSettingsCache, saveSettingsPartial } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'app-bug-report-dialog',
     imports: [
@@ -268,43 +270,20 @@ export class ThinLayoutComponent
     }
 
     get enableUmodelverse(): boolean {
-        const settings = this.multiAccountService.getItem('settings');
+        const settings = getSettings();
         return settings ? settings.enableUmodelverse === true : false;
     }
 
     set enableUmodelverse(value: boolean) {
-        let settings = this.multiAccountService.getItem('settings') || {};
-        settings.enableUmodelverse = value;
-        this.multiAccountService.setItem('settings', settings);
+        // [Refactor 2026-11-11] Cap nhat cache RAM roi luu len server (khong ghi local)
+        const settings = { ...(getSettings() || {}), enableUmodelverse: value };
+        updateUserSettingsCache(settings);
+        saveSettingsPartial({ enableUmodelverse: value }, this.user?.name);
     }
 
     toggleUmodelverse(): void {
         this.enableUmodelverse = !this.enableUmodelverse;
 
-        // Cập nhật trạng thái lên máy chủ để không bị mất khi F5
-        if (this.user) {
-            let settings = this.multiAccountService.getItem('settings') || {};
-            const editor = this.multiAccountService.getItem('editor');
-            const following_users =
-                this.multiAccountService.getItem('following_users');
-
-            this._userClientService
-                .updateProfile({
-                    profile: {
-                        settings: settings,
-                        active_info:
-                            this.multiAccountService.getItem('active_info'),
-                        editor: editor && editor != 'undefined' ? editor : {},
-                        following_users:
-                            following_users && following_users != 'undefined'
-                                ? following_users
-                                : [],
-                    },
-                    username: this.user.name,
-                })
-                .pipe(takeUntil(this._unsubscribeAll))
-                .subscribe();
-        }
     }
 
     // -----------------------------------------------------------------------------------------------------

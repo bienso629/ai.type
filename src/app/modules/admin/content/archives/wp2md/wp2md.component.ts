@@ -34,6 +34,8 @@ import { CrawlService } from 'app/_services/crawl';
 import { HelperService } from 'app/helper.service';
 import { Page, PageInfo } from 'app/core/navigation/navigation.types';
 
+import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'wp2md',
     styleUrls: ['./wp2md.component.scss'],
@@ -118,8 +120,7 @@ export class WP2MDComponent implements OnInit, OnDestroy {
         this.cache = {};
 
         const username = this.getCurrentUsername();
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
 
         if (isAutoSaveLocal && (window as any).electron?.getLocalWp2mdTotal) {
             (window as any).electron
@@ -253,8 +254,7 @@ export class WP2MDComponent implements OnInit, OnDestroy {
         };
 
         const username = this.getCurrentUsername();
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
 
         if (isAutoSaveLocal && (window as any).electron?.listLocalWp2md) {
             (window as any).electron
@@ -431,8 +431,7 @@ export class WP2MDComponent implements OnInit, OnDestroy {
 
     details(node: any) {
         const username = this.getCurrentUsername();
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
 
         const handleDetailsData = (data: any) => {
             const rawHtml =
@@ -488,8 +487,7 @@ export class WP2MDComponent implements OnInit, OnDestroy {
 
     facePost2Node(doc: any) {
         const username = this.getCurrentUsername();
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
 
         if (isAutoSaveLocal && (window as any).electron?.saveLocalArticle) {
             const htmlContent = Array.isArray(doc.p)
@@ -553,8 +551,7 @@ export class WP2MDComponent implements OnInit, OnDestroy {
 
     convert(node: any) {
         const username = this.getCurrentUsername();
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
 
         const openResultDialog = (mdResult: string) => {
             const dialogRef = this.dialog.open(NodeDetailsDialog, {
@@ -791,8 +788,7 @@ export class WP2MDComponent implements OnInit, OnDestroy {
         }
 
         const username = this.getCurrentUsername();
-        const isAutoSaveLocal =
-            localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
 
         if (isAutoSaveLocal && (window as any).electron?.getLocalWp2mdTotal) {
             (window as any).electron

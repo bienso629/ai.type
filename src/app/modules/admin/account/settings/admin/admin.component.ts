@@ -23,6 +23,8 @@ import { ForumService } from 'app/_services/forum';
 
 import moment from 'moment';
 
+import { getSettings, updateUserSettingsCache } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'settings-admin',
     templateUrl: './admin.component.html',
@@ -110,7 +112,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     // -----------------------------------------------------------------------------------------------------
 
     ngOnInit(): void {
-        const settings = this.multiAccountService.getItem('settings') || {};
+        const settings = getSettings() || {};
         this.chatgptForm = this._formBuilder.group({
             'gradio_gologin': [settings.gradio_gologin || '', Validators.required],
         });
@@ -260,16 +262,16 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         // }
         
         // Lưu cấu hình vào LocalStorage
-        const settings = this.multiAccountService.getItem('settings') || {};
+        const settings = getSettings() || {};
         settings.zaloPluginMode = this.zaloPluginMode;
-        this.multiAccountService.setItem('settings', settings);
+        updateUserSettingsCache(settings);
         this.cd.detectChanges();
     }
 
     save() {
-        const settings = this.multiAccountService.getItem('settings') || {};
+        const settings = getSettings() || {};
         settings.gradio_gologin = this.chatgptForm.get('gradio_gologin').value;
-        this.multiAccountService.setItem('settings', settings);
+        updateUserSettingsCache(settings);
 
         const editor = this.multiAccountService.getItem('editor');
         const following_users = this.multiAccountService.getItem('following_users');
@@ -325,9 +327,9 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     }
 
     async getForumUsers() {
-        const settings = this.multiAccountService.getItem('settings') || {};
-        if (!settings.emailConfig_nodebbUrl || !settings.emailConfig_nodebbToken) {
-            this.toastr.warning('Vui lòng vào Cấu hình -> Tài khoản để thiết lập Type.VN URL và Token trước.');
+        const settings = getSettings() || {};
+        if (!settings.emailConfig_nodebbToken) {
+            this.toastr.warning('Vui lòng vào Cấu hình -> Tài khoản để thiết lập Type.VN Token trước.');
             return;
         }
 
@@ -335,7 +337,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         this.cd.detectChanges();
 
         const config = {
-            nodebbUrl: settings.emailConfig_nodebbUrl.replace(/\/+$/, ''),
+            nodebbUrl: (settings.emailConfig_nodebbUrl || 'https://type.vn').replace(/\/+$/, ''),
             nodebbToken: settings.emailConfig_nodebbToken.trim()
         };
 
@@ -402,11 +404,11 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     }
 
     async getForumGroups() {
-        const settings = this.multiAccountService.getItem('settings') || {};
-        if (!settings.emailConfig_nodebbUrl || !settings.emailConfig_nodebbToken) return;
+        const settings = getSettings() || {};
+        if (!settings.emailConfig_nodebbToken) return;
 
         const config = {
-            nodebbUrl: settings.emailConfig_nodebbUrl.replace(/\/+$/, ''),
+            nodebbUrl: (settings.emailConfig_nodebbUrl || 'https://type.vn').replace(/\/+$/, ''),
             nodebbToken: settings.emailConfig_nodebbToken.trim()
         };
 
@@ -516,7 +518,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     }
 
     async onUserGroupChange(row: any, newSelectedGroups: string[]) {
-        const settings = this.multiAccountService.getItem('settings') || {};
+        const settings = getSettings() || {};
         const config = {
             nodebbUrl: (settings.emailConfig_nodebbUrl || 'https://type.vn').replace(/\/+$/, ''),
             nodebbToken: (settings.emailConfig_nodebbToken || '').trim()
@@ -598,7 +600,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         this.emailProgressStatus = 'Bắt đầu...';
         this.cd.markForCheck();
 
-        const settings = this.multiAccountService.getItem('settings') || {};
+        const settings = getSettings() || {};
         const emailConfig = {
             nodebbUrl: settings.emailConfig_nodebbUrl || 'https://type.vn',
             nodebbToken: settings.emailConfig_nodebbToken || '',

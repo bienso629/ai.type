@@ -28,6 +28,8 @@ import { Subject, takeUntil } from 'rxjs';
 import { MyKeysService } from 'app/_services/mykey';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 
+import { getSettings } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'app-video-generation',
     imports: [
@@ -336,12 +338,9 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
             let pluginActive = false;
 
             // Kiểm tra cấu hình sst từ cài đặt người dùng
-            let settings = this.multiAccountService ? (this.multiAccountService.getItem('settings') || {}) : {};
+            let settings = getSettings() || {};
             try {
-                const lsSettings = localStorage.getItem('settings');
-                if (lsSettings) {
-                    settings = { ...settings, ...JSON.parse(lsSettings) };
-                }
+                
             } catch (e) {}
             const sstUrl = (settings.sst || '').trim().replace(/\/+$/, '');
             if (settings && settings.colabPluginEnabled) {

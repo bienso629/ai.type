@@ -85,6 +85,7 @@ import { YoutubeService } from 'app/_services/youtube';
 import { LogService } from 'app/_services/link';
 import { HelperService } from 'app/helper.service';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { ProjectStoreService } from 'app/_services/project-store.service';
 
 declare var require: any;
 declare var LeaderLine: any;
@@ -99,6 +100,8 @@ interface JobState {
     total_chunks: number;
     done_chunks: number;
 }
+
+import { getSettings, isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'ai-writer',
@@ -293,11 +296,10 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
     details: any;
     articlePassword: string = '';
-    autoSaveLocal: boolean = !!(window as any)?.electron && (localStorage.getItem('ai_type_auto_save_local') !== 'false');
+    autoSaveLocal: boolean = !!(window as any)?.electron && (isAutoSaveLocalEnabled());
 
     toggleAutoSaveLocal(event: any) {
         this.autoSaveLocal = event.checked;
-        localStorage.setItem('ai_type_auto_save_local', this.autoSaveLocal ? 'true' : 'false');
         if (this.autoSaveLocal) {
             this.toastr.success('Bật tự động lưu bản sao xuống máy tính cục bộ.');
             this.saveToLocalDiskQuick();
@@ -737,7 +739,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     applyDomainStyle(domainObj: any) {
         if (!domainObj) return;
         if (this.hasCustomSavedStyle) return;
-        let settings = this.multiAccountService.getItem('settings') || {};
+        let settings = getSettings() || {};
         let domainStyles = settings.domainStyles || {};
         let styleName = domainStyles[domainObj.domain];
         if (styleName && this.styles && this.styles.length > 0) {
@@ -2303,7 +2305,7 @@ ${content}`;
                 }
 
                 // Cập nhật searchAPIKey từ settings mới nhất
-                this.settings = this.multiAccountService.getItem('settings');
+                this.settings = getSettings();
                 if (this.settings && this.settings.searchAPIKey) {
                     this.searchAPIKey = this.settings.searchAPIKey.split(';');
                 }
@@ -4357,7 +4359,12 @@ ${contentFromDone || '(Chưa có văn bản)'}
             // 1. Kiểm tra nếu đã có projectData và video đã tải về máy -> Bật dialog lên luôn, không tải lại
             let projectData: any = null;
             if (existingUuid) {
+                // Ưu tiên session, fallback đĩa qua project-store
                 projectData = await this.multiAccountService.getItem('ai_type_video_ready_data_' + existingUuid);
+                if (!projectData) {
+                    const parts = await this.projectStore.load(this.name || null, existingUuid);
+                    projectData = parts?.timeline || null;
+                }
                 if (projectData && projectData.scenes && projectData.scenes.length > 0 && projectData.scenes[0].videos && projectData.scenes[0].videos.length > 0) {
                     const existingVideoUrl = projectData.scenes[0].videos[0].videoUrl;
                     if (existingVideoUrl) {
@@ -4374,7 +4381,7 @@ ${contentFromDone || '(Chưa có văn bản)'}
                                     if (durRes && durRes.success && durRes.duration > 0) {
                                         v0.duration = Math.round(durRes.duration * 10) / 10;
                                         v0.maxDuration = v0.duration;
-                                        this.multiAccountService.setItem('ai_type_video_ready_data_' + existingUuid, projectData);
+                                        this.projectStore.save(this.name || null, existingUuid, { timeline: projectData });
                                     }
                                 }
                             }
@@ -4430,15 +4437,8 @@ ${contentFromDone || '(Chưa có văn bản)'}
                     this.toastr.info('Đang tải video chất lượng cao nhất về máy để chỉnh sửa...');
                     let customCookies = this.settings?.customCookies || '';
                     if (!customCookies) {
-                        const settingsStr = localStorage.getItem('settings');
-                        if (settingsStr) {
-                            try {
-                                customCookies = JSON.parse(settingsStr).customCookies || '';
-                            } catch (e) {}
-                        }
-                    }
-                    if (!customCookies) {
-                        customCookies = this.multiAccountService.getItem('setting_cookies') || '';
+                        // [Refactor 2026-11-11] customCookies doc tu settings tren server
+                        customCookies = getSettings()?.customCookies || '';
                     }
                     const payload = {
                         url: localFilePath,
@@ -4539,7 +4539,8 @@ ${contentFromDone || '(Chưa có văn bản)'}
                 };
             }
 
-            this.multiAccountService.setItem('ai_type_video_ready_data_' + randomUuid, projectData);
+            // Lưu cấu trúc dự án mới xuống đĩa qua project-store
+            this.projectStore.save(this.name || null, randomUuid, { timeline: projectData });
             // Bỏ việc can thiệp vào `item` (HTML string) vì UUID đã được quản lý an toàn qua `videoMap`.
             const dialogRef = this.dialog.open(VideoTimelineDialogComponent, {
                 width: '100vw',
@@ -7359,10 +7360,7 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
     hasVideoData(): boolean {
         if (!this.uuid) return false;
         if (this.details && this.details.has_video) return true;
-        if (this.multiAccountService) {
-            return !!this.multiAccountService.getItem(`ai_type_audio_merger_data_${this.uuid}`);
-        }
-        return false;
+        return this.projectStore.hasProject(this.uuid);
     }
 
     constructor(
@@ -7387,6 +7385,7 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
         private location: Location,
         private _bottomSheet: MatBottomSheet,
         private multiAccountService: MultiAccountService,
+        private projectStore: ProjectStoreService,
         private sanitizer: DomSanitizer,
         private _genaiService: GenaiService,
         private _pdfTextService: PdfTextService,
@@ -7415,7 +7414,7 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
         });
 
         // lấy secretKey và searchAPIKey
-        this.settings = this.multiAccountService.getItem('settings');
+        this.settings = getSettings();
         if (this.settings) {
             this.secretKey = this.settings.secretKey
                 ? this.settings.secretKey.split(';')

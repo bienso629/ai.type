@@ -109,6 +109,8 @@ declare global {
     }
 }
 
+import { getSettings } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'google-search-console.component',
     styleUrls: ['./seo-report.component.scss'],
@@ -1791,7 +1793,7 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
                 this.user = user;
             });
 
-        this.settings = this.multiAccountService.getItem('settings');
+        this.settings = getSettings();
         if (this.settings) {
             this.secretKey = this.settings.secretKey
                 ? this.settings.secretKey.split(';')

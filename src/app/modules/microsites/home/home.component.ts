@@ -23,7 +23,8 @@ import { TranslocoService } from '@jsverse/transloco';
 // import { CloudData, CloudOptions, ZoomOnHoverOptions } from 'angular-tag-cloud-module';
 
 import Typewriter from 't-writer.js';
-import { MultiAccountService } from 'app/_services/multi-account.service';
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'landing-app',
@@ -207,7 +208,7 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
     chatgpt(question: string, index?: number) {
         if (question) {
             this.loading = !this.loading;
-            let settings: any = this.multiAccountService.getItem('settings');
+            let settings: any = getSettings();
 
             this._chatGPTService
                 .faq2025(
@@ -331,7 +332,6 @@ export class LandingAppComponent implements OnInit, OnDestroy, AfterViewInit {
         private translocoService: TranslocoService,
         private _chatGPTService: ChatGPTService,
         private _blogService: BlogService,
-        private multiAccountService: MultiAccountService,
     ) {}
 
     /**

@@ -43,7 +43,8 @@ import * as uuid from 'uuid';
 import moment from 'moment';
 import { HelperService } from 'app/helper.service';
 import { GenaiService } from 'app/genai.service';
-import { MultiAccountService } from 'app/_services/multi-account.service';
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'trend',
@@ -889,7 +890,6 @@ export class AIFacePostComponent
         private _fuseConfirmationService: FuseConfirmationService,
         private _router: Router,
         private titleService: Title,
-        private multiAccountService: MultiAccountService,
         private _genaiService: GenaiService
     ) {
         this.titleService.setTitle(
@@ -912,7 +912,7 @@ export class AIFacePostComponent
         });
 
         // lấy secretKey và searchAPIKey
-        this.settings = this.multiAccountService.getItem('settings');
+        this.settings = getSettings();
         if (this.settings) {
             this.secretKey = this.settings.secretKey
                 ? this.settings.secretKey.split(';')

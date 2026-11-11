@@ -19,6 +19,8 @@ interface ModelGroup {
     models: string[];
 }
 
+import { getSettings, updateUserSettingsCache } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'settings-account',
     templateUrl: './account.component.html',
@@ -92,7 +94,7 @@ export class SettingsAccountComponent implements OnInit {
         if (this.accountForm.invalid) {
             this.toastr.error('Lưu cấu hình thất bại.');
         } else {
-            let currentSettings = this.multiAccountService.getItem('settings') || {};
+            let currentSettings = getSettings() || {};
             let settings: any = { ...currentSettings, ...this.accountForm.value };
             const editor = this.multiAccountService.getItem('editor');
             const following_users = this.multiAccountService.getItem('following_users');
@@ -110,11 +112,9 @@ export class SettingsAccountComponent implements OnInit {
                 .subscribe({
                     next: async (result) => {
                         if (result && result.success) {
-                            // lưu cấu hình mới nhất về máy
-                            this.multiAccountService.setItem('settings', settings);
-                            if (settings.autoSaveLocal !== undefined) {
-                                localStorage.setItem('ai_type_auto_save_local', settings.autoSaveLocal ? 'true' : 'false');
-                            }
+                            // [Refactor 2026-11-11] Settings chi luu tren server: chi cap nhat
+                            // cache RAM (ban sao doc nhanh cua du lieu server), khong ghi local.
+                            updateUserSettingsCache(settings);
                             
                             // Cập nhật giá trị cấu hình trực tiếp vào in-memory config để các component khác nhận ngay
                             this._fuseConfigService.config = {
@@ -347,7 +347,7 @@ export class SettingsAccountComponent implements OnInit {
         // [Fix 2026-11-10] Chờ DB nạp xong trước khi đọc settings để form không nạp dữ liệu
         // rỗng rồi ghi đè mất session thật khi người dùng bấm Lưu ngay sau khi mở app.
         this.multiAccountService.isReady.then(() => {
-        let settings: any = this.multiAccountService.getItem('settings');
+        let settings: any = getSettings();
 
         // Create the form
         this.accountForm = this._formBuilder.group({
@@ -440,7 +440,6 @@ export class SettingsAccountComponent implements OnInit {
                     .pipe(takeUntil(this._unsubscribeAll))
                     .subscribe(res => {
                         if (res && res.success && res.data && res.data.settings) {
-                            this.multiAccountService.setItem('settings', res.data.settings);
                             this.applySettingsToForm(res.data.settings);
                         }
                     });
@@ -466,7 +465,7 @@ export class SettingsAccountComponent implements OnInit {
             autoSaveLocal: this.isElectron
                 ? (settings.autoSaveLocal !== undefined
                     ? settings.autoSaveLocal
-                    : (localStorage.getItem('ai_type_auto_save_local') !== 'false'))
+                    : true)
                 : false,
             closethread: false,
             proccessing: false,

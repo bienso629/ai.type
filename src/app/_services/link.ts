@@ -17,6 +17,8 @@ let options = {
     })
 };
 
+import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+
 @Injectable({
     providedIn: 'root',
 })
@@ -78,7 +80,7 @@ export class LogService {
     }
 
     public fetch(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal) {
             if (electron && electron.listLocalLinks) {
@@ -118,7 +120,7 @@ export class LogService {
     }
 
     public total(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal) {
             if (electron && electron.listLocalLinks) {
@@ -161,7 +163,7 @@ export class LogService {
     }
 
     public searchTotal(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal) {
             if (electron && electron.listLocalLinks) {
@@ -310,7 +312,7 @@ export class LogService {
     }
 
     public add(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal) {
             if (electron && electron.addLocalLink) {
@@ -376,7 +378,7 @@ export class LogService {
     }
 
     public update(dataForm: any): Observable<any> {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
         if (isAutoSaveLocal) {
             if (electron && electron.updateLocalLink) {

@@ -21,6 +21,8 @@ import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 
+import { getSettings } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'notifications',
     templateUrl: './notifications.component.html',
@@ -736,7 +738,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
             this.categories = categories;
 
             // lấy secretKey và searchAPIKey
-            this.settings = this.multiAccountService.getItem('settings');
+            this.settings = getSettings();
             this.secretKey = (this.settings && this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
             this.searchAPIKey = (this.settings && this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
 

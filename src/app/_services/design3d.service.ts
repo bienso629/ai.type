@@ -39,6 +39,8 @@ let options = {
     })
 };
 
+import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+
 @Injectable()
 export class Design3DService {
     year: number = 2023;
@@ -75,7 +77,7 @@ export class Design3DService {
     }
 
     private get _useLocal(): boolean {
-        const isAutoSaveLocal = localStorage.getItem('ai_type_auto_save_local') !== 'false';
+        const isAutoSaveLocal = isAutoSaveLocalEnabled();
         return isAutoSaveLocal && !!this._electron;
     }
 

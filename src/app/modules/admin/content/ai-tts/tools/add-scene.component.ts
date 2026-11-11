@@ -15,8 +15,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { ToastrService } from 'ngx-toastr';
-import { MultiAccountService } from 'app/_services/multi-account.service';
 import { GenaiService } from 'app/genai.service';
+
+import { getSettings } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'app-add-scene',
@@ -138,7 +139,6 @@ export class AddSceneComponent {
 
     constructor(
         public dialogRef: MatDialogRef<AddSceneComponent>,
-        private multiAccountService: MultiAccountService,
         private toastr: ToastrService,
         private _genaiService: GenaiService,
         @Inject(MAT_DIALOG_DATA)
@@ -170,7 +170,7 @@ export class AddSceneComponent {
 
         const subtitleText = this.data.selectedClip.description;
 
-        const settings = this.multiAccountService.getItem('settings');
+        const settings = getSettings();
         let secretKey;
         try {
             secretKey = settings.secretKey

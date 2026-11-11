@@ -14,6 +14,8 @@ import { FuseNavigationService, FuseVerticalNavigationComponent } from '@fuse/co
 
 import { MultiAccountService } from 'app/_services/multi-account.service';
 
+import { getSettings } from 'app/_services/user-settings.service';
+
 @Component({
     selector: 'n8n',
     templateUrl: './n8n.component.html',
@@ -68,11 +70,11 @@ export class AMXHComponent implements OnInit, OnDestroy {
     async updatePanels(): Promise<void> {
         let settings: any = null;
         if (this._multiAccountService) {
-            settings = this._multiAccountService.getItem('settings');
+            settings = getSettings();
         }
         if (!settings && typeof localStorage !== 'undefined') {
             try {
-                settings = JSON.parse(localStorage.getItem('settings') || '{}');
+                settings = getSettings() || {};
             } catch (e) {}
         }
         if (!settings && (this.user as any)?.settings) {
