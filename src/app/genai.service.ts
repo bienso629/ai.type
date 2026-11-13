@@ -35,6 +35,10 @@ export class GenaiService {
     private _enableUmodelverse: boolean = false;
     private _lastUmodelverseVideoUrl: string = '';
 
+    private static readonly VOLCE_ASSET_CACHE_KEY = 'ai_type_volce_asset_cache_v1';
+    private static _volceAssetGroupCache: Record<string, string> = {};
+    private static _volceAssetUrlCache: Record<string, string> | null = null;
+
     private localAgentAbortController?: AbortController;
 
     public cancelLocalAgent() {
@@ -140,6 +144,421 @@ export class GenaiService {
             console.error('[CDN Upload] Lỗi upload:', err);
             return null;
         }
+    }
+
+    private static getVolceAssetUrlCache(): Record<string, string> {
+        if (GenaiService._volceAssetUrlCache) {
+            return GenaiService._volceAssetUrlCache;
+        }
+        GenaiService._volceAssetUrlCache = {};
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const raw = localStorage.getItem(GenaiService.VOLCE_ASSET_CACHE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && typeof parsed === 'object') {
+                        GenaiService._volceAssetUrlCache = parsed;
+                    }
+                }
+            }
+        } catch {
+            GenaiService._volceAssetUrlCache = {};
+        }
+        return GenaiService._volceAssetUrlCache!;
+    }
+
+    private static saveVolceAssetUrlCache(): void {
+        try {
+            if (typeof localStorage !== 'undefined' && GenaiService._volceAssetUrlCache) {
+                const entries = Object.entries(GenaiService._volceAssetUrlCache);
+                const trimmed = entries.length > 300 ? Object.fromEntries(entries.slice(entries.length - 300)) : GenaiService._volceAssetUrlCache;
+                GenaiService._volceAssetUrlCache = trimmed;
+                localStorage.setItem(GenaiService.VOLCE_ASSET_CACHE_KEY, JSON.stringify(trimmed));
+            }
+        } catch {
+            // Ignore storage quota errors
+        }
+    }
+
+    private static computeKeyFingerprint(apiKey: string): string {
+        const s = String(apiKey || 'anon').trim();
+        let h = 2166136261;
+        for (let i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+        }
+        return (h >>> 0).toString(16).padStart(8, '0');
+    }
+
+    private static computeVolceSourceHash(source: string): string {
+        const s = String(source || '');
+        const len = s.length;
+        let h1 = 2166136261 ^ len;
+        let h2 = 16777619 ^ (len >>> 1);
+        const step = Math.max(1, Math.floor(len / 512));
+        for (let i = 0; i < len; i += step) {
+            const c = s.charCodeAt(i);
+            h1 ^= c;
+            h1 = Math.imul(h1, 16777619);
+            h2 ^= (c + (i & 255));
+            h2 = Math.imul(h2, 2246822507);
+        }
+        const tailStart = Math.max(0, len - 128);
+        for (let i = tailStart; i < len; i++) {
+            const c = s.charCodeAt(i);
+            h1 ^= c;
+            h1 = Math.imul(h1, 16777619);
+            h2 ^= c;
+            h2 = Math.imul(h2, 3266489909);
+        }
+        return (h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0');
+    }
+
+    /**
+     * Đảm bảo ảnh thỏa mãn ràng buộc Volcengine Asset Library (docs/ByteDance:
+     * width & height thuộc khoảng mở (300, 6000) px, tỷ lệ width/height thuộc (0.4, 2.5), URL công khai HTTPS).
+     */
+    private async ensureVolceCompatibleImageUrl(imageSource: string, hash: string): Promise<string> {
+        if (!imageSource || imageSource.startsWith('asset://')) {
+            return imageSource;
+        }
+
+        let loadableDataUri = '';
+        if (imageSource.startsWith('data:')) {
+            loadableDataUri = imageSource;
+        } else if (imageSource.startsWith('http://') || imageSource.startsWith('https://')) {
+            try {
+                const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+                const timer = ctrl ? setTimeout(() => ctrl.abort(), 8000) : null;
+                const resp = await fetch(imageSource, ctrl ? { signal: ctrl.signal } : undefined);
+                if (timer) clearTimeout(timer);
+                if (resp.ok) {
+                    const blob = await resp.blob();
+                    loadableDataUri = await new Promise<string>((resolve) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+                        reader.onerror = () => resolve('');
+                        reader.readAsDataURL(blob);
+                    });
+                }
+            } catch {
+                // Nếu CORS chặn fetch, dùng trực tiếp URL HTTPS gốc bên dưới
+            }
+        } else {
+            loadableDataUri = `data:image/png;base64,${imageSource}`;
+        }
+
+        if (loadableDataUri && typeof document !== 'undefined' && typeof Image !== 'undefined') {
+            const imgEl = await new Promise<HTMLImageElement | null>((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(null);
+                img.src = loadableDataUri;
+            });
+
+            if (imgEl && imgEl.naturalWidth > 0 && imgEl.naturalHeight > 0) {
+                const origW = imgEl.naturalWidth;
+                const origH = imgEl.naturalHeight;
+                const origRatio = origW / origH;
+                const needsNormalize =
+                    origW < 320 ||
+                    origH < 320 ||
+                    origW > 4096 ||
+                    origH > 4096 ||
+                    origRatio <= 0.42 ||
+                    origRatio >= 2.45;
+
+                if (!needsNormalize) {
+                    if (imageSource.startsWith('http://') || imageSource.startsWith('https://')) {
+                        return imageSource;
+                    }
+                    const uploaded = await this.uploadBase64ToCdn(loadableDataUri, `volce_img_${hash}.png`);
+                    if (!uploaded) {
+                        throw new Error('Không thể tải ảnh lên CDN để đăng ký Volcengine Asset.');
+                    }
+                    return uploaded;
+                }
+
+                let drawW = origW;
+                let drawH = origH;
+                const minSide = Math.min(drawW, drawH);
+                if (minSide < 320) {
+                    const up = 320 / minSide;
+                    drawW = Math.round(drawW * up);
+                    drawH = Math.round(drawH * up);
+                }
+                const maxSide = Math.max(drawW, drawH);
+                if (maxSide > 4096) {
+                    const down = 4096 / maxSide;
+                    drawW = Math.round(drawW * down);
+                    drawH = Math.round(drawH * down);
+                }
+
+                let canvasW = drawW;
+                let canvasH = drawH;
+                const curRatio = canvasW / canvasH;
+                if (curRatio < 0.45) {
+                    canvasW = Math.ceil(canvasH * 0.48);
+                } else if (curRatio > 2.4) {
+                    canvasH = Math.ceil(canvasW / 2.35);
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = canvasW;
+                canvas.height = canvasH;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.fillStyle = '#141414';
+                    ctx.fillRect(0, 0, canvasW, canvasH);
+                    ctx.drawImage(imgEl, Math.round((canvasW - drawW) / 2), Math.round((canvasH - drawH) / 2), drawW, drawH);
+                    const normalizedUri = canvas.toDataURL('image/jpeg', 0.92);
+                    const uploadedNorm = await this.uploadBase64ToCdn(normalizedUri, `volce_norm_${hash}.jpg`);
+                    if (uploadedNorm) {
+                        return uploadedNorm;
+                    }
+                }
+            }
+        }
+
+        if (imageSource.startsWith('http://') || imageSource.startsWith('https://')) {
+            return imageSource;
+        }
+        const fallbackUrl = await this.uploadBase64ToCdn(loadableDataUri || imageSource, `volce_img_${hash}.png`);
+        if (!fallbackUrl) {
+            throw new Error('Không thể chuẩn bị URL HTTPS công khai để đăng ký Volcengine Asset.');
+        }
+        return fallbackUrl;
+    }
+
+    /**
+     * Tìm hoặc tạo nhóm tài nguyên AIGC trên Volcengine Asset Library theo đúng vùng (cn / overseas).
+     */
+    private async getOrCreateVolceAigcGroup(
+        baseWithV1: string,
+        headers: Record<string, string>,
+        keyFp: string,
+        assetRegion: 'cn' | 'overseas'
+    ): Promise<string> {
+        const groupCacheKey = `${baseWithV1}|${keyFp}|${assetRegion}`;
+        if (GenaiService._volceAssetGroupCache[groupCacheKey]) {
+            return GenaiService._volceAssetGroupCache[groupCacheKey];
+        }
+
+        try {
+            const listRes = await fetch(`${baseWithV1}/volce-asset/groups/list`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    asset_region: assetRegion,
+                    page_number: 1,
+                    page_size: 50
+                })
+            });
+            const listText = await listRes.text();
+            let listData: any = {};
+            try { listData = JSON.parse(listText); } catch { listData = {}; }
+            const items: any[] = listData?.output?.data?.items || listData?.data?.items || listData?.items || [];
+            if (Array.isArray(items)) {
+                const matched = items.find(
+                    (g: any) => g && g.id && g.group_type === 'AIGC' && (g.asset_region || 'cn') === assetRegion
+                );
+                if (matched?.id) {
+                    GenaiService._volceAssetGroupCache[groupCacheKey] = matched.id;
+                    return matched.id;
+                }
+            }
+        } catch (err) {
+            console.warn('[VolceAsset] Lỗi truy vấn danh sách group, tiến hành tạo mới:', err);
+        }
+
+        const createRes = await fetch(`${baseWithV1}/volce-asset/groups/create`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                name: `ai-type-aigc-${assetRegion}`,
+                description: 'AI.Type AIGC media assets for ByteDance Seedance',
+                group_type: 'AIGC',
+                asset_region: assetRegion
+            })
+        });
+        const createText = await createRes.text();
+        let createData: any = {};
+        try { createData = JSON.parse(createText); } catch { createData = {}; }
+        const groupId = createData?.output?.data?.id || createData?.data?.id || createData?.id || '';
+        if (!groupId) {
+            throw new Error(`Không thể khởi tạo nhóm Volcengine AIGC Asset (${assetRegion}): ${createText.substring(0, 240)}`);
+        }
+        GenaiService._volceAssetGroupCache[groupCacheKey] = groupId;
+        return groupId;
+    }
+
+    /**
+     * Đăng ký ảnh/video vào Volcengine Asset Library (group_type: AIGC) để nhận định danh asset://<id>,
+     * cho phép Seedance 2.0/2.5 tạo video với ảnh nhân vật có khuôn mặt người/chân thực mà không bị chặn PrivacyInformation.
+     */
+    private async registerVolceMediaAsset(
+        baseWithV1: string,
+        headers: Record<string, string>,
+        keyFp: string,
+        mediaSource: string,
+        assetRegion: 'cn' | 'overseas',
+        assetType: 'Image' | 'Video' = 'Image',
+        forceRefresh: boolean = false
+    ): Promise<string> {
+        if (!mediaSource) {
+            throw new Error('Nguồn dữ liệu media trống khi đăng ký Volcengine Asset.');
+        }
+        if (mediaSource.startsWith('asset://') && !forceRefresh) {
+            return mediaSource;
+        }
+
+        const hash = GenaiService.computeVolceSourceHash(mediaSource);
+        const cacheKey = `${baseWithV1}|${keyFp}|${assetRegion}|${hash}`;
+        const urlCache = GenaiService.getVolceAssetUrlCache();
+
+        if (!forceRefresh && urlCache[cacheKey] && urlCache[cacheKey].startsWith('asset://')) {
+            return urlCache[cacheKey];
+        }
+        if (forceRefresh && urlCache[cacheKey]) {
+            delete urlCache[cacheKey];
+            GenaiService.saveVolceAssetUrlCache();
+        }
+
+        const groupId = await this.getOrCreateVolceAigcGroup(baseWithV1, headers, keyFp, assetRegion);
+        const assetName = `aigc-${assetRegion}-${hash}`;
+
+        const lookupExistingByName = async (): Promise<{ id: string; status: string } | null> => {
+            try {
+                const listRes = await fetch(`${baseWithV1}/volce-asset/assets/list`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        asset_region: assetRegion,
+                        filter: {
+                            group_ids: [groupId],
+                            group_type: 'AIGC',
+                            name: assetName
+                        },
+                        page_number: 1,
+                        page_size: 10
+                    })
+                });
+                const listText = await listRes.text();
+                let listData: any = {};
+                try { listData = JSON.parse(listText); } catch { listData = {}; }
+                const items: any[] = listData?.output?.data?.items || listData?.data?.items || listData?.items || [];
+                if (!Array.isArray(items) || items.length === 0) return null;
+                const exact = items.filter((it: any) => it && it.id && it.name === assetName);
+                const pool = exact.length > 0 ? exact : items.filter((it: any) => it && it.id);
+                const activeItem = pool.find((it: any) => it.status === 'Active');
+                if (activeItem) return { id: activeItem.id, status: 'Active' };
+                const procItem = pool.find((it: any) => it.status === 'Processing');
+                if (procItem) return { id: procItem.id, status: 'Processing' };
+                return null;
+            } catch {
+                return null;
+            }
+        };
+
+        let assetId = '';
+        if (!forceRefresh) {
+            const existing = await lookupExistingByName();
+            if (existing?.status === 'Active') {
+                const uri = `asset://${existing.id}`;
+                urlCache[cacheKey] = uri;
+                GenaiService.saveVolceAssetUrlCache();
+                console.log(`[VolceAsset] Tái sử dụng asset có sẵn (${assetRegion}): ${uri}`);
+                return uri;
+            }
+            if (existing?.status === 'Processing') {
+                assetId = existing.id;
+                console.log(`[VolceAsset] Asset đang xử lý sẵn (${assetRegion}): ${assetId}, chuyển sang chờ Active...`);
+            }
+        }
+
+        if (!assetId) {
+            const publicUrl = assetType === 'Image'
+                ? await this.ensureVolceCompatibleImageUrl(mediaSource, hash)
+                : mediaSource;
+
+            console.log(`[VolceAsset] Đang đăng ký ${assetType} vào group ${groupId} (${assetRegion}): ${publicUrl}`);
+            let createRawText = '';
+            try {
+                const createRes = await fetch(`${baseWithV1}/volce-asset/assets/create`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        group_id: groupId,
+                        url: publicUrl,
+                        name: assetName,
+                        asset_type: assetType,
+                        asset_region: assetRegion
+                    })
+                });
+                createRawText = await createRes.text();
+                let createData: any = {};
+                try { createData = JSON.parse(createRawText); } catch { createData = {}; }
+                assetId = createData?.output?.data?.id || createData?.data?.id || createData?.id || '';
+            } catch (createErr: any) {
+                createRawText = String(createErr?.message || createErr || '');
+                console.warn('[VolceAsset] Ngoại lệ khi gọi assets/create, thử truy vấn lại qua assets/list:', createRawText);
+            }
+
+            // Phục hồi khi cổng proxy (Cloudflare 524) timeout nhưng Volcengine backend vẫn tạo asset thành công
+            if (!assetId) {
+                const recovered = await lookupExistingByName();
+                if (recovered?.status === 'Active') {
+                    const uri = `asset://${recovered.id}`;
+                    urlCache[cacheKey] = uri;
+                    GenaiService.saveVolceAssetUrlCache();
+                    console.log(`[VolceAsset] Phục hồi thành công asset Active sau gateway timeout (${assetRegion}): ${uri}`);
+                    return uri;
+                }
+                if (recovered?.id) {
+                    assetId = recovered.id;
+                    console.log(`[VolceAsset] Phục hồi ID asset đang xử lý (${assetRegion}): ${assetId}`);
+                }
+            }
+
+            if (!assetId) {
+                throw new Error(`Đăng ký ảnh nhân vật lên Volcengine Asset thất bại: ${createRawText.substring(0, 240)}`);
+            }
+        }
+
+        for (let attempt = 1; attempt <= 48; attempt++) {
+            try {
+                const getRes = await fetch(`${baseWithV1}/volce-asset/assets/get`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        id: assetId,
+                        asset_region: assetRegion
+                    })
+                });
+                const getText = await getRes.text();
+                let getData: any = {};
+                try { getData = JSON.parse(getText); } catch { getData = {}; }
+                const status = getData?.output?.data?.status || getData?.data?.status || getData?.status || '';
+                if (status === 'Active') {
+                    const uri = `asset://${assetId}`;
+                    urlCache[cacheKey] = uri;
+                    GenaiService.saveVolceAssetUrlCache();
+                    console.log(`[VolceAsset] Asset đã Active (${assetRegion}): ${uri}`);
+                    return uri;
+                }
+                if (status === 'Failed') {
+                    const failReason = getData?.output?.data?.error?.message || getData?.error?.message || getData?.message || 'Volcengine từ chối xử lý ảnh';
+                    throw new Error(`Volcengine Asset báo trạng thái Failed: ${failReason}`);
+                }
+            } catch (pollErr: any) {
+                if (pollErr?.message && pollErr.message.includes('Volcengine Asset báo trạng thái Failed')) {
+                    throw pollErr;
+                }
+            }
+            await new Promise(resolve => setTimeout(resolve, 2500));
+        }
+
+        throw new Error(`Quá thời gian chờ Volcengine kích hoạt Asset (${assetId}). Vui lòng bấm tạo lại cảnh này sau ít giây.`);
     }
 
     public get googleAi(): GoogleGenAI | null {
@@ -1275,19 +1694,26 @@ export class GenaiService {
                         for (let i = 0; i < imageParts.length; i++) {
                             const p = imageParts[i];
                             let refType = p.referenceType;
+                            const partMime = String(p.inlineData?.mimeType || '').toLowerCase();
                             
                             if (!refType) {
-                                refType = i === 0 ? 'START_FRAME' : 'CONTROL_IMAGE';
+                                refType = partMime.startsWith('video/')
+                                    ? 'REFERENCE_VIDEO'
+                                    : (i === 0 ? 'START_FRAME' : 'CONTROL_IMAGE');
                             } else if (refType === 'first_frame') {
                                 refType = 'START_FRAME';
                             } else if (refType === 'last_frame') {
                                 refType = 'END_FRAME';
-                            } else if (refType === 'CHARACTER') {
+                            } else if (refType === 'CHARACTER' || refType === 'reference_image') {
                                 refType = 'CHARACTER_REFERENCE';
+                            } else if (refType === 'reference_video') {
+                                refType = 'REFERENCE_VIDEO';
                             }
 
                             referenceImages.push({
                                 referenceType: refType,
+                                characterName: p.characterName,
+                                mimeType: p.inlineData?.mimeType,
                                 image: {
                                     imageBytes: p.inlineData.data
                                 }
@@ -1299,8 +1725,19 @@ export class GenaiService {
 
             const overrideModel = params.model;
             const configRatio = (params.config as any)?.aspectRatio || '16:9';
-            const configDuration = (params.config as any)?.duration || 5;
-            const b64 = await this.generateVideoUModelverse(promptText, configRatio, referenceImages, configDuration, undefined, overrideModel);
+            const configDuration = (params.config as any)?.duration !== undefined
+                ? (params.config as any).duration
+                : 5;
+            const configResolution = (params.config as any)?.resolution || undefined;
+            const b64 = await this.generateVideoUModelverse(
+                promptText,
+                configRatio,
+                referenceImages,
+                configDuration,
+                undefined,
+                overrideModel,
+                configResolution
+            );
             
             return {
                 video: {
@@ -1718,12 +2155,17 @@ export class GenaiService {
                 let outImageSize = '1K';
                 try {
                     const rawSize = ((params.config as any)?.imageConfig?.imageSize || '') as string;
+                    const rawRes = String((params.config as any)?.resolution || '').trim().toLowerCase();
                     const pxMatch = String(rawSize).match(/^(\d+)x(\d+)$/);
                     if (pxMatch) {
                         const maxPx = Math.max(parseInt(pxMatch[1], 10), parseInt(pxMatch[2], 10));
                         outImageSize = maxPx >= 3500 ? '4K' : (maxPx >= 1900 ? '2K' : '1K');
                     } else if (['1K', '2K', '4K'].includes(String(rawSize).toUpperCase())) {
                         outImageSize = String(rawSize).toUpperCase();
+                    } else if (rawRes === '4k' || rawRes === '2160p') {
+                        outImageSize = '4K';
+                    } else if (rawRes === '1080p') {
+                        outImageSize = '2K';
                     }
                 } catch (e) {}
                 geminiBody.generationConfig = {
@@ -2281,7 +2723,7 @@ export class GenaiService {
             const stripped = stripPrompts(req);
             if (!hasRealImageValue(stripped)) return false;
             const s = JSON.stringify(stripped).toLowerCase();
-            return s.includes('image') || s.includes('img_url') || s.includes('img_');
+            return s.includes('image') || s.includes('img_url') || s.includes('img_') || s.includes('video_url');
         } catch (e) {
             return false;
         }
@@ -2293,9 +2735,20 @@ export class GenaiService {
         referenceImages?: any[],
         duration?: number,
         seed?: number,
-        overrideModel?: string
+        overrideModel?: string,
+        resolution?: string
     ): Promise<string> {
         this.syncConfigFromStorage();
+
+        const rawRes = String(resolution || '').trim().toLowerCase();
+        const normalizedResolution: '480p' | '720p' | '1080p' | '4k' =
+            rawRes === '480p'
+                ? '480p'
+                : rawRes === '1080p'
+                  ? '1080p'
+                  : rawRes === '4k' || rawRes === '2160p'
+                    ? '4k'
+                    : '720p';
 
         const url = this._umodelverseUrl;
         const key = this._umodelverseKey;
@@ -2330,6 +2783,7 @@ export class GenaiService {
                     if (!isSupported) {
                         const videoModels = modelIds.filter((id: string) =>
                             id.toLowerCase().includes('video') ||
+                            id.toLowerCase().includes('seedance') ||
                             id.toLowerCase().includes('veo') ||
                             id.toLowerCase().includes('cog') ||
                             id.toLowerCase().includes('kling') ||
@@ -2351,6 +2805,27 @@ export class GenaiService {
             console.error("[UModelverse Model Check Exception]", e);
         }
 
+        const config = getModelverseConfig(model);
+        const rawCleanPrompt = prompt;
+        const isDoubaoSeedance = config?.payloadFormat === 'doubao_sdk';
+        const isSeedance15Model = isDoubaoSeedance && (model.toLowerCase().includes('1-5') || model.toLowerCase().includes('1.5'));
+        const isSeedanceV2Plus = isDoubaoSeedance && !isSeedance15Model;
+
+        const hasExplicitStartFrame = Boolean(
+            referenceImages?.some(
+                (img: any) =>
+                    img.referenceType === 'START_FRAME' ||
+                    img.referenceType === 'STORYBOARD' ||
+                    img.referenceType === 'CONTROL_IMAGE'
+            )
+        );
+        const hasExplicitEndFrame = Boolean(
+            referenceImages?.some((img: any) => img.referenceType === 'END_FRAME')
+        );
+        const hasExplicitRefVideo = Boolean(
+            referenceImages?.some((img: any) => img.referenceType === 'REFERENCE_VIDEO')
+        );
+
         // Chuẩn hoá referenceImages sang các định dạng phổ biến cho Video model
         let refBase64Raw = '';
         let refBase64RawOriginal = ''; // Giữ lại bản base64 gốc cho các model cần (Kling v3 motion)
@@ -2359,12 +2834,18 @@ export class GenaiService {
         let refMimeType = 'image/png';
         if (referenceImages && referenceImages.length > 0) {
             // Lấy START_FRAME hoặc STORYBOARD. Nếu không có, lấy CONTROL_IMAGE làm fallback.
+            // Riêng Seedance 2.0/2.5 hỗ trợ native role: "reference_image", nên không gộp CHARACTER_REFERENCE vào first_frame.
             const startImg = referenceImages.find(img => img.referenceType === 'START_FRAME' || img.referenceType === 'STORYBOARD')
                 || referenceImages.find(img => img.referenceType === 'CONTROL_IMAGE')
-                || referenceImages.find(img => img.referenceType === 'CHARACTER_REFERENCE' || img.referenceType === 'ASSET');
+                || (!isSeedanceV2Plus
+                    ? referenceImages.find(img => img.referenceType === 'CHARACTER_REFERENCE' || img.referenceType === 'ASSET' || img.referenceType === 'STYLE_REFERENCE')
+                    : undefined);
             if (startImg) {
                 refBase64Raw = startImg.image?.imageBytes || (typeof startImg === 'string' ? startImg : '');
-                if (refBase64Raw && !refBase64Raw.startsWith('data:')) {
+                if (refBase64Raw && refBase64Raw.startsWith('http')) {
+                    refBase64DataUri = refBase64Raw;
+                    refBase64CdnUrl = refBase64Raw;
+                } else if (refBase64Raw && !refBase64Raw.startsWith('data:')) {
                     refBase64DataUri = `data:image/png;base64,${refBase64Raw}`;
                 } else if (refBase64Raw.startsWith('data:')) {
                     refBase64DataUri = refBase64Raw;
@@ -2374,19 +2855,21 @@ export class GenaiService {
                 refBase64RawOriginal = refBase64Raw; // Lưu bản base64 gốc
                 
                 // Upload ảnh lên CDN để tránh gửi chuỗi base64 quá lớn làm lỗi API proxy
-                try {
-                    let imgHash = 0;
-                    for (let i = 0; i < refBase64DataUri.length; i += 100) {
-                        imgHash = (imgHash << 5) - imgHash + refBase64DataUri.charCodeAt(i);
-                        imgHash |= 0;
+                if (!refBase64Raw.startsWith('http')) {
+                    try {
+                        let imgHash = 0;
+                        for (let i = 0; i < refBase64DataUri.length; i += 100) {
+                            imgHash = (imgHash << 5) - imgHash + refBase64DataUri.charCodeAt(i);
+                            imgHash |= 0;
+                        }
+                        const imgUrl = await this.uploadBase64ToCdn(refBase64DataUri, `kling_img_${Math.abs(imgHash)}.png`);
+                        if (imgUrl) {
+                            refBase64CdnUrl = imgUrl;
+                            refBase64Raw = imgUrl; // Các model khác dùng URL
+                        }
+                    } catch (e) {
+                        console.error("[UModelverse Image Upload Exception]", e);
                     }
-                    const imgUrl = await this.uploadBase64ToCdn(refBase64DataUri, `kling_img_${Math.abs(imgHash)}.png`);
-                    if (imgUrl) {
-                        refBase64CdnUrl = imgUrl;
-                        refBase64Raw = imgUrl; // Các model khác dùng URL
-                    }
-                } catch (e) {
-                    console.error("[UModelverse Image Upload Exception]", e);
                 }
             }
         }
@@ -2435,7 +2918,7 @@ export class GenaiService {
             }
         }
 
-        // [MULTI-CHARACTER] Thu thập TẤT CẢ ảnh nhân vật (CHARACTER_REFERENCE / ASSET).
+        // [MULTI-CHARACTER] Thu thập TẤT CẢ ảnh nhân vật / phong cách (CHARACTER_REFERENCE / ASSET / STYLE_REFERENCE).
         // Mỗi nhân vật xuất hiện trong prompt phải được gửi kèm ảnh tham chiếu tương ứng.
         let characterRefUrls: string[] = [];
         let characterRefNames: string[] = [];
@@ -2443,13 +2926,14 @@ export class GenaiService {
             const charRefItems = referenceImages.filter(
                 (img: any) =>
                     img.referenceType === 'CHARACTER_REFERENCE' ||
-                    img.referenceType === 'ASSET',
+                    img.referenceType === 'ASSET' ||
+                    img.referenceType === 'STYLE_REFERENCE',
             );
             for (const charImg of charRefItems) {
                 let raw = charImg.image?.imageBytes || (typeof charImg === 'string' ? charImg : '');
                 if (!raw) continue;
                 let dataUri = '';
-                if (raw.startsWith('http')) {
+                if (raw.startsWith('http') || raw.startsWith('asset://')) {
                     if (!characterRefUrls.includes(raw)) {
                         characterRefUrls.push(raw);
                         characterRefNames.push(charImg.characterName || `Character ${characterRefUrls.length}`);
@@ -2488,8 +2972,9 @@ export class GenaiService {
 
         // [MULTI-CHARACTER] Tạo ảnh Character Sheet tổng hợp (ghép tất cả nhân vật vào 1 ảnh
         // có tên ký tên) - dùng làm ảnh chính khi model chỉ hỗ trợ 1 ảnh tham chiếu.
+        // Bỏ qua với Seedance 2.0/2.5 vì API hỗ trợ native tới 4 ảnh role: "reference_image".
         let characterSheetDataUri = '';
-        if (characterRefUrls.length > 0) {
+        if (characterRefUrls.length > 0 && !isSeedanceV2Plus) {
             characterSheetDataUri = await this.composeCharacterSheet(characterRefUrls, characterRefNames);
             if (characterSheetDataUri) {
                 console.log(`[UModelverse] Đã tạo Character Sheet tổng hợp ${characterRefUrls.length} nhân vật.`);
@@ -2497,8 +2982,8 @@ export class GenaiService {
         }
 
         // [MULTI-CHARACTER] Nếu KHÔNG có ảnh storyboard/start frame, dùng Character Sheet
-        // làm ảnh chính cho MỌI format payload (đảm bảo model luôn nhận được ảnh nhân vật).
-        if (!refBase64Raw && !refBase64DataUri && characterSheetDataUri) {
+        // làm ảnh chính cho các format payload đơn ảnh.
+        if (!isSeedanceV2Plus && !refBase64Raw && !refBase64DataUri && characterSheetDataUri) {
             try {
                 const sheetCdn = await this.uploadBase64ToCdn(characterSheetDataUri, `char_sheet_main_${Date.now()}.jpg`);
                 const sheetUrl = sheetCdn || characterSheetDataUri;
@@ -2516,7 +3001,7 @@ export class GenaiService {
 
         // [MULTI-CHARACTER-FIX] Neu Character Sheet tao that bai nhung van co anh nhan vat,
         // dung anh nhan vat dau tien lam anh chinh de moi payload deu co anh.
-        if (!refBase64Raw && !refBase64DataUri && !characterSheetDataUri && characterRefUrls.length > 0) {
+        if (!isSeedanceV2Plus && !refBase64Raw && !refBase64DataUri && !characterSheetDataUri && characterRefUrls.length > 0) {
             const firstCharUrl = characterRefUrls[0];
             refBase64DataUri = firstCharUrl;
             refBase64Raw = firstCharUrl.startsWith('data:') ? firstCharUrl.split(',')[1] : firstCharUrl;
@@ -2529,7 +3014,7 @@ export class GenaiService {
 
         // --- XÂY DỰNG PAYLOAD DỰA TRÊN CONFIG ---
         let candidateTaskRequests: any[] = [];
-        const config = getModelverseConfig(model);
+        const seedanceOriginalMediaMap = new Map<string, string>();
 
         if (config) {
             console.log(`[UModelverse Async Video] Tìm thấy config cho model ${model}:`, config);
@@ -2653,7 +3138,7 @@ export class GenaiService {
                     parameters: {
                         kling_v3_type: 'motion_control',
                         character_orientation: 'image',
-                        mode: 'std',
+                        mode: normalizedResolution === '1080p' || normalizedResolution === '4k' ? 'pro' : 'std',
                         duration: Math.ceil(duration || 10),
                         aspect_ratio: aspectRatio || '16:9'
                     }
@@ -2694,6 +3179,11 @@ export class GenaiService {
                     }
                 }
 
+                const veoResolution =
+                    normalizedResolution === '1080p' || normalizedResolution === '4k'
+                        ? '1080p'
+                        : '720p';
+
                 payload = {
                     model: actualModel,
                     input: {
@@ -2713,95 +3203,138 @@ export class GenaiService {
                     },
                     parameters: {
                         aspect_ratio: aspectRatio || '16:9',
-                        resolution: '720p',
+                        resolution: veoResolution,
                         generate_audio: false,
                         duration: veoDuration
                     }
                 };
             } else if (config.payloadFormat === 'doubao_sdk') {
-                const contentArr: any[] = [];
-                if (prompt) {
-                    contentArr.push({ type: 'text', text: prompt });
-                }
+                const lowerSeedanceModel = actualModel.toLowerCase();
+                const isSeedance25Model = lowerSeedanceModel.includes('2-5') || lowerSeedanceModel.includes('2.5');
+                const seedanceAssetRegion: 'cn' | 'overseas' = lowerSeedanceModel.includes('global') ? 'overseas' : 'cn';
+                const seedanceKeyFp = GenaiService.computeKeyFingerprint(key);
+                const volceUrlCache = GenaiService.getVolceAssetUrlCache();
 
-                if (refBase64Raw) {
-                    contentArr.push({ type: 'image_url', image_url: { url: config.useDataUri && !refBase64Raw.startsWith('http') ? `data:${refMimeType || 'image/jpeg'};base64,${refBase64Raw}` : refBase64Raw } });
-                }
-                if (endRefBase64Raw) {
-                    contentArr.push({ type: 'image_url', image_url: { url: config.useDataUri && !endRefBase64Raw.startsWith('http') ? `data:${endRefMimeType || 'image/jpeg'};base64,${endRefBase64Raw}` : endRefBase64Raw } });
-                }
-
-                // [MULTI-CHARACTER] Doubao/Seedance (Ark API) chỉ đọc 1 ảnh đầu tiên trong content.
-                // Character Sheet đã được gán làm ảnh chính (refBase64Raw) khi không có storyboard.
-                // Chỉ chèn trực tiếp data URI nếu vì lý do nào đó chưa có ảnh chính nào.
-                if (characterSheetDataUri && !refBase64Raw) {
-                    contentArr.push({ type: 'image_url', image_url: { url: characterSheetDataUri } });
-                    console.log('[UModelverse Doubao] Đã chèn Character Sheet (data URI) vào content.');
-                }
-
-                // [MULTI-CHARACTER-FIX] Bảo đảm content luôn chứa ảnh nhân vật tham chiếu:
-                // nếu sau tất cả các bước trên content vẫn chưa có ảnh nào, chèn lần lượt
-                // từng ảnh nhân vật (mỗi nhân vật một ảnh) vào content.
-                const contentHasImage = contentArr.some((c: any) => c.type === 'image_url' && c.image_url && c.image_url.url && String(c.image_url.url).length > 0);
-                if (!contentHasImage && characterRefUrls.length > 0) {
-                    for (const charUrl of characterRefUrls) {
-                        contentArr.push({ type: 'image_url', image_url: { url: charUrl } });
+                const resolveSeedanceMediaUrl = (rawUrl: string): string => {
+                    if (!rawUrl || rawUrl.startsWith('asset://')) {
+                        return rawUrl;
                     }
-                    console.log(`[UModelverse Doubao] Content thiếu ảnh -> đã chèn ${characterRefUrls.length} ảnh nhân vật tham chiếu.`);
+                    const h = GenaiService.computeVolceSourceHash(rawUrl);
+                    const ck = `${videoApiBase.versioned}|${seedanceKeyFp}|${seedanceAssetRegion}|${h}`;
+                    const cachedUri = volceUrlCache[ck];
+                    if (cachedUri && cachedUri.startsWith('asset://')) {
+                        seedanceOriginalMediaMap.set(cachedUri, rawUrl);
+                        return cachedUri;
+                    }
+                    seedanceOriginalMediaMap.set(rawUrl, rawUrl);
+                    return rawUrl;
+                };
+
+                let seedancePrompt = (isSeedanceV2Plus ? rawCleanPrompt : prompt) || '';
+                if (seedancePrompt.length > 2480) {
+                    seedancePrompt = seedancePrompt.substring(0, 2480);
                 }
 
-                let parsedSeed = undefined;
+                const contentArr: any[] = [];
+                if (seedancePrompt) {
+                    contentArr.push({ type: 'text', text: seedancePrompt });
+                }
+
+                const validSeedanceRatios = ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', 'adaptive'];
+                const normalizedRequestedRatio =
+                    aspectRatio && validSeedanceRatios.includes(aspectRatio)
+                        ? aspectRatio
+                        : '16:9';
+                let effectiveRatio = normalizedRequestedRatio;
+
+                if (hasExplicitStartFrame || hasExplicitEndFrame) {
+                    // Quy tắc Volcengine Seedance: first_frame / last_frame KHÔNG được trộn với reference_image / reference_video,
+                    // và parameters.ratio bắt buộc phải là "adaptive" (tỷ lệ khung hình tự theo ảnh đầu).
+                    if (hasExplicitStartFrame && (refBase64CdnUrl || refBase64Raw)) {
+                        const firstUrl = refBase64CdnUrl || refBase64Raw;
+                        contentArr.push({
+                            type: 'image_url',
+                            image_url: { url: resolveSeedanceMediaUrl(firstUrl) },
+                            role: 'first_frame'
+                        });
+                    }
+                    if (hasExplicitEndFrame && endRefBase64Raw) {
+                        contentArr.push({
+                            type: 'image_url',
+                            image_url: { url: resolveSeedanceMediaUrl(endRefBase64Raw) },
+                            role: 'last_frame'
+                        });
+                    }
+                    effectiveRatio = 'adaptive';
+                } else if (isSeedanceV2Plus) {
+                    // Chế độ Reference Media (Seedance 2.0 / 2.5): gửi tối đa 4 ảnh role: "reference_image" + tùy chọn role: "reference_video",
+                    // đồng thời giữ nguyên tỷ lệ khung hình người dùng chọn (9:16, 16:9, 1:1...).
+                    const refImgs = characterRefUrls.length > 0
+                        ? characterRefUrls.slice(0, 4)
+                        : ((refBase64CdnUrl || refBase64Raw) ? [refBase64CdnUrl || refBase64Raw] : []);
+                    for (const imgUrl of refImgs) {
+                        contentArr.push({
+                            type: 'image_url',
+                            image_url: { url: resolveSeedanceMediaUrl(imgUrl) },
+                            role: 'reference_image'
+                        });
+                    }
+                    if (hasExplicitRefVideo && endRefBase64Raw) {
+                        contentArr.push({
+                            type: 'video_url',
+                            video_url: { url: resolveSeedanceMediaUrl(endRefBase64Raw) },
+                            role: 'reference_video'
+                        });
+                    }
+                    effectiveRatio = normalizedRequestedRatio;
+                } else {
+                    // Seedance 1.5 Pro chỉ hỗ trợ role: "first_frame" | "last_frame"
+                    const fallbackFrameUrl = refBase64CdnUrl || refBase64Raw || characterRefUrls[0] || '';
+                    if (fallbackFrameUrl) {
+                        contentArr.push({
+                            type: 'image_url',
+                            image_url: { url: resolveSeedanceMediaUrl(fallbackFrameUrl) },
+                            role: 'first_frame'
+                        });
+                        effectiveRatio = 'adaptive';
+                    } else {
+                        effectiveRatio = normalizedRequestedRatio;
+                    }
+                }
+
+                let parsedSeed: number | undefined = undefined;
                 if (seed !== undefined && seed !== null && String(seed).trim() !== '') {
                     const num = Number(seed);
                     if (!isNaN(num)) {
-                        parsedSeed = num;
+                        parsedSeed = Math.round(num);
                     }
                 }
 
-                const seedParams = parsedSeed !== undefined ? { seed: parsedSeed } : {};
-                const commonParams = {
-                    ratio: aspectRatio || '16:9',
-                    duration: Math.max(4, Math.min(10, Math.round(duration || config.defaultDuration || 5))),
-                    ...seedParams
+                const maxSeedanceDuration = isSeedance25Model ? 30 : (isSeedance15Model ? 12 : 15);
+                const requestedDur = duration !== undefined && duration !== null ? Number(duration) : (config.defaultDuration || 5);
+                const clampedDuration = requestedDur === -1 || (requestedDur === 0 && isSeedanceV2Plus)
+                    ? -1
+                    : Math.max(4, Math.min(maxSeedanceDuration, Math.round(requestedDur || config.defaultDuration || 5)));
+                const seedanceResolution =
+                    normalizedResolution === '4k' ? '1080p' : normalizedResolution;
+
+                const seedanceParams: any = {
+                    ratio: effectiveRatio,
+                    resolution: seedanceResolution,
+                    duration: clampedDuration,
+                    ...(parsedSeed !== undefined ? { seed: parsedSeed } : {})
                 };
 
-                // [MULTI-CHARACTER] Ghi chú ý nghĩa Character Sheet vào prompt doubao
-                const doubaoPrompt = characterSheetDataUri && refBase64Raw && refBase64Raw.startsWith('http') && refBase64Raw.includes('char_sheet')
-                    ? `${prompt}\n[CHARACTER REFERENCE: The attached image is a character reference sheet. Each cell shows one character with the character's name labeled below it. Strictly match each character's appearance to the corresponding labeled cell.]`
-                    : prompt;
-
-                // Option 0: Format chuẩn Volcengine Ark (có input và parameters)
+                // Chuẩn OpenAPI 3.1.0 của ByteDance Seedance (additionalProperties: false trên root, input và parameters)
                 candidateTaskRequests.push({
-                    model: model,
-                    input: { 
-                        prompt: doubaoPrompt,
-                        image_url: refBase64CdnUrl || refBase64Raw,
-                        content: contentArr 
+                    model: actualModel,
+                    input: {
+                        content: contentArr
                     },
-                    parameters: commonParams
+                    parameters: seedanceParams
                 });
 
-                // Option 1: Format có input nhưng ratio/duration ở root
-                candidateTaskRequests.push({
-                    model: model,
-                    input: { 
-                        prompt: doubaoPrompt,
-                        image_url: refBase64CdnUrl || refBase64Raw,
-                        content: contentArr 
-                    },
-                    ...commonParams
-                });
-
-                // Option 2: Format phẳng hoàn toàn (Doubao API flat format)
-                candidateTaskRequests.push({
-                    model: model,
-                    prompt: doubaoPrompt,
-                    image_url: refBase64CdnUrl || refBase64Raw,
-                    content: contentArr,
-                    ...commonParams
-                });
-                
-                payload = null; // Do not push again at the end
+                payload = null;
             } else if (config.payloadFormat === 'pixverse_sdk') {
                 let firstFrameBase64Raw = '';
                 let lastFrameBase64Raw = '';
@@ -2856,7 +3389,12 @@ export class GenaiService {
                     model: model.toLowerCase(),
                     input: inputPayload,
                     parameters: {
-                        resolution: "720p",
+                        resolution:
+                            normalizedResolution === '480p'
+                                ? '540p'
+                                : normalizedResolution === '4k'
+                                  ? '1080p'
+                                  : normalizedResolution,
                         ...( (!firstFrameBase64Raw && !lastFrameBase64Raw && !imgUrlBase64Raw) ? { aspect_ratio: aspectRatio || '16:9' } : {} ),
                         duration: Math.ceil(duration || config.defaultDuration || 5),
                         ...(seed !== undefined && seed !== null ? { seed: seed } : {})
@@ -3057,7 +3595,12 @@ export class GenaiService {
 
         // [MULTI-CHARACTER] Nếu prompt có từ 2 nhân vật trở lên, bổ sung option gửi kèm
         // đầy đủ danh sách ảnh nhân vật (mỗi nhân vật một ảnh) để giữ nhất quán nhân vật.
-        if (characterRefUrls.length > 1) {
+        // Bỏ qua với doubao_sdk và kling_v3_omni vì hai chuẩn này đã đóng gói danh sách ảnh theo schema riêng.
+        if (
+            characterRefUrls.length > 1 &&
+            config?.payloadFormat !== 'doubao_sdk' &&
+            config?.payloadFormat !== 'kling_v3_omni'
+        ) {
             const primaryImg = refBase64CdnUrl || refBase64DataUri || characterRefUrls[0];
             candidateTaskRequests.push({
                 model: model,
@@ -3080,7 +3623,7 @@ export class GenaiService {
         // "không dùng ảnh nhân vật": các payload có ảnh bị từ chối (base64 quá lớn,
         // sai format...) thì cơ chế thử lần lượt sẽ rơi xuống payload text-only ở cuối
         // danh sách và tạo video thuần văn bản một cách ÂM THẦM.
-        if (refBase64Raw || refBase64DataUri || characterRefUrls.length > 0) {
+        if (refBase64Raw || refBase64DataUri || characterRefUrls.length > 0 || hasExplicitRefVideo) {
             const beforeCount = candidateTaskRequests.length;
             candidateTaskRequests = candidateTaskRequests.filter((req: any) => {
                 const hasImage = this.payloadHasImageRef(req);
@@ -3102,16 +3645,23 @@ export class GenaiService {
         const baseNoV1 = videoApiBase.root;
         const baseWithV1 = videoApiBase.versioned;
 
-        const taskEndpoints = [
-            `${url}/tasks/submit`,
-            `${url}/tasks`,
-            `${url}/videos/generations`,
-            `${baseNoV1}/tasks/submit`,
-            `${baseNoV1}/tasks`,
-            `${baseWithV1}/videos/generations`,
-            `${baseWithV1}/tasks/submit`,
-            `${baseWithV1}/tasks`
-        ].filter((ep, idx, arr) => arr.indexOf(ep) === idx);
+        const taskEndpoints = (
+            config?.payloadFormat === 'doubao_sdk'
+                ? [
+                    `${baseWithV1}/tasks/submit`,
+                    `${url}/tasks/submit`
+                ]
+                : [
+                    `${baseWithV1}/tasks/submit`,
+                    `${url}/tasks/submit`,
+                    `${baseWithV1}/tasks`,
+                    `${url}/tasks`,
+                    `${baseWithV1}/videos/generations`,
+                    `${url}/videos/generations`,
+                    `${baseNoV1}/tasks/submit`,
+                    `${baseNoV1}/tasks`
+                ]
+        ).filter((ep, idx, arr) => Boolean(ep) && arr.indexOf(ep) === idx);
 
         console.log(`[UModelverse Async Video] Trực tiếp thử gửi yêu cầu dạng Asynchronous Task...`);
         for (const endpoint of taskEndpoints) {
@@ -3120,16 +3670,103 @@ export class GenaiService {
                 if (taskId) break;
                 const currentBody = candidateTaskRequests[i];
 
-
                 console.log(`[Task Attempt] endpoint: ${endpoint}, payload Option ${i}:`, JSON.stringify(currentBody));
                 try {
-                    const response = await fetch(endpoint, {
+                    let response = await fetch(endpoint, {
                         method: 'POST',
                         headers,
                         body: JSON.stringify(currentBody)
                     });
 
-                    const responseText = await response.text();
+                    let responseText = await response.text();
+
+                    // [VOLCE-ASSET AUTO-REGISTRATION] Nếu ByteDance Seedance chặn ảnh có mặt người thật / chân thực
+                    // (InputImageSensitiveContentDetected.PrivacyInformation) hoặc asset:// cũ không còn hiệu lực,
+                    // tự động đăng ký ảnh vào Volcengine Asset Library (group_type: AIGC -> asset://<id>) và gửi lại ngay.
+                    if (!response.ok && config?.payloadFormat === 'doubao_sdk' && Array.isArray(currentBody?.input?.content)) {
+                        const errLower = responseText.toLowerCase();
+                        const contentList: any[] = currentBody.input.content;
+                        const hasRawMedia = contentList.some(
+                            (it: any) =>
+                                (it?.type === 'image_url' && it.image_url?.url && !String(it.image_url.url).startsWith('asset://')) ||
+                                (it?.type === 'video_url' && it.video_url?.url && !String(it.video_url.url).startsWith('asset://'))
+                        );
+                        const hasAssetUri = contentList.some(
+                            (it: any) =>
+                                (it?.type === 'image_url' && String(it.image_url?.url || '').startsWith('asset://')) ||
+                                (it?.type === 'video_url' && String(it.video_url?.url || '').startsWith('asset://'))
+                        );
+                        const isFacePrivacyBlock =
+                            (errLower.includes('privacyinformation') || errLower.includes('real person')) && hasRawMedia;
+                        const isStaleAssetError =
+                            (errLower.includes('asset not found') || errLower.includes('asset not active')) && hasAssetUri;
+
+                        if (isFacePrivacyBlock || isStaleAssetError) {
+                            const assetRegion: 'cn' | 'overseas' = model.toLowerCase().includes('global') ? 'overseas' : 'cn';
+                            const keyFp = GenaiService.computeKeyFingerprint(key);
+                            console.log(`[VolceAsset] Phát hiện ${isFacePrivacyBlock ? 'chặn khuôn mặt người (PrivacyInformation)' : 'asset:// hết hiệu lực'} trên ${model} (${assetRegion}). Tiến hành đăng ký Volcengine AIGC Asset...`);
+                            try {
+                                this.toastr?.info(
+                                    'Đang đăng ký ảnh nhân vật vào Volcengine Asset Library cho Seedance (chỉ cần thực hiện 1 lần cho mỗi ảnh)...',
+                                    'Seedance AI',
+                                    { timeOut: 10000 }
+                                );
+                            } catch { /* ignore UI toast error */ }
+
+                            let convertedCount = 0;
+                            for (const item of contentList) {
+                                if (item?.type === 'image_url' && item.image_url?.url) {
+                                    const curUrl = String(item.image_url.url);
+                                    if (isStaleAssetError || !curUrl.startsWith('asset://')) {
+                                        const origSource = seedanceOriginalMediaMap.get(curUrl) || curUrl;
+                                        if (!origSource.startsWith('asset://')) {
+                                            const newAssetUri = await this.registerVolceMediaAsset(
+                                                baseWithV1,
+                                                headers,
+                                                keyFp,
+                                                origSource,
+                                                assetRegion,
+                                                'Image',
+                                                isStaleAssetError
+                                            );
+                                            seedanceOriginalMediaMap.set(newAssetUri, origSource);
+                                            item.image_url.url = newAssetUri;
+                                            convertedCount++;
+                                        }
+                                    }
+                                } else if (item?.type === 'video_url' && item.video_url?.url && errLower.includes('video')) {
+                                    const curVidUrl = String(item.video_url.url);
+                                    if (isStaleAssetError || !curVidUrl.startsWith('asset://')) {
+                                        const origVidSource = seedanceOriginalMediaMap.get(curVidUrl) || curVidUrl;
+                                        if (!origVidSource.startsWith('asset://')) {
+                                            const newVidAssetUri = await this.registerVolceMediaAsset(
+                                                baseWithV1,
+                                                headers,
+                                                keyFp,
+                                                origVidSource,
+                                                assetRegion,
+                                                'Video',
+                                                isStaleAssetError
+                                            );
+                                            seedanceOriginalMediaMap.set(newVidAssetUri, origVidSource);
+                                            item.video_url.url = newVidAssetUri;
+                                            convertedCount++;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (convertedCount > 0) {
+                                console.log(`[VolceAsset] Đã chuyển đổi ${convertedCount} media sang asset://, gửi lại yêu cầu tạo video tới ${endpoint}...`);
+                                response = await fetch(endpoint, {
+                                    method: 'POST',
+                                    headers,
+                                    body: JSON.stringify(currentBody)
+                                });
+                                responseText = await response.text();
+                            }
+                        }
+                    }
 
                     // DEBUG: Log response
                     try {
@@ -3184,8 +3821,13 @@ export class GenaiService {
                     }
                 } catch (e: any) {
                     console.warn(`[Task Exception] Ngoại lệ tại ${endpoint}:`, e);
-                    // Bắt luôn lỗi safety được ném ra từ bên trong để break hẳn ra ngoài vòng lặp
-                    if (e.message && e.message.includes('tiêu chuẩn an toàn của AI')) {
+                    // Bắt luôn lỗi safety hoặc lỗi VolceAsset được ném ra từ bên trong để dừng sớm rõ ràng
+                    if (
+                        e.message &&
+                        (e.message.includes('tiêu chuẩn an toàn của AI') ||
+                            e.message.includes('Volcengine Asset') ||
+                            e.message.includes('Volcengine kích hoạt Asset'))
+                    ) {
                         throw e;
                     }
                 }
@@ -3195,7 +3837,7 @@ export class GenaiService {
         if (taskId) {
             // Polling check trạng thái của task
             console.log(`[UModelverse Poll] Bắt đầu kiểm tra trạng thái video sinh từ Task ID: ${taskId}...`);
-            const maxPolls = 120; // Chờ tối đa 10 phút (120 * 5s)
+            const maxPolls = 180; // Chờ tối đa 15 phút (180 * 5s) cho các clip Seedance 2.5 dài
             let pollCount = 0;
 
             // Xây dựng các format URL check status
@@ -3244,7 +3886,20 @@ export class GenaiService {
                         }
 
                         if (statusVal === 'success' || statusVal === 'succeeded' || statusVal === 'completed' || statusVal === 'done') {
-                            const videoUrl = data.video_url || data.url || (data.urls && data.urls[0]) || data.output?.video_url || data.output?.url || data.output?.video || data.data?.url || (data.output?.urls && data.output.urls[0]) || data.data?.video_url;
+                            const videoUrl =
+                                data.video_url ||
+                                data.url ||
+                                (Array.isArray(data.urls) && data.urls[0]) ||
+                                data.output?.video_url ||
+                                data.output?.url ||
+                                data.output?.video ||
+                                (Array.isArray(data.output?.urls) && data.output.urls[0]) ||
+                                data.output?.data?.content?.video_url ||
+                                data.output?.content?.video_url ||
+                                data.data?.video_url ||
+                                data.data?.url ||
+                                data.data?.content?.video_url ||
+                                data.content?.video_url;
                             if (videoUrl) {
                                 this._lastUmodelverseVideoUrl = videoUrl;
                                 console.log(`[Poll Success] Video đã tạo xong! Tiến hành download: ${videoUrl}`);
@@ -3252,8 +3907,26 @@ export class GenaiService {
                             } else {
                                 throw new Error("Task báo Success nhưng không tìm thấy URL video trong JSON.");
                             }
-                        } else if (statusVal === 'failed' || statusVal === 'failure' || statusVal === 'error') {
-                            let errMessage = data.error_message || data.output?.error_message || data.error?.message || data.output?.error || data.message || "Task thất bại.";
+                        } else if (
+                            statusVal === 'failed' ||
+                            statusVal === 'failure' ||
+                            statusVal === 'error' ||
+                            statusVal === 'expired' ||
+                            statusVal === 'cancelled' ||
+                            statusVal === 'canceled'
+                        ) {
+                            const rawErr =
+                                data.error_message ||
+                                data.output?.error_message ||
+                                data.output?.data?.error?.message ||
+                                data.data?.error?.message ||
+                                data.error?.message ||
+                                data.output?.error ||
+                                data.message ||
+                                `Task kết thúc với trạng thái ${statusVal}.`;
+                            let errMessage = typeof rawErr === 'string'
+                                ? rawErr
+                                : (rawErr?.message || JSON.stringify(rawErr));
 
                             if (typeof errMessage === 'string') {
                                 if (errMessage.toLowerCase() === 'success') {
@@ -3279,7 +3952,7 @@ export class GenaiService {
 
                 await new Promise(resolve => setTimeout(resolve, 5000));
             }
-            throw new Error(`Quá thời gian chờ tạo video qua proxy (10 phút). Task ID: ${taskId}`);
+            throw new Error(`Quá thời gian chờ tạo video qua proxy (15 phút). Task ID: ${taskId}`);
         }
 
         if (!taskId && lastErrorMsg) {
@@ -3289,16 +3962,23 @@ export class GenaiService {
             }
         }
 
-        // Nếu là motion-control model, không fallback sang /images/generations
-        if (!taskId && config && config.payloadFormat === 'kling_v3_motion') {
-            throw new Error(`Lỗi tạo video Motion Control: ${lastErrorMsg || 'Proxy không phản hồi. Kiểm tra API key và quyền truy cập model.'}`);
+        // Nếu là motion-control hoặc ByteDance Seedance (doubao_sdk), không fallback sang /images/generations
+        if (!taskId && config && (config.payloadFormat === 'kling_v3_motion' || config.payloadFormat === 'doubao_sdk')) {
+            let parsedReason = lastErrorMsg || 'Proxy không phản hồi. Kiểm tra API key và quyền truy cập model.';
+            try {
+                const errObj = JSON.parse(lastErrorMsg);
+                parsedReason = errObj?.error?.message || errObj?.message || parsedReason;
+            } catch { /* keep raw text */ }
+            throw new Error(`Lỗi tạo video (${model}): ${parsedReason}`);
         }
 
         // --- BƯỚC 2: FALLBACK SANG CƠ CHẾ SYNCHRONOUS TRUYỀN THỐNG (IMAGES/GENERATIONS) ---
         console.log(`[UModelverse Sync Fallback] Không tìm thấy hoặc lỗi tạo Asynchronous Task. Fallback qua /images/generations...`);
 
         let sizeVal = '1280x720';
-        if (aspectRatio === '9:16') {
+        if (aspectRatio === '21:9') {
+            sizeVal = '1344x576';
+        } else if (aspectRatio === '9:16') {
             sizeVal = '720x1280';
         } else if (aspectRatio === '1:1') {
             sizeVal = '1024x1024';

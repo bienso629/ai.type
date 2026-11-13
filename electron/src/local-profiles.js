@@ -19,6 +19,7 @@
 const { ipcMain, app } = require('electron');
 const fs   = require('fs');
 const path = require('path');
+const { sanitizeGlbBuffer, ensureGlbFileSanitized } = require('./glb-sanitizer');
 
 // ── Path Helpers ──────────────────────────────────────────────────────────────
 
@@ -157,7 +158,8 @@ function registerProfileHandlers() {
             const safe    = (username || 'default').replace(/[^a-zA-Z0-9_\-\.]/g, '_');
             const assetsDir = getAssetsDir(username);
             const glbPath = path.join(assetsDir, `${safe}.glb`);
-            fs.writeFileSync(glbPath, Buffer.from(buffer));
+            const cleanBuf = sanitizeGlbBuffer(Buffer.from(buffer));
+            fs.writeFileSync(glbPath, cleanBuf);
 
             // Cập nhật character.json
             const charPath = path.join(getProfileDir(username), 'character.json');
@@ -177,8 +179,9 @@ function registerProfileHandlers() {
         try {
             if (!filePath || !fs.existsSync(filePath))
                 return { success: false, error: 'File không tồn tại: ' + filePath };
-            const buffer = fs.readFileSync(filePath);
-            return { success: true, buffer: buffer.buffer };
+            const buffer = ensureGlbFileSanitized(filePath);
+            const exactAb = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+            return { success: true, buffer: exactAb };
         } catch (e) {
             return { success: false, error: e.message };
         }
@@ -278,7 +281,7 @@ function registerProfileHandlers() {
             const clothDir = getAssetsDir(username, 'clothing');
             const safe     = name.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
             const glbPath  = path.join(clothDir, `${safe}.glb`);
-            fs.writeFileSync(glbPath, Buffer.from(buffer));
+            fs.writeFileSync(glbPath, sanitizeGlbBuffer(Buffer.from(buffer)));
 
             const listPath = path.join(getProfileDir(username), 'clothing.json');
             const list = readJson(listPath, []);
@@ -441,7 +444,7 @@ function registerProfileHandlers() {
             const propDir = getAssetsDir(username, 'props');
             const safe    = name.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
             const glbPath = path.join(propDir, `${safe}.glb`);
-            if (buffer) fs.writeFileSync(glbPath, Buffer.from(buffer));
+            if (buffer) fs.writeFileSync(glbPath, sanitizeGlbBuffer(Buffer.from(buffer)));
 
             const listPath = path.join(getProfileDir(username), 'props.json');
             const list = readJson(listPath, []);
@@ -551,8 +554,9 @@ function registerProfileHandlers() {
         try {
             if (!filePath || !fs.existsSync(filePath))
                 return { success: false, error: 'File không tồn tại' };
-            const buffer = fs.readFileSync(filePath);
-            return { success: true, buffer: buffer.buffer };
+            const buffer = ensureGlbFileSanitized(filePath);
+            const exactAb = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+            return { success: true, buffer: exactAb };
         } catch (e) {
             return { success: false, error: e.message };
         }

@@ -106,7 +106,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     extraPrompt: string = ''; // [MỚI] Biến lưu trữ prompt người dùng nhập thêm
     videoFormat: string = 'video'; // Biến lưu định dạng tác phẩm
     aspectRatio: string = '16:9'; // [MỚI] Tỉ lệ khung hình
-    maxDuration: number = 0; // [MỚI] Thời lượng mặc định của mỗi cảnh
+    resolution: string = '720p'; // [MỚI] Độ phân giải video mục tiêu (480p | 720p | 1080p | 4k)
+    maxDuration: number = 0; // [MỚI] Thời lượng mặc định của mỗi cảnh (0 = Tự do, 1..30s)
     attachedVideoFiles: { file: File; base64: string; mimeType: string }[] = [];
 
     // [MỚI] Lưu lại params để dùng cho tính năng "Làm mới" (Reload)
@@ -1139,10 +1140,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.saveSubject.next(undefined);
     }
 
-    saveToLocal(currentUuid?: string) {
+    saveToLocal(currentUuid?: string): Promise<void> {
         // Ưu tiên dùng uuid truyền vào, nếu không thì dùng uuid hiện tại của component
         const targetUuid = currentUuid || this.uuid;
-        if (!targetUuid) return;
+        if (!targetUuid) return Promise.resolve();
 
         // 1. GOM DỮ LIỆU VÀ LƯU AUDIO LIST
         const dataToSave = {
@@ -1151,6 +1152,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             extraPrompt: this.extraPrompt,
             videoFormat: this.videoFormat,
             aspectRatio: this.aspectRatio,
+            resolution: this.resolution,
             maxDuration: this.maxDuration,
             clips: this.audioList.map((clip) => ({
                 id: clip.id,
@@ -1167,24 +1169,31 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             })),
         };
 
+        // 2. [MỚI] ĐỒNG BỘ CẤU HÌNH VÀO VIDEO TIMELINE (SCENES) NẾU CÓ DỮ LIỆU
+        if (this.videoProject) {
+            this.videoProject.aspectRatio = this.aspectRatio || '16:9';
+            this.videoProject.resolution = this.resolution || '720p';
+            this.videoProject.maxDuration = this.maxDuration;
+        }
+
         // Lưu cấu trúc dự án xuống đĩa qua project-store (không nhét vào session IndexedDB)
-        this.projectStore.save(this.currentName || null, targetUuid, {
+        return this.projectStore.save(this.currentName || null, targetUuid, {
             meta: dataToSave,
             timeline: this.videoProject
                 ? Object.assign(
+                      {},
                       this.multiAccountService.getItem(
                           `ai_type_video_ready_data_${targetUuid}`,
                       ) || {},
                       this.videoProject,
-                      { aspectRatio: this.aspectRatio || '16:9' },
+                      {
+                          aspectRatio: this.aspectRatio || '16:9',
+                          resolution: this.resolution || '720p',
+                          maxDuration: this.maxDuration,
+                      },
                   )
                 : null,
         });
-
-        // 2. [MỚI] LƯU VIDEO TIMELINE (SCENES) NẾU CÓ DỮ LIỆU
-        if (this.videoProject) {
-            this.videoProject.aspectRatio = this.aspectRatio || '16:9';
-        }
     }
 
     loadAudiosFromLocal(currentUuid: string): boolean {
@@ -1219,9 +1228,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     this.aspectRatio = parsed.aspectRatio;
                 }
 
+                if (parsed.resolution !== undefined) {
+                    this.resolution = parsed.resolution;
+                }
+
                 if (parsed.maxDuration !== undefined) {
-                    this.maxDuration =
-                        parsed.maxDuration === 8 ? 0 : parsed.maxDuration;
+                    const parsedDur = Number(parsed.maxDuration);
+                    this.maxDuration = Number.isFinite(parsedDur)
+                        ? Math.max(0, Math.min(30, Math.round(parsedDur)))
+                        : 0;
                 }
 
                 const clips = parsed.clips || [];
@@ -1590,12 +1605,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     openVideoSettings() {
         const dialogRef = this.dialog.open(VideoEditorSettingsDialogComponent, {
-            width: '560px',
+            width: '600px',
+            maxWidth: '95vw',
             panelClass: 'dlg-primary',
             data: {
                 extraPrompt: this.extraPrompt,
                 videoFormat: this.videoFormat,
                 aspectRatio: this.aspectRatio,
+                resolution: this.resolution,
                 maxDuration: this.maxDuration,
                 hasVideoProject: !!this.videoProject,
                 isAnalyzing: this.isAnalyzing,
@@ -1607,7 +1624,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.extraPrompt = result.extraPrompt;
                 this.videoFormat = result.videoFormat;
                 this.aspectRatio = result.aspectRatio;
-                this.maxDuration = result.maxDuration;
+                if (result.resolution) {
+                    this.resolution = result.resolution;
+                }
+                const parsedDur = Number(result.maxDuration);
+                this.maxDuration = Number.isFinite(parsedDur)
+                    ? Math.max(0, Math.min(30, Math.round(parsedDur)))
+                    : 0;
 
                 if (
                     result.attachedVideoFiles &&
@@ -1653,6 +1676,167 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         });
     }
 
+    private parseTimeTokenToSeconds(token: string): number | null {
+        if (!token) return null;
+        const clean = token.trim();
+        const colonParts = clean.split(':');
+        if (colonParts.length === 2 || colonParts.length === 3) {
+            const nums = colonParts.map((p) => Number(p));
+            if (nums.some((n) => !Number.isFinite(n) || n < 0)) return null;
+            if (nums.length === 3) {
+                return nums[0] * 3600 + nums[1] * 60 + nums[2];
+            }
+            return nums[0] * 60 + nums[1];
+        }
+        const secMatch = clean.match(
+            /^(\d+(?:\.\d+)?)\s*(?:s|sec|secs|second|seconds|giây)?$/i,
+        );
+        if (secMatch) {
+            const val = parseFloat(secMatch[1]);
+            return Number.isFinite(val) && val >= 0 ? val : null;
+        }
+        return null;
+    }
+
+    private extractExplicitScriptDuration(text: string): number | null {
+        if (!text) return null;
+
+        // 1. Khoảng thời gian dạng đồng hồ: (0:00 - 0:03), [00:06 - 00:10], 0:03 – 0:06, 0:00 đến 0:03
+        const clockRangeMatch = text.match(
+            /(?:\(|\[|\b)(\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?)\s*(?:[-–—~]|đến|to)\s*(\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?)(?:\)|\]|\b)/i,
+        );
+        if (clockRangeMatch) {
+            const startSec = this.parseTimeTokenToSeconds(clockRangeMatch[1]);
+            const endSec = this.parseTimeTokenToSeconds(clockRangeMatch[2]);
+            if (
+                startSec !== null &&
+                endSec !== null &&
+                endSec > startSec &&
+                endSec - startSec <= 300
+            ) {
+                return Math.round((endSec - startSec) * 10) / 10;
+            }
+        }
+
+        // 2. Khoảng thời gian có đơn vị giây ở cả hai đầu: (0s - 3s), [3s - 6s], 6 giây - 10 giây
+        const secRangeMatch = text.match(
+            /(?:\(|\[|\b)(\d+(?:\.\d+)?)\s*(?:s|sec|secs|seconds|giây)\s*(?:[-–—~]|đến|to)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|secs|seconds|giây)(?:\)|\]|\b)/i,
+        );
+        if (secRangeMatch) {
+            const startSec = parseFloat(secRangeMatch[1]);
+            const endSec = parseFloat(secRangeMatch[2]);
+            if (
+                Number.isFinite(startSec) &&
+                Number.isFinite(endSec) &&
+                endSec > startSec &&
+                endSec - startSec <= 300
+            ) {
+                return Math.round((endSec - startSec) * 10) / 10;
+            }
+        }
+
+        // 3. Khoảng bắt đầu từ 0 ngay ở tiêu đề cảnh: PHÂN CẢNH 1 (0 - 3s)
+        const zeroStartHeaderMatch = text
+            .trim()
+            .match(
+                /^(?:[#*\-\d.)\s]*)(?:phân\s*cảnh|cảnh|scene|shot|phân\s*đoạn)\s*\d+[^\n()\[\]]*[\(\[]\s*0(?:\.0+)?\s*(?:[-–—~]|đến|to)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|secs|seconds|giây)\s*[\)\]]/i,
+            );
+        if (zeroStartHeaderMatch) {
+            const endSec = parseFloat(zeroStartHeaderMatch[1]);
+            if (Number.isFinite(endSec) && endSec > 0 && endSec <= 300) {
+                return Math.round(endSec * 10) / 10;
+            }
+        }
+
+        // 4. Thời lượng đơn được khai báo tường minh: Thời lượng: 4s, Duration: 3.5s, hoặc PHÂN CẢNH 1 (3s)
+        const labeledDurationMatch = text.match(
+            /(?:thời\s*lượng|duration)\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(?:s|sec|secs|seconds|giây)\b/i,
+        );
+        if (labeledDurationMatch) {
+            const dur = parseFloat(labeledDurationMatch[1]);
+            if (Number.isFinite(dur) && dur > 0 && dur <= 300) {
+                return Math.round(dur * 10) / 10;
+            }
+        }
+
+        const headerSingleDurMatch = text
+            .trim()
+            .match(
+                /^(?:[#*\-\d.)\s]*)(?:phân\s*cảnh|cảnh|scene|shot|phân\s*đoạn)\s*\d+[^\n()\[\]]*[\(\[]\s*(\d+(?:\.\d+)?)\s*(?:s|sec|secs|seconds|giây)\s*[\)\]]/i,
+            );
+        if (headerSingleDurMatch) {
+            const dur = parseFloat(headerSingleDurMatch[1]);
+            if (Number.isFinite(dur) && dur > 0 && dur <= 300) {
+                return Math.round(dur * 10) / 10;
+            }
+        }
+
+        return null;
+    }
+
+    private isClipPreSegmentedScene(text: string): boolean {
+        if (!text) return false;
+        const head = text.trim().substring(0, 140);
+        if (
+            /(?:^|\b)(?:phân\s*cảnh|cảnh|scene|shot|phân\s*đoạn)\s*\d+\b/i.test(
+                head,
+            )
+        ) {
+            return true;
+        }
+        return this.extractExplicitScriptDuration(head) !== null;
+    }
+
+    private analyzeSceneMappingMode(
+        allClips: any[],
+        extraPrompt: string,
+    ): {
+        isStrictSceneMapping: boolean;
+        wantsMoreScenes: boolean;
+        requestedSceneCount: number | null;
+    } {
+        const promptClean = (extraPrompt || '').trim();
+
+        const wantsMoreScenes =
+            /(?:tự\s*do\s*thêm\s*cảnh|thêm\s*(?:nhiều\s*)?(?:phân\s*)?cảnh|chia\s*nhỏ\s*(?:thêm\s*)?(?:phân\s*)?cảnh|tách\s*thêm\s*(?:phân\s*)?cảnh|add\s+(?:more|extra)\s+scenes|split\s+into\s+more\s+scenes)/i.test(
+                promptClean,
+            );
+
+        const countMatch = promptClean.match(
+            /(?:tạo|chia\s*thành|đúng|gồm|thành|make|create|into|exact(?:ly)?)\s+(\d+)\s*(?:phân\s*cảnh|cảnh|scenes?)\b/i,
+        );
+        const requestedSceneCount = countMatch
+            ? parseInt(countMatch[1], 10)
+            : null;
+
+        const wantsStrictPerScene =
+            /(?:theo\s*từng\s*(?:phân\s*)?cảnh|đúng\s*(?:theo\s*)?(?:từng\s*)?(?:phân\s*)?cảnh|dựa\s*(?:vào|theo)\s*từng\s*(?:phân\s*)?cảnh|bám\s*sát\s*(?:từng\s*)?(?:phân\s*)?cảnh|giữ\s*nguyên\s*(?:số\s*(?:lượng\s*)?)?(?:phân\s*)?cảnh|đúng\s*số\s*(?:lượng\s*)?(?:phân\s*)?cảnh|không\s*(?:tự\s*(?:ý\s*)?)?(?:thêm|bịa|chèn|tách|chia\s*nhỏ)\s*(?:phân\s*)?cảnh|mỗi\s*(?:đoạn|dòng|mục|clip|id)\s*(?:là\s*)?(?:1|một)\s*(?:phân\s*)?cảnh|follow\s+each\s+scene|keep\s+(?:the\s+)?exact\s+scenes|do\s+not\s+add\s+(?:extra\s+)?scenes|1\s*[:\-]\s*1)/i.test(
+                promptClean,
+            ) ||
+            (requestedSceneCount !== null &&
+                requestedSceneCount === allClips.length);
+
+        const preSegmentedCount = allClips.filter((c: any) =>
+            this.isClipPreSegmentedScene(c?.description || c?.name || ''),
+        ).length;
+        const isPreSegmentedScript =
+            allClips.length > 0 &&
+            preSegmentedCount >= Math.max(1, Math.ceil(allClips.length * 0.5));
+
+        const isStrictSceneMapping =
+            wantsStrictPerScene ||
+            (isPreSegmentedScript &&
+                !wantsMoreScenes &&
+                (requestedSceneCount === null ||
+                    requestedSceneCount === allClips.length));
+
+        return {
+            isStrictSceneMapping,
+            wantsMoreScenes,
+            requestedSceneCount,
+        };
+    }
+
     async createVideo() {
         this.isAnalyzing = true;
 
@@ -1661,9 +1845,49 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         // let geminiKey = this.secretKey[6] || this.secretKey[0];
         // this.ai = new GoogleGenAI({ apiKey: geminiKey });
 
-        // Lấy data từ MultiAccountService
+        // [FIX] Dữ liệu dự án kể từ bản refactor lưu đĩa (project-store) có thể nằm ở 3 nơi:
+        // 1. Session (MultiAccountService) - nguồn cũ, có thể đã bị dọn sau khi saveToLocal()
+        // 2. audioList trên RAM - nguồn tươi nhất đang hiển thị trên UI
+        // 3. Đĩa (project-store) - nguồn sự thật lâu dài
         const storageKey = `${this.STORAGE_AUDIO_KEY}_${this.uuid}`;
-        const data = this.multiAccountService.getItem(storageKey);
+        let data = this.multiAccountService.getItem(storageKey);
+
+        // Fallback 1: dựng lại từ audioList đang có trên RAM (luôn đồng bộ với UI)
+        if ((!data || !data.clips) && this.audioList && this.audioList.length > 0) {
+            data = {
+                uuid: this.uuid,
+                title: this.projectTitle,
+                clips: this.audioList.map((clip) => ({
+                    id: clip.id,
+                    name: clip.name,
+                    description: clip.description,
+                    voice: clip.voice,
+                    rate: clip.rate || 1.0,
+                    pitch: clip.pitch || 0,
+                    duration: clip.duration,
+                    audioFileName: clip.audioFileName,
+                    username: clip.username,
+                    prompt: clip.prompt,
+                    localFilePath: clip['localFilePath'] || null,
+                })),
+            };
+            this.multiAccountService.setItem(storageKey, data);
+        }
+
+        // Fallback 2: đọc từ đĩa qua project-store nếu vẫn chưa có
+        if (!data || !data.clips) {
+            try {
+                const parts = await this.projectStore.load(
+                    this.currentName || null,
+                    this.uuid,
+                );
+                if (parts && parts.meta && parts.meta.clips) {
+                    data = parts.meta;
+                    this._diskProjectCache = parts.meta;
+                    this.multiAccountService.setItem(storageKey, data);
+                }
+            } catch (e) {}
+        }
 
         if (!data || !data.clips) {
             this.toastr.warning(
@@ -1677,48 +1901,100 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // KIỂM TRA FILE TRÊN Ổ CỨNG TRƯỚC KHI TIẾN HÀNH
         for (const clip of allClips) {
-            if (clip.localFilePath) {
+            if (clip.localFilePath && (window as any).electron?.invoke) {
                 try {
                     const result = await (window as any).electron.invoke(
                         'check-local-file-exists',
-                        { path: clip.localFilePath },
+                        {
+                            path: clip.localFilePath,
+                            filename: clip.audioFileName,
+                            username: this.user?.name || 'admin',
+                            targetUuid: this.uuid,
+                        },
                     );
-                    if (!result || !result.exists) {
+                    if (result && result.exists) {
+                        clip.localFilePath = result.path || clip.localFilePath;
+                    } else if (!clip.rawUrl) {
                         clip.localFilePath = null;
                     }
                 } catch (e) {
-                    clip.localFilePath = null;
+                    if (!clip.rawUrl) {
+                        clip.localFilePath = null;
+                    }
                 }
+            }
+        }
+
+        const clipScriptDurationMap = new Map<string, number>();
+        for (const clip of allClips) {
+            const parsedScriptDur = this.extractExplicitScriptDuration(
+                clip.description || clip.name || '',
+            );
+            if (parsedScriptDur !== null && parsedScriptDur > 0) {
+                clipScriptDurationMap.set(String(clip.id), parsedScriptDur);
             }
         }
 
         let hasMissingAudio = false;
         for (const clip of allClips) {
-            if (!clip.localFilePath) {
+            if (!clip.localFilePath && !clip.rawUrl) {
                 hasMissingAudio = true;
-                clip.duration = 0; // Đặt về 0 để Gemini tự tính cho chính xác
+                clip.duration = 0;
             }
         }
 
+        const {
+            isStrictSceneMapping,
+            wantsMoreScenes,
+            requestedSceneCount,
+        } = this.analyzeSceneMappingMode(allClips, this.extraPrompt);
+
+        const hasLongAudioClips = allClips.some(
+            (c: any) => (c.duration || 0) > 8,
+        );
+        const allowExtraCutawayScenes =
+            !isStrictSceneMapping &&
+            (wantsMoreScenes ||
+                (requestedSceneCount !== null &&
+                    requestedSceneCount > allClips.length) ||
+                hasLongAudioClips);
+
         if (hasMissingAudio) {
-            this.toastr.info(
-                'Hệ thống đang yêu cầu AI tự động ước lượng thời gian cho các cảnh hành động...',
-                'Thông báo',
-            );
+            if (clipScriptDurationMap.size > 0) {
+                this.toastr.info(
+                    `Đã nhận diện mốc thời gian kịch bản cho ${clipScriptDurationMap.size}/${allClips.length} phân cảnh...`,
+                    'Thông báo',
+                );
+            } else {
+                this.toastr.info(
+                    'Hệ thống đang phân tích kịch bản và ước lượng thời lượng cho từng phân cảnh...',
+                    'Thông báo',
+                );
+            }
         }
 
-        // Rút gọn format đầu vào để AI dễ đọc. Phân biệt rõ dòng nào có thoại (có số giây), dòng nào hành động (NO_AUDIO)
+        // Rút gọn format đầu vào để AI dễ đọc: phân biệt rõ AUDIO thật, SCRIPT_DURATION trong kịch bản và NO_AUDIO_YET
         const continuousText = allClips
             .map((c: any) => {
-                return `[${c.id} | ${c.localFilePath ? c.duration + 's' : 'NO_AUDIO'}] ${c.description}`;
+                const hasRealAudio =
+                    (c.localFilePath || c.rawUrl) && c.duration > 0;
+                const scriptDur = clipScriptDurationMap.get(String(c.id));
+                const metaTag = hasRealAudio
+                    ? `AUDIO: ${c.duration}s`
+                    : scriptDur
+                      ? `SCRIPT_DURATION: ${scriptDur}s`
+                      : 'NO_AUDIO_YET';
+                return `[${c.id} | ${metaTag}] ${c.description}`;
             })
             .join('\n');
 
-        // Lấy định dạng từ select box
-        const userFormat =
+        const userCustomPromptClean =
             this.extraPrompt && this.extraPrompt.trim() !== ''
                 ? this.extraPrompt.trim()
-                : 'Cinematic chuyên nghiệp';
+                : '';
+
+        // Lấy định dạng từ select box
+        const userFormat = userCustomPromptClean || 'Cinematic chuyên nghiệp';
 
         const isComic = this.videoFormat === 'comic';
         const isSlide = this.videoFormat === 'slide';
@@ -1747,18 +2023,32 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // Tự động giải thích tỉ lệ cho AI
         let aspectDesc = `Tỉ lệ ${this.aspectRatio}`;
-        if (this.aspectRatio === '9:16')
-            aspectDesc += ' (Khung hình dọc mỏng - Tiktok/Shorts)';
+        if (this.aspectRatio === '21:9')
+            aspectDesc += ' (Khung hình điện ảnh siêu rộng Ultrawide)';
         if (this.aspectRatio === '16:9')
             aspectDesc += ' (Khung hình ngang tiêu chuẩn)';
-        if (this.aspectRatio === '3:4') aspectDesc += ' (Khung hình dọc vừa)';
         if (this.aspectRatio === '4:3')
             aspectDesc += ' (Khung hình ngang truyền thống)';
+        if (this.aspectRatio === '1:1')
+            aspectDesc += ' (Khung hình vuông)';
+        if (this.aspectRatio === '3:4') aspectDesc += ' (Khung hình dọc vừa)';
+        if (this.aspectRatio === '9:16')
+            aspectDesc += ' (Khung hình dọc mỏng - Tiktok/Shorts)';
 
-        const finalFormatRequest = `${formatText} - ${aspectDesc}. Phong cách/Yêu cầu: ${userFormat}`;
+        const resolutionLabel = (this.resolution || '720p').toUpperCase();
+        const finalFormatRequest = `${formatText} - ${aspectDesc} - Độ phân giải ${resolutionLabel}. Phong cách/Yêu cầu: ${userFormat}`;
+
+        const userOverrideDirective = userCustomPromptClean
+            ? `\n            ⚠️ CHỈ THỊ TRỰC TIẾP TỪ NGƯỜI DÙNG (ƯU TIÊN TỐI THƯỢNG - BẮT BUỘC TUÂN THỦ TUYỆT ĐỐI VÀ GHI ĐÈ MỌI QUY TẮC MẶC ĐỊNH NẾU CÓ XUNG ĐỘT):\n            "${userCustomPromptClean}"\n`
+            : '';
 
         // Quy đổi tổng thời gian (Chỉ dùng thông báo cho Video)
-        const totalSecs = Math.round(this.totalDuration || 0);
+        const totalScriptSecs = Array.from(
+            clipScriptDurationMap.values(),
+        ).reduce((a, b) => a + b, 0);
+        const totalSecs = Math.round(
+            this.totalDuration > 0 ? this.totalDuration : totalScriptSecs,
+        );
         const mins = Math.floor(totalSecs / 60);
         const secs = totalSecs % 60;
         const durationString =
@@ -1769,13 +2059,34 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         let formatInstruction = '';
         let timeConstraintPrompt = 'Tôi có một kịch bản thoại chi tiết.';
         let masterPromptDurationLimit = '';
+        let storyboardTaskRule = '';
+        let sceneDurationDirective = '';
+
+        if (isStrictSceneMapping) {
+            storyboardTaskRule = `3. CHUYỂN THỂ ĐÚNG TỪNG PHÂN CẢNH KỊCH BẢN (STRICT 1:1 SCENE MAPPING - BẮT BUỘC): Kịch bản đầu vào đã được chia sẵn thành đúng ${allClips.length} phân cảnh hoặc người dùng yêu cầu bám sát từng phân cảnh. BẮT BUỘC mảng "scenes" trả về PHẢI CÓ ĐÚNG CHÍNH XÁC ${allClips.length} PHÂN CẢNH theo đúng thứ tự từ 1 đến ${allClips.length}. Mỗi scene thứ i chỉ chứa đúng 1 ID đầu vào tương ứng ("subtitleIds": ["<id_thứ_i>"]). TUYỆT ĐỐI CẤM tự bịa/chèn thêm bất kỳ cảnh phụ không lời nào ("subtitleIds": []), CẤM tách 1 ID thành nhiều scene và CẤM gộp nhiều ID vào 1 scene!`;
+            sceneDurationDirective = `- ⏱️ THỜI LƯỢNG CẢNH (estimatedDuration): BẮT BUỘC điền cho mọi scene. Nếu dòng đầu vào đã có SCRIPT_DURATION hoặc mốc thời gian (ví dụ 0:00 - 0:03 = 3s, 0:06 - 0:10 = 4s) hoặc AUDIO duration, BẮT BUỘC đặt "estimatedDuration" bằng ĐÚNG số giây đó. Nếu không có, ước lượng hợp lý từ 3s-5s. TUYỆT ĐỐI KHÔNG tự tạo thêm scene rỗng ("subtitleIds": [])!`;
+        } else if (allowExtraCutawayScenes) {
+            const targetCountNote =
+                requestedSceneCount !== null && requestedSceneCount > 0
+                    ? ` Đảm bảo tổng số lượng phần tử trong "scenes" khớp yêu cầu (${requestedSceneCount} phân cảnh).`
+                    : '';
+            storyboardTaskRule = `3. CHIA PHÂN CẢNH VÀ TẠO BỐI CẢNH (STORYBOARD/SHOT LIST): Thiết kế các cảnh quay sinh động từ kịch bản.${targetCountNote} Với những đoạn AUDIO quá dài (>8s) hoặc khi người dùng yêu cầu thêm cảnh phụ, bạn có thể chèn thêm cảnh hành động minh họa ("subtitleIds": []) tiếp nối để tránh khung hình bị tĩnh quá lâu.`;
+            sceneDurationDirective = `- ⏱️ THỜI LƯỢNG CẢNH (estimatedDuration): BẮT BUỘC điền cho mọi scene (từ 2s-5s mỗi cảnh quay). Nếu 1 câu thoại có AUDIO dài (>8s), bạn có thể tạo 1 scene 4s-5s gắn ID đó rồi bổ sung scene minh họa tiếp nối để lấp phần thời gian còn lại.`;
+        } else {
+            const targetCountNote =
+                requestedSceneCount !== null && requestedSceneCount > 0
+                    ? ` Tổng số scene trả về phải đúng ${requestedSceneCount} phân cảnh.`
+                    : '';
+            storyboardTaskRule = `3. CHIA PHÂN CẢNH VÀ TẠO BỐI CẢNH (STORYBOARD/SHOT LIST): Thiết kế phân cảnh bám sát danh sách ID đầu vào.${targetCountNote} Mỗi scene PHẢI gắn với ít nhất 1 ID trong "subtitleIds". TUYỆT ĐỐI KHÔNG tự ý bịa thêm các scene rỗng không lời ("subtitleIds": []) gây lệch bố cục kịch bản của người dùng!`;
+            sceneDurationDirective = `- ⏱️ THỜI LƯỢNG CẢNH (estimatedDuration): BẮT BUỘC điền cho mọi scene. Ưu tiên khớp đúng SCRIPT_DURATION hoặc AUDIO duration của ID gắn với scene đó (nếu chưa có thì ước lượng 3s-5s). KHÔNG tự ý chèn thêm scene rỗng ("subtitleIds": []).`;
+        }
 
         if (isVideo) {
             // LUẬT KHẮT KHE CHO VIDEO (Để AI render không bị lỗi)
-            if (this.maxDuration > 0) {
-                timeConstraintPrompt = `Tôi có kịch bản thoại với TỔNG THỜI LƯỢNG CHÍNH XÁC: ${durationString} (${totalSecs}s).`;
+            if (this.maxDuration > 0 || totalSecs > 0) {
+                timeConstraintPrompt = `Tôi có kịch bản gồm ${allClips.length} mục với TỔNG THỜI LƯỢNG MỤC TIÊU: ${durationString} (${totalSecs}s).`;
             } else {
-                timeConstraintPrompt = `Tôi có kịch bản thoại chi tiết. Bạn hoàn toàn làm chủ nhịp điệu.`;
+                timeConstraintPrompt = `Tôi có kịch bản gồm ${allClips.length} mục chi tiết.`;
             }
 
             if (this.maxDuration > 0) {
@@ -1784,14 +2095,21 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             - ⚠️ NGOẠI LỆ BẮT BUỘC: Nếu bản thân MỘT đoạn thoại (1 ID) đã có thời lượng dài hơn ${this.maxDuration} giây, BẠN PHẢI xếp ID đó đứng một mình trong một scene. VÀ BẮT BUỘC trong nội dung "prompt" của scene đó, bạn phải chủ động chia thành nhiều câu prompt nhỏ (mỗi prompt đại diện cho tối đa ${this.maxDuration}s, kết hợp thay đổi góc máy để sinh động) để người dùng có thể tạo nhiều video nối tiếp. 
               (Ví dụ: "Prompt 1 (${this.maxDuration}s): Góc máy rộng... \\nPrompt 2 (6s): Góc máy cận cảnh..."). 
             TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý CHIA CẮT một ID ra làm nhiều scene riêng biệt trong JSON.`;
+            } else if (isStrictSceneMapping) {
+                maxDurationRule = `
+            - ÁNH XẠ PHÂN CẢNH 1-1 TUYỆT ĐỐI:
+              + BẢO TOÀN ĐÚNG ${allClips.length} PHÂN CẢNH: Mảng "scenes" PHẢI có đúng ${allClips.length} phần tử, mỗi phần tử chứa đúng 1 ID tương ứng theo thứ tự đầu vào ("subtitleIds": ["id"]).
+              + CẤM THÊM / BỚT / GỘP / TÁCH CẢNH: TUYỆT ĐỐI KHÔNG chèn thêm scene có "subtitleIds": [], KHÔNG gộp 2 ID vào 1 scene, KHÔNG tách 1 ID thành nhiều scene.
+              + MỖI SCENE MỘT PROMPT DUY NHẤT: Ngắn gọn, cô đọng (15-25 từ), tập trung vào Chủ thể, Hành động và Góc máy của đúng phân cảnh đó.
+              + THỜI LƯỢNG CHÍNH XÁC: Ghi đúng "estimatedDuration" theo SCRIPT_DURATION / mốc thời gian của phân cảnh đó.`;
             } else {
                 maxDurationRule = `
-            - THỜI LƯỢNG TỰ DO: Bạn TỰ QUYẾT ĐỊNH thời lượng hợp lý cho mỗi video clip dựa vào nội dung. ĐẶC BIỆT chú ý:
-              + BẢO TOÀN SỐ LƯỢNG ID: BẮT BUỘC toàn bộ 100% các ID thoại đầu vào PHẢI xuất hiện trong JSON trả về. TUYỆT ĐỐI KHÔNG bỏ sót, lược bớt hay tự ý xóa bất kỳ ID nào.
-              + CHI TIẾT HÓA CẢNH QUAY: Hạn chế gom nhóm quá nhiều ID vào một scene. Hãy tách chúng thành các scene riêng biệt (mỗi scene 1-2 ID) để tạo ra nhiều góc máy và chuyển động đa dạng cho video.
+            - THỜI LƯỢNG TỰ DO: Bạn quyết định thời lượng hợp lý cho mỗi video clip dựa vào nội dung. ĐẶC BIỆT chú ý:
+              + BẢO TOÀN SỐ LƯỢNG ID: BẮT BUỘC toàn bộ 100% các ID đầu vào PHẢI xuất hiện trong JSON trả về. TUYỆT ĐỐI KHÔNG bỏ sót, lược bớt hay tự ý xóa bất kỳ ID nào.
+              + CHI TIẾT HÓA CẢNH QUAY: Mỗi scene gắn với 1-2 ID liên quan. TUYỆT ĐỐI KHÔNG tự ý cắt 1 ID ra làm nhiều scene.
               + TUYỆT ĐỐI KHÔNG CHIA NHỎ MÔ TẢ: Mỗi scene trong JSON chỉ được chứa MỘT câu prompt duy nhất.
               + LƯỢC BỎ TỪ NGỮ THỪA THÃI: Rút gọn câu prompt cực kỳ ngắn gọn (Tối đa 15-20 từ). Tập trung vào Chủ thể và Hành động.
-              + BẮT BUỘC ghi rõ thời lượng ước tính "estimatedDuration" cho mỗi scene. TUYỆT ĐỐI KHÔNG tự ý cắt 1 ID ra làm nhiều scene.`;
+              + BẮT BUỘC ghi rõ thời lượng ước tính "estimatedDuration" cho mỗi scene.`;
             }
 
             if (isVertical) {
@@ -1801,8 +2119,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             }
         } else {
             // LUẬT TỰ DO CHO TRUYỆN TRANH, SLIDE, PODCAST
-            maxDurationRule = `
-            - GOM NHÓM TỰ DO: Gom nhóm các thoại phù hợp với diễn biến câu chuyện, KHÔNG bị giới hạn số giây cho mỗi scene. TỰ DO QUYẾT ĐỊNH THỜI LƯỢNG VIDEO CỦA TỪNG SCENE, không phụ thuộc vào độ dài của Audio. Kể cả audio dài 20s, bạn có quyền tạo Scene video 3s.`;
+            maxDurationRule = isStrictSceneMapping
+                ? `
+            - ÁNH XẠ 1-1 THEO KỊCH BẢN: Giữ nguyên đúng ${allClips.length} phân cảnh tương ứng 1-1 với ${allClips.length} ID đầu vào, không tự ý thêm hoặc gộp phân cảnh.`
+                : `
+            - GOM NHÓM TỰ DO: Gom nhóm các thoại phù hợp với diễn biến câu chuyện, KHÔNG bị giới hạn số giây cho mỗi scene.`;
 
             if (isComic) {
                 if (isVertical) {
@@ -1841,7 +2162,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             BẠN LÀ GIÁM ĐỐC SÁNG TẠO ĐA PHƯƠNG TIỆN XUẤT SẮC. 
             ${timeConstraintPrompt}
 
-            🎯 ĐỊNH DẠNG TÁC PHẨM YÊU CẦU: "${finalFormatRequest}"${formatInstruction}
+            🎯 ĐỊNH DẠNG TÁC PHẨM YÊU CẦU: "${finalFormatRequest}"${formatInstruction}${userOverrideDirective}
 
             🌍 QUY TẮC NGÔN NGỮ BẮT BUỘC:
             - TẤT CẢ CÁC TRƯỜNG "masterPrompt", "characters" (kể cả "prompt" tạo hình nhân vật), "imagePrompt", và "prompt" bên trong "scenes" BẮT BUỘC PHẢI VIẾT BẰNG ${targetLanguage}.
@@ -1851,7 +2172,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             NHIỆM VỤ CỦA BẠN:
             1. Sáng tạo MASTER PROMPT: Viết prompt định hướng hình ảnh chung. Định hình rõ phong cách chia khung (nếu là truyện tranh). ${masterPromptDurationLimit}
             2. Xây dựng TẠO HÌNH (CHARACTER DESIGN): Mô tả NHẤT QUÁN và CỐ ĐỊNH về ngoại hình nhân vật (tuổi, tóc, trang phục đặc trưng).
-            3. CHIA PHÂN CẢNH VÀ TẠO BỐI CẢNH (STORYBOARD/SHOT LIST): Đây là bản thiết kế kỹ thuật để hình ảnh hóa kịch bản. ĐẶC BIỆT QUAN TRỌNG: Hãy TỰ DO SÁNG TẠO THÊM THẬT NHIỀU CẢNH HÀNH ĐỘNG KHÔNG LỜI (NO_AUDIO) đan xen để minh họa chi tiết cho câu chuyện. Video càng có nhiều cảnh hành động nhỏ (góc cận, phản ứng, bước đi...) thì càng sinh động và mượt mà. Đừng chỉ bê nguyên xi thoại vào!
+            ${storyboardTaskRule}
 
             QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):${maxDurationRule}${antiDuplicationRule}
             - 👤 TỐI ƯU NHÂN VẬT: TUYỆT ĐỐI KHÔNG mô tả lại ngoại hình chi tiết của nhân vật trong cảnh. Việc tạo hình do hệ thống tự động xử lý.
@@ -1867,7 +2188,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             - 🎯 KIÊN ĐỊNH PHONG CÁCH: Khi miêu tả phong cách ở Master Prompt, hãy xác định MỘT phong cách duy nhất và kiên định với nó. TUYỆT ĐỐI KHÔNG sử dụng văn phong lựa chọn kiểu "hoặc thế này hoặc thế kia".
             - 🖼️ BẢO TOÀN KHUNG TRUYỆN: (Nếu là truyện tranh) BẮT BUỘC nhắc lại quy cách khung viền thống nhất ở mọi trang.
             - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT): Không yêu cầu có chữ viết, bảng hiệu, logo trong hình. Hình ảnh phải hoàn toàn sạch.
-            - ⏱️ THỜI LƯỢNG CẢNH (estimatedDuration): BẮT BUỘC PHẢI ĐIỀN CHO MỌI SCENE (dù có Audio hay không). Đóng vai trò đạo diễn, bạn tự quyết định cảnh quay này nên kéo dài bao nhiêu giây (chỉ nên từ 2s-5s để video mượt và liên tục cắt cảnh). Thời lượng Scene KHÔNG BỊ RÀNG BUỘC bởi thời lượng Audio. Kể cả 1 câu thoại dài 20s, bạn có thể tạo 1 Scene 4s cho nhân vật đang nói, rồi tự động sáng tạo thêm các Scene NO_AUDIO (góc quay khác, reaction) tiếp nối ngay sau đó để che lấp phần thời gian còn lại của Audio. HÃY CHỦ ĐỘNG TẠO RA THẬT NHIỀU SCENE HÀNH ĐỘNG NGẮN VÀ CHI TIẾT ĐỂ LÀM PHONG PHÚ VIDEO. Không gom chung vào 1 scene dài.
+            ${sceneDurationDirective}
             - GIỮ NGUYÊN THỨ TỰ thoại, không bỏ sót ID nào.
 
             DỮ LIỆU ĐẦU VÀO:
@@ -1889,8 +2210,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 {
                   "imagePrompt": "[Setting] + [Camera Angle] + [Lighting] + [Style] (IN REQUESTED LANGUAGE, EMPTY SCENE NO CHARACTERS)",
                   "prompt": "[Subject (Character Name and Physical Appearance ONLY. DO NOT USE 'character design sheet' or 'multiple angles' here!)] + [Action] + [Setting] + [Camera Angle & Movement] + [Lighting] + [Quality] (IN REQUESTED LANGUAGE)",
-                  "subtitleIds": ["id1", "id2"],
-                  "estimatedDuration": 3 // BẮT BUỘC (nhập số giây ước lượng cho shot hình này, vd: 2, 3.5, 4.2)
+                  "subtitleIds": ["id1"],
+                  "estimatedDuration": 3 // BẮT BUỘC (nhập số giây cho shot hình này, khớp đúng SCRIPT_DURATION nếu đầu vào đã ghi rõ)
                 }
               ]
             }
@@ -1958,7 +2279,53 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             const aiResponse = this.helperService.safeJsonParseFromAI(
                 response.text,
             );
-            const aiResponseScenes = aiResponse.scenes || [];
+            let aiResponseScenes: any[] = Array.isArray(aiResponse.scenes)
+                ? aiResponse.scenes
+                : [];
+
+            // [HÀNG RÀO BẢO VỆ HẬU XỬ LÝ]: Chặn triệt để việc AI tự ý bịa thêm phân cảnh NO_AUDIO (subtitleIds: [])
+            // hoặc tự ý gộp/tách khi kịch bản đã chia sẵn phân cảnh / người dùng yêu cầu bám sát từng phân cảnh.
+            if (isStrictSceneMapping && allClips.length > 0) {
+                const nonEmptyScenes = aiResponseScenes.filter(
+                    (s: any) =>
+                        Array.isArray(s?.subtitleIds) &&
+                        s.subtitleIds.length > 0,
+                );
+
+                aiResponseScenes = allClips.map((clip: any, idx: number) => {
+                    const clipIdStr = String(clip.id);
+                    const matchedScene =
+                        nonEmptyScenes.find(
+                            (s: any) =>
+                                Array.isArray(s.subtitleIds) &&
+                                s.subtitleIds.some(
+                                    (sid: any) => String(sid) === clipIdStr,
+                                ),
+                        ) ||
+                        nonEmptyScenes[idx] ||
+                        aiResponseScenes[idx] ||
+                        {};
+
+                    const explicitDur = clipScriptDurationMap.get(clipIdStr);
+                    return {
+                        ...matchedScene,
+                        subtitleIds: [clip.id],
+                        estimatedDuration:
+                            explicitDur && explicitDur > 0
+                                ? explicitDur
+                                : matchedScene.estimatedDuration,
+                    };
+                });
+            } else if (!allowExtraCutawayScenes && aiResponseScenes.length > 0) {
+                const scenesWithIds = aiResponseScenes.filter(
+                    (s: any) =>
+                        Array.isArray(s?.subtitleIds) &&
+                        s.subtitleIds.length > 0,
+                );
+                if (scenesWithIds.length > 0) {
+                    aiResponseScenes = scenesWithIds;
+                }
+            }
 
             // Không dán masterPrompt vào prompt tạo hình nhân vật nữa,
             // để khung nhập liệu trong form Sửa Nhân Vật được gọn gàng.
@@ -1966,12 +2333,22 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             const finalScenes = aiResponseScenes.map((scene: any) => {
                 let exactSceneDuration = 0;
+                let explicitSceneScriptDuration = 0;
                 let hasAnyAudio = false;
 
-                const mappedSubtitles = scene.subtitleIds.map((id: string) => {
-                    const originalClip = allClips.find((c: any) => c.id === id);
+                const subtitleIdList = Array.isArray(scene.subtitleIds)
+                    ? scene.subtitleIds
+                    : [];
+
+                const mappedSubtitles = subtitleIdList.map((id: string) => {
+                    const originalClip = allClips.find(
+                        (c: any) => String(c.id) === String(id),
+                    );
                     let safeAudioUrl = null;
                     let clipDuration = 0;
+                    const explicitClipDur =
+                        clipScriptDurationMap.get(String(id)) || 0;
+                    explicitSceneScriptDuration += explicitClipDur;
 
                     if (originalClip) {
                         clipDuration = originalClip.duration || 0;
@@ -1993,28 +2370,45 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     }
 
                     return {
-                        id: id,
+                        id: originalClip ? originalClip.id : id,
                         text: originalClip ? originalClip.description : '',
-                        duration: clipDuration,
+                        duration:
+                            clipDuration > 0 ? clipDuration : explicitClipDur,
                         audioUrl: safeAudioUrl,
                     };
                 });
 
-                if (
+                if (explicitSceneScriptDuration > 0) {
+                    // Nếu kịch bản gốc đã ghi rõ mốc thời gian (VD: 0:00 - 0:03 => 3s), ưu tiên tôn trọng tuyệt đối
+                    // nhưng không cắt ngắn hơn thời lượng file Audio thực tế (nếu đã tạo giọng đọc).
+                    exactSceneDuration = hasAnyAudio
+                        ? Math.max(explicitSceneScriptDuration, exactSceneDuration)
+                        : explicitSceneScriptDuration;
+                } else if (
                     isVideo &&
                     this.maxDuration === 0 &&
                     scene.estimatedDuration
                 ) {
-                    exactSceneDuration = scene.estimatedDuration;
+                    exactSceneDuration = hasAnyAudio
+                        ? Math.max(scene.estimatedDuration, exactSceneDuration)
+                        : scene.estimatedDuration;
                 } else if (!isVideo && hasAnyAudio) {
                     // Cố định exactSceneDuration = tổng thời lượng các audio của scene này
                     // Không lấy estimatedDuration từ AI để đảm bảo khớp tổng thời gian
-                } else if (!hasAnyAudio && scene.estimatedDuration) {
-                    exactSceneDuration = scene.estimatedDuration;
+                } else if (!hasAnyAudio) {
+                    exactSceneDuration =
+                        scene.estimatedDuration && scene.estimatedDuration > 0
+                            ? scene.estimatedDuration
+                            : this.maxDuration > 0
+                              ? this.maxDuration
+                              : 5;
                 }
 
-                const roundedDuration =
+                let roundedDuration =
                     Math.round(exactSceneDuration * 10) / 10;
+                if (isVideo && roundedDuration <= 0) {
+                    roundedDuration = this.maxDuration > 0 ? this.maxDuration : 5;
+                }
 
                 // KHÔNG TỰ ĐỘNG DÁN MASTER PROMPT VÀO ĐÂY vì ở VideoTimelineDialogComponent (khi bấm Copy) đã có logic tự dán masterPrompt rồi!
                 // Nếu dán ở đây sẽ bị nhân đôi. Chỉ lấy đúng prompt của scene do AI tạo ra.
@@ -2180,16 +2574,17 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                     if (isVideo && maxVideoLength === 0) {
                         let partDuration =
-                            roundedDuration > 0 ? roundedDuration : 5; // Lấy từ estimatedDuration do AI quyết định
-                        // Cố gắng tìm (5s) hoặc (6.5s) trong prompt phòng trường hợp AI vẫn nhét vào
-                        const timeMatch =
-                            singlePrompt.match(/\(([\d\.]+)[sS]?\)/);
-                        if (timeMatch && timeMatch[1]) {
-                            partDuration = parseFloat(timeMatch[1]);
+                            roundedDuration > 0 ? roundedDuration : 5;
+                        // Chỉ tìm (5s) hoặc (6.5s) có hậu tố s/S rõ ràng khi kịch bản gốc không khai báo sẵn thời lượng
+                        if (explicitSceneScriptDuration <= 0) {
+                            const timeMatch =
+                                singlePrompt.match(/\(([\d\.]+)\s*[sS]\)/);
+                            if (timeMatch && timeMatch[1]) {
+                                partDuration = parseFloat(timeMatch[1]);
+                            }
                         }
 
-                        // Tôn trọng quyết định của AI, kể cả khi thời gian không khớp audio
-                        // Chỉ giới hạn phần cứng API (ví dụ không quá 10s/scene để tránh lỗi khi render)
+                        // Giới hạn phần cứng API (không quá 10s/scene đơn lẻ để tránh lỗi khi render)
                         if (partDuration > 10) partDuration = 10;
 
                         videos.push({
@@ -2236,17 +2631,23 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 totalScenes: finalScenes.length,
                 scenes: finalScenes,
                 aspectRatio: this.aspectRatio, // Lưu tỉ lệ khung hình để render sau này
+                resolution: this.resolution || '720p',
+                maxDuration: this.maxDuration,
             };
 
             // Lưu danh sách nhân vật xuống đĩa (project-store)
             if (aiResponse.characters && aiResponse.characters.length > 0) {
-                this.projectStore.save(this.currentName || null, data.uuid, {
-                    casting: aiResponse.characters,
-                });
+                await this.projectStore.save(
+                    this.currentName || null,
+                    data.uuid,
+                    {
+                        casting: aiResponse.characters,
+                    },
+                );
             }
 
             // [QUAN TRỌNG] Xóa editorLayout cũ vì kịch bản đã được tạo mới hoàn toàn
-            // Tránh tình trạng lưu lại các node cũ (vd: sinh ra 8 cảnh nhưng trên UI vẫn còn node thứ 9 cũ)
+            // Tránh tình trạng lưu lại các node cũ (vd: sinh ra 3 cảnh nhưng trên UI vẫn còn node thứ 7 cũ)
             const storageKey = `ai_type_video_ready_data_${data.uuid}`;
             const existingData = this.multiAccountService.getItem(storageKey);
             if (existingData && existingData.editorLayout) {
@@ -2256,10 +2657,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             // Đảm bảo object hiện tại cũng không bị dính layout cũ
             delete this.videoProject.editorLayout;
 
-            this.saveToLocal();
-            this.openTimelineDialog(this.videoProject);
+            await this.saveToLocal();
+            await this.openTimelineDialog(this.videoProject);
             this.toastr.success(
-                `Đã tối ưu thành ${finalScenes.length} phân cảnh!`,
+                isStrictSceneMapping
+                    ? `Đã khởi tạo đúng ${finalScenes.length} phân cảnh theo kịch bản!`
+                    : `Đã tối ưu thành ${finalScenes.length} phân cảnh!`,
             );
         } catch (error: any) {
             console.error('Lỗi logic gom nhóm:', error);
@@ -2295,8 +2698,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Hàm bổ trợ để mở Dialog
     async openTimelineDialog(data: any) {
-        data['username'] = this.user?.name || 'anonymous'; // Đảm bảo có username trong data
-        data.aspectRatio = this.aspectRatio || '16:9';
+        const navOwner = this.user?.name || this.currentName || 'anonymous';
+        data['username'] = navOwner; // Đảm bảo có username trong data
+        data.aspectRatio = this.aspectRatio || data.aspectRatio || '16:9';
+        data.resolution = this.resolution || data.resolution || '720p';
+        data.maxDuration =
+            this.maxDuration !== undefined
+                ? this.maxDuration
+                : data.maxDuration || 0;
 
         // Đồng bộ và kiểm tra file audio thực sự tồn tại trước khi gắn vào kịch bản
         if (data.scenes && data.scenes.length > 0) {
@@ -2304,12 +2713,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 if (scene.subtitles && scene.subtitles.length > 0) {
                     for (const sub of scene.subtitles) {
                         const originalClip = this.audioList.find(
-                            (c: any) => c.id === sub.id,
+                            (c: any) => String(c.id) === String(sub.id),
                         );
                         if (originalClip) {
                             sub.duration =
                                 originalClip.duration || sub.duration;
-                            if (originalClip.localFilePath) {
+                            if (
+                                originalClip.localFilePath &&
+                                (window as any).electron?.invoke
+                            ) {
                                 try {
                                     const result = await (
                                         window as any
@@ -2354,14 +2766,20 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             if (!this.videoProject.uuid) {
                 this.videoProject.uuid = this.uuid;
             }
-            this.saveToLocal();
+            await this.saveToLocal();
+            // Nếu currentName là slug kịch bản khác với navOwner, đồng bộ luôn sang thư mục navOwner để NodeEditor nạp đúng dữ liệu mới nhất
+            if (this.currentName && this.currentName !== navOwner && this.uuid) {
+                await this.projectStore.save(navOwner, this.uuid, {
+                    timeline: this.videoProject,
+                });
+            }
         }
 
         // Dùng setTimeout để đảm bảo việc chuyển trang được thực thi (đề phòng kẹt zone do fetch streaming)
         setTimeout(() => {
             this.router.navigate([
                 '/voice2video',
-                this.user?.name || 'anonymous',
+                navOwner,
                 this.uuid,
                 'node',
             ]);
@@ -2703,6 +3121,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             extraPrompt: this.extraPrompt,
             videoFormat: this.videoFormat,
             aspectRatio: this.aspectRatio,
+            resolution: this.resolution,
             maxDuration: this.maxDuration,
             videoProject: null,
             clips: [],
@@ -2864,9 +3283,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     this.videoFormat = data.videoFormat;
                 if (data.aspectRatio !== undefined)
                     this.aspectRatio = data.aspectRatio;
-                if (data.maxDuration !== undefined)
-                    this.maxDuration =
-                        data.maxDuration === 8 ? 0 : data.maxDuration;
+                if (data.resolution !== undefined)
+                    this.resolution = data.resolution;
+                if (data.maxDuration !== undefined) {
+                    const importedDur = Number(data.maxDuration);
+                    this.maxDuration = Number.isFinite(importedDur)
+                        ? Math.max(0, Math.min(30, Math.round(importedDur)))
+                        : 0;
+                }
 
                 if (data.videoProject) {
                     this.videoProject = data.videoProject;

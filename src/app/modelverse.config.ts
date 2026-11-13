@@ -107,8 +107,15 @@ export const MODELVERSE_CONFIGS: Record<string, VideoModelConfig> = {
         useDataUri: false,
         defaultDuration: 5
     },
-    // Doubao (Seedance / Seedream)
+    // Doubao / ByteDance (Seedance / Seedream)
     'doubao': {
+        payloadFormat: 'doubao_sdk',
+        promptKey: 'prompt',
+        imageKey: 'image_url',
+        useDataUri: false,
+        defaultDuration: 5
+    },
+    'seedance': {
         payloadFormat: 'doubao_sdk',
         promptKey: 'prompt',
         imageKey: 'image_url',

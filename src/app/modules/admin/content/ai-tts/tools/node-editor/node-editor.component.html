@@ -296,27 +296,30 @@
                                     <!-- Render Button / Loading Spinner for Composition -->
                                     @if (node.type === "composition") {
                                         <div
-                                            class="absolute bottom-3 right-3 z-10"
+                                            class="absolute bottom-4 right-4 z-10"
                                         >
                                             @if (!node.data.isGenerating) {
                                                 <div
                                                     class="relative w-16 h-16 flex items-center justify-center"
                                                 >
                                                     <!-- Ripple effect rings -->
-                                                    <div
-                                                        class="absolute inset-0 rounded-full bg-teal-500/40 animate-ping pointer-events-none"
-                                                    ></div>
-                                                    <div
-                                                        class="absolute -inset-2 rounded-full bg-teal-500/20 animate-pulse pointer-events-none"
-                                                    ></div>
+                                                    <span
+                                                        class="absolute top-0 left-0 w-16 h-16 rounded-full bg-teal-500/40 animate-ping pointer-events-none"
+                                                        style="transform-origin: center"
+                                                    ></span>
+                                                    <span
+                                                        class="absolute -top-2 -left-2 w-20 h-20 rounded-full bg-teal-500/20 animate-pulse pointer-events-none"
+                                                        style="transform-origin: center"
+                                                    ></span>
                                                     <button
+                                                        type="button"
                                                         (click)="
                                                             renderFinalOutput(
                                                                 node,
                                                                 $event
                                                             )
                                                         "
-                                                        class="absolute inset-0 rounded-full bg-teal-500 hover:bg-teal-400 text-white shadow-lg flex flex-col items-center justify-center transition-all hover:scale-110 active:scale-95 group/btn pointer-events-auto cursor-pointer border-0 z-10"
+                                                        class="relative w-16 h-16 rounded-full bg-teal-500 hover:bg-teal-400 text-white shadow-lg flex flex-col items-center justify-center transition-all hover:scale-110 active:scale-95 group/btn pointer-events-auto cursor-pointer border-0 z-10"
                                                     >
                                                         <mat-icon
                                                             class="icon-size-6 text-white group-hover/btn:animate-pulse"

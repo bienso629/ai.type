@@ -369,22 +369,28 @@
                     />
                 </mat-form-field>
 
-                @if (styles && styles.length > 0) {
-                    <mat-form-field
-                        class="flex-1 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'"
-                    >
-                        <mat-label>Phong cách</mat-label>
-                        <mat-select [(ngModel)]="data.writingStyle">
-                            @for (s of styles; track s) {
-                                <mat-option [value]="s.name">{{
-                                    s.name
-                                }}</mat-option>
-                            }
-                            <mat-option value="">Không dùng</mat-option>
-                        </mat-select>
-                    </mat-form-field>
-                }
+                <mat-form-field
+                    class="flex-1 fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-label>Phong cách</mat-label>
+                    <mat-select [(ngModel)]="data.writingStyle">
+                        @if (
+                            data.writingStyle &&
+                            !hasStyleOption(data.writingStyle)
+                        ) {
+                            <mat-option [value]="data.writingStyle">{{
+                                data.writingStyle
+                            }}</mat-option>
+                        }
+                        @for (s of styles; track s) {
+                            <mat-option [value]="s.name">{{
+                                s.name
+                            }}</mat-option>
+                        }
+                        <mat-option value="">Không dùng</mat-option>
+                    </mat-select>
+                </mat-form-field>
             </div>
 
             <mat-form-field

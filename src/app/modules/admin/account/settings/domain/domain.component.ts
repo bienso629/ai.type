@@ -13,7 +13,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 
-import { getSettings, updateUserSettingsCache, isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+import { UserSettingsService, getSettings, updateUserSettingsCache, isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'settings-domain',
@@ -47,7 +47,32 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     SelectionType = SelectionType;
     styles: any[] = [];
 
+    private _lastFetchedUsername: string = '';
+    private _lastAutoSaveLocal: boolean | null = null;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    getCurrentUsername(): string {
+        if (this.user?.name) {
+            return this.user.name;
+        }
+        const sessionUser: any = this.multiAccountService.getItem('user') || this.multiAccountService.getItem('profile');
+        if (sessionUser?.name || sessionUser?.username) {
+            return sessionUser.name || sessionUser.username;
+        }
+        let lsUser: string | null = null;
+        try {
+            lsUser = localStorage.getItem('username');
+        } catch (e) {}
+        return this.multiAccountService.getItem('username')
+            || lsUser
+            || this.multiAccountService.currentAccountId
+            || 'admin';
+    }
+
+    hasStyleOption(styleName: string): boolean {
+        if (!styleName || !Array.isArray(this.styles)) return false;
+        return this.styles.some(s => s && s.name === styleName);
+    }
 
     cleanDomain(domain: string): string {
         if (!domain) return '';
@@ -82,108 +107,147 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
         this.showPassword = !this.showPassword;
     }
 
-    getResolvedTarget(domain: string, month: number): number {
-        if (!this.domainTargets) return 0;
-        let target = this.domainTargets[domain];
-        if (target === undefined) return 0;
-        if (typeof target === 'number') return target; // Legacy compatibility
-        
-        let yearTarget = target[this.selectedYear];
-        let legacyTarget = target[month]; // From old structure
-        
-        if (yearTarget && yearTarget[month] !== undefined && yearTarget[month] !== null) return yearTarget[month];
-        if (legacyTarget !== undefined && legacyTarget !== null && typeof legacyTarget === 'number') return legacyTarget;
-        
-        // Fallback backward...
-        if (yearTarget) {
+    private findDomainSettingKey(mapObj: any, domain: string): string | undefined {
+        if (!mapObj || typeof mapObj !== 'object' || !domain) return undefined;
+        if (Object.prototype.hasOwnProperty.call(mapObj, domain)) {
+            return domain;
+        }
+        const normTarget = this.normalizeDomain(domain);
+        if (!normTarget) return undefined;
+        return Object.keys(mapObj).find(k => this.normalizeDomain(k) === normTarget);
+    }
+
+    private resolveTargetFromTree(target: any, year: number, month: number): number | undefined {
+        if (target === undefined || target === null) return undefined;
+        if (typeof target === 'number') return target;
+        if (typeof target !== 'object') return undefined;
+
+        const yearTarget = target[year];
+        const legacyTarget = target[month];
+
+        if (yearTarget && yearTarget[month] !== undefined && yearTarget[month] !== null) {
+            return Number(yearTarget[month]) || 0;
+        }
+        if (legacyTarget !== undefined && legacyTarget !== null && typeof legacyTarget === 'number') {
+            return legacyTarget;
+        }
+
+        if (yearTarget && typeof yearTarget === 'object') {
             for (let m = month - 1; m >= 1; m--) {
-                if (yearTarget[m] !== undefined && yearTarget[m] !== null) return yearTarget[m];
+                if (yearTarget[m] !== undefined && yearTarget[m] !== null) {
+                    return Number(yearTarget[m]) || 0;
+                }
             }
         }
-        
-        // legacy fallback
+
         for (let m = month - 1; m >= 1; m--) {
-            if (typeof target[m] === 'number') return target[m];
+            if (typeof target[m] === 'number') {
+                return target[m];
+            }
         }
-        
+
+        return undefined;
+    }
+
+    getResolvedTarget(domain: string, month: number, row?: any): number {
+        const settingKey = this.findDomainSettingKey(this.domainTargets, domain);
+        if (settingKey !== undefined) {
+            const resolvedFromSettings = this.resolveTargetFromTree(this.domainTargets[settingKey], this.selectedYear, month);
+            if (resolvedFromSettings !== undefined) {
+                return resolvedFromSettings;
+            }
+        }
+
+        if (row && row.monthlyTargets && typeof row.monthlyTargets === 'object') {
+            const resolvedFromRowTree = this.resolveTargetFromTree(row.monthlyTargets, this.selectedYear, month);
+            if (resolvedFromRowTree !== undefined) {
+                return resolvedFromRowTree;
+            }
+        }
+
+        if (row) {
+            if (row._dbMonthlyTarget !== undefined) {
+                return Number(row._dbMonthlyTarget) || 0;
+            }
+            if (row.monthlyTarget !== undefined) {
+                return Number(row.monthlyTarget) || 0;
+            }
+        }
+
         return 0;
     }
 
-    fetch() {
-        const isAutoSaveLocal = isAutoSaveLocalEnabled();
-        const electron = (window as any).electron;
-
-        if (isAutoSaveLocal && electron && electron.listLocalDomains) {
-            const currentUname = this.user?.name || this.multiAccountService.getItem('username') || localStorage.getItem('username');
-            electron.listLocalDomains({ username: currentUname }).then((res: any) => {
-                if (res && res.success && res.data) {
-                    this.rows = res.data;
-                    let settings = getSettings() || {};
-                    this.domainTargets = settings.domainTargets || {};
-                    this.domainStyles = settings.domainStyles || {};
-                    
-                    this.rows.forEach(r => {
-                        r.monthlyTarget = this.getResolvedTarget(r.domain, this.selectedMonthNum);
-                        r.writingStyle = this.domainStyles[r.domain] || '';
-                    });
-                    
-                    this.rows = [...this.rows];
-                    this.cd.markForCheck();
-                } else {
-                    this.rows = [];
-                    this.cd.markForCheck();
-                }
-            }).catch(() => {
-                this.rows = [];
-                this.cd.markForCheck();
-            });
-            return;
+    getResolvedWritingStyle(domain: string, row?: any): string {
+        const styleKey = this.findDomainSettingKey(this.domainStyles, domain);
+        if (styleKey !== undefined) {
+            return this.domainStyles[styleKey] ?? '';
         }
+        if (row) {
+            if (row._dbWritingStyle !== undefined) {
+                return row._dbWritingStyle || '';
+            }
+            if (row.writingStyle !== undefined) {
+                return row.writingStyle || '';
+            }
+        }
+        return '';
+    }
 
-        // Nếu có electron nhưng không bật autoSaveLocal hoặc ngược lại, chỉ chặn khi electron thật sự tồn tại
-        if (electron && isAutoSaveLocal) {
-            this.rows = [];
+    private applySettingsToRows(): void {
+        const settings = getSettings() || {};
+        this.domainTargets = settings.domainTargets || {};
+        this.domainStyles = settings.domainStyles || {};
+
+        if (!Array.isArray(this.rows) || this.rows.length === 0) {
             this.cd.markForCheck();
             return;
         }
 
-        this.fetchServerDomains();
+        this.rows.forEach(r => {
+            if (!r) return;
+            if (r._dbMonthlyTarget === undefined) {
+                r._dbMonthlyTarget = Number(r.monthlyTarget) || 0;
+            }
+            if (r._dbWritingStyle === undefined) {
+                r._dbWritingStyle = r.writingStyle || '';
+            }
+            r.monthlyTarget = this.getResolvedTarget(r.domain, this.selectedMonthNum, r);
+            r.writingStyle = this.getResolvedWritingStyle(r.domain, r);
+        });
+
+        this.rows = [...this.rows];
+        this.cd.markForCheck();
     }
 
-    private fetchServerDomains() {
-        const electron = (window as any).electron;
-        const isAutoSaveLocal = isAutoSaveLocalEnabled();
-        if (electron && isAutoSaveLocal) return;
-        const currentUname = this.user?.name || this.multiAccountService.getItem('username') || localStorage.getItem('username');
+    fetch() {
+        const currentUname = this.getCurrentUsername();
         if (!currentUname) return;
 
+        this._lastFetchedUsername = currentUname;
+        this._lastAutoSaveLocal = isAutoSaveLocalEnabled();
+
         this._domainService.fetch({
-            username: currentUname
+            username: currentUname,
+            accountUsername: currentUname
         })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: async (result) => {
-                    if (result && result.success) {
-                        this.rows = result.data;
-                        
-                        let settings = getSettings() || {};
-                        this.domainTargets = settings.domainTargets || {};
-                        this.domainStyles = settings.domainStyles || {};
-                        
-                        this.rows.forEach(r => {
-                            r.monthlyTarget = this.getResolvedTarget(r.domain, this.selectedMonthNum);
-                            r.writingStyle = this.domainStyles[r.domain] || '';
-                        });
-                        
-                        this.rows = [...this.rows];
-
-                        // lam moi lai giao dien
+                next: (result) => {
+                    if (result && result.success && Array.isArray(result.data)) {
+                        this.rows = result.data.map((r: any) => ({
+                            ...r,
+                            _dbMonthlyTarget: Number(r.monthlyTarget) || 0,
+                            _dbWritingStyle: r.writingStyle || ''
+                        }));
+                        this.applySettingsToRows();
+                    } else {
+                        this.rows = [];
                         this.cd.markForCheck();
                     }
                 },
                 error: () => {
-                },
-                complete: () => {
+                    this.rows = [];
+                    this.cd.markForCheck();
                 }
             });
     }
@@ -207,6 +271,9 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
             "password": "",
             "monthlyTarget": 0,
             "ga4PropertyId": "",
+            "serverIp": "",
+            "serverUsername": "",
+            "serverPassword": "",
             "note": "",
             "writingStyle": "",
             "addnew": true
@@ -215,6 +282,9 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     }
 
     openEditDialog(row: any, rowIndex: number, isNew: boolean = false) {
+        const oldDomain = (row?.domain || '').trim();
+        const oldMonthlyTarget = Number(row?.monthlyTarget) || 0;
+        const oldWritingStyle = row?.writingStyle || '';
         const data = { ...row };
         const dialogRef = this._dialog.open(this.editDialogTemplate, {
             width: '560px',
@@ -223,36 +293,76 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
         });
 
         dialogRef.afterClosed().subscribe(result => {
-            if (result) {
-                const oldMonthlyTarget = row.monthlyTarget;
-                const oldWritingStyle = row.writingStyle;
-                
-                if (isNew) {
-                    this.rows.push(result);
-                    this.add(this.rows.length - 1);
-                } else {
-                    Object.assign(this.rows[rowIndex], result);
-                    this.rows = [...this.rows];
-                    
-                    if (result.monthlyTarget !== oldMonthlyTarget) {
-                        this.saveTarget(result.domain, Number(result.monthlyTarget));
-                    }
-                    if (result.writingStyle !== oldWritingStyle) {
-                        this.saveWritingStyle(result.domain, result.writingStyle);
-                    }
-                    
-                    this.edit(rowIndex);
-                }
-                this.cd.markForCheck();
+            if (!result) return;
+            const cleanDom = (result.domain || '').trim();
+            if (!cleanDom) {
+                this.toastr.warning('Vui lòng nhập tên miền.');
+                return;
             }
+
+            const cleanedResult: any = {
+                ...result,
+                domain: cleanDom,
+                name: (result.name || '').trim() || cleanDom,
+                username: (result.username || '').trim(),
+                password: result.password || '',
+                monthlyTarget: Number(result.monthlyTarget) || 0,
+                writingStyle: result.writingStyle || '',
+                ga4PropertyId: (result.ga4PropertyId || '').trim(),
+                serverIp: (result.serverIp || '').trim(),
+                serverUsername: (result.serverUsername || '').trim(),
+                serverPassword: result.serverPassword || '',
+                note: result.note || ''
+            };
+            delete cleanedResult._showPassword;
+            delete cleanedResult._showServerPassword;
+
+            if (!cleanedResult.monthlyTargets || typeof cleanedResult.monthlyTargets !== 'object') {
+                cleanedResult.monthlyTargets = {};
+            } else {
+                cleanedResult.monthlyTargets = { ...cleanedResult.monthlyTargets };
+            }
+            cleanedResult.monthlyTargets[this.selectedYear] = {
+                ...(cleanedResult.monthlyTargets[this.selectedYear] || {}),
+                [this.selectedMonthNum]: cleanedResult.monthlyTarget
+            };
+            cleanedResult._dbMonthlyTarget = cleanedResult.monthlyTarget;
+            cleanedResult._dbWritingStyle = cleanedResult.writingStyle;
+
+            const domainChanged = !isNew && !!oldDomain && oldDomain !== cleanDom;
+            const targetChanged = isNew || domainChanged || cleanedResult.monthlyTarget !== oldMonthlyTarget;
+            const styleChanged = isNew || domainChanged || cleanedResult.writingStyle !== oldWritingStyle;
+
+            if (targetChanged || styleChanged) {
+                this.saveDomainSettingsToProfile({
+                    domain: cleanDom,
+                    oldDomain: domainChanged ? oldDomain : undefined,
+                    monthlyTarget: cleanedResult.monthlyTarget,
+                    updateTarget: targetChanged,
+                    writingStyle: cleanedResult.writingStyle,
+                    updateStyle: styleChanged
+                });
+            }
+
+            if (isNew) {
+                this.rows.push(cleanedResult);
+                this.rows = [...this.rows];
+                this.add(this.rows.length - 1);
+            } else {
+                Object.assign(this.rows[rowIndex], cleanedResult);
+                this.rows = [...this.rows];
+                this.edit(rowIndex, domainChanged ? oldDomain : undefined);
+            }
+            this.cd.markForCheck();
         });
     }
 
     onMonthChange() {
         this.rows.forEach(r => {
-            r.monthlyTarget = this.getResolvedTarget(r.domain, this.selectedMonthNum);
+            r.monthlyTarget = this.getResolvedTarget(r.domain, this.selectedMonthNum, r);
         });
         this.rows = [...this.rows];
+        this.cd.markForCheck();
     }
     
     onYearChange() {
@@ -261,7 +371,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     }
     
     fetchStats() {
-        const username = this.user?.name || this.multiAccountService.getItem('username') || localStorage.getItem('username') || 'admin';
+        const username = this.getCurrentUsername();
 
         this._crawlService.statistics({ username: username, reportYear: this.selectedYear })
             .pipe(takeUntil(this._unsubscribeAll))
@@ -296,15 +406,26 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
 
     updateValue(event, cell, rowIndex) {
         this.editing[rowIndex + '-' + cell] = false;
-        this.rows[rowIndex][cell] = event.target.value;
+        const rawVal = event.target.value;
+        this.rows[rowIndex][cell] = cell === 'monthlyTarget' ? (Number(rawVal) || 0) : rawVal;
         this.rows = [...this.rows];
         
         if (cell === 'monthlyTarget') {
-            this.saveTarget(this.rows[rowIndex].domain, Number(event.target.value));
+            const numTarget = Number(rawVal) || 0;
+            this.rows[rowIndex]._dbMonthlyTarget = numTarget;
+            if (!this.rows[rowIndex].monthlyTargets || typeof this.rows[rowIndex].monthlyTargets !== 'object') {
+                this.rows[rowIndex].monthlyTargets = {};
+            }
+            this.rows[rowIndex].monthlyTargets[this.selectedYear] = {
+                ...(this.rows[rowIndex].monthlyTargets[this.selectedYear] || {}),
+                [this.selectedMonthNum]: numTarget
+            };
+            this.saveTarget(this.rows[rowIndex].domain, numTarget);
             this.edit(rowIndex);
         }
         if (cell === 'writingStyle') {
-            this.saveWritingStyle(this.rows[rowIndex].domain, event.target.value);
+            this.rows[rowIndex]._dbWritingStyle = rawVal || '';
+            this.saveWritingStyle(this.rows[rowIndex].domain, rawVal || '');
             this.edit(rowIndex);
         }
         if (cell === 'note' || cell === 'ga4PropertyId') {
@@ -312,17 +433,63 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
         }
     }
 
-    saveWritingStyle(domain: string, styleName: string) {
-        let settings = getSettings() || {};
-        if (!settings.domainStyles) settings.domainStyles = {};
-        
-        settings.domainStyles[domain] = styleName;
-        this.domainStyles[domain] = styleName;
-        
-        // [Refactor 2026-11-11] Cap nhat cache RAM; luu len server do updateProfile ben duoi thuc hien
+    private saveDomainSettingsToProfile(opts: {
+        domain: string;
+        oldDomain?: string;
+        monthlyTarget?: number;
+        updateTarget?: boolean;
+        writingStyle?: string;
+        updateStyle?: boolean;
+    }): void {
+        const currentSettings = getSettings() || {};
+        const settings: any = {
+            ...currentSettings,
+            domainTargets: { ...(currentSettings.domainTargets || {}) },
+            domainStyles: { ...(currentSettings.domainStyles || {}) }
+        };
+
+        if (opts.oldDomain && opts.oldDomain !== opts.domain) {
+            if (settings.domainTargets[opts.oldDomain] !== undefined && settings.domainTargets[opts.domain] === undefined) {
+                settings.domainTargets[opts.domain] = settings.domainTargets[opts.oldDomain];
+            }
+            delete settings.domainTargets[opts.oldDomain];
+
+            if (settings.domainStyles[opts.oldDomain] !== undefined && settings.domainStyles[opts.domain] === undefined) {
+                settings.domainStyles[opts.domain] = settings.domainStyles[opts.oldDomain];
+            }
+            delete settings.domainStyles[opts.oldDomain];
+        }
+
+        if (opts.updateTarget) {
+            const existingKey = this.findDomainSettingKey(settings.domainTargets, opts.domain) || opts.domain;
+            const prevNode = settings.domainTargets[existingKey];
+            const domainNode: any = (prevNode && typeof prevNode === 'object') ? { ...prevNode } : {};
+            const y = this.selectedYear;
+            domainNode[y] = {
+                ...(domainNode[y] && typeof domainNode[y] === 'object' ? domainNode[y] : {}),
+                [this.selectedMonthNum]: Number(opts.monthlyTarget) || 0
+            };
+            if (existingKey !== opts.domain) {
+                delete settings.domainTargets[existingKey];
+            }
+            settings.domainTargets[opts.domain] = domainNode;
+        }
+
+        if (opts.updateStyle) {
+            const existingStyleKey = this.findDomainSettingKey(settings.domainStyles, opts.domain);
+            if (existingStyleKey && existingStyleKey !== opts.domain) {
+                delete settings.domainStyles[existingStyleKey];
+            }
+            settings.domainStyles[opts.domain] = opts.writingStyle || '';
+        }
+
+        this.domainTargets = settings.domainTargets;
+        this.domainStyles = settings.domainStyles;
+
         updateUserSettingsCache(settings);
-        let editor = this.multiAccountService.getItem('editor');
-        let following_users = this.multiAccountService.getItem('following_users');
+        const editor = this.multiAccountService.getItem('editor');
+        const following_users = this.multiAccountService.getItem('following_users');
+        const currentUname = this.getCurrentUsername();
 
         this._userClientService.updateProfile({
             profile: {
@@ -331,46 +498,33 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
                 editor: (editor && editor != 'undefined') ? editor : {},
                 following_users: (following_users && following_users != 'undefined') ? following_users : [],
             },
-            username: this.user.name
-        }).subscribe();
+            username: currentUname
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe();
+    }
+
+    saveWritingStyle(domain: string, styleName: string) {
+        this.saveDomainSettingsToProfile({
+            domain,
+            writingStyle: styleName,
+            updateStyle: true
+        });
     }
 
     saveTarget(domain: string, target: number) {
-        let settings = getSettings() || {};
-        if (!settings.domainTargets) settings.domainTargets = {};
-        if (!settings.domainTargets[domain] || typeof settings.domainTargets[domain] === 'number') {
-             settings.domainTargets[domain] = {};
-        }
-        
-        let y = this.selectedYear;
-        if (!settings.domainTargets[domain][y]) {
-            settings.domainTargets[domain][y] = {};
-        }
-        
-        settings.domainTargets[domain][y][this.selectedMonthNum] = target;
-        this.domainTargets[domain] = settings.domainTargets[domain];
-        
-        // [Refactor 2026-11-11] Cap nhat cache RAM; luu len server do updateProfile ben duoi thuc hien
-        updateUserSettingsCache(settings);
-        let editor = this.multiAccountService.getItem('editor');
-        let following_users = this.multiAccountService.getItem('following_users');
-
-        this._userClientService.updateProfile({
-            profile: {
-                settings: settings,
-                active_info: this.multiAccountService.getItem('active_info'),
-                editor: (editor && editor != 'undefined') ? editor : {},
-                following_users: (following_users && following_users != 'undefined') ? following_users : [],
-            },
-            username: this.user.name
-        })
-        .pipe(takeUntil(this._unsubscribeAll))
-        .subscribe();
+        this.saveDomainSettingsToProfile({
+            domain,
+            monthlyTarget: target,
+            updateTarget: true
+        });
     }
 
     add(index: number) {
+        const currentUname = this.getCurrentUsername();
         this._domainService.add({
-            username: this.user.name,
+            username: currentUname,
+            accountUsername: currentUname,
             domain: this.rows[index]
         })
             .pipe(takeUntil(this._unsubscribeAll))
@@ -378,20 +532,31 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
                 next: async (result) => {
                     if (result && result.success) {
                         this.toastr.success(`Lưu domain mới của bạn xong.`);
-                        this.rows[index].addnew = false;
+                        if (this.rows[index]) {
+                            this.rows[index].addnew = false;
+                            const newId = result.data?._id || result.data?.id || result._id || result.id;
+                            const newRev = result.data?._rev || result.data?.rev || result._rev || result.rev;
+                            if (newId) this.rows[index]._id = newId;
+                            if (newRev) this.rows[index]._rev = newRev;
+                            this.rows = [...this.rows];
+                            this.cd.markForCheck();
+                        }
+                    } else {
+                        this.toastr.error(result?.error || result?.message || `Lưu domain mới của bạn lỗi.`);
                     }
                 },
                 error: () => {
                     this.toastr.error(`Lưu domain mới của bạn lỗi.`);
-                },
-                complete: () => {
                 }
             });
     }
 
-    edit(index: number) {
+    edit(index: number, oldDomain?: string) {
+        const currentUname = this.getCurrentUsername();
         this._domainService.edit({
-            username: this.user.name,
+            username: currentUname,
+            accountUsername: currentUname,
+            oldDomain: oldDomain,
             domain: this.rows[index]
         })
             .pipe(takeUntil(this._unsubscribeAll))
@@ -399,15 +564,19 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
                 next: async (result) => {
                     if (result && result.success) {
                         this.toastr.success(`Chỉnh sửa domain xong.`);
-                        if (result.data && result.data._rev) {
-                            this.rows[index]._rev = result.data._rev;
+                        if (this.rows[index]) {
+                            const updatedId = result.data?._id || result.data?.id || result._id || result.id;
+                            const updatedRev = result.data?._rev || result.data?.rev || result._rev || result.rev;
+                            if (updatedId) this.rows[index]._id = updatedId;
+                            if (updatedRev) this.rows[index]._rev = updatedRev;
+                            this.cd.markForCheck();
                         }
+                    } else {
+                        this.toastr.error(result?.error || result?.message || `Chỉnh sửa domain lỗi.`);
                     }
                 },
                 error: () => {
                     this.toastr.error(`Chỉnh sửa domain lỗi.`);
-                },
-                complete: () => {
                 }
             });
     }
@@ -421,6 +590,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
         private _domainService: DomainService,
         private _crawlService: CrawlService,
         private _userClientService: UserClientService,
+        private _userSettingsService: UserSettingsService,
         private multiAccountService: MultiAccountService,
         private toastr: ToastrService,
         private _genaiService: GenaiService,
@@ -584,8 +754,10 @@ Trả về ĐÚNG định dạng JSON mảng các object:
                     this.rows[rowIndex].note = aiData.analysis; // Ghi vào trường note
                     
                     // Gọi API lưu vào Database
+                    const currentUname = this.getCurrentUsername();
                     this._domainService.edit({
-                        username: this.user.name,
+                        username: currentUname,
+                        accountUsername: currentUname,
                         domain: this.rows[rowIndex]
                     }).subscribe((res: any) => {
                         if (res && res.success && res.data && res.data._rev) {
@@ -634,21 +806,49 @@ Trả về ĐÚNG định dạng JSON mảng các object:
      * On init
      */
     ngOnInit(): void {
-        // Lấy danh sách styles từ cache cục bộ
         this.styles = this.multiAccountService.getItem('styles') || [];
 
-        // Lấy dữ liệu ngay lập tức không phụ thuộc vào luồng user$ từ server
+        const initialSettings = getSettings() || {};
+        this.domainTargets = initialSettings.domainTargets || {};
+        this.domainStyles = initialSettings.domainStyles || {};
+
         this.fetch();
         this.fetchStats();
+
+        const initialUname = this.getCurrentUsername();
+        if (initialUname && (!initialSettings || Object.keys(initialSettings).length === 0)) {
+            this._userSettingsService.load(initialUname);
+        }
 
         this._userService.user$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 if (user) {
+                    const prevUname = this._lastFetchedUsername;
                     this.user = user;
-                    this.styles = this.multiAccountService.getItem('styles') || [];
+                    this.styles = this.multiAccountService.getItem('styles') || this.styles || [];
+                    const currentSettings = getSettings() || {};
+                    if (user.name && (!currentSettings || Object.keys(currentSettings).length === 0)) {
+                        this._userSettingsService.load(user.name);
+                    }
+                    if (user.name && user.name !== prevUname) {
+                        this.fetch();
+                        this.fetchStats();
+                    }
+                    this.cd.markForCheck();
+                }
+            });
+
+        this._userSettingsService.settings$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((settings: any) => {
+                const currentAutoSave = isAutoSaveLocalEnabled();
+                if (this._lastAutoSaveLocal !== null && currentAutoSave !== this._lastAutoSaveLocal) {
                     this.fetch();
-                    this.fetchStats();
+                    return;
+                }
+                if (settings && typeof settings === 'object') {
+                    this.applySettingsToRows();
                 }
             });
 
@@ -656,17 +856,16 @@ Trả về ĐÚNG định dạng JSON mảng các object:
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((account: any) => {
                 if (account) {
-                    const settings = account.settings || {};
-                    this.domainTargets = settings.domainTargets || {};
-                    this.domainStyles = settings.domainStyles || {};
-                    if (this.rows && this.rows.length > 0) {
-                        this.rows.forEach(r => {
-                            r.monthlyTarget = this.getResolvedTarget(r.domain, this.selectedMonthNum);
-                            r.writingStyle = this.domainStyles[r.domain] || '';
-                        });
-                        this.rows = [...this.rows];
-                        this.cd.markForCheck();
+                    if (Array.isArray(account.styles) && account.styles.length > 0) {
+                        this.styles = account.styles;
                     }
+                    const accountUserObj = account.user || account.profile;
+                    const accountUname = accountUserObj?.name || accountUserObj?.username;
+                    if (accountUname && this._lastFetchedUsername && accountUname !== this._lastFetchedUsername) {
+                        this.fetch();
+                        this.fetchStats();
+                    }
+                    this.cd.markForCheck();
                 }
             });
     }

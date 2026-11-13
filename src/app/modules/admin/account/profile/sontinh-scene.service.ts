@@ -538,6 +538,1170 @@ export class SontinhSceneService implements OnDestroy {
     });
   }
 
+  private _texAlphaProfileCache = new WeakMap<object, 'opaque' | 'all_zero' | 'cutout' | 'translucent' | 'unknown'>();
+
+  /**
+   * Phan loai kenh alpha thuc te cua texture trong GLB de tranh truong hop
+   * exporter gan nham alphaMode = BLEND (lam tat depthWrite va gay rach/xuyen tam giac).
+   */
+  private _classifyTextureAlpha(tex: any): 'opaque' | 'all_zero' | 'cutout' | 'translucent' | 'unknown' {
+    if (!tex || typeof tex !== 'object') return 'unknown';
+    const cached = this._texAlphaProfileCache.get(tex);
+    if (cached) return cached;
+
+    let result: 'opaque' | 'all_zero' | 'cutout' | 'translucent' | 'unknown' = 'unknown';
+    try {
+      const fmt = tex.format;
+      if (
+        fmt === pc.PIXELFORMAT_RGB8 ||
+        fmt === (pc as any).PIXELFORMAT_SRGB ||
+        fmt === pc.PIXELFORMAT_R5_G6_B5
+      ) {
+        result = 'opaque';
+        this._texAlphaProfileCache.set(tex, result);
+        return result;
+      }
+
+      const src = tex.getSource?.(0) ?? tex._levels?.[0];
+      const isDrawable =
+        (typeof HTMLImageElement !== 'undefined' && src instanceof HTMLImageElement) ||
+        (typeof ImageBitmap !== 'undefined' && src instanceof ImageBitmap) ||
+        (typeof HTMLCanvasElement !== 'undefined' && src instanceof HTMLCanvasElement) ||
+        (typeof OffscreenCanvas !== 'undefined' && src instanceof OffscreenCanvas);
+
+      if (isDrawable) {
+        const rawW = Number((src as any).width || (src as any).naturalWidth) || 0;
+        const rawH = Number((src as any).height || (src as any).naturalHeight) || 0;
+        if (rawW > 0 && rawH > 0) {
+          const sw = Math.min(128, rawW);
+          const sh = Math.min(128, rawH);
+          const cv = document.createElement('canvas');
+          cv.width = sw;
+          cv.height = sh;
+          const ctx = cv.getContext('2d', { willReadFrequently: true });
+          if (ctx) {
+            ctx.imageSmoothingEnabled = false;
+            ctx.globalCompositeOperation = 'copy';
+            ctx.drawImage(src as CanvasImageSource, 0, 0, sw, sh);
+            const data = ctx.getImageData(0, 0, sw, sh).data;
+            const total = sw * sh;
+            let minA = 255;
+            let maxA = 0;
+            let transparentCount = 0;
+            let opaqueCount = 0;
+            let midCount = 0;
+
+            for (let i = 3; i < data.length; i += 4) {
+              const a = data[i];
+              if (a < minA) minA = a;
+              if (a > maxA) maxA = a;
+              if (a <= 15) transparentCount++;
+              else if (a >= 240) opaqueCount++;
+              else midCount++;
+            }
+
+            if (maxA <= 5) {
+              result = 'all_zero';
+            } else if (minA >= 248) {
+              result = 'opaque';
+            } else if (opaqueCount < total * 0.35 && midCount > total * 0.30) {
+              result = 'translucent';
+            } else {
+              result = 'cutout';
+            }
+          }
+          cv.width = 1;
+          cv.height = 1;
+        }
+      }
+    } catch (_) {
+      result = 'unknown';
+    }
+
+    this._texAlphaProfileCache.set(tex, result);
+    return result;
+  }
+
+  /**
+   * Tao envAtlas HDR (RGBM) thuat toan cho anh sang moi truong (IBL diffuse + GGX specular reflection),
+   * giup cac chi tiet kim loai (ngoi sao, vien vang, charm, kinh, giap...) khong bi den tuyen
+   * khi useMetalness = true, dong thoi giu nguyen nen clearColor cua camera (tat lop Skybox).
+   */
+  private _createProceduralEnvAtlas(device: any): pc.Texture | null {
+    if (!device) return null;
+    let skyTex: pc.Texture | null = null;
+    let lightingSrc: pc.Texture | null = null;
+    try {
+      const w = 128;
+      const h = 64;
+      skyTex = new pc.Texture(device, {
+        name: 'proceduralStudioEnvEquirect',
+        width: w,
+        height: h,
+        format: pc.PIXELFORMAT_RGBA8,
+        type: pc.TEXTURETYPE_RGBM,
+        projection: pc.TEXTUREPROJECTION_EQUIRECT,
+        addressU: pc.ADDRESS_REPEAT,
+        addressV: pc.ADDRESS_CLAMP_TO_EDGE,
+        minFilter: pc.FILTER_LINEAR,
+        magFilter: pc.FILTER_LINEAR,
+        mipmaps: false
+      });
+
+      const pixels = skyTex.lock() as Uint8Array;
+      const sunX = 0.4472, sunY = 0.6859, sunZ = 0.5740;
+      const fillX = -0.5345, fillY = 0.4454, fillZ = -0.7181;
+
+      for (let y = 0; y < h; y++) {
+        // flipY = true mac dinh trong PlayCanvas -> y = 0 la dinh bau troi (+Y), y = h - 1 la mat san (-Y)
+        const v = (y + 0.5) / h;
+        const theta = v * Math.PI;
+        const sinT = Math.sin(theta);
+        const dirY = Math.cos(theta);
+
+        for (let x = 0; x < w; x++) {
+          const u = (x + 0.5) / w;
+          const phi = (u * 2.0 - 1.0) * Math.PI;
+          const dirX = sinT * Math.cos(phi);
+          const dirZ = sinT * Math.sin(phi);
+
+          let lr: number, lg: number, lb: number;
+          if (dirY >= 0) {
+            const t = Math.pow(dirY, 0.65);
+            lr = 0.78 * (1.0 - t) + 0.62 * t;
+            lg = 0.80 * (1.0 - t) + 0.74 * t;
+            lb = 0.84 * (1.0 - t) + 0.94 * t;
+          } else {
+            const t = Math.min(1.0, Math.pow(-dirY, 0.75));
+            lr = 0.78 * (1.0 - t) + 0.38 * t;
+            lg = 0.80 * (1.0 - t) + 0.36 * t;
+            lb = 0.84 * (1.0 - t) + 0.33 * t;
+          }
+
+          const dotSun = Math.max(0, dirX * sunX + dirY * sunY + dirZ * sunZ);
+          if (dotSun > 0) {
+            const specLobe = Math.pow(dotSun, 24) * 2.4 + Math.pow(dotSun, 4) * 0.28;
+            lr += specLobe * 1.0;
+            lg += specLobe * 0.96;
+            lb += specLobe * 0.88;
+          }
+
+          const dotFill = Math.max(0, dirX * fillX + dirY * fillY + dirZ * fillZ);
+          if (dotFill > 0) {
+            const fillLobe = Math.pow(dotFill, 8) * 0.45;
+            lr += fillLobe * 0.86;
+            lg += fillLobe * 0.92;
+            lb += fillLobe * 1.0;
+          }
+
+          // Ma hoa RGBM cua PlayCanvas: decodeRGBM(raw) = ((8.0 * raw.a) * raw.rgb)^2
+          const sr = Math.sqrt(Math.max(0, lr));
+          const sg = Math.sqrt(Math.max(0, lg));
+          const sb = Math.sqrt(Math.max(0, lb));
+          const maxS = Math.min(1.0, Math.max(sr, sg, sb, 1e-4) / 8.0);
+          const aByte = Math.max(1, Math.min(255, Math.ceil(maxS * 255)));
+          const denom = 8.0 * (aByte / 255.0);
+
+          const off = (y * w + x) * 4;
+          pixels[off] = Math.min(255, Math.round((sr / denom) * 255));
+          pixels[off + 1] = Math.min(255, Math.round((sg / denom) * 255));
+          pixels[off + 2] = Math.min(255, Math.round((sb / denom) * 255));
+          pixels[off + 3] = aByte;
+        }
+      }
+      skyTex.unlock();
+
+      const envLighting = (pc as any).EnvLighting;
+      if (!envLighting?.generateAtlas) {
+        skyTex.destroy();
+        return null;
+      }
+      lightingSrc = envLighting.generateLightingSource
+        ? envLighting.generateLightingSource(skyTex)
+        : null;
+      const atlas: pc.Texture = envLighting.generateAtlas(lightingSrc || skyTex);
+      if (lightingSrc) lightingSrc.destroy();
+      skyTex.destroy();
+      return atlas;
+    } catch (_) {
+      try { if (lightingSrc) lightingSrc.destroy(); } catch (__) {}
+      try { if (skyTex) skyTex.destroy(); } catch (__) {}
+      return null;
+    }
+  }
+
+  private _applySceneEnvAtlas(scene: any, envAtlas: pc.Texture | null, intensity = 0.95): void {
+    if (!scene || !envAtlas) return;
+    try {
+      scene.envAtlas = envAtlas;
+      scene.skyboxIntensity = intensity;
+      const skyLayer =
+        scene.layers?.getLayerById?.(pc.LAYERID_SKYBOX) ??
+        scene.layers?.getLayerByName?.('Skybox');
+      if (skyLayer) {
+        skyLayer.enabled = false;
+      }
+    } catch (_) {}
+  }
+
+  private _makeOrthonormalTangent(nx: number, ny: number, nz: number): [number, number, number, number] {
+    let rx = 0, ry = 1, rz = 0;
+    if (Math.abs(ny) > 0.99) {
+      rx = 1; ry = 0; rz = 0;
+    }
+    const tx = ry * nz - rz * ny;
+    const ty = rz * nx - rx * nz;
+    const tz = rx * ny - ry * nx;
+    const len = Math.hypot(tx, ty, tz) || 1;
+    return [tx / len, ty / len, tz / len, 1.0];
+  }
+
+  /**
+   * Han kin vi khe ho bien UV seam tren mang POSITION (giu nguyen so luong dinh, thu tu dinh va UV,
+   * kiem tra nghiem ngat khong suy bien canh va khong lam lech phap tuyen mat > 28 do).
+   */
+  private _weldOpenBoundaryPositions(
+    pos: Float32Array,
+    numVerts: number,
+    indexViews: ArrayLike<number>[],
+    diag: number
+  ): boolean {
+    const exactInv = 1.0 / Math.max(diag * 1e-6, 1e-9);
+    const posIdOfVert = new Int32Array(numVerts);
+    const uniqueCoords: number[] = [];
+    const posKeyMap = new Map<string, number>();
+
+    for (let v = 0; v < numVerts; v++) {
+      const x = pos[v * 3], y = pos[v * 3 + 1], z = pos[v * 3 + 2];
+      const k = `${Math.round(x * exactInv)},${Math.round(y * exactInv)},${Math.round(z * exactInv)}`;
+      let pid = posKeyMap.get(k);
+      if (pid === undefined) {
+        pid = uniqueCoords.length / 3;
+        posKeyMap.set(k, pid);
+        uniqueCoords.push(x, y, z);
+      }
+      posIdOfVert[v] = pid;
+    }
+
+    const numPos = uniqueCoords.length / 3;
+    if (numPos < 4) return false;
+
+    const edgeCounts = new Map<string, number>();
+    const adjSet: Array<Set<number> | undefined> = new Array(numPos);
+    const allTrisPos: Array<{
+      p0: number; p1: number; p2: number;
+      area2: number; ux: number; uy: number; uz: number;
+    }> = [];
+
+    const makeEdgeKey = (a: number, b: number) => (a < b ? `${a}_${b}` : `${b}_${a}`);
+    const addAdj = (a: number, b: number) => {
+      if (!adjSet[a]) adjSet[a] = new Set<number>();
+      if (!adjSet[b]) adjSet[b] = new Set<number>();
+      adjSet[a]!.add(b);
+      adjSet[b]!.add(a);
+    };
+
+    for (const idx of indexViews) {
+      const nTri = Math.floor(idx.length / 3);
+      for (let t = 0; t < nTri; t++) {
+        const p0 = posIdOfVert[idx[t * 3]];
+        const p1 = posIdOfVert[idx[t * 3 + 1]];
+        const p2 = posIdOfVert[idx[t * 3 + 2]];
+        if (p0 === p1 || p1 === p2 || p2 === p0) continue;
+
+        const ax = uniqueCoords[p0 * 3], ay = uniqueCoords[p0 * 3 + 1], az = uniqueCoords[p0 * 3 + 2];
+        const bx = uniqueCoords[p1 * 3], by = uniqueCoords[p1 * 3 + 1], bz = uniqueCoords[p1 * 3 + 2];
+        const cx = uniqueCoords[p2 * 3], cy = uniqueCoords[p2 * 3 + 1], cz = uniqueCoords[p2 * 3 + 2];
+        const e1x = bx - ax, e1y = by - ay, e1z = bz - az;
+        const e2x = cx - ax, e2y = cy - ay, e2z = cz - az;
+        const fnx = e1y * e2z - e1z * e2y;
+        const fny = e1z * e2x - e1x * e2z;
+        const fnz = e1x * e2y - e1y * e2x;
+        const area2 = Math.hypot(fnx, fny, fnz);
+        if (area2 < 1e-12 * diag * diag) continue;
+
+        const k01 = makeEdgeKey(p0, p1);
+        const k12 = makeEdgeKey(p1, p2);
+        const k20 = makeEdgeKey(p2, p0);
+        edgeCounts.set(k01, (edgeCounts.get(k01) || 0) + 1);
+        edgeCounts.set(k12, (edgeCounts.get(k12) || 0) + 1);
+        edgeCounts.set(k20, (edgeCounts.get(k20) || 0) + 1);
+        addAdj(p0, p1);
+        addAdj(p1, p2);
+        addAdj(p2, p0);
+
+        allTrisPos.push({
+          p0, p1, p2, area2,
+          ux: fnx / area2, uy: fny / area2, uz: fnz / area2
+        });
+      }
+    }
+
+    const isOpenPos = new Uint8Array(numPos);
+    const openEdges: Array<[number, number]> = [];
+    edgeCounts.forEach((cnt, key) => {
+      if (cnt === 1) {
+        const sep = key.indexOf('_');
+        const a = Number(key.slice(0, sep));
+        const b = Number(key.slice(sep + 1));
+        isOpenPos[a] = 1;
+        isOpenPos[b] = 1;
+        openEdges.push([a, b]);
+      }
+    });
+
+    const openList: number[] = [];
+    for (let p = 0; p < numPos; p++) {
+      if (isOpenPos[p]) openList.push(p);
+    }
+    if (openList.length < 2) return false;
+
+    const incidentTris = new Map<number, typeof allTrisPos>();
+    for (const tr of allTrisPos) {
+      for (const vp of [tr.p0, tr.p1, tr.p2]) {
+        if (!isOpenPos[vp]) continue;
+        let arr = incidentTris.get(vp);
+        if (!arr) { arr = []; incidentTris.set(vp, arr); }
+        arr.push(tr);
+      }
+    }
+
+    const curCoords = new Float64Array(uniqueCoords);
+    const parent = new Int32Array(numPos);
+    for (let i = 0; i < numPos; i++) parent[i] = i;
+    const find = (x: number): number => {
+      while (parent[x] !== x) {
+        parent[x] = parent[parent[x]];
+        x = parent[x];
+      }
+      return x;
+    };
+
+    const checkMoveValid = (movedSet: Set<number>, nx: number, ny: number, nz: number): boolean => {
+      for (const pid of movedSet) {
+        const tris = incidentTris.get(pid);
+        if (!tris) continue;
+        for (const tr of tris) {
+          const r0 = find(tr.p0), r1 = find(tr.p1), r2 = find(tr.p2);
+          const m0 = movedSet.has(r0), m1 = movedSet.has(r1), m2 = movedSet.has(r2);
+          if ((m0 && m1) || (m1 && m2) || (m0 && m2)) return false;
+          const ax = m0 ? nx : curCoords[r0 * 3], ay = m0 ? ny : curCoords[r0 * 3 + 1], az = m0 ? nz : curCoords[r0 * 3 + 2];
+          const bx = m1 ? nx : curCoords[r1 * 3], by = m1 ? ny : curCoords[r1 * 3 + 1], bz = m1 ? nz : curCoords[r1 * 3 + 2];
+          const cx = m2 ? nx : curCoords[r2 * 3], cy = m2 ? ny : curCoords[r2 * 3 + 1], cz = m2 ? nz : curCoords[r2 * 3 + 2];
+          const e1x = bx - ax, e1y = by - ay, e1z = bz - az;
+          const e2x = cx - ax, e2y = cy - ay, e2z = cz - az;
+          const fnx = e1y * e2z - e1z * e2y;
+          const fny = e1z * e2x - e1x * e2z;
+          const fnz = e1x * e2y - e1y * e2x;
+          const newArea2 = Math.hypot(fnx, fny, fnz);
+          if (newArea2 < tr.area2 * 0.45) return false;
+          const dot = (fnx * tr.ux + fny * tr.uy + fnz * tr.uz) / newArea2;
+          if (dot < 0.88) return false;
+        }
+      }
+      return true;
+    };
+
+    const weldEps = diag * 0.003;
+    const weldEpsSq = weldEps * weldEps;
+    const invCell = 1.0 / weldEps;
+    const grid = new Map<string, number[]>();
+
+    for (const pid of openList) {
+      const gk = `${Math.floor(curCoords[pid * 3] * invCell)},${Math.floor(curCoords[pid * 3 + 1] * invCell)},${Math.floor(curCoords[pid * 3 + 2] * invCell)}`;
+      let cell = grid.get(gk);
+      if (!cell) { cell = []; grid.set(gk, cell); }
+      cell.push(pid);
+    }
+
+    const pairs: Array<{ a: number; b: number; d2: number }> = [];
+    for (const a of openList) {
+      const ax = curCoords[a * 3], ay = curCoords[a * 3 + 1], az = curCoords[a * 3 + 2];
+      const gx = Math.floor(ax * invCell), gy = Math.floor(ay * invCell), gz = Math.floor(az * invCell);
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dz = -1; dz <= 1; dz++) {
+            const cell = grid.get(`${gx + dx},${gy + dy},${gz + dz}`);
+            if (!cell) continue;
+            for (const b of cell) {
+              if (b <= a || adjSet[a]?.has(b)) continue;
+              const ddx = curCoords[b * 3] - ax, ddy = curCoords[b * 3 + 1] - ay, ddz = curCoords[b * 3 + 2] - az;
+              const d2 = ddx * ddx + ddy * ddy + ddz * ddz;
+              if (d2 <= weldEpsSq) pairs.push({ a, b, d2 });
+            }
+          }
+        }
+      }
+    }
+
+    pairs.sort((p, q) => p.d2 - q.d2);
+    const clusterMembers = new Map<number, number[]>();
+    for (const pid of openList) clusterMembers.set(pid, [pid]);
+
+    let changed = false;
+    for (const pr of pairs) {
+      const ra = find(pr.a), rb = find(pr.b);
+      if (ra === rb) continue;
+      const memA = clusterMembers.get(ra) || [ra];
+      const memB = clusterMembers.get(rb) || [rb];
+      if (memA.length + memB.length > 8) continue;
+
+      let sharesEdge = false;
+      for (const ma of memA) {
+        const adj = adjSet[ma];
+        if (!adj) continue;
+        for (const mb of memB) {
+          if (adj.has(mb)) { sharesEdge = true; break; }
+        }
+        if (sharesEdge) break;
+      }
+      if (sharesEdge) continue;
+
+      const ddx = curCoords[rb * 3] - curCoords[ra * 3];
+      const ddy = curCoords[rb * 3 + 1] - curCoords[ra * 3 + 1];
+      const ddz = curCoords[rb * 3 + 2] - curCoords[ra * 3 + 2];
+      if (ddx * ddx + ddy * ddy + ddz * ddz > weldEpsSq) continue;
+
+      const mx = 0.5 * (curCoords[ra * 3] + curCoords[rb * 3]);
+      const my = 0.5 * (curCoords[ra * 3 + 1] + curCoords[rb * 3 + 1]);
+      const mz = 0.5 * (curCoords[ra * 3 + 2] + curCoords[rb * 3 + 2]);
+      const movedSet = new Set<number>([...memA, ...memB, ra, rb]);
+      if (!checkMoveValid(movedSet, mx, my, mz)) continue;
+
+      parent[rb] = ra;
+      for (const mb of memB) memA.push(mb);
+      for (const m of memA) {
+        curCoords[m * 3] = mx;
+        curCoords[m * 3 + 1] = my;
+        curCoords[m * 3 + 2] = mz;
+      }
+      clusterMembers.delete(rb);
+      changed = true;
+    }
+
+    // Khep khe T-junction nho (<= 0.002 * diag)
+    const tEps = diag * 0.002;
+    const tEpsSq = tEps * tEps;
+    const tInvCell = 1.0 / tEps;
+    const tGrid = new Map<string, number[]>();
+    const seenRoot = new Set<number>();
+    for (const pid of openList) {
+      const r = find(pid);
+      if (seenRoot.has(r)) continue;
+      seenRoot.add(r);
+      const gk = `${Math.floor(curCoords[r * 3] * tInvCell)},${Math.floor(curCoords[r * 3 + 1] * tInvCell)},${Math.floor(curCoords[r * 3 + 2] * tInvCell)}`;
+      let cell = tGrid.get(gk);
+      if (!cell) { cell = []; tGrid.set(gk, cell); }
+      cell.push(r);
+    }
+
+    const maxSegLenSq = (diag * 0.15) * (diag * 0.15);
+    const minSegLenSq = (tEps * 1.5) * (tEps * 1.5);
+    for (const [e0, e1] of openEdges) {
+      const r0 = find(e0), r1 = find(e1);
+      if (r0 === r1) continue;
+      const ax = curCoords[r0 * 3], ay = curCoords[r0 * 3 + 1], az = curCoords[r0 * 3 + 2];
+      const bx = curCoords[r1 * 3], by = curCoords[r1 * 3 + 1], bz = curCoords[r1 * 3 + 2];
+      const abx = bx - ax, aby = by - ay, abz = bz - az;
+      const lenSq = abx * abx + aby * aby + abz * abz;
+      if (lenSq < minSegLenSq || lenSq > maxSegLenSq) continue;
+
+      const minGx = Math.floor((Math.min(ax, bx) - tEps) * tInvCell);
+      const maxGx = Math.floor((Math.max(ax, bx) + tEps) * tInvCell);
+      const minGy = Math.floor((Math.min(ay, by) - tEps) * tInvCell);
+      const maxGy = Math.floor((Math.max(ay, by) + tEps) * tInvCell);
+      const minGz = Math.floor((Math.min(az, bz) - tEps) * tInvCell);
+      const maxGz = Math.floor((Math.max(az, bz) + tEps) * tInvCell);
+      if ((maxGx - minGx + 1) * (maxGy - minGy + 1) * (maxGz - minGz + 1) > 512) continue;
+
+      for (let gx = minGx; gx <= maxGx; gx++) {
+        for (let gy = minGy; gy <= maxGy; gy++) {
+          for (let gz = minGz; gz <= maxGz; gz++) {
+            const cell = tGrid.get(`${gx},${gy},${gz}`);
+            if (!cell) continue;
+            for (const rp of cell) {
+              if (rp === r0 || rp === r1) continue;
+              const px = curCoords[rp * 3], py = curCoords[rp * 3 + 1], pz = curCoords[rp * 3 + 2];
+              const t = ((px - ax) * abx + (py - ay) * aby + (pz - az) * abz) / lenSq;
+              if (t <= 0.05 || t >= 0.95) continue;
+              const qx = ax + t * abx, qy = ay + t * aby, qz = az + t * abz;
+              const d2 = (px - qx) * (px - qx) + (py - qy) * (py - qy) + (pz - qz) * (pz - qz);
+              if (d2 > tEpsSq) continue;
+              const memP = clusterMembers.get(rp) || [rp];
+              let shares = false;
+              for (const mp of memP) {
+                if (adjSet[mp]?.has(r0) || adjSet[mp]?.has(r1) || adjSet[mp]?.has(e0) || adjSet[mp]?.has(e1)) {
+                  shares = true;
+                  break;
+                }
+              }
+              if (shares) continue;
+              const movedSet = new Set<number>([...memP, rp]);
+              if (!checkMoveValid(movedSet, qx, qy, qz)) continue;
+              for (const mp of movedSet) {
+                curCoords[mp * 3] = qx;
+                curCoords[mp * 3 + 1] = qy;
+                curCoords[mp * 3 + 2] = qz;
+              }
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+
+    if (!changed) return false;
+    for (let v = 0; v < numVerts; v++) {
+      const pid = posIdOfVert[v];
+      if (!isOpenPos[pid]) continue;
+      const r = find(pid);
+      pos[v * 3] = curCoords[r * 3];
+      pos[v * 3 + 1] = curCoords[r * 3 + 1];
+      pos[v * 3 + 2] = curCoords[r * 3 + 2];
+    }
+    return true;
+  }
+
+  /**
+   * Chuan hoa dong bo toan bo nhom pc.Mesh dung chung VertexBuffer:
+   * - Han kin vi khe ho bien UV seam (mesh tinh).
+   * - Loai bo tam giac suy bien va dao chieu quan (winding) de dot(fn, vn) >= 0 tuyet doi,
+   *   tranh loi twoSidedLighting (!gl_FrontFacing) lat nguoc normal tao manh den.
+   * - Khoi phuc vertex normal suy bien / nguoc chieu va lam muot seam tren mat cong.
+   * - Bo sung hoac sua SEMANTIC_TANGENT truc chuan trong so dien tich 3D de khu nhieu dFdx/dFdy.
+   */
+  private _sanitizeVbMeshGroup(vb: any, meshes: pc.Mesh[], device?: any): number {
+    if (!vb || !meshes.length) return 0;
+    if (vb._glbVbGroupSanitized) {
+      return Number(vb._glbDegUvRatio) || 0;
+    }
+    vb._glbVbGroupSanitized = true;
+
+    let degUvRatio = 0;
+    try {
+      const fmt = vb.getFormat?.() ?? vb.format;
+      const numVerts = vb.getNumVertices?.() ?? vb.numVertices ?? 0;
+      const elements: any[] = fmt?.elements || [];
+      if (numVerts <= 0 || !elements.length) return 0;
+
+      const posEl = elements.find((e) => e.name === pc.SEMANTIC_POSITION && e.dataType === pc.TYPE_FLOAT32 && e.numComponents >= 3);
+      const normEl = elements.find((e) => e.name === pc.SEMANTIC_NORMAL && e.dataType === pc.TYPE_FLOAT32 && e.numComponents >= 3);
+      const uv0El = elements.find((e) => e.name === pc.SEMANTIC_TEXCOORD0 && e.dataType === pc.TYPE_FLOAT32 && e.numComponents >= 2);
+      const tanEl = elements.find((e) => e.name === pc.SEMANTIC_TANGENT && e.dataType === pc.TYPE_FLOAT32 && e.numComponents >= 4);
+      const colEl = elements.find((e) => e.name === pc.SEMANTIC_COLOR && e.dataType === pc.TYPE_FLOAT32 && e.numComponents >= 3);
+
+      const hasSkin =
+        meshes.some((m) => !!(m as any).skin) ||
+        elements.some((e) => e.name === pc.SEMANTIC_BLENDINDICES || e.name === pc.SEMANTIC_BLENDWEIGHT);
+      const hasMorph = meshes.some((m) => !!(m as any).morph);
+
+      const vbRaw = vb.lock?.();
+      if (!vbRaw) return 0;
+      const vbBytes = ArrayBuffer.isView(vbRaw)
+        ? new Uint8Array(vbRaw.buffer, vbRaw.byteOffset, vbRaw.byteLength)
+        : new Uint8Array(vbRaw as ArrayBuffer);
+      if (vbBytes.byteLength < 12) return 0;
+      const vbDv = new DataView(vbBytes.buffer, vbBytes.byteOffset, vbBytes.byteLength);
+
+      let vbModified = false;
+
+      // Sanitize float color neu co NaN/am
+      if (colEl) {
+        const comps = Math.min(4, colEl.numComponents);
+        for (let v = 0; v < numVerts; v++) {
+          const off = v * colEl.stride + colEl.offset;
+          if (off + comps * 4 > vbBytes.byteLength) break;
+          for (let c = 0; c < comps; c++) {
+            const val = vbDv.getFloat32(off + c * 4, true);
+            if (!Number.isFinite(val)) {
+              vbDv.setFloat32(off + c * 4, 1, true);
+              vbModified = true;
+            } else if (val < 0) {
+              vbDv.setFloat32(off + c * 4, 0, true);
+              vbModified = true;
+            }
+          }
+        }
+      }
+
+      if (!posEl || !normEl) {
+        if (vbModified) vb.unlock?.();
+        return 0;
+      }
+
+      const pos = new Float32Array(numVerts * 3);
+      const norm = new Float32Array(numVerts * 3);
+      const uv0 = uv0El ? new Float32Array(numVerts * 2) : null;
+
+      let minX = Infinity, minY = Infinity, minZ = Infinity;
+      let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+
+      for (let v = 0; v < numVerts; v++) {
+        const pOff = v * posEl.stride + posEl.offset;
+        let px = vbDv.getFloat32(pOff, true);
+        let py = vbDv.getFloat32(pOff + 4, true);
+        let pz = vbDv.getFloat32(pOff + 8, true);
+        if (!Number.isFinite(px)) { px = 0; vbModified = true; }
+        if (!Number.isFinite(py)) { py = 0; vbModified = true; }
+        if (!Number.isFinite(pz)) { pz = 0; vbModified = true; }
+        pos[v * 3] = px; pos[v * 3 + 1] = py; pos[v * 3 + 2] = pz;
+        if (px < minX) minX = px; if (py < minY) minY = py; if (pz < minZ) minZ = pz;
+        if (px > maxX) maxX = px; if (py > maxY) maxY = py; if (pz > maxZ) maxZ = pz;
+
+        const nOff = v * normEl.stride + normEl.offset;
+        norm[v * 3] = vbDv.getFloat32(nOff, true);
+        norm[v * 3 + 1] = vbDv.getFloat32(nOff + 4, true);
+        norm[v * 3 + 2] = vbDv.getFloat32(nOff + 8, true);
+
+        if (uv0 && uv0El) {
+          const uOff = v * uv0El.stride + uv0El.offset;
+          const u = vbDv.getFloat32(uOff, true);
+          const vCoord = vbDv.getFloat32(uOff + 4, true);
+          uv0[v * 2] = Number.isFinite(u) ? u : 0;
+          uv0[v * 2 + 1] = Number.isFinite(vCoord) ? vCoord : 0;
+        }
+      }
+
+      const diag = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ);
+      if (!Number.isFinite(diag) || diag < 1e-9) {
+        if (vbModified) vb.unlock?.();
+        return 0;
+      }
+
+      // Lay danh sach IndexBuffer tam giac cua cac mesh dung chung VB
+      const ibEntries: Array<{ mesh: pc.Mesh; ib: any; view: Uint8Array | Uint16Array | Uint32Array; count: number }> = [];
+      for (const mesh of meshes) {
+        const prim = (mesh as any).primitive?.[0];
+        if (!prim || prim.type !== pc.PRIMITIVE_TRIANGLES) continue;
+        const ib = (mesh as any).indexBuffer?.[0];
+        if (!ib) continue;
+        const ibRaw = ib.lock?.();
+        if (!ibRaw) continue;
+        const ibFmt = ib.getFormat?.() ?? ib.format;
+        const numIdx = Math.min(prim.count ?? (ib.getNumIndices?.() ?? ib.numIndices ?? 0), ib.getNumIndices?.() ?? ib.numIndices ?? 0);
+        if (numIdx < 3) continue;
+
+        let view: Uint8Array | Uint16Array | Uint32Array | null = null;
+        if (ArrayBuffer.isView(ibRaw)) {
+          if (ibFmt === pc.INDEXFORMAT_UINT8) view = new Uint8Array(ibRaw.buffer, ibRaw.byteOffset, numIdx);
+          else if (ibFmt === pc.INDEXFORMAT_UINT16) view = new Uint16Array(ibRaw.buffer, ibRaw.byteOffset, numIdx);
+          else view = new Uint32Array(ibRaw.buffer, ibRaw.byteOffset, numIdx);
+        } else if (ibRaw instanceof ArrayBuffer) {
+          if (ibFmt === pc.INDEXFORMAT_UINT8) view = new Uint8Array(ibRaw, 0, numIdx);
+          else if (ibFmt === pc.INDEXFORMAT_UINT16) view = new Uint16Array(ibRaw, 0, numIdx);
+          else view = new Uint32Array(ibRaw, 0, numIdx);
+        }
+        if (view) ibEntries.push({ mesh, ib, view, count: numIdx });
+      }
+
+      let posModified = false;
+      if (!hasSkin && !hasMorph && ibEntries.length > 0) {
+        posModified = this._weldOpenBoundaryPositions(
+          pos,
+          numVerts,
+          ibEntries.map((e) => e.view),
+          diag
+        );
+        if (posModified) vbModified = true;
+      }
+
+      // Chuan hoa normal ban dau
+      const hasValidN = new Uint8Array(numVerts);
+      for (let v = 0; v < numVerts; v++) {
+        const nx = norm[v * 3], ny = norm[v * 3 + 1], nz = norm[v * 3 + 2];
+        const lenSq = nx * nx + ny * ny + nz * nz;
+        if (Number.isFinite(lenSq) && lenSq > 1e-10) {
+          const inv = 1.0 / Math.sqrt(lenSq);
+          norm[v * 3] = nx * inv;
+          norm[v * 3 + 1] = ny * inv;
+          norm[v * 3 + 2] = nz * inv;
+          hasValidN[v] = 1;
+        } else {
+          norm[v * 3] = 0; norm[v * 3 + 1] = 0; norm[v * 3 + 2] = 0;
+          vbModified = true;
+        }
+      }
+
+      // Can chinh winding & tich luy phap tuyen mat dinh huong
+      const minAreaSq = Math.max(1e-28, (diag * 1e-11) * (diag * 1e-11));
+      const accFn = new Float64Array(numVerts * 3);
+      const ibDirty = new Uint8Array(ibEntries.length);
+
+      for (let ei = 0; ei < ibEntries.length; ei++) {
+        const { view, count } = ibEntries[ei];
+        const nTri = Math.floor(count / 3);
+        for (let t = 0; t < nTri; t++) {
+          let i0 = view[t * 3], i1 = view[t * 3 + 1], i2 = view[t * 3 + 2];
+          if (i0 >= numVerts || i1 >= numVerts || i2 >= numVerts || i0 === i1 || i1 === i2 || i0 === i2) {
+            if (i1 !== i0 || i2 !== i0) {
+              const safeIdx = i0 < numVerts ? i0 : 0;
+              view[t * 3] = safeIdx; view[t * 3 + 1] = safeIdx; view[t * 3 + 2] = safeIdx;
+              ibDirty[ei] = 1;
+            }
+            continue;
+          }
+
+          const p0x = pos[i0 * 3], p0y = pos[i0 * 3 + 1], p0z = pos[i0 * 3 + 2];
+          const e1x = pos[i1 * 3] - p0x, e1y = pos[i1 * 3 + 1] - p0y, e1z = pos[i1 * 3 + 2] - p0z;
+          const e2x = pos[i2 * 3] - p0x, e2y = pos[i2 * 3 + 1] - p0y, e2z = pos[i2 * 3 + 2] - p0z;
+          let fnx = e1y * e2z - e1z * e2y;
+          let fny = e1z * e2x - e1x * e2z;
+          let fnz = e1x * e2y - e1y * e2x;
+          const fnLenSq = fnx * fnx + fny * fny + fnz * fnz;
+          if (!Number.isFinite(fnLenSq) || fnLenSq <= minAreaSq) {
+            view[t * 3 + 1] = i0;
+            view[t * 3 + 2] = i0;
+            ibDirty[ei] = 1;
+            continue;
+          }
+
+          const vnx = norm[i0 * 3] + norm[i1 * 3] + norm[i2 * 3];
+          const vny = norm[i0 * 3 + 1] + norm[i1 * 3 + 1] + norm[i2 * 3 + 1];
+          const vnz = norm[i0 * 3 + 2] + norm[i1 * 3 + 2] + norm[i2 * 3 + 2];
+          const vnLenSq = vnx * vnx + vny * vny + vnz * vnz;
+          if (vnLenSq > 1e-8 && fnx * vnx + fny * vny + fnz * vnz < 0) {
+            view[t * 3 + 1] = i2;
+            view[t * 3 + 2] = i1;
+            const tmp = i1; i1 = i2; i2 = tmp;
+            fnx = -fnx; fny = -fny; fnz = -fnz;
+            ibDirty[ei] = 1;
+          }
+
+          accFn[i0 * 3] += fnx; accFn[i0 * 3 + 1] += fny; accFn[i0 * 3 + 2] += fnz;
+          accFn[i1 * 3] += fnx; accFn[i1 * 3 + 1] += fny; accFn[i1 * 3 + 2] += fnz;
+          accFn[i2 * 3] += fnx; accFn[i2 * 3 + 1] += fny; accFn[i2 * 3 + 2] += fnz;
+        }
+      }
+
+      // Sua normal suy bien hoac lech nguoc > 83 do so voi mat dinh huong
+      for (let v = 0; v < numVerts; v++) {
+        const fx = accFn[v * 3], fy = accFn[v * 3 + 1], fz = accFn[v * 3 + 2];
+        const fLen = Math.hypot(fx, fy, fz);
+        if (!hasValidN[v]) {
+          if (fLen > 1e-18) {
+            norm[v * 3] = fx / fLen; norm[v * 3 + 1] = fy / fLen; norm[v * 3 + 2] = fz / fLen;
+          } else {
+            norm[v * 3] = 0; norm[v * 3 + 1] = 1; norm[v * 3 + 2] = 0;
+          }
+          vbModified = true;
+        } else if (fLen > 1e-18) {
+          const fux = fx / fLen, fuy = fy / fLen, fuz = fz / fLen;
+          if (norm[v * 3] * fux + norm[v * 3 + 1] * fuy + norm[v * 3 + 2] * fuz < 0.12) {
+            norm[v * 3] = fux; norm[v * 3 + 1] = fuy; norm[v * 3 + 2] = fuz;
+            vbModified = true;
+          }
+        }
+      }
+
+      // Lam muot normal qua duong may UV tren mat cong (< 38 do)
+      if (!hasSkin && !hasMorph && ibEntries.length > 0) {
+        const seamInv = 1.0 / Math.max(diag * 1e-5, 1e-9);
+        const posGroups = new Map<string, number[]>();
+        for (let v = 0; v < numVerts; v++) {
+          const k = `${Math.round(pos[v * 3] * seamInv)},${Math.round(pos[v * 3 + 1] * seamInv)},${Math.round(pos[v * 3 + 2] * seamInv)}`;
+          let arr = posGroups.get(k);
+          if (!arr) { arr = []; posGroups.set(k, arr); }
+          arr.push(v);
+        }
+        posGroups.forEach((verts) => {
+          if (verts.length < 2 || verts.length > 16) return;
+          const v0 = verts[0];
+          const refX = norm[v0 * 3], refY = norm[v0 * 3 + 1], refZ = norm[v0 * 3 + 2];
+          let gx = 0, gy = 0, gz = 0;
+          for (const vi of verts) {
+            const nx = norm[vi * 3], ny = norm[vi * 3 + 1], nz = norm[vi * 3 + 2];
+            if (nx * refX + ny * refY + nz * refZ < 0.78) return;
+            gx += nx; gy += ny; gz += nz;
+          }
+          const gLen = Math.hypot(gx, gy, gz);
+          if (gLen < 1e-6) return;
+          gx /= gLen; gy /= gLen; gz /= gLen;
+          for (const vi of verts) {
+            const bx = 0.55 * norm[vi * 3] + 0.45 * gx;
+            const by = 0.55 * norm[vi * 3 + 1] + 0.45 * gy;
+            const bz = 0.55 * norm[vi * 3 + 2] + 0.45 * gz;
+            const bLen = Math.hypot(bx, by, bz) || 1;
+            norm[vi * 3] = bx / bLen; norm[vi * 3 + 1] = by / bLen; norm[vi * 3 + 2] = bz / bLen;
+          }
+          vbModified = true;
+        });
+      }
+
+      // Dam bao tuyet doi 100% tam giac dot(fn, vn) >= 0 va unlock IndexBuffer neu thay doi
+      let totalValidTris = 0;
+      let degUvTris = 0;
+
+      for (let ei = 0; ei < ibEntries.length; ei++) {
+        const { ib, view, count } = ibEntries[ei];
+        const nTri = Math.floor(count / 3);
+        for (let t = 0; t < nTri; t++) {
+          const i0 = view[t * 3], i1 = view[t * 3 + 1], i2 = view[t * 3 + 2];
+          if (i0 === i1 || i1 === i2 || i0 === i2) continue;
+          totalValidTris++;
+          if (uv0) {
+            const du1 = uv0[i1 * 2] - uv0[i0 * 2], dv1 = uv0[i1 * 2 + 1] - uv0[i0 * 2 + 1];
+            const du2 = uv0[i2 * 2] - uv0[i0 * 2], dv2 = uv0[i2 * 2 + 1] - uv0[i0 * 2 + 1];
+            if (Math.abs(du1 * dv2 - du2 * dv1) < 1e-9) degUvTris++;
+          }
+          const p0x = pos[i0 * 3], p0y = pos[i0 * 3 + 1], p0z = pos[i0 * 3 + 2];
+          const e1x = pos[i1 * 3] - p0x, e1y = pos[i1 * 3 + 1] - p0y, e1z = pos[i1 * 3 + 2] - p0z;
+          const e2x = pos[i2 * 3] - p0x, e2y = pos[i2 * 3 + 1] - p0y, e2z = pos[i2 * 3 + 2] - p0z;
+          const fnx = e1y * e2z - e1z * e2y;
+          const fny = e1z * e2x - e1x * e2z;
+          const fnz = e1x * e2y - e1y * e2x;
+          const vnx = norm[i0 * 3] + norm[i1 * 3] + norm[i2 * 3];
+          const vny = norm[i0 * 3 + 1] + norm[i1 * 3 + 1] + norm[i2 * 3 + 1];
+          const vnz = norm[i0 * 3 + 2] + norm[i1 * 3 + 2] + norm[i2 * 3 + 2];
+          if (fnx * vnx + fny * vny + fnz * vnz < 0) {
+            view[t * 3 + 1] = i2;
+            view[t * 3 + 2] = i1;
+            ibDirty[ei] = 1;
+          }
+        }
+        if (ibDirty[ei]) {
+          ib.unlock?.();
+        }
+      }
+
+      degUvRatio = totalValidTris > 0 ? degUvTris / totalValidTris : 0;
+      vb._glbDegUvRatio = degUvRatio;
+
+      // Neu chua co SEMANTIC_TANGENT va co UV0 + device (khong morph): tinh tangent va nang cap VertexBuffer
+      if (!tanEl && uv0 && !hasMorph && device && ibEntries.length > 0) {
+        const tan1 = new Float64Array(numVerts * 3);
+        const tan2 = new Float64Array(numVerts * 3);
+
+        for (const { view, count } of ibEntries) {
+          const nTri = Math.floor(count / 3);
+          for (let t = 0; t < nTri; t++) {
+            const i0 = view[t * 3], i1 = view[t * 3 + 1], i2 = view[t * 3 + 2];
+            if (i0 === i1 || i1 === i2 || i0 === i2) continue;
+            const du1 = uv0[i1 * 2] - uv0[i0 * 2], dv1 = uv0[i1 * 2 + 1] - uv0[i0 * 2 + 1];
+            const du2 = uv0[i2 * 2] - uv0[i0 * 2], dv2 = uv0[i2 * 2 + 1] - uv0[i0 * 2 + 1];
+            const uvArea = du1 * dv2 - du2 * dv1;
+            if (!Number.isFinite(uvArea) || Math.abs(uvArea) < 1e-9) continue;
+
+            const x1 = pos[i1 * 3] - pos[i0 * 3], y1 = pos[i1 * 3 + 1] - pos[i0 * 3 + 1], z1 = pos[i1 * 3 + 2] - pos[i0 * 3 + 2];
+            const x2 = pos[i2 * 3] - pos[i0 * 3], y2 = pos[i2 * 3 + 1] - pos[i0 * 3 + 1], z2 = pos[i2 * 3 + 2] - pos[i0 * 3 + 2];
+            const triArea3D = Math.hypot(y1 * z2 - z1 * y2, z1 * x2 - x1 * z2, x1 * y2 - y1 * x2);
+            if (triArea3D <= 1e-14) continue;
+
+            const sgn = uvArea > 0 ? 1.0 : -1.0;
+            let sx = (dv2 * x1 - dv1 * x2) * sgn;
+            let sy = (dv2 * y1 - dv1 * y2) * sgn;
+            let sz = (dv2 * z1 - dv1 * z2) * sgn;
+            const sLen = Math.hypot(sx, sy, sz);
+            if (sLen <= 1e-12) continue;
+            const sw = triArea3D / sLen;
+            sx *= sw; sy *= sw; sz *= sw;
+
+            let tx = (du1 * x2 - du2 * x1) * sgn;
+            let ty = (du1 * y2 - du2 * y1) * sgn;
+            let tz = (du1 * z2 - du2 * z1) * sgn;
+            const tLen = Math.hypot(tx, ty, tz) || 1;
+            const tw = triArea3D / tLen;
+            tx *= tw; ty *= tw; tz *= tw;
+
+            tan1[i0 * 3] += sx; tan1[i0 * 3 + 1] += sy; tan1[i0 * 3 + 2] += sz;
+            tan1[i1 * 3] += sx; tan1[i1 * 3 + 1] += sy; tan1[i1 * 3 + 2] += sz;
+            tan1[i2 * 3] += sx; tan1[i2 * 3 + 1] += sy; tan1[i2 * 3 + 2] += sz;
+
+            tan2[i0 * 3] += tx; tan2[i0 * 3 + 1] += ty; tan2[i0 * 3 + 2] += tz;
+            tan2[i1 * 3] += tx; tan2[i1 * 3 + 1] += ty; tan2[i1 * 3 + 2] += tz;
+            tan2[i2 * 3] += tx; tan2[i2 * 3 + 1] += ty; tan2[i2 * 3 + 2] += tz;
+          }
+        }
+
+        const outTan = new Float32Array(numVerts * 4);
+        for (let v = 0; v < numVerts; v++) {
+          const nx = norm[v * 3], ny = norm[v * 3 + 1], nz = norm[v * 3 + 2];
+          const t1x = tan1[v * 3], t1y = tan1[v * 3 + 1], t1z = tan1[v * 3 + 2];
+          const ndott = nx * t1x + ny * t1y + nz * t1z;
+          const ox = t1x - nx * ndott, oy = t1y - ny * ndott, oz = t1z - nz * ndott;
+          const oLen = Math.hypot(ox, oy, oz);
+          if (oLen > 1e-5) {
+            const ux = ox / oLen, uy = oy / oLen, uz = oz / oLen;
+            const cx = ny * uz - nz * uy, cy = nz * ux - nx * uz, cz = nx * uy - ny * ux;
+            const w = cx * tan2[v * 3] + cy * tan2[v * 3 + 1] + cz * tan2[v * 3 + 2] < 0 ? -1.0 : 1.0;
+            outTan[v * 4] = ux; outTan[v * 4 + 1] = uy; outTan[v * 4 + 2] = uz; outTan[v * 4 + 3] = w;
+          } else {
+            const fb = this._makeOrthonormalTangent(nx, ny, nz);
+            outTan[v * 4] = fb[0]; outTan[v * 4 + 1] = fb[1]; outTan[v * 4 + 2] = fb[2]; outTan[v * 4 + 3] = fb[3];
+          }
+        }
+
+        const desc: any[] = elements.map((el) => ({
+          semantic: el.name,
+          components: el.numComponents,
+          type: el.dataType,
+          normalize: !!el.normalize,
+          asInt: !!el.asInt
+        }));
+        desc.push({
+          semantic: pc.SEMANTIC_TANGENT,
+          components: 4,
+          type: pc.TYPE_FLOAT32,
+          normalize: false
+        });
+
+        const newFmt = new pc.VertexFormat(device, desc);
+        const newVb = new pc.VertexBuffer(device, newFmt, numVerts, {
+          usage: vb.getUsage?.() ?? pc.BUFFER_STATIC
+        });
+        const newRaw = newVb.lock();
+        const dstBytes = ArrayBuffer.isView(newRaw)
+          ? new Uint8Array(newRaw.buffer, newRaw.byteOffset, newRaw.byteLength)
+          : new Uint8Array(newRaw as ArrayBuffer);
+        const dstDv = new DataView(dstBytes.buffer, dstBytes.byteOffset, dstBytes.byteLength);
+        const newElements: any[] = (newFmt as any).elements || [];
+
+        for (const srcEl of elements) {
+          const dstEl = newElements.find((e) => e.name === srcEl.name);
+          if (!dstEl) continue;
+          const copyBytes = Math.min(srcEl.size, dstEl.size);
+          for (let v = 0; v < numVerts; v++) {
+            const sOff = v * srcEl.stride + srcEl.offset;
+            const dOff = v * dstEl.stride + dstEl.offset;
+            for (let b = 0; b < copyBytes; b++) {
+              dstBytes[dOff + b] = vbBytes[sOff + b];
+            }
+          }
+        }
+
+        const dstPosEl = newElements.find((e) => e.name === pc.SEMANTIC_POSITION);
+        const dstNormEl = newElements.find((e) => e.name === pc.SEMANTIC_NORMAL);
+        const dstTanEl = newElements.find((e) => e.name === pc.SEMANTIC_TANGENT);
+
+        for (let v = 0; v < numVerts; v++) {
+          if (dstPosEl) {
+            const pOff = v * dstPosEl.stride + dstPosEl.offset;
+            dstDv.setFloat32(pOff, pos[v * 3], true);
+            dstDv.setFloat32(pOff + 4, pos[v * 3 + 1], true);
+            dstDv.setFloat32(pOff + 8, pos[v * 3 + 2], true);
+          }
+          if (dstNormEl) {
+            const nOff = v * dstNormEl.stride + dstNormEl.offset;
+            dstDv.setFloat32(nOff, norm[v * 3], true);
+            dstDv.setFloat32(nOff + 4, norm[v * 3 + 1], true);
+            dstDv.setFloat32(nOff + 8, norm[v * 3 + 2], true);
+          }
+          if (dstTanEl) {
+            const tOff = v * dstTanEl.stride + dstTanEl.offset;
+            dstDv.setFloat32(tOff, outTan[v * 4], true);
+            dstDv.setFloat32(tOff + 4, outTan[v * 4 + 1], true);
+            dstDv.setFloat32(tOff + 8, outTan[v * 4 + 2], true);
+            dstDv.setFloat32(tOff + 12, outTan[v * 4 + 3], true);
+          }
+        }
+
+        newVb.unlock();
+        (newVb as any)._glbVbGroupSanitized = true;
+        (newVb as any)._glbDegUvRatio = degUvRatio;
+
+        for (const m of meshes) {
+          m.vertexBuffer = newVb;
+          if (posModified && m.aabb) {
+            m.aabb.compute(pos, numVerts);
+          }
+        }
+        try { vb.destroy?.(); } catch (_) {}
+        return degUvRatio;
+      }
+
+      // Neu da co SEMANTIC_TANGENT (hoac mesh co morph/khong UV): sua tangent tai cho & ghi lai pos/norm
+      if (tanEl) {
+        for (let v = 0; v < numVerts; v++) {
+          const tOff = v * tanEl.stride + tanEl.offset;
+          if (tOff + 16 > vbBytes.byteLength) break;
+          const tx = vbDv.getFloat32(tOff, true);
+          const ty = vbDv.getFloat32(tOff + 4, true);
+          const tz = vbDv.getFloat32(tOff + 8, true);
+          const tw = vbDv.getFloat32(tOff + 12, true);
+          const lenSq = tx * tx + ty * ty + tz * tz;
+          if (!Number.isFinite(lenSq) || !Number.isFinite(tw) || lenSq < 1e-8 || Math.abs(tw) < 1e-4) {
+            const fb = this._makeOrthonormalTangent(norm[v * 3], norm[v * 3 + 1], norm[v * 3 + 2]);
+            vbDv.setFloat32(tOff, fb[0], true);
+            vbDv.setFloat32(tOff + 4, fb[1], true);
+            vbDv.setFloat32(tOff + 8, fb[2], true);
+            vbDv.setFloat32(tOff + 12, fb[3], true);
+            vbModified = true;
+          }
+        }
+      }
+
+      if (vbModified) {
+        for (let v = 0; v < numVerts; v++) {
+          if (posModified) {
+            const pOff = v * posEl.stride + posEl.offset;
+            vbDv.setFloat32(pOff, pos[v * 3], true);
+            vbDv.setFloat32(pOff + 4, pos[v * 3 + 1], true);
+            vbDv.setFloat32(pOff + 8, pos[v * 3 + 2], true);
+          }
+          const nOff = v * normEl.stride + normEl.offset;
+          vbDv.setFloat32(nOff, norm[v * 3], true);
+          vbDv.setFloat32(nOff + 4, norm[v * 3 + 1], true);
+          vbDv.setFloat32(nOff + 8, norm[v * 3 + 2], true);
+        }
+        vb.unlock?.();
+        if (posModified) {
+          for (const m of meshes) {
+            if (m.aabb) m.aabb.compute(pos, numVerts);
+          }
+        }
+      }
+    } catch (_) {}
+
+    return degUvRatio;
+  }
+
+  /**
+   * Chuan hoa toan ven geometry, winding, vertex normals/tangents, filtering va material cua GLB sau khi instantiate:
+   * 1. Han kin vi khe ho bien UV seam, loai tam giac suy bien va dong bo 100% chieu quan (winding) khop phap tuyen dinh.
+   * 2. Sua normal suy bien/nguoc chieu va tinh SEMANTIC_TANGENT truc chuan de khu nhieu dFdx/dFdy tren tam giac UV suy bien.
+   * 3. Bat render 2 mat (CULLFACE_NONE + twoSidedLighting) an toan ma khong gay manh den tren mat ngoai.
+   * 4. Chuyen cac vat lieu bi gan nham BLEND sang OPAQUE hoac alpha-cutout co depthWrite = true.
+   * 5. Tang anisotropic filtering, dieu tiet bumpiness tren mesh decimate va ha alphaCutoff hop ly.
+   */
+  private _sanitizeGlbEntity(rootEntity: pc.Entity | null | undefined, device?: any): void {
+    if (!rootEntity) return;
+    const compSet = new Set<any>();
+    if ((rootEntity as any).render) compSet.add((rootEntity as any).render);
+    if ((rootEntity as any).model) compSet.add((rootEntity as any).model);
+    for (const r of (rootEntity.findComponents('render') as any[]) || []) compSet.add(r);
+    for (const m of (rootEntity.findComponents('model') as any[]) || []) compSet.add(m);
+
+    const maxAniso = Math.min(8, Math.max(1, Number(device?.maxAnisotropy) || 4));
+    const texSlots = [
+      'diffuseMap',
+      'opacityMap',
+      'normalMap',
+      'emissiveMap',
+      'metalnessMap',
+      'glossMap',
+      'aoMap',
+      'specularMap'
+    ];
+
+    // 1. Gom nhom pc.Mesh theo VertexBuffer de xu ly dong bo geometry, winding, normal va tangent
+    const vbToMeshes = new Map<any, Set<pc.Mesh>>();
+    const allMis: any[] = [];
+    compSet.forEach((comp) => {
+      const mis: any[] = comp?.meshInstances || [];
+      for (const mi of mis) {
+        if (!mi) continue;
+        allMis.push(mi);
+        const mesh = mi.mesh as pc.Mesh | undefined;
+        const vb = mesh?.vertexBuffer;
+        if (mesh && vb) {
+          let set = vbToMeshes.get(vb);
+          if (!set) { set = new Set<pc.Mesh>(); vbToMeshes.set(vb, set); }
+          set.add(mesh);
+        }
+      }
+    });
+
+    const meshDegUvRatio = new Map<pc.Mesh, number>();
+    vbToMeshes.forEach((meshSet, vb) => {
+      const meshes = Array.from(meshSet);
+      const ratio = this._sanitizeVbMeshGroup(vb, meshes, device);
+      for (const m of meshes) {
+        meshDegUvRatio.set(m, ratio);
+      }
+    });
+
+    // 2. Chuan hoa StandardMaterial & Texture filtering
+    for (const mi of allMis) {
+      const mat = mi.material as pc.StandardMaterial;
+      if (!mat || (mat as any)._glbMatSanitized) continue;
+      (mat as any)._glbMatSanitized = true;
+
+      try {
+        for (const slot of texSlots) {
+          const tex = (mat as any)[slot];
+          if (tex && typeof tex === 'object' && typeof tex.anisotropy === 'number') {
+            if (tex.anisotropy < maxAniso) {
+              tex.anisotropy = maxAniso;
+            }
+          }
+        }
+
+        // Luon tat backface culling va bat two-sided lighting (nay da an toan tuyet doi do winding da khop 100% voi normal)
+        mat.cull = pc.CULLFACE_NONE;
+        mat.twoSidedLighting = true;
+        mat.depthTest = true;
+
+        // Dieu tiet bumpiness nhe khi mesh AI decimate co nhieu tam giac UV suy bien de tranh soc den normal map
+        const degRatio = mi.mesh ? (meshDegUvRatio.get(mi.mesh) ?? 0) : 0;
+        if (mat.normalMap && degRatio > 0.03) {
+          const curBump = typeof mat.bumpiness === 'number' ? mat.bumpiness : 1.0;
+          mat.bumpiness = Math.min(curBump, 0.72);
+        }
+
+        // Tat dynamic refraction neu GLB co KHR_materials_volume / transmission nhung scene khong bat grab pass
+        if ((mat as any).useDynamicRefraction) {
+          const refr = Number((mat as any).refraction) || 0;
+          const curOp = typeof mat.opacity === 'number' ? mat.opacity : 1;
+          if (refr > 0.25 && !(mat as any).refractionMap && curOp >= 0.92) {
+            mat.opacity = Math.max(0.25, 1 - refr * 0.65);
+          }
+          (mat as any).useDynamicRefraction = false;
+          (mat as any).refraction = 0;
+        }
+
+        const scalarOpacity = typeof mat.opacity === 'number' ? mat.opacity : 1.0;
+
+        if (mat.blendType !== pc.BLEND_NONE) {
+          if (scalarOpacity < 0.92) {
+            if (mat.opacityMap && this._classifyTextureAlpha(mat.opacityMap) === 'all_zero') {
+              mat.opacityMap = null as any;
+            }
+            mat.depthWrite = false;
+          } else if (mat.opacityMap) {
+            const alphaProfile = this._classifyTextureAlpha(mat.opacityMap);
+            if (alphaProfile === 'opaque') {
+              mat.blendType = pc.BLEND_NONE;
+              mat.depthWrite = true;
+              mat.alphaTest = 0;
+              mat.opacityMap = null as any;
+            } else if (alphaProfile === 'all_zero') {
+              mat.blendType = pc.BLEND_NONE;
+              mat.depthWrite = true;
+              mat.alphaTest = 0;
+              mat.opacityMap = null as any;
+              mat.opacity = 1;
+            } else if (alphaProfile === 'translucent') {
+              mat.blendType = pc.BLEND_NORMAL;
+              mat.depthWrite = false;
+            } else {
+              mat.blendType = pc.BLEND_NONE;
+              mat.depthWrite = true;
+              mat.alphaTest = mat.alphaTest > 0 ? Math.min(mat.alphaTest, 0.3) : 0.22;
+            }
+          } else {
+            mat.blendType = pc.BLEND_NONE;
+            mat.depthWrite = true;
+          }
+        } else {
+          mat.depthWrite = true;
+          if (mat.opacityMap) {
+            const alphaProfile = this._classifyTextureAlpha(mat.opacityMap);
+            if (alphaProfile === 'opaque' || alphaProfile === 'all_zero') {
+              mat.alphaTest = 0;
+              mat.opacityMap = null as any;
+            } else if (mat.alphaTest > 0) {
+              mat.alphaTest = Math.min(mat.alphaTest, 0.3);
+            }
+          }
+        }
+
+        (mat as any)._baseBlendType = mat.blendType;
+        (mat as any)._baseDepthWrite = mat.depthWrite;
+        (mat as any)._baseOpacity = mat.opacity;
+        mat.update();
+      } catch (_) {}
+    }
+  }
+
   /** Load a custom character GLB from URL (user-uploaded asset) */
   private _loadCustomCharacterGlb(glbUrl: string, initialAnim: string): void {
     if (!this.app || this._destroyed) return;
@@ -549,6 +1713,7 @@ export class SontinhSceneService implements OnDestroy {
       const charContainer = asset.resource as any;
       const newEntity = (charContainer.instantiateRenderEntity() ?? charContainer.instantiateModelEntity()) as pc.Entity;
       if (!newEntity || !this._charBodyRoot) return;
+      this._sanitizeGlbEntity(newEntity, this.app?.graphicsDevice);
 
       // Replace existing character visuals
       while (this._charBodyRoot.children.length > 0) {
@@ -650,6 +1815,7 @@ export class SontinhSceneService implements OnDestroy {
       const container = asset.resource as any;
       const glbEntity = (container.instantiateRenderEntity?.() ?? container.instantiateModelEntity?.()) as pc.Entity;
       if (!glbEntity) { onLoaded?.(false); return; }
+      this._sanitizeGlbEntity(glbEntity, this.app.graphicsDevice);
 
       // Gỡ bản cũ nếu đồ vật được nạp lại
       const old = this.app.root.findByName(`PropGLB_${propId}`);
@@ -780,22 +1946,28 @@ export class SontinhSceneService implements OnDestroy {
       cv.width = 160;
       cv.height = 160;
       let app: any = null;
+      let envAtlas: pc.Texture | null = null;
       let settled = false;
       const finish = (result: string | null) => {
         if (settled) return;
         settled = true;
+        const gl = app?.graphicsDevice?.gl;
+        try { if (envAtlas) { envAtlas.destroy(); envAtlas = null; } } catch (_) {}
         try { if (app) app.destroy(); } catch (_) {}
+        try { gl?.getExtension?.('WEBGL_lose_context')?.loseContext?.(); } catch (_) {}
         try { cv.width = 1; cv.height = 1; } catch (_) {}
         resolve(result);
       };
       const timeout = setTimeout(() => finish(null), 15000);
       try {
         app = new pc.Application(cv, {
-          graphicsDeviceOptions: { antialias: true, alpha: true, preserveDrawingBuffer: true, depth: true }
+          graphicsDeviceOptions: { antialias: true, alpha: true, preserveDrawingBuffer: true, depth: true, stencil: false }
         });
         app.setCanvasFillMode(pc.FILLMODE_NONE);
         try { app.graphicsDevice.maxPixelRatio = 1; } catch (_) {}
         app.scene.ambientLight = new pc.Color(0.6, 0.6, 0.65);
+        envAtlas = this._createProceduralEnvAtlas(app.graphicsDevice);
+        this._applySceneEnvAtlas(app.scene, envAtlas, 1.05);
         const cam = new pc.Entity('ThumbCam');
         cam.addComponent('camera', { clearColor: new pc.Color(0, 0, 0, 0), fov: 45 });
         app.root.addChild(cam);
@@ -814,6 +1986,7 @@ export class SontinhSceneService implements OnDestroy {
           try {
             const ent = (asset.resource.instantiateRenderEntity?.() ?? asset.resource.instantiateModelEntity?.()) as pc.Entity;
             if (!ent) { clearTimeout(timeout); finish(null); return; }
+            this._sanitizeGlbEntity(ent, app.graphicsDevice);
             app.root.addChild(ent);
 
             // Fit camera theo bounding box (thuần số học từ aabb mesh instances)
@@ -821,8 +1994,9 @@ export class SontinhSceneService implements OnDestroy {
             let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
             let hasMesh = false;
             const gather = (node: any) => {
-              if (node?.render?.meshInstances) {
-                for (const mi of node.render.meshInstances) {
+              const mis = node?.render?.meshInstances || node?.model?.meshInstances;
+              if (mis) {
+                for (const mi of mis) {
                   const a = mi.aabb;
                   if (!a) continue;
                   hasMesh = true;
@@ -1606,9 +2780,10 @@ export class SontinhSceneService implements OnDestroy {
       graphicsDeviceOptions: {
         antialias: true,
         alpha: false,
+        depth: true,
         powerPreference: 'high-performance',
         preserveDrawingBuffer: true,
-        stencil: true
+        stencil: false
       }
     });
     
@@ -1640,9 +2815,16 @@ export class SontinhSceneService implements OnDestroy {
     ro.observe(canvas.parentElement!);
     resizeToContainer(); // initial size
 
+    const sceneEnvAtlas = this._createProceduralEnvAtlas(app.graphicsDevice);
+    this._applySceneEnvAtlas(app.scene, sceneEnvAtlas, 0.95);
+
     // Cleanup khi destroy
     const origDestroy = app.destroy.bind(app);
-    app.destroy = () => { ro.disconnect(); origDestroy(); };
+    app.destroy = () => {
+      ro.disconnect();
+      try { if (sceneEnvAtlas) sceneEnvAtlas.destroy(); } catch (_) {}
+      origDestroy();
+    };
 
     // 🎬 CINEMATIC PHOTOREALISTIC LIGHTING PIPELINE
     app.scene.exposure = 1.25;
@@ -1672,8 +2854,8 @@ export class SontinhSceneService implements OnDestroy {
       color: new pc.Color(1.0, 0.94, 0.82),
       intensity: 2.8,
       castShadows: true,
-      shadowBias: 0.03,
-      normalOffsetBias: 0.02,
+      shadowBias: 0.05,
+      normalOffsetBias: 0.05,
       shadowResolution: 8192
     });
     sunLight.setEulerAngles(35, 120, 0);
@@ -1758,7 +2940,8 @@ export class SontinhSceneService implements OnDestroy {
     const camera = new pc.Entity('Camera');
     camera.addComponent('camera', {
       clearColor: new pc.Color(0.06, 0.08, 0.12),
-      farClip: 600,
+      nearClip: 0.25,
+      farClip: 1500,
       fov: 52
     });
     cameraParent.addChild(camera);
@@ -3314,78 +4497,88 @@ export class SontinhSceneService implements OnDestroy {
 
         const updateMaterialProps = (ent: any) => {
           if (!ent) return;
-          const applyToMesh = (node: any) => {
-            if (node.render) {
-              if (prop.castShadow !== undefined) {
-                node.render.castShadows = prop.castShadow;
-              } else {
-                node.render.castShadows = false;
+          const cloneMatPreservingBase = (srcMat: pc.StandardMaterial): pc.StandardMaterial => {
+            const cloned = srcMat.clone() as pc.StandardMaterial;
+            (cloned as any)._isClonedInstance = true;
+            (cloned as any)._baseBlendType = (srcMat as any)._baseBlendType ?? srcMat.blendType;
+            (cloned as any)._baseDepthWrite = (srcMat as any)._baseDepthWrite ?? srcMat.depthWrite;
+            (cloned as any)._baseOpacity = (srcMat as any)._baseOpacity ?? srcMat.opacity;
+            return cloned;
+          };
+          const customizeMat = (origMat: pc.StandardMaterial, assignMat: (m: pc.StandardMaterial) => void) => {
+            if (!origMat) return;
+            let mat = origMat;
+            let changed = false;
+            const ensureClone = () => {
+              if (!(mat as any)._isClonedInstance) {
+                mat = cloneMatPreservingBase(mat);
+                assignMat(mat);
               }
-              let mat = node.render.material as pc.StandardMaterial;
-              if (mat) {
-                let changed = false;
+            };
 
-                // 🎨 Custom Diffuse Color (Apply ONLY when explicitly customized by user and not default #ffffff)
-                if (prop._customColorSet && prop.color && typeof prop.color === 'string' && prop.color.toLowerCase() !== '#ffffff') {
-                  if (!(mat as any)._isClonedInstance) {
-                    mat = mat.clone() as pc.StandardMaterial;
-                    (mat as any)._isClonedInstance = true;
-                    node.render.material = mat;
+            if (prop._customColorSet && prop.color && typeof prop.color === 'string' && prop.color.toLowerCase() !== '#ffffff') {
+              ensureClone();
+              mat.diffuse = new pc.Color().fromString(prop.color);
+              changed = true;
+            }
+
+            if (prop._customOpacitySet && prop.opacity !== undefined && typeof prop.opacity === 'number') {
+              if (prop.opacity < 0.99) {
+                ensureClone();
+                mat.opacity = prop.opacity;
+                mat.blendType = pc.BLEND_NORMAL;
+                mat.depthWrite = false;
+                changed = true;
+              } else if ((mat as any)._isClonedInstance) {
+                mat.opacity = (mat as any)._baseOpacity ?? 1.0;
+                mat.blendType = (mat as any)._baseBlendType ?? pc.BLEND_NONE;
+                mat.depthWrite = (mat as any)._baseDepthWrite ?? true;
+                changed = true;
+              }
+            }
+
+            if (prop._customEmissiveSet && prop.emissiveColor && prop.emissiveIntensity && prop.emissiveIntensity > 0) {
+              ensureClone();
+              const c = new pc.Color().fromString(prop.emissiveColor);
+              const intensity = prop.emissiveIntensity || 0;
+              mat.emissive = new pc.Color(c.r * intensity, c.g * intensity, c.b * intensity);
+              changed = true;
+            }
+
+            if (prop._customMetalnessSet && prop.metalness !== undefined && typeof prop.metalness === 'number') {
+              ensureClone();
+              mat.useMetalness = true;
+              mat.metalness = prop.metalness;
+              changed = true;
+            }
+
+            if (prop._customRoughnessSet && prop.roughness !== undefined && typeof prop.roughness === 'number') {
+              ensureClone();
+              mat.useMetalness = true;
+              mat.gloss = Math.max(0, Math.min(1, 1.0 - prop.roughness));
+              changed = true;
+            }
+
+            if (changed) mat.update();
+          };
+
+          const applyToMesh = (node: any) => {
+            const comp = node.render || node.model;
+            if (comp) {
+              if (prop.castShadow !== undefined) {
+                comp.castShadows = prop.castShadow;
+              } else {
+                comp.castShadows = false;
+              }
+              const mis: any[] | undefined = comp.meshInstances;
+              if (mis && mis.length > 0) {
+                for (const mi of mis) {
+                  if (mi?.material) {
+                    customizeMat(mi.material as pc.StandardMaterial, (m) => { mi.material = m; });
                   }
-                  mat.diffuse = new pc.Color().fromString(prop.color);
-                  changed = true;
                 }
-
-                // 💧 Custom Opacity (Apply ONLY when explicitly set < 1.0)
-                if (prop._customOpacitySet && prop.opacity !== undefined && typeof prop.opacity === 'number' && prop.opacity < 1.0) {
-                  if (!(mat as any)._isClonedInstance) {
-                    mat = mat.clone() as pc.StandardMaterial;
-                    (mat as any)._isClonedInstance = true;
-                    node.render.material = mat;
-                  }
-                  mat.opacity = prop.opacity;
-                  mat.blendType = pc.BLEND_NORMAL;
-                  changed = true;
-                }
-
-                // 💡 Custom Emissive (Apply ONLY when emissiveColor is provided and intensity > 0)
-                if (prop._customEmissiveSet && prop.emissiveColor && prop.emissiveIntensity && prop.emissiveIntensity > 0) {
-                  if (!(mat as any)._isClonedInstance) {
-                    mat = mat.clone() as pc.StandardMaterial;
-                    (mat as any)._isClonedInstance = true;
-                    node.render.material = mat;
-                  }
-                  const c = new pc.Color().fromString(prop.emissiveColor);
-                  const intensity = prop.emissiveIntensity || 0;
-                  mat.emissive = new pc.Color(c.r * intensity, c.g * intensity, c.b * intensity);
-                  changed = true;
-                }
-
-                // ⚙️ Custom Metalness (Apply ONLY when explicitly customized)
-                if (prop._customMetalnessSet && prop.metalness !== undefined && typeof prop.metalness === 'number') {
-                  if (!(mat as any)._isClonedInstance) {
-                    mat = mat.clone() as pc.StandardMaterial;
-                    (mat as any)._isClonedInstance = true;
-                    node.render.material = mat;
-                  }
-                  mat.useMetalness = true;
-                  mat.metalness = prop.metalness;
-                  changed = true;
-                }
-
-                // ⚙️ Custom Roughness (Apply ONLY when explicitly customized)
-                if (prop._customRoughnessSet && prop.roughness !== undefined && typeof prop.roughness === 'number') {
-                  if (!(mat as any)._isClonedInstance) {
-                    mat = mat.clone() as pc.StandardMaterial;
-                    (mat as any)._isClonedInstance = true;
-                    node.render.material = mat;
-                  }
-                  mat.useMetalness = true;
-                  mat.gloss = Math.max(0, Math.min(1, 1.0 - prop.roughness));
-                  changed = true;
-                }
-
-                if (changed) mat.update();
+              } else if (node.render?.material) {
+                customizeMat(node.render.material as pc.StandardMaterial, (m) => { node.render.material = m; });
               }
             }
             if (node.children && Array.isArray(node.children)) {
@@ -6147,6 +7340,7 @@ export class SontinhSceneService implements OnDestroy {
       const charContainer = asset.resource as any;
       glbCharEntity = (charContainer.instantiateRenderEntity() ?? charContainer.instantiateModelEntity()) as pc.Entity;
       if (!glbCharEntity) { console.error('GLB entity creation failed'); return; }
+      self._sanitizeGlbEntity(glbCharEntity, app.graphicsDevice);
     
       // Clear old placeholder geometry
       while (charBodyRoot.children.length > 0) charBodyRoot.children[0].destroy();
@@ -6686,6 +7880,11 @@ export class SontinhSceneService implements OnDestroy {
     
       camera.setPosition(finalCamPos);
       camera.lookAt(currentPivot);
+      if (camera.camera) {
+        const camDist = finalCamPos.distance(currentPivot);
+        camera.camera.nearClip = Math.max(0.1, Math.min(0.8, camDist * 0.005));
+        camera.camera.farClip = Math.max(1500, camDist * 10);
+      }
     
       // 🚪 100% SMOOTH JITTER-FREE DOOR ANIMATION (Direct state variable interpolation)
       const targetDoorAngle = isDoorOpen ? 95 : 0;

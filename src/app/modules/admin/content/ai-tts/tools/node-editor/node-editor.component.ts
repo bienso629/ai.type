@@ -321,10 +321,14 @@ export class NodeEditorComponent
     }
 
     get modelHint(): string {
-        if (!this.selectedModel) return '';
-        const m = this.selectedModel.toLowerCase();
+        const activeModel =
+            this.globalActiveModality === 'VIDEO'
+                ? this.selectedVideoModel || this.selectedModel
+                : this.selectedModel;
+        if (!activeModel) return '';
+        const m = activeModel.toLowerCase();
 
-        let info = MODEL_HINTS[this.selectedModel];
+        let info = MODEL_HINTS[activeModel];
         if (!info) {
             for (const key of Object.keys(MODEL_HINTS)) {
                 if (
@@ -343,18 +347,23 @@ export class NodeEditorComponent
             m.includes('image') ||
             m.includes('dall-e') ||
             m.includes('midjourney') ||
-            m.includes('flux')
+            m.includes('flux') ||
+            m.includes('seedream')
         ) {
             defaultHint =
                 'Mô tả chi tiết bằng tiếng Anh (ánh sáng, phong cách, camera...).';
         } else if (
             m.includes('video') ||
+            m.includes('seedance') ||
             m.includes('sora') ||
             m.includes('runway') ||
             m.includes('kling') ||
             m.includes('hailuo') ||
             m.includes('wan') ||
-            m.includes('vidu')
+            m.includes('vidu') ||
+            m.includes('veo') ||
+            m.includes('luma') ||
+            m.includes('pixverse')
         ) {
             defaultHint =
                 'Tả rõ hành động, sự kiện và góc máy (pan, zoom, tilt) để video mượt mà hơn.';
@@ -755,7 +764,8 @@ export class NodeEditorComponent
             let usedClipIds = new Set<string>();
 
             let ttsY = 450;
-            if (aspectRatio === '9:16') ttsY = 700;
+            if (aspectRatio === '21:9') ttsY = 410;
+            else if (aspectRatio === '9:16') ttsY = 700;
             else if (
                 aspectRatio === '1:1' ||
                 aspectRatio === '3:4' ||
@@ -817,6 +827,11 @@ export class NodeEditorComponent
                     text: scene.script,
                     isVideo: !!videoUrl,
                     aspectRatio: aspectRatio,
+                    resolution:
+                        scene.resolution ||
+                        data.resolution ||
+                        data.settings?.resolution ||
+                        '720p',
                     sceneData: scene,
                     projectCharacters: data.characters,
                     sceneIndex: index,
@@ -1069,17 +1084,33 @@ export class NodeEditorComponent
 
     getNodeWidth(n: any): number {
         if (!n) return 280;
-        if (n.type === 'composition') return 540;
+        if (n.type === 'composition') {
+            const ratio = this.getNodeAspectRatio(n);
+            if (ratio === '21:9') return 540;
+            if (ratio === '9:16' || ratio === '3:4') return 280;
+            if (ratio === '1:1') return 340;
+            return 480;
+        }
         if (n.type === 'video' || n.type === 'storyboard') {
             const ratio = this.getNodeAspectRatio(n);
-            return ratio === '9:16' ? 240 : 360;
+            if (ratio === '21:9') return 400;
+            if (ratio === '9:16') return 240;
+            if (ratio === '3:4') return 280;
+            return 360;
         }
         return 280;
     }
 
     getNodeHeight(n: any): number {
         if (!n) return 340;
-        if (n.type === 'composition') return 400;
+        if (n.type === 'composition') {
+            const ratio = this.getNodeAspectRatio(n);
+            if (ratio === '21:9') return 310;
+            if (ratio === '9:16') return 520;
+            if (ratio === '3:4') return 420;
+            if (ratio === '1:1') return 380;
+            return 340;
+        }
         if (n.type === 'tts') return 120;
         if (
             n.type === 'video' ||
@@ -1087,6 +1118,7 @@ export class NodeEditorComponent
             n.type === 'image'
         ) {
             const ratio = this.getNodeAspectRatio(n);
+            if (ratio === '21:9') return 295;
             if (ratio === '9:16') return 550;
             if (ratio === '3:4') return 490;
             if (ratio === '1:1') return 400;
@@ -2423,6 +2455,7 @@ export class NodeEditorComponent
             const prompts: string[] = [];
             const nodesMapping: any[] = [];
             const refImagesUrls: string[][] = [];
+            const refImagesNames: (string | undefined)[][] = [];
             const master = this.projectData?.masterPrompt
                 ? this.projectData.masterPrompt.trim()
                 : '';
@@ -2452,6 +2485,7 @@ export class NodeEditorComponent
                       )
                     : [];
                 let sceneAvatars: string[] = [];
+                let sceneAvatarNames: (string | undefined)[] = [];
                 for (const c of sceneChars) {
                     const url =
                         c.avatarUrl ||
@@ -2460,6 +2494,7 @@ export class NodeEditorComponent
                             : null);
                     if (url) {
                         sceneAvatars.push(url);
+                        sceneAvatarNames.push(c.name || undefined);
                     }
                 }
 
@@ -2470,10 +2505,12 @@ export class NodeEditorComponent
                         n.data?.thumbnailUrl;
                     if (sceneImg) {
                         sceneAvatars.unshift(sceneImg);
+                        sceneAvatarNames.unshift(undefined);
                     }
                 }
 
                 refImagesUrls.push(sceneAvatars);
+                refImagesNames.push(sceneAvatarNames);
 
                 let promptText =
                     n.data?.prompt ||
@@ -2588,6 +2625,8 @@ export class NodeEditorComponent
                                                 mimeType: 'image/png',
                                             },
                                             referenceType: rType,
+                                            characterName:
+                                                refImagesNames[i]?.[imgIdx],
                                         } as any);
                                     } catch (e) {
                                         console.error(
@@ -2705,7 +2744,12 @@ export class NodeEditorComponent
                                                 mimeType: attachedFile.mimeType,
                                             },
                                             referenceType:
-                                                attachedFile.referenceType,
+                                                attachedFile.referenceType ||
+                                                (attachedFile.mimeType.startsWith(
+                                                    'video/',
+                                                )
+                                                    ? 'REFERENCE_VIDEO'
+                                                    : undefined),
                                         } as any);
                                     }
                                 }
@@ -2733,13 +2777,24 @@ export class NodeEditorComponent
                             this.cdr.detectChanges();
 
                             const nodeDuration =
+                                nodesMapping[i].data?.sceneData?.videos?.[0]
+                                    ?.duration ||
                                 nodesMapping[i].data?.sceneData
-                                    ?.forcedDuration || 5;
+                                    ?.forcedDuration ||
+                                5;
                             const nodeRatio =
                                 nodesMapping[i]?.data?.aspectRatio ||
                                 nodesMapping[i]?.data?.sceneData?.aspectRatio ||
                                 this.projectData?.aspectRatio ||
                                 '16:9';
+                            const nodeResolution =
+                                nodesMapping[i]?.data?.resolution ||
+                                nodesMapping[i]?.data?.sceneData?.videos?.[0]
+                                    ?.resolution ||
+                                nodesMapping[i]?.data?.sceneData?.resolution ||
+                                this.projectData?.resolution ||
+                                this.projectData?.settings?.resolution ||
+                                '720p';
 
                             const response =
                                 await this.genaiService.generateContent({
@@ -2754,6 +2809,7 @@ export class NodeEditorComponent
                                     config: {
                                         aspectRatio: nodeRatio,
                                         duration: nodeDuration,
+                                        resolution: nodeResolution,
                                         responseModalities: [targetModality],
                                         bypassModelOverride: true,
                                     } as any,
@@ -3108,7 +3164,10 @@ export class NodeEditorComponent
 
                 let width = 1024;
                 let height = 576;
-                if (ratio === '9:16') {
+                if (ratio === '21:9') {
+                    width = 1344;
+                    height = 576;
+                } else if (ratio === '9:16') {
                     width = 576;
                     height = 1024;
                 } else if (ratio === '1:1') {
@@ -3117,6 +3176,9 @@ export class NodeEditorComponent
                 } else if (ratio === '4:3') {
                     width = 1024;
                     height = 768;
+                } else if (ratio === '3:4') {
+                    width = 768;
+                    height = 1024;
                 }
 
                 const apiRes = await fetch(

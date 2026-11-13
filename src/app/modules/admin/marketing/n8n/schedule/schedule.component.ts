@@ -2166,27 +2166,34 @@ Không dùng markdown \`\`\`json.`;
         return shuffled.slice(min);
     }
 
-    getResolvedTarget(domain: string, month?: number, selectedYear?: number): number {
+    getResolvedTarget(domain: string, month?: number, selectedYear?: number, domainObj?: any): number {
         const m = month || this.month || (new Date().getMonth() + 1);
         const y = selectedYear || new Date().getFullYear();
         this.settings = getSettings();
         const domainTargets = this.settings?.domainTargets;
-        if (!domainTargets) return 0;
 
         const norm = (s: string) => (String(s || '')).toLowerCase().trim().replace(/https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
         const targetDomainNorm = norm(domain);
 
         let target: any = undefined;
-        if (domainTargets[domain] !== undefined) {
-            target = domainTargets[domain];
-        } else {
-            const matchedKey = Object.keys(domainTargets).find(k => norm(k) === targetDomainNorm);
-            if (matchedKey) {
-                target = domainTargets[matchedKey];
+        if (domainTargets) {
+            if (domainTargets[domain] !== undefined) {
+                target = domainTargets[domain];
+            } else {
+                const matchedKey = Object.keys(domainTargets).find(k => norm(k) === targetDomainNorm);
+                if (matchedKey) {
+                    target = domainTargets[matchedKey];
+                }
             }
         }
 
-        if (target === undefined) return 0;
+        if (target === undefined && domainObj?.monthlyTargets && typeof domainObj.monthlyTargets === 'object') {
+            target = domainObj.monthlyTargets;
+        }
+
+        if (target === undefined) {
+            return domainObj && domainObj.monthlyTarget !== undefined ? (Number(domainObj.monthlyTarget) || 0) : 0;
+        }
         if (typeof target === 'number') return target; // Legacy compatibility
         
         let yearTarget = target[y];
@@ -2207,7 +2214,7 @@ Không dùng markdown \`\`\`json.`;
             if (typeof target[chkM] === 'number') return target[chkM];
         }
         
-        return 0;
+        return domainObj && domainObj.monthlyTarget !== undefined ? (Number(domainObj.monthlyTarget) || 0) : 0;
     }
 
     addSeconds(date: Date, seconds: number): Date {
@@ -2248,7 +2255,7 @@ Không dùng markdown \`\`\`json.`;
                     const currentMonth = new Date().getMonth() + 1;
                     const currentYear = new Date().getFullYear();
                     domains.forEach((d: any) => {
-                        d.monthlyTarget = this.getResolvedTarget(d.domain, currentMonth, currentYear);
+                        d.monthlyTarget = this.getResolvedTarget(d.domain, currentMonth, currentYear, d);
                         d.plan = []; // Initialize empty plan
                     });
 
