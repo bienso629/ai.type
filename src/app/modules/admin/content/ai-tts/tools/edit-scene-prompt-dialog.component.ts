@@ -1,3 +1,4 @@
+import { CommonModule } from '@angular/common';
 import { TranslocoModule } from '@jsverse/transloco';
 import {
     Component,
@@ -38,6 +39,7 @@ import { getSettings } from 'app/_services/user-settings.service';
 @Component({
     selector: 'app-edit-scene-prompt-dialog',
     imports: [
+        CommonModule,
         TranslocoModule,
         FormsModule,
         MatDialogModule,
@@ -103,17 +105,28 @@ export class EditScenePromptDialogComponent {
         this.aiReferenceVideoBase64 = null;
     }
 
-    selectedAspectRatio: string = '9:16';
+    selectedAspectRatio: string = '16:9';
+    selectedResolution: string = '720p';
     aspectRatios = [
-        { value: '16:9', label: '16:9 (Ngang)' },
-        { value: '9:16', label: '9:16 (Dọc)' },
-        { value: '4:3', label: '4:3' },
-        { value: '3:4', label: '3:4' },
-        { value: '1:1', label: '1:1 (Vuông)' },
+        { value: '21:9', label: '21:9', iconW: 22, iconH: 10 },
+        { value: '16:9', label: '16:9', iconW: 20, iconH: 12 },
+        { value: '4:3', label: '4:3', iconW: 18, iconH: 14 },
+        { value: '1:1', label: '1:1', iconW: 15, iconH: 15 },
+        { value: '3:4', label: '3:4', iconW: 14, iconH: 18 },
+        { value: '9:16', label: '9:16', iconW: 12, iconH: 20 },
     ];
+    resolutionOptions = [
+        { value: '480p', label: '480P' },
+        { value: '720p', label: '720P' },
+        { value: '1080p', label: '1080P' },
+        { value: '4k', label: '4K' },
+    ];
+    durationTicks = [0, 5, 10, 15, 20, 25, 30];
 
     getAspectRatioStyle() {
         switch (this.selectedAspectRatio) {
+            case '21:9':
+                return { width: '420px', height: '180px' };
             case '16:9':
                 return { width: '384px', height: '216px' };
             case '9:16':
@@ -127,6 +140,12 @@ export class EditScenePromptDialogComponent {
             default:
                 return { width: '384px', height: '216px' };
         }
+    }
+
+    getSceneDurationSliderBackground(): string {
+        const dur = Math.max(0, Math.min(30, Number(this.editingScenePrompt?.duration) || 0));
+        const pct = (dur / 30) * 100;
+        return `linear-gradient(to right, #10b981 0%, #10b981 ${pct}%, #d1d5db ${pct}%, #d1d5db 100%)`;
     }
 
     getDialogueForThisPart(): string {
@@ -480,6 +499,24 @@ export class EditScenePromptDialogComponent {
             this.editingScenePrompt.aspectRatio ||
             data.projectAspectRatio ||
             '16:9';
+        const rawRes = String(
+            this.editingScenePrompt.resolution ||
+                data.projectResolution ||
+                '720p',
+        )
+            .trim()
+            .toLowerCase();
+        this.selectedResolution = this.resolutionOptions.some(
+            (r) => r.value === rawRes,
+        )
+            ? rawRes
+            : '720p';
+        if (
+            this.editingScenePrompt.duration === undefined ||
+            this.editingScenePrompt.duration === null
+        ) {
+            this.editingScenePrompt.duration = 5;
+        }
 
         // Nếu mở từ chế độ chỉnh sửa Frame Video (có frame data kèm theo)
         if (data.frame) {
@@ -1340,8 +1377,12 @@ Instructions:
                 let modelName =
                     this._genaiService.umodelverseVideoModel || 'cogvideox-5b';
 
-                // Bắt buộc chuyển sang Kling-v3 nếu có đính kèm video mẫu
-                if (this.aiReferenceVideoBase64) {
+                // Bắt buộc chuyển sang Kling-v3 nếu có đính kèm video mẫu (trừ các model hỗ trợ native reference_video như Seedance 2.0/2.5 hoặc R2V)
+                if (
+                    this.aiReferenceVideoBase64 &&
+                    !modelName.toLowerCase().includes('seedance-2') &&
+                    !modelName.toLowerCase().includes('r2v')
+                ) {
                     modelName = 'kling-v3-motion-control';
                     this.toastr.info(
                         'Phát hiện Video Mẫu, tự động chuyển sang model Kling V3 Motion Control.',
@@ -1362,6 +1403,7 @@ Instructions:
                     this.editingScenePrompt.duration,
                     seedToUse,
                     modelName, // Truyền thẳng modelName đã ghi đè vào service
+                    this.selectedResolution,
                 );
             } else {
                 // Chạy trực tiếp qua máy chủ Google bằng SDK chính thức
@@ -1620,14 +1662,17 @@ Instructions:
         }
     }
 
-    onDurationChanged(newDuration: number) {
+    onDurationChanged(rawDuration: any) {
         if (!this.editingScenePrompt) return;
+        const parsed = Number(rawDuration);
+        const newDuration = Number.isFinite(parsed)
+            ? Math.max(0, Math.min(30, Math.round(parsed * 10) / 10))
+            : 0;
         this.editingScenePrompt.duration = newDuration;
 
         if (
             this.editingScenePrompt.prompt &&
-            newDuration !== null &&
-            newDuration !== undefined
+            newDuration > 0
         ) {
             const regex =
                 /(NOTE:\s*This\s*scene\s*is\s*)([\d.]+)(\s*seconds?\s*long)/gi;
@@ -1939,6 +1984,7 @@ Instructions:
     save() {
         if (this.editingScenePrompt) {
             this.editingScenePrompt.aspectRatio = this.selectedAspectRatio;
+            this.editingScenePrompt.resolution = this.selectedResolution;
             this.editingScenePrompt.usePreviousSceneFrame =
                 this.usePreviousSceneFrame;
             // Đảm bảo đồng bộ thời lượng trong prompt một lần nữa trước khi lưu
@@ -1962,6 +2008,7 @@ Instructions:
 @Component({
     selector: 'app-prompt-input-dialog',
     imports: [
+        CommonModule,
         TranslocoModule,
         FormsModule,
         MatButtonModule,

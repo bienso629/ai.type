@@ -136,10 +136,12 @@ function getArticlesDatabase(username) {
                 server_ip TEXT,
                 server_username TEXT,
                 server_password TEXT,
+                extra_json TEXT,
                 created_at TEXT,
                 updated_at TEXT
             )
         `);
+        dbInstance.run(`ALTER TABLE local_domains ADD COLUMN extra_json TEXT`, () => {});
 
         dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_tasks (
@@ -1807,55 +1809,117 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('save-local-domain', async (event, domainData) => {
         try {
-            if (!domainData || !domainData.domain) {
+            const isWrapped = !!(domainData && typeof domainData.domain === 'object' && domainData.domain !== null);
+            const record = isWrapped ? domainData.domain : domainData;
+            const cleanDomain = (record && typeof record.domain === 'string') ? record.domain.trim() : '';
+            if (!cleanDomain) {
                 return { success: false, error: 'Thiếu domain' };
             }
-            const targetUser = domainData.user || domainData.username || getActiveLocalUsername();
+
+            // QUAN TRỌNG: record.username là tài khoản đăng nhập website/WordPress của tên miền,
+            // tuyệt đối không dùng record.username để xác định file SQLite của tài khoản AI.TYPE.
+            const targetUser = (isWrapped && (domainData.accountUsername || domainData.ownerUsername || domainData.username || domainData.user))
+                || record.accountUsername
+                || record.ownerUsername
+                || getActiveLocalUsername();
             const db = getArticlesDatabase(targetUser);
             const now = new Date().toISOString();
+            const oldDomain = ((isWrapped ? domainData.oldDomain : record.oldDomain) || '').trim();
+            const lookupDomain = (oldDomain && oldDomain !== cleanDomain) ? oldDomain : cleanDomain;
 
-            const encryptedPassword = encryptDomainPassword(domainData.password || '');
-            const encryptedServerPassword = encryptDomainPassword(domainData.serverPassword || '');
-
-            await new Promise((resolve, reject) => {
-                db.run(`
-                    INSERT INTO local_domains (
-                        domain, name, username, password, note, monthly_target, writing_style,
-                        ga4_property_id, server_ip, server_username, server_password, updated_at, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(domain) DO UPDATE SET
-                        name = excluded.name,
-                        username = excluded.username,
-                        password = excluded.password,
-                        note = excluded.note,
-                        monthly_target = excluded.monthly_target,
-                        writing_style = excluded.writing_style,
-                        ga4_property_id = excluded.ga4_property_id,
-                        server_ip = excluded.server_ip,
-                        server_username = excluded.server_username,
-                        server_password = excluded.server_password,
-                        updated_at = excluded.updated_at
-                `, [
-                    domainData.domain,
-                    domainData.name || domainData.domain,
-                    domainData.username || '',
-                    encryptedPassword,
-                    domainData.note || '',
-                    domainData.monthlyTarget || 0,
-                    domainData.writingStyle || '',
-                    domainData.ga4PropertyId || '',
-                    domainData.serverIp || '',
-                    domainData.serverUsername || '',
-                    encryptedServerPassword,
-                    now,
-                    now
-                ], function(err) {
-                    if (err) reject(err);
-                    else resolve(this);
+            const existingRow = await new Promise((resolve) => {
+                db.get('SELECT created_at, extra_json FROM local_domains WHERE domain = ?', [lookupDomain], (err, row) => {
+                    resolve((!err && row) ? row : null);
                 });
             });
 
-            return { success: true, message: 'Đã lưu tên miền cục bộ thành công' };
+            let mergedExtra = {};
+            if (existingRow && existingRow.extra_json) {
+                try {
+                    mergedExtra = JSON.parse(existingRow.extra_json) || {};
+                } catch (e) {
+                    mergedExtra = {};
+                }
+            }
+
+            const preservedExtraKeys = ['_id', '_rev', 'disabledDates', 'plan', 'monthlyTargets'];
+            for (const key of preservedExtraKeys) {
+                if (record[key] !== undefined) {
+                    mergedExtra[key] = record[key];
+                }
+            }
+
+            const monthlyTargetNum = Number(record.monthlyTarget) || 0;
+            const encryptedPassword = encryptDomainPassword(record.password || '');
+            const encryptedServerPassword = encryptDomainPassword(record.serverPassword || '');
+            const createdAt = (existingRow && existingRow.created_at) || record.createdAt || now;
+            const extraJsonStr = JSON.stringify(mergedExtra);
+
+            await new Promise((resolve, reject) => {
+                db.serialize(() => {
+                    if (oldDomain && oldDomain !== cleanDomain) {
+                        db.run('DELETE FROM local_domains WHERE domain = ?', [oldDomain]);
+                    }
+                    db.run(`
+                        INSERT INTO local_domains (
+                            domain, name, username, password, note, monthly_target, writing_style,
+                            ga4_property_id, server_ip, server_username, server_password, extra_json, updated_at, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(domain) DO UPDATE SET
+                            name = excluded.name,
+                            username = excluded.username,
+                            password = excluded.password,
+                            note = excluded.note,
+                            monthly_target = excluded.monthly_target,
+                            writing_style = excluded.writing_style,
+                            ga4_property_id = excluded.ga4_property_id,
+                            server_ip = excluded.server_ip,
+                            server_username = excluded.server_username,
+                            server_password = excluded.server_password,
+                            extra_json = excluded.extra_json,
+                            updated_at = excluded.updated_at
+                    `, [
+                        cleanDomain,
+                        (record.name && String(record.name).trim()) || cleanDomain,
+                        record.username || '',
+                        encryptedPassword,
+                        record.note || '',
+                        monthlyTargetNum,
+                        record.writingStyle || '',
+                        record.ga4PropertyId || '',
+                        record.serverIp || '',
+                        record.serverUsername || '',
+                        encryptedServerPassword,
+                        extraJsonStr,
+                        now,
+                        createdAt
+                    ], function(err) {
+                        if (err) reject(err);
+                        else resolve(this);
+                    });
+                });
+            });
+
+            return {
+                success: true,
+                message: 'Đã lưu tên miền cục bộ thành công',
+                data: {
+                    ...mergedExtra,
+                    domain: cleanDomain,
+                    name: (record.name && String(record.name).trim()) || cleanDomain,
+                    username: record.username || '',
+                    password: record.password || '',
+                    note: record.note || '',
+                    monthlyTarget: monthlyTargetNum,
+                    writingStyle: record.writingStyle || '',
+                    ga4PropertyId: record.ga4PropertyId || '',
+                    serverIp: record.serverIp || '',
+                    serverUsername: record.serverUsername || '',
+                    serverPassword: record.serverPassword || '',
+                    createdAt: createdAt,
+                    updatedAt: now
+                }
+            };
         } catch (error) {
             console.error('[save-local-domain] Lỗi:', error);
             return { success: false, error: error.message };
@@ -1867,7 +1931,7 @@ function registerLocalArticlesHandlers() {
      */
     ipcMain.handle('list-local-domains', async (event, payload) => {
         try {
-            const targetUser = (payload && (payload.username || payload.user)) || getActiveLocalUsername();
+            const targetUser = (payload && (payload.accountUsername || payload.ownerUsername || payload.username || payload.user)) || getActiveLocalUsername();
             const db = getArticlesDatabase(targetUser);
 
             // 1. Lấy tất cả tên miền đã lưu trong bảng local_domains (đã đồng bộ từ JSON backup)
@@ -1881,18 +1945,29 @@ function registerLocalArticlesHandlers() {
             // Map trực tiếp từ bảng local_domains chuẩn, tự giải mã mật khẩu cấp RAM
             const domains = savedDomains.map(sd => {
                 const dom = (sd.domain || '').trim();
+                let extra = {};
+                if (sd.extra_json) {
+                    try {
+                        extra = JSON.parse(sd.extra_json) || {};
+                    } catch (e) {
+                        extra = {};
+                    }
+                }
                 return {
+                    ...extra,
                     domain: dom,
                     name: sd.name || dom,
                     username: sd.username || '',
                     password: decryptDomainPassword(sd.password || ''),
                     note: sd.note || '',
-                    monthlyTarget: sd.monthly_target || 0,
+                    monthlyTarget: Number(sd.monthly_target) || 0,
                     writingStyle: sd.writing_style || '',
                     ga4PropertyId: sd.ga4_property_id || '',
                     serverIp: sd.server_ip || '',
                     serverUsername: sd.server_username || '',
-                    serverPassword: decryptDomainPassword(sd.server_password || '')
+                    serverPassword: decryptDomainPassword(sd.server_password || ''),
+                    createdAt: sd.created_at || extra.createdAt,
+                    updatedAt: sd.updated_at || extra.updatedAt
                 };
             }).filter(d => !!d.domain);
 

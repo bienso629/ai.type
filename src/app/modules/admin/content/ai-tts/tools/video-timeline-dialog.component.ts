@@ -67,7 +67,7 @@ interface electron {
 export interface VideoFrameTemplate {
     id: string;
     name: string;
-    aspectRatio: '9:16' | '16:9' | '1:1';
+    aspectRatio: '21:9' | '16:9' | '4:3' | '1:1' | '3:4' | '9:16';
     icon: string;
     bgPath: string;
     maskPath?: string;
@@ -988,10 +988,22 @@ export class VideoTimelineDialogComponent
     }
 
     private mapCustomFrame(meta: any): VideoFrameTemplate {
+        const validRatios: Array<'21:9' | '16:9' | '4:3' | '1:1' | '3:4' | '9:16'> = [
+            '21:9',
+            '16:9',
+            '4:3',
+            '1:1',
+            '3:4',
+            '9:16',
+        ];
+        const fallbackRatio: '16:9' | '9:16' =
+            Number(meta.canvasWidth) >= Number(meta.canvasHeight) ? '16:9' : '9:16';
         return {
             id: String(meta.id),
             name: String(meta.name || 'Khung tùy chỉnh'),
-            aspectRatio: meta.aspectRatio === '16:9' ? '16:9' : '9:16',
+            aspectRatio: validRatios.includes(meta.aspectRatio)
+                ? meta.aspectRatio
+                : fallbackRatio,
             icon: 'add_photo_alternate',
             bgPath: String(meta.bgPath || ''),
             maskPath: String(meta.maskPath || ''),
@@ -7787,6 +7799,10 @@ export class VideoTimelineDialogComponent
                     : null) ||
                 this.projectData?.aspectRatio ||
                 '16:9';
+            const effectiveResolution =
+                video.resolution ||
+                this.projectData?.resolution ||
+                '720p';
             if (isProxy || isMagic) {
                 const modelName = isMagic
                     ? 'kling-v3-motion-control'
@@ -7798,6 +7814,7 @@ export class VideoTimelineDialogComponent
                     video.duration,
                     undefined,
                     modelName,
+                    effectiveResolution,
                 );
             } else {
                 const apiKey = this.getGeminiKey();
@@ -8788,6 +8805,7 @@ export class VideoTimelineDialogComponent
                 previousVideoUrl,
                 characters: this.projectData?.characters || [],
                 projectAspectRatio: this.projectData?.aspectRatio || '16:9',
+                projectResolution: this.projectData?.resolution || '720p',
                 masterPrompt: this.projectData?.masterPrompt || '',
                 masterControlImageUrl:
                     this.projectData?.masterControlImageUrl || '',
@@ -8818,6 +8836,8 @@ export class VideoTimelineDialogComponent
                         video.videoUrl = result.videoUrl;
                     if (result.aspectRatio !== undefined)
                         video.aspectRatio = result.aspectRatio;
+                    if (result.resolution !== undefined)
+                        video.resolution = result.resolution;
                     if (result.duration !== undefined) {
                         video.duration = result.duration;
                         video.maxDuration = result.duration;

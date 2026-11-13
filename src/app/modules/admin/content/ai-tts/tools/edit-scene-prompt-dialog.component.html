@@ -438,21 +438,134 @@
     </div>
 
     <div class="flex flex-col mt-4 gap-4">
-        <mat-form-field
-            class="fuse-mat-dense w-32 shrink-0 fuse-mat-emphasized-affix"
-            [subscriptSizing]="'dynamic'"
-        >
-            <mat-label>{{ "app.duration_seconds" | transloco }}</mat-label>
-            <mat-select
-                [(ngModel)]="editingScenePrompt.duration"
-                (ngModelChange)="onDurationChanged($event)"
-            >
-                <mat-option [value]="4">4s</mat-option>
-                <mat-option [value]="6">6s</mat-option>
-                <mat-option [value]="8">8s</mat-option>
-                <mat-option [value]="10">10s</mat-option>
-            </mat-select>
-        </mat-form-field>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Aspect Ratio -->
+            <div class="flex flex-col gap-1.5">
+                <span class="text-xs font-semibold text-slate-600">
+                    Tỷ lệ khung hình
+                </span>
+                <div class="grid grid-cols-6 gap-1 p-1 rounded-md bg-slate-100 border border-gray-300">
+                    @for (opt of aspectRatios; track opt.value) {
+                        <button
+                            type="button"
+                            (click)="selectedAspectRatio = opt.value"
+                            class="flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded transition-all cursor-pointer select-none"
+                            [ngClass]="
+                                selectedAspectRatio === opt.value
+                                    ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/5 font-semibold'
+                                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/60 font-medium'
+                            "
+                        >
+                            <span class="h-5 flex items-center justify-center">
+                                <span
+                                    class="inline-block rounded-[2px] border-[1.75px] border-current transition-colors"
+                                    [style.width.px]="opt.iconW"
+                                    [style.height.px]="opt.iconH"
+                                ></span>
+                            </span>
+                            <span class="text-[11px] leading-none">{{ opt.label }}</span>
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <!-- Resolution -->
+            <div class="flex flex-col gap-1.5">
+                <span class="text-xs font-semibold text-slate-600">
+                    Độ phân giải
+                </span>
+                <div class="grid grid-cols-4 gap-1 p-1 rounded-md bg-slate-100 border border-gray-300 h-full items-center">
+                    @for (res of resolutionOptions; track res.value) {
+                        <button
+                            type="button"
+                            (click)="selectedResolution = res.value"
+                            class="py-2 px-2 rounded text-xs text-center transition-all cursor-pointer select-none h-full flex items-center justify-center"
+                            [ngClass]="
+                                selectedResolution === res.value
+                                    ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/5 font-semibold'
+                                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/60 font-medium'
+                            "
+                        >
+                            {{ res.label }}
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Duration Slider (0 - 30s) -->
+        <div class="flex flex-col gap-1.5 max-w-xl">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-600">
+                    {{ "app.duration_seconds" | transloco }}
+                </span>
+                <span class="text-xs font-medium text-emerald-600">
+                    {{
+                        !editingScenePrompt.duration
+                            ? ("app.auto_freedom" | transloco)
+                            : editingScenePrompt.duration + "s"
+                    }}
+                </span>
+            </div>
+            <div class="flex items-start gap-4">
+                <div class="flex-1 flex flex-col pt-2.5">
+                    <input
+                        type="range"
+                        min="0"
+                        max="30"
+                        step="1"
+                        [ngModel]="editingScenePrompt.duration"
+                        (ngModelChange)="onDurationChanged($event)"
+                        [style.background]="getSceneDurationSliderBackground()"
+                        class="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-emerald-600 focus:outline-none"
+                    />
+                    <div class="relative w-full h-6 mt-1 select-none">
+                        @for (tick of durationTicks; track tick) {
+                            <button
+                                type="button"
+                                (click)="onDurationChanged(tick)"
+                                class="absolute -translate-x-1/2 flex flex-col items-center cursor-pointer group focus:outline-none"
+                                [style.left]="'calc(8px + (100% - 16px) * ' + (tick / 30) + ')'"
+                            >
+                                <span
+                                    class="w-[1.5px] h-1.5 rounded-full transition-colors"
+                                    [ngClass]="
+                                        editingScenePrompt.duration === tick
+                                            ? 'bg-emerald-600'
+                                            : 'bg-slate-300 group-hover:bg-slate-400'
+                                    "
+                                ></span>
+                                <span
+                                    class="text-[11px] leading-tight mt-0.5 transition-colors"
+                                    [ngClass]="
+                                        editingScenePrompt.duration === tick
+                                            ? 'text-emerald-600 font-semibold'
+                                            : 'text-slate-400 group-hover:text-slate-600'
+                                    "
+                                >
+                                    {{ tick }}
+                                </span>
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <div
+                    class="shrink-0 flex items-center justify-between w-[88px] h-10 px-3 rounded-md shadow-sm border border-gray-300 bg-white focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-colors"
+                >
+                    <input
+                        type="number"
+                        min="0"
+                        max="30"
+                        step="1"
+                        [ngModel]="editingScenePrompt.duration"
+                        (ngModelChange)="onDurationChanged($event)"
+                        class="w-11 bg-transparent border-0 outline-none text-sm font-semibold text-slate-800 p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span class="text-sm text-slate-400 select-none">s</span>
+                </div>
+            </div>
+        </div>
 
         @if (previousVideoUrl) {
             <label class="flex items-center gap-2 cursor-pointer">

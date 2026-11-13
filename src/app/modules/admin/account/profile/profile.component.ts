@@ -3036,6 +3036,7 @@ ${JSON.stringify({
         }
         await this.sceneService.initScene(this.canvasRef.nativeElement, this.profile, charGlbObjectUrl);
       this.sceneService.rerunAllFxEffects();
+        await this.loadSavedPropGlbs();
         const defaultAnimState = this.profile?.character?.animationState;
         if (defaultAnimState) {
           const found = this.userAnimations.find(a => a.name === defaultAnimState);

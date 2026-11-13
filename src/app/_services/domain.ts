@@ -49,12 +49,120 @@ export class DomainService {
             });
     }
 
+    private resolveAccountUsername(dataForm?: any): string {
+        if (dataForm && typeof dataForm.accountUsername === 'string' && dataForm.accountUsername.trim()) {
+            return dataForm.accountUsername.trim();
+        }
+        const isWrapped = !!(dataForm && typeof dataForm.domain === 'object' && dataForm.domain !== null);
+        if (isWrapped && typeof dataForm.username === 'string' && dataForm.username.trim()) {
+            return dataForm.username.trim();
+        }
+        if (!isWrapped && dataForm && !dataForm.domain && typeof dataForm.username === 'string' && dataForm.username.trim()) {
+            return dataForm.username.trim();
+        }
+        if (this.user?.name) {
+            return this.user.name;
+        }
+        const sessionUser: any = this.multiAccountService.getItem('user') || this.multiAccountService.getItem('profile');
+        if (sessionUser?.name || sessionUser?.username) {
+            return sessionUser.name || sessionUser.username;
+        }
+        let lsUser: string | null = null;
+        try {
+            lsUser = localStorage.getItem('username');
+        } catch (e) {}
+        return this.multiAccountService.getItem('username')
+            || lsUser
+            || this.multiAccountService.currentAccountId
+            || 'admin';
+    }
+
+    private sanitizeDomainPayload(rawDomain: any): any {
+        if (!rawDomain || typeof rawDomain !== 'object') {
+            return rawDomain;
+        }
+        const cleaned: any = { ...rawDomain };
+        delete cleaned._showPassword;
+        delete cleaned._showServerPassword;
+        delete cleaned._dbMonthlyTarget;
+        delete cleaned._dbWritingStyle;
+        delete cleaned.accountUsername;
+        delete cleaned.ownerUsername;
+        delete cleaned.oldDomain;
+        if (typeof cleaned.domain === 'string') {
+            cleaned.domain = cleaned.domain.trim();
+        }
+        if (!cleaned.name && cleaned.domain) {
+            cleaned.name = cleaned.domain;
+        }
+        cleaned.monthlyTarget = Number(cleaned.monthlyTarget) || 0;
+        cleaned.writingStyle = cleaned.writingStyle || '';
+        return cleaned;
+    }
+
+    private getActiveInfoObject(): any {
+        let activeInfo = this.multiAccountService.getItem('active_info');
+        if (!activeInfo) {
+            try {
+                activeInfo = localStorage.getItem('active_info');
+            } catch (e) {}
+        }
+        if (!activeInfo) return null;
+        return AuthUtils._getActiveInfo(activeInfo);
+    }
+
+    private resolveServerApi(): { serverApi: string; genKey: string } {
+        const sessionUser: any = this.multiAccountService.getItem('user') || this.user;
+        const apiMap = this.config?.settings?.api || {};
+        const candidate = (sessionUser?.server && apiMap[sessionUser.server])
+            ? sessionUser.server
+            : ((this.user?.server && apiMap[this.user.server]) ? this.user.server : 'vn.s1');
+        const serverApi = apiMap[candidate] || 'https://apiv1.type.vn/v1';
+        const genKey = this.config?.settings?.gen || '31d0a5e6e04fc470418db218464e8ac165816e8309afdd801725e3c2f42c43b8';
+        return { serverApi, genKey };
+    }
+
+    private normalizeMutationResponse(res: any, fallbackDomain: any, genKey: string): any {
+        let decoded = res;
+        if (decoded && typeof decoded.data === 'string' && decoded.data.length > 32) {
+            try {
+                const dec = this._h.decrypt(decoded.data, genKey);
+                if (dec) {
+                    decoded = typeof dec === 'string' ? JSON.parse(dec) : dec;
+                }
+            } catch (e) {}
+        }
+        if (!decoded) {
+            return { success: false };
+        }
+        if (decoded.success === true) {
+            return {
+                ...decoded,
+                data: decoded.data || fallbackDomain
+            };
+        }
+        if (decoded.ok === true || decoded.status === 'ok') {
+            return {
+                success: true,
+                data: {
+                    ...(fallbackDomain || {}),
+                    ...(decoded.data && typeof decoded.data === 'object' ? decoded.data : {}),
+                    _id: decoded.id || decoded._id || decoded.data?._id || fallbackDomain?._id,
+                    _rev: decoded.rev || decoded._rev || decoded.data?._rev || fallbackDomain?._rev
+                }
+            };
+        }
+        return decoded;
+    }
+
     public fetch(dataForm: any): Observable<any> {
         const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
+        const accountUsername = this.resolveAccountUsername(dataForm);
+
         if (electron && isAutoSaveLocal) {
             if (electron.listLocalDomains) {
-                return from(electron.listLocalDomains()).pipe(
+                return from(electron.listLocalDomains({ username: accountUsername, accountUsername })).pipe(
                     map((result: any) => {
                         const localDomains = (result && result.success && Array.isArray(result.data)) ? result.data : [];
                         return { success: true, data: localDomains };
@@ -65,21 +173,33 @@ export class DomainService {
             return of({ success: true, data: [] });
         }
 
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of({ success: true, data: [] }); }
-        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of({ success: true, data: [] });
+        const activeInfo = this.getActiveInfoObject();
+        if (!activeInfo) {
+            if (electron && electron.listLocalDomains) {
+                return from(electron.listLocalDomains({ username: accountUsername, accountUsername })).pipe(
+                    map((result: any) => {
+                        const localDomains = (result && result.success && Array.isArray(result.data)) ? result.data : [];
+                        return { success: true, data: localDomains };
+                    }),
+                    catchError(this.handleError('fetchLocalDomainsFallback', { success: false, data: [] }))
+                );
+            }
+            return of({ success: true, data: [] });
+        }
 
-        dataForm.year = 2023;
-        dataForm.appId = 'ai.typing';
-        dataForm.appToken = activeInfo['user']?.['appToken'] || '';
+        const payload = {
+            ...(dataForm || {}),
+            username: accountUsername,
+            year: 2023,
+            appId: 'ai.typing',
+            appToken: activeInfo['user']?.['appToken'] || ''
+        };
 
-        const serverKey = this.user?.server || 'vn.s1';
-        const serverApi = this.config?.settings?.api?.[serverKey] || 'https://apiv1.type.vn/v1';
-        const genKey = this.config?.settings?.gen || '31d0a5e6e04fc470418db218464e8ac165816e8309afdd801725e3c2f42c43b8';
-
+        const { serverApi, genKey } = this.resolveServerApi();
         const url = `${serverApi}/domain/all`;
 
-        let data = {
-            params: this._h.encrypt(dataForm, genKey)
+        const data = {
+            params: this._h.encrypt(payload, genKey)
         };
 
         return this.http.post<any>(url, data, options).pipe(
@@ -102,78 +222,128 @@ export class DomainService {
     public add(dataForm: any): Observable<any> {
         const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
+        const accountUsername = this.resolveAccountUsername(dataForm);
+        const rawDomain = (dataForm && typeof dataForm.domain === 'object' && dataForm.domain !== null) ? dataForm.domain : dataForm;
+        const domainPayload = this.sanitizeDomainPayload(rawDomain);
+
         if (isAutoSaveLocal && electron && electron.saveLocalDomain) {
-            const domainPayload = dataForm && dataForm.domain ? dataForm.domain : dataForm;
-            return from(electron.saveLocalDomain(domainPayload)).pipe(
-                map((res: any) => ({ success: true, data: domainPayload, message: 'Lưu cấu hình tên miền cục bộ thành công.' })),
+            return from(electron.saveLocalDomain({
+                accountUsername,
+                domain: domainPayload
+            })).pipe(
+                map((res: any) => ({
+                    success: !!(res && res.success !== false),
+                    data: (res && res.data) || domainPayload,
+                    error: res?.error,
+                    message: res?.message || 'Lưu cấu hình tên miền cục bộ thành công.'
+                })),
                 catchError(this.handleError('saveLocalDomain', { success: false }))
             );
         }
 
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
-        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+        const activeInfo = this.getActiveInfoObject();
+        if (!activeInfo) {
+            if (electron && electron.saveLocalDomain) {
+                return from(electron.saveLocalDomain({
+                    accountUsername,
+                    domain: domainPayload
+                })).pipe(
+                    map((res: any) => ({
+                        success: !!(res && res.success !== false),
+                        data: (res && res.data) || domainPayload,
+                        error: res?.error,
+                        message: res?.message || 'Lưu cấu hình tên miền cục bộ thành công.'
+                    })),
+                    catchError(this.handleError('saveLocalDomainFallback', { success: false }))
+                );
+            }
+            return of({ success: false, message: 'Chưa kích hoạt tài khoản để lưu tên miền lên máy chủ.' });
+        }
 
-        dataForm.year = 2023;
-        dataForm.appId = 'ai.typing';
-        dataForm.appToken = activeInfo['user']?.['appToken'] || '';
+        const serverPayload = {
+            username: accountUsername,
+            domain: domainPayload,
+            year: 2023,
+            appId: 'ai.typing',
+            appToken: activeInfo['user']?.['appToken'] || ''
+        };
 
-        const serverKey = this.user?.server || 'vn.s1';
-        const serverApi = this.config?.settings?.api?.[serverKey] || 'https://apiv1.type.vn/v1';
-        const genKey = this.config?.settings?.gen || '31d0a5e6e04fc470418db218464e8ac165816e8309afdd801725e3c2f42c43b8';
-
+        const { serverApi, genKey } = this.resolveServerApi();
         const url = `${serverApi}/domain/add`;
 
-        let data = {
-            params: this._h.encrypt(dataForm, genKey)
+        const data = {
+            params: this._h.encrypt(serverPayload, genKey)
         };
 
         return this.http.post<any>(url, data, options).pipe(
-            map(data => {
-                return data;
-            }),
-            tap(_ => {
-                // this.log('login');
-            }),
-            catchError(this.handleError('server', []))
+            map(res => this.normalizeMutationResponse(res, domainPayload, genKey)),
+            catchError(this.handleError('server', { success: false }))
         );
     }
 
     public edit(dataForm: any): Observable<any> {
         const isAutoSaveLocal = isAutoSaveLocalEnabled();
         const electron = (window as any).electron;
+        const accountUsername = this.resolveAccountUsername(dataForm);
+        const isWrapped = !!(dataForm && typeof dataForm.domain === 'object' && dataForm.domain !== null);
+        const rawDomain = isWrapped ? dataForm.domain : dataForm;
+        const oldDomain = (isWrapped ? dataForm.oldDomain : rawDomain?.oldDomain) || undefined;
+        const domainPayload = this.sanitizeDomainPayload(rawDomain);
+
         if (isAutoSaveLocal && electron && electron.saveLocalDomain) {
-            const domainPayload = dataForm && dataForm.domain ? dataForm.domain : dataForm;
-            return from(electron.saveLocalDomain(domainPayload)).pipe(
-                map((res: any) => ({ success: true, data: domainPayload, message: 'Cập nhật cấu hình tên miền cục bộ thành công.' })),
+            return from(electron.saveLocalDomain({
+                accountUsername,
+                oldDomain,
+                domain: domainPayload
+            })).pipe(
+                map((res: any) => ({
+                    success: !!(res && res.success !== false),
+                    data: (res && res.data) || domainPayload,
+                    error: res?.error,
+                    message: res?.message || 'Cập nhật cấu hình tên miền cục bộ thành công.'
+                })),
                 catchError(this.handleError('editLocalDomain', { success: false }))
             );
         }
 
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
-        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+        const activeInfo = this.getActiveInfoObject();
+        if (!activeInfo) {
+            if (electron && electron.saveLocalDomain) {
+                return from(electron.saveLocalDomain({
+                    accountUsername,
+                    oldDomain,
+                    domain: domainPayload
+                })).pipe(
+                    map((res: any) => ({
+                        success: !!(res && res.success !== false),
+                        data: (res && res.data) || domainPayload,
+                        error: res?.error,
+                        message: res?.message || 'Cập nhật cấu hình tên miền cục bộ thành công.'
+                    })),
+                    catchError(this.handleError('editLocalDomainFallback', { success: false }))
+                );
+            }
+            return of({ success: false, message: 'Chưa kích hoạt tài khoản để cập nhật tên miền lên máy chủ.' });
+        }
 
-        dataForm.year = 2023;
-        dataForm.appId = 'ai.typing';
-        dataForm.appToken = activeInfo['user']?.['appToken'] || '';
-        
-        const serverKey = this.user?.server || 'vn.s1';
-        const serverApi = this.config?.settings?.api?.[serverKey] || 'https://apiv1.type.vn/v1';
-        const genKey = this.config?.settings?.gen || '31d0a5e6e04fc470418db218464e8ac165816e8309afdd801725e3c2f42c43b8';
+        const serverPayload = {
+            username: accountUsername,
+            domain: domainPayload,
+            year: 2023,
+            appId: 'ai.typing',
+            appToken: activeInfo['user']?.['appToken'] || ''
+        };
 
+        const { serverApi, genKey } = this.resolveServerApi();
         const url = `${serverApi}/domain/edit`;
 
-        let data = {
-            params: this._h.encrypt(dataForm, genKey)
+        const data = {
+            params: this._h.encrypt(serverPayload, genKey)
         };
 
         return this.http.post<any>(url, data, options).pipe(
-            map(data => {
-                return data;
-            }),
-            tap(_ => {
-                // this.log('login');
-            }),
-            catchError(this.handleError('server', []))
+            map(res => this.normalizeMutationResponse(res, domainPayload, genKey)),
+            catchError(this.handleError('server', { success: false }))
         );
     }
 

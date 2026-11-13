@@ -411,12 +411,37 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   },
   "doubao-seedance-1-5-pro-251215": {
     "text": true,
-    "max_images": 1,
+    "max_images": 2,
     "max_videos": 0
   },
   "doubao-seedance-2-0-260128": {
     "text": true,
-    "max_images": 1,
-    "max_videos": 0
+    "max_images": 4,
+    "max_videos": 1
+  },
+  "doubao-seedance-2-0-fast-260128": {
+    "text": true,
+    "max_images": 4,
+    "max_videos": 1
+  },
+  "doubao-seedance-2-0-mini-260615": {
+    "text": true,
+    "max_images": 4,
+    "max_videos": 1
+  },
+  "seedance-2-0-filter-off": {
+    "text": true,
+    "max_images": 4,
+    "max_videos": 1
+  },
+  "doubao-seedance-2-5-260628": {
+    "text": true,
+    "max_images": 4,
+    "max_videos": 1
+  },
+  "doubao-seedance-2-5-260628-global": {
+    "text": true,
+    "max_images": 4,
+    "max_videos": 1
   }
 };
