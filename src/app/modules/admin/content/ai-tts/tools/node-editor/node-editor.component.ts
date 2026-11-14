@@ -159,6 +159,17 @@ export class NodeEditorComponent
     editingType: 'scene' | 'character' | 'master' | 'none' = 'none';
     editingCharacter: any = null;
     isGeneratingPrompt: boolean = false;
+    private activePromptJobs: number = 0;
+
+    private beginPromptJob(): void {
+        this.activePromptJobs++;
+        this.isGeneratingPrompt = true;
+    }
+
+    private endPromptJob(): void {
+        this.activePromptJobs = Math.max(0, this.activePromptJobs - 1);
+        this.isGeneratingPrompt = this.activePromptJobs > 0;
+    }
 
     playingAudioNodeId: string | null = null;
     private currentAudioInstance: HTMLAudioElement | null = null;
@@ -2296,7 +2307,7 @@ export class NodeEditorComponent
 
             this.toastr.info('Đang gửi yêu cầu tạo hình nhân vật...');
 
-            this.isGeneratingPrompt = true;
+            this.beginPromptJob();
             this.cdr.detectChanges();
 
             try {
@@ -2374,7 +2385,7 @@ export class NodeEditorComponent
                 console.error(error);
                 this.toastr.error('Lỗi khi tạo ảnh nhân vật: ' + error);
             } finally {
-                this.isGeneratingPrompt = false;
+                this.endPromptJob();
                 this.cdr.detectChanges();
             }
         } else if (
@@ -2435,6 +2446,8 @@ export class NodeEditorComponent
                 sceneNodes = this.nodes.filter((n) => {
                     if (n.type !== 'video' && n.type !== 'storyboard')
                         return false;
+                    if (n.data?.isGenerating)
+                        return false;
                     if (targetModality === 'IMAGE' && n.data?.imageUrl)
                         return false;
                     if (targetModality === 'VIDEO' && n.data?.videoUrl)
@@ -2444,11 +2457,24 @@ export class NodeEditorComponent
             }
 
             if (sceneNodes.length === 0) {
-                this.toastr.warning(
-                    generateAll
-                        ? 'Tất cả các scene đều đã có hình/video, không có gì mới để tạo!'
-                        : 'Vui lòng chọn một scene cụ thể để tạo!',
-                );
+                const anyGenerating =
+                    generateAll &&
+                    this.nodes.some(
+                        (n) =>
+                            (n.type === 'video' || n.type === 'storyboard') &&
+                            n.data?.isGenerating,
+                    );
+                if (anyGenerating) {
+                    this.toastr.info(
+                        'Các phân cảnh đang được tạo đồng loạt, vui lòng chờ hoàn tất!',
+                    );
+                } else {
+                    this.toastr.warning(
+                        generateAll
+                            ? 'Tất cả các scene đều đã có hình/video, không có gì mới để tạo!'
+                            : 'Vui lòng chọn một scene cụ thể để tạo!',
+                    );
+                }
                 return;
             }
 
@@ -2570,21 +2596,38 @@ export class NodeEditorComponent
             }
 
             let finalPrompts = prompts;
-            this.isGeneratingPrompt = true;
+            const isConcurrentBatchVideo =
+                generateAll && targetModality === 'VIDEO';
+            this.beginPromptJob();
+
+            if (isConcurrentBatchVideo) {
+                for (const targetNode of nodesMapping) {
+                    if (!targetNode.data) targetNode.data = {};
+                    targetNode.data.isGenerating = true;
+                }
+            }
             this.cdr.detectChanges();
 
             this.toastr.info(
-                `Đang gửi ${finalPrompts.length} prompts lên server vẽ...`,
+                isConcurrentBatchVideo
+                    ? `Đang đồng loạt tạo video cho ${finalPrompts.length} phân cảnh cùng lúc...`
+                    : `Đang gửi ${finalPrompts.length} prompts lên server vẽ...`,
             );
             try {
                 const ratio = this.projectData?.aspectRatio || '16:9';
                 const currentModel =
                     targetModality === 'VIDEO'
-                        ? this.selectedVideoModel
+                        ? this.selectedVideoModel || this.selectedModel
                         : this.selectedModel;
                 if (currentModel && currentModel !== 'Local ComfyUI') {
-                    for (let i = 0; i < finalPrompts.length; i++) {
+                    let completedScenesCount = 0;
+                    const processSingleScene = async (
+                        i: number,
+                    ): Promise<void> => {
                         try {
+                            if (!nodesMapping[i].data) {
+                                nodesMapping[i].data = {};
+                            }
                             let requestParts: any[] = [
                                 { text: finalPrompts[i] },
                             ];
@@ -2798,11 +2841,7 @@ export class NodeEditorComponent
 
                             const response =
                                 await this.genaiService.generateContent({
-                                    model:
-                                        targetModality === 'VIDEO'
-                                            ? this.selectedVideoModel ||
-                                              this.selectedModel
-                                            : this.selectedModel,
+                                    model: currentModel,
                                     contents: [
                                         { role: 'user', parts: requestParts },
                                     ],
@@ -3142,23 +3181,45 @@ export class NodeEditorComponent
                             }
 
                             nodesMapping[i].data.isGenerating = false;
+                            completedScenesCount++;
+                            this.saveEditorState();
+                            this.saveProject(true);
                             this.cdr.detectChanges();
+                            const sceneLabel =
+                                nodesMapping[i].title ||
+                                `Scene ${(nodesMapping[i].data?.sceneIndex ?? i) + 1}`;
                             this.toastr.success(
-                                `Đã hoàn thành ${i + 1}/${finalPrompts.length} cảnh!`,
+                                isConcurrentBatchVideo
+                                    ? `Đã hoàn thành video ${sceneLabel} (${completedScenesCount}/${finalPrompts.length})!`
+                                    : `Đã hoàn thành ${completedScenesCount}/${finalPrompts.length} cảnh!`,
                             );
                         } catch (e) {
                             nodesMapping[i].data.isGenerating = false;
                             this.cdr.detectChanges();
                             console.error('Lỗi khi vẽ cảnh', i, e);
-                            this.toastr.error(`Lỗi tạo cảnh ${i + 1}: ${e}`);
+                            const sceneLabel =
+                                nodesMapping[i]?.title || `cảnh ${i + 1}`;
+                            const errMsg = (e as any)?.message || e;
+                            this.toastr.error(`Lỗi tạo ${sceneLabel}: ${errMsg}`);
                         }
 
                         this.cdr.detectChanges();
+                    };
+
+                    if (isConcurrentBatchVideo) {
+                        await Promise.allSettled(
+                            finalPrompts.map((_, idx) =>
+                                processSingleScene(idx),
+                            ),
+                        );
+                    } else {
+                        for (let i = 0; i < finalPrompts.length; i++) {
+                            await processSingleScene(i);
+                        }
                     }
+
                     this.saveEditorState();
                     this.saveProject(true);
-                    this.isGeneratingPrompt = false;
-                    this.cdr.detectChanges();
                     return;
                 }
 
@@ -3397,7 +3458,14 @@ export class NodeEditorComponent
                 console.error(error);
                 this.toastr.error('Lỗi khi tạo bản vẽ: ' + error);
             } finally {
-                this.isGeneratingPrompt = false;
+                if (isConcurrentBatchVideo) {
+                    for (const targetNode of nodesMapping) {
+                        if (targetNode?.data?.isGenerating) {
+                            targetNode.data.isGenerating = false;
+                        }
+                    }
+                }
+                this.endPromptJob();
                 this.cdr.detectChanges();
             }
         }

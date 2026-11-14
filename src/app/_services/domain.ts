@@ -89,6 +89,10 @@ export class DomainService {
         delete cleaned.accountUsername;
         delete cleaned.ownerUsername;
         delete cleaned.oldDomain;
+        delete cleaned.plan;
+        delete cleaned.childrenItems;
+        delete cleaned.streamItems;
+        delete cleaned._streamLevels;
         if (typeof cleaned.domain === 'string') {
             cleaned.domain = cleaned.domain.trim();
         }

@@ -316,11 +316,10 @@
                 <div class="flex-auto overflow-hidden relative w-full">
                     <ngx-datatable
                         [appScrollLock]="isLoading"
-                        [virtualization]="false"
+                        [virtualization]="true"
                         #table
                         [columnMode]="ColumnMode.force"
-                        class="material fullscreen transition-opacity duration-300 absolute inset-0"
-                        [class.opacity-50]="isLoading"
+                        class="material fullscreen absolute inset-0"
                         [selected]="selected"
                         [selectionType]="SelectionType.checkbox"
                         [selectAllRowsOnPage]="false"

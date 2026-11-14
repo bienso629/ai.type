@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, TemplateRef, ViewChild, ViewEncapsulation, AfterViewInit, AfterViewChecked, ChangeDetectionStrategy, Input } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, HostListener, Injectable, NgZone, OnDestroy, OnInit, TemplateRef, ViewChild, ViewEncapsulation, AfterViewInit, AfterViewChecked, ChangeDetectionStrategy, Input } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { UserService } from 'app/core/user/user.service';
 import { DomainService } from 'app/_services/domain';
@@ -11,6 +11,7 @@ import {
     of,
     shareReplay,
     Subject,
+    Subscription,
     switchMap,
     take,
     takeUntil,
@@ -27,6 +28,8 @@ import { AppConfig } from 'app/core/config/app.config';
 import { BlogService } from 'app/_services/blog';
 import { ToastrService } from 'ngx-toastr';
 import {
+    DayScaleGenerator,
+    StrategyManager,
     TimelineComponent,
     TimelineViewMode,
 } from "angular-calendar-timeline";
@@ -56,6 +59,8 @@ registerLocaleData(localeVi);
 
 export interface ICustomTimelineItem extends ITimelineItem {
     domainData?: any;
+    autoWrite?: boolean;
+    isTotalRow?: boolean;
     persona?: {
         role: string;
         style: string;
@@ -71,13 +76,39 @@ interface CommentGroup {
     items: any[];
 }
 
-import { getSettings } from 'app/_services/user-settings.service';
+import { getSettings, isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+
+@Injectable()
+export class ScheduleMonthRangeState {
+    startDate: Date = new Date(new Date().getFullYear(), new Date().getMonth(), 1, 0, 0, 0, 0);
+    endDate: Date = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
+@Injectable()
+export class SingleMonthDayScaleGenerator extends DayScaleGenerator {
+    constructor(private rangeState: ScheduleMonthRangeState) {
+        super();
+    }
+
+    override getStartDate(): Date {
+        return new Date(this.rangeState.startDate);
+    }
+
+    override getEndDate(): Date {
+        return new Date(this.rangeState.endDate);
+    }
+}
 
 @Component({
     selector: 'amxh-schedule',
     templateUrl: './schedule.component.html',
     styleUrls: ['./schedule.component.scss'],
-    providers: [BlogService],
+    providers: [
+        BlogService,
+        ScheduleMonthRangeState,
+        { provide: DayScaleGenerator, useClass: SingleMonthDayScaleGenerator },
+        StrategyManager
+    ],
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: false
@@ -107,18 +138,42 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     currentZoomIndex: number;
 
     isLoadingSchedule: boolean = true;
+    isLoadingMonth: boolean = false;
+    /** Đã dựng hàng tên miền của tháng đang xem (từ bộ nhớ đệm hoặc danh sách tên miền) trước khi công việc tải xong. */
+    private hasRenderedMonthRows: boolean = false;
+    /** Bộ nhớ đệm dữ liệu từng tháng (tồn tại suốt phiên làm việc) để mở lại màn hình hiển thị tức thì. */
+    private static _monthViewCache = new Map<string, any[]>();
+    private monthTasksSub?: Subscription;
+    private monthLoadRequestId: number = 0;
     items: ICustomTimelineItem[] = [];
     
-    timelineStartDate: Date = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1, 0, 0, 0, 0);
-    timelineEndDate: Date = new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0, 23, 59, 59, 999);
+    timelineStartDate: Date = new Date(new Date().getFullYear(), new Date().getMonth(), 1, 0, 0, 0, 0);
+    timelineEndDate: Date = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0, 23, 59, 59, 999);
 
-    updateTimeline3MonthsRange(month?: number) {
+    get isViewingCurrentMonth(): boolean {
         const now = new Date();
-        const currentYear = now.getFullYear();
-        const targetMonth = (month && month >= 1 && month <= 12) ? (month - 1) : now.getMonth();
-        
-        this.timelineStartDate = new Date(currentYear, targetMonth - 1, 1, 0, 0, 0, 0);
-        this.timelineEndDate = new Date(currentYear, targetMonth + 2, 0, 23, 59, 59, 999);
+        const activeMonth = this.month || (now.getMonth() + 1);
+        const activeYear = this.year || now.getFullYear();
+        return activeMonth === (now.getMonth() + 1) && activeYear === now.getFullYear();
+    }
+
+    updateTimelineMonthRange(month?: number, year?: number) {
+        const now = new Date();
+        const targetYear = (year && year >= 2000 && year <= 2100) ? year : (this.year || now.getFullYear());
+        const targetMonth = (month && month >= 1 && month <= 12) ? month : (this.month || (now.getMonth() + 1));
+
+        this.month = targetMonth;
+        this.year = targetYear;
+        this.timelineStartDate = new Date(targetYear, targetMonth - 1, 1, 0, 0, 0, 0);
+        this.timelineEndDate = new Date(targetYear, targetMonth, 0, 23, 59, 59, 999);
+        if (this.monthRangeState) {
+            this.monthRangeState.startDate = new Date(this.timelineStartDate);
+            this.monthRangeState.endDate = new Date(this.timelineEndDate);
+        }
+    }
+
+    updateTimeline3MonthsRange(month?: number, year?: number) {
+        this.updateTimelineMonthRange(month, year);
     }
     
     customZooms = [
@@ -127,16 +182,18 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         { columnWidth: 720, viewMode: TimelineViewMode.Day }, // Mức 2: To nhất (30px mỗi giờ)
     ];
     disabledDates: Set<string> = new Set();
+    disabledAutoWriteDomains: Set<string> = new Set();
 
     @ViewChild("timeline") timelineComponent: TimelineComponent;
     
     private _timelineElement!: ElementRef;
     @ViewChild("timeline", { read: ElementRef }) set timelineElement(el: ElementRef) {
-        if (el && !this._timelineElement) {
-            this._timelineElement = el;
-            setTimeout(() => this.setupDragToScroll(), 0);
-        } else {
-            this._timelineElement = el;
+        const prevNative = this._timelineElement?.nativeElement;
+        this._timelineElement = el;
+        if (el?.nativeElement && el.nativeElement !== prevNative) {
+            this.zone.runOutsideAngular(() => {
+                setTimeout(() => this.setupDragToScroll(), 0);
+            });
         }
     }
     
@@ -192,6 +249,16 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     selectedGroupEndDate: Date | null = null;
 
     private syncDisabledDatesDebounceTimer: any = null;
+    private syncDomainAutoWriteDebounceTimer: any = null;
+    private saveAutoWriteContextTimer: any = null;
+    private saveScriptContextTimer: any = null;
+    private isSyncingDomainsAutoWrite: boolean = false;
+    private pendingAutoWriteSyncDomains: Set<string> = new Set();
+    private lastMasterCheckboxSig: string = '';
+    private lastHeaderCheckboxesSig: string = '';
+    private lastSavedChatSig: string = '';
+    private lastSavedDisabledDatesSig: string = '';
+    private boundTimelineElements: WeakSet<HTMLElement> = new WeakSet();
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     // --- VARIABLES FOR DIALOG ---
@@ -219,7 +286,913 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         return domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
     }
 
+    normalizeDomainKey(domain: any): string {
+        if (!domain) return '';
+        return String(domain)
+            .toLowerCase()
+            .trim()
+            .replace(/^https?:\/\//i, '')
+            .replace(/^www\./i, '')
+            .replace(/\/+$/, '');
+    }
+
+    isDomainAutoWriteEnabled(domainOrItem: any): boolean {
+        if (!domainOrItem) return false;
+        if (typeof domainOrItem === 'object' && domainOrItem.isTotalRow) {
+            return false;
+        }
+        const raw =
+            typeof domainOrItem === 'string'
+                ? domainOrItem
+                : domainOrItem?.domainData?.domain ||
+                  domainOrItem?.domain ||
+                  domainOrItem?.name ||
+                  '';
+        const key = this.normalizeDomainKey(raw);
+        if (!key) return false;
+        if (this.disabledAutoWriteDomains.has(key)) {
+            return false;
+        }
+        if (typeof domainOrItem === 'object') {
+            if (domainOrItem?.domainData?.autoWrite === false) return false;
+            if (domainOrItem?.autoWrite === false) return false;
+        }
+        return true;
+    }
+
+    getSelectedAutoWriteDomainKeys(): Set<string> {
+        const keys = new Set<string>();
+        const realItems = Array.isArray(this.items)
+            ? this.items.filter(
+                  (it: any) =>
+                      it &&
+                      !it.isTotalRow &&
+                      it.id !== 'total-summary-row' &&
+                      it.id !== 'monthly-total-summary-row'
+              )
+            : [];
+        const source =
+            realItems.length > 0 ? realItems : this.allDomainsList || [];
+        for (const item of source) {
+            if (this.isDomainAutoWriteEnabled(item)) {
+                const k = this.normalizeDomainKey(
+                    item?.domainData?.domain || item?.domain || item?.name
+                );
+                if (k) keys.add(k);
+            }
+        }
+        return keys;
+    }
+
+    private getFlatDomainTasks(d: any): any[] {
+        if (!d) return [];
+        const unpackedFromStream: any[] = [];
+        const rawStream =
+            Array.isArray(d?.streamItems) && d.streamItems.length > 0
+                ? d.streamItems
+                : Array.isArray(d?.childrenItems?.[0]?.streamItems)
+                  ? d.childrenItems[0].streamItems
+                  : [];
+        for (const st of rawStream) {
+            if (!st || st.isLoading) continue;
+            if (st.isGroup && Array.isArray(st.tasks)) {
+                for (const sub of st.tasks) {
+                    if (sub && !sub.isLoading) unpackedFromStream.push(sub);
+                }
+            } else {
+                unpackedFromStream.push(st);
+            }
+        }
+        if (unpackedFromStream.length > 0) {
+            return unpackedFromStream;
+        }
+        if (Array.isArray(d?.domainData?.plan) && d.domainData.plan.length > 0) {
+            return d.domainData.plan.filter((t: any) => t && !t.isLoading);
+        }
+        if (Array.isArray(d?.plan) && d.plan.length > 0) {
+            return d.plan.filter((t: any) => t && !t.isLoading);
+        }
+        return [];
+    }
+
+    getDomainTargetLabel(item: any): string {
+        if (!item || item.isTotalRow) return '0 bài';
+        const rawTarget = item.domainData?.monthlyTarget;
+        const target =
+            typeof rawTarget === 'number' && rawTarget > 0
+                ? rawTarget
+                : this.getResolvedTarget(
+                      item.name,
+                      undefined,
+                      undefined,
+                      item.domainData
+                  );
+        return `${target || 0} bài`;
+    }
+
+    private getAutoWriteStorageKey(): string {
+        const accountId =
+            this.user?.name ||
+            this.multiAccountService?.currentAccountId ||
+            'default';
+        return `${this.STORAGE_KEY}_DISABLED_AUTO_WRITE_DOMAINS_${accountId}`;
+    }
+
+    private persistDisabledAutoWriteDomainsFast(): void {
+        const arr = Array.from(this.disabledAutoWriteDomains);
+        try {
+            const json = JSON.stringify(arr);
+            localStorage.setItem(this.getAutoWriteStorageKey(), json);
+            localStorage.setItem(
+                this.STORAGE_KEY + '_DISABLED_AUTO_WRITE_DOMAINS',
+                json
+            );
+        } catch (e) {}
+
+        if (this.saveAutoWriteContextTimer) {
+            clearTimeout(this.saveAutoWriteContextTimer);
+        }
+        this.zone.runOutsideAngular(() => {
+            this.saveAutoWriteContextTimer = setTimeout(() => {
+                this.saveAutoWriteContextTimer = null;
+                this.updateGlobalAgentScheduleContext();
+            }, 600);
+        });
+    }
+
+    setDomainAutoWriteByKey(rawKey: string, isChecked: boolean): void {
+        const key = this.normalizeDomainKey(rawKey);
+        if (!key) return;
+
+        if (isChecked) {
+            this.disabledAutoWriteDomains.delete(key);
+        } else {
+            this.disabledAutoWriteDomains.add(key);
+        }
+
+        if (Array.isArray(this.items)) {
+            for (const item of this.items) {
+                if (!item || item.isTotalRow) continue;
+                const itemKey = this.normalizeDomainKey(
+                    item?.domainData?.domain || item?.name
+                );
+                if (itemKey === key) {
+                    item.autoWrite = isChecked;
+                    if (!item.domainData) {
+                        item.domainData = {
+                            domain: item.name,
+                            name: item.name,
+                        };
+                    }
+                    item.domainData.autoWrite = isChecked;
+                }
+            }
+        }
+
+        if (Array.isArray(this.allDomainsList)) {
+            for (const d of this.allDomainsList) {
+                if (
+                    d &&
+                    this.normalizeDomainKey(d.domain || d.name) === key
+                ) {
+                    d.autoWrite = isChecked;
+                }
+            }
+        }
+
+        this.syncPanelDomainCheckboxesDOM(key);
+        this.renderPanelMasterCheckbox(true);
+        this.persistDisabledAutoWriteDomainsFast();
+        this.queuePersistDomainsAutoWrite([key]);
+    }
+
+    onToggleDomainAutoWrite(event: Event, item: any): void {
+        event.stopPropagation();
+        if (!item || item.isTotalRow) return;
+        const inputEl = event.target as HTMLInputElement;
+        this.setDomainAutoWriteByKey(
+            item?.domainData?.domain || item?.name,
+            !!inputEl?.checked
+        );
+    }
+
+    toggleAllDomainsAutoWrite(forceEnable?: boolean): void {
+        const realItems = (this.items || []).filter(
+            (it: any) =>
+                it &&
+                !it.isTotalRow &&
+                it.id !== 'total-summary-row' &&
+                it.id !== 'monthly-total-summary-row'
+        );
+        if (realItems.length === 0) return;
+
+        const allCurrentlyEnabled = realItems.every((it: any) =>
+            this.isDomainAutoWriteEnabled(it)
+        );
+        const shouldEnable =
+            typeof forceEnable === 'boolean'
+                ? forceEnable
+                : !allCurrentlyEnabled;
+
+        const changedKeys: string[] = [];
+        for (const item of realItems) {
+            const key = this.normalizeDomainKey(
+                item?.domainData?.domain || item?.name
+            );
+            if (!key) continue;
+
+            const prev = !this.disabledAutoWriteDomains.has(key);
+            if (shouldEnable) {
+                this.disabledAutoWriteDomains.delete(key);
+            } else {
+                this.disabledAutoWriteDomains.add(key);
+            }
+
+            item.autoWrite = shouldEnable;
+            if (!item.domainData) {
+                item.domainData = { domain: item.name, name: item.name };
+            }
+            item.domainData.autoWrite = shouldEnable;
+
+            if (prev !== shouldEnable) {
+                changedKeys.push(key);
+            }
+        }
+
+        if (Array.isArray(this.allDomainsList)) {
+            for (const d of this.allDomainsList) {
+                if (d) {
+                    const key = this.normalizeDomainKey(d.domain || d.name);
+                    if (key) {
+                        d.autoWrite = shouldEnable;
+                    }
+                }
+            }
+        }
+
+        this.syncPanelDomainCheckboxesDOM();
+        this.renderPanelMasterCheckbox(true);
+        this.persistDisabledAutoWriteDomainsFast();
+
+        if (changedKeys.length > 0) {
+            this.queuePersistDomainsAutoWrite(changedKeys);
+        }
+    }
+
+    private queuePersistDomainsAutoWrite(domainKeys: string[]): void {
+        domainKeys.forEach((k) => {
+            if (k) this.pendingAutoWriteSyncDomains.add(k);
+        });
+
+        if (this.syncDomainAutoWriteDebounceTimer) {
+            clearTimeout(this.syncDomainAutoWriteDebounceTimer);
+        }
+
+        this.zone.runOutsideAngular(() => {
+            this.syncDomainAutoWriteDebounceTimer = setTimeout(() => {
+                this.syncDomainAutoWriteDebounceTimer = null;
+                this.flushPendingDomainsAutoWrite();
+            }, 400);
+        });
+    }
+
+    private async flushPendingDomainsAutoWrite(): Promise<void> {
+        if (this.isSyncingDomainsAutoWrite) {
+            return;
+        }
+        if (
+            this.pendingAutoWriteSyncDomains.size === 0 ||
+            !this.items ||
+            !this.items.length
+        ) {
+            return;
+        }
+
+        this.isSyncingDomainsAutoWrite = true;
+        try {
+            while (this.pendingAutoWriteSyncDomains.size > 0) {
+                const keysBatch = Array.from(this.pendingAutoWriteSyncDomains);
+                this.pendingAutoWriteSyncDomains.clear();
+
+                const username = this.user?.name || 'admin';
+                for (const key of keysBatch) {
+                    const domainItem = this.items.find(
+                        (d: any) =>
+                            d &&
+                            !d.isTotalRow &&
+                            d.domainData &&
+                            this.normalizeDomainKey(
+                                d.domainData.domain || d.name
+                            ) === key
+                    );
+                    if (!domainItem || !domainItem.domainData) continue;
+
+                    const desiredAutoWrite =
+                        !this.disabledAutoWriteDomains.has(key);
+                    domainItem.domainData.autoWrite = desiredAutoWrite;
+
+                    const slimDomainPayload: any = {
+                        ...domainItem.domainData,
+                        autoWrite: desiredAutoWrite,
+                    };
+                    delete slimDomainPayload.plan;
+                    delete slimDomainPayload.childrenItems;
+                    delete slimDomainPayload.streamItems;
+                    delete slimDomainPayload._streamLevels;
+
+                    try {
+                        const res: any = await firstValueFrom(
+                            this._domainService
+                                .edit({
+                                    username,
+                                    domain: slimDomainPayload,
+                                })
+                                .pipe(takeUntil(this._unsubscribeAll))
+                        );
+                        if (res && res.success && res.data && res.data._rev) {
+                            domainItem.domainData._rev = res.data._rev;
+                        }
+                    } catch (e) {
+                        // Bỏ qua lỗi mạng lẻ để không nghẽn tiến trình các domain khác
+                    }
+
+                    await new Promise((resolve) => setTimeout(resolve, 0));
+                }
+            }
+        } finally {
+            this.isSyncingDomainsAutoWrite = false;
+        }
+    }
+
     isResolvingSingleTask: boolean = false;
+
+    private isTaskPlanningOnlyCommand(text: string): boolean {
+        if (!text) return false;
+        return /(?:tạo|cập nhật|chỉnh sửa|sửa|lên|phân bổ|xóa|clear|reset|hủy)(?:\s+lại|\s+toàn bộ|\s+sạch|\s+hết)?\s*(?:công việc|task|tasks|lịch)\b/i.test(
+            text
+        );
+    }
+
+    private isScriptWritingCommand(text: string): boolean {
+        if (!text) return false;
+        return /(?:(?:viết|soạn|tạo|làm|dựng|sinh|chạy)(?:\s+lại)?\s*(?:bài\s+)?kịch bản|kịch bản\s*(?:quảng cáo|video|tvc|tiktok|youtube|reels|short|phim|bán hàng))/i.test(
+            text
+        );
+    }
+
+    private isContentWritingCommand(text: string): boolean {
+        if (!text || this.isTaskPlanningOnlyCommand(text)) return false;
+        return (
+            this.isScriptWritingCommand(text) ||
+            /(?:(?:viết|soạn|chạy|sinh|tạo)(?:\s+lại)?\s*(?:bài\s+blog|blog|bài\s+viết|bài\s+quảng\s+cáo|bài|nội\s+dung|chi\s+tiết|quảng\s+cáo|content|tus|status|caption|post)|thực\s+thi\s+công\s+việc|giải\s+quyết\s+công\s+việc)/i.test(
+                text
+            )
+        );
+    }
+
+    private formatScriptToHtml(scriptText: string): string {
+        if (!scriptText) return '';
+        const escapeHtml = (str: string) =>
+            str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        const lines = scriptText
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter((l) => l.length > 0);
+        const htmlBlocks: string[] = [];
+        for (const line of lines) {
+            if (/^(?:CẢNH|PHÂN\s+CẢNH|SCENE|INT\.|EXT\.)\s*/i.test(line)) {
+                htmlBlocks.push(`<h2>${escapeHtml(line)}</h2>`);
+            } else if (
+                line === line.toUpperCase() &&
+                line.length <= 45 &&
+                /[A-ZÀ-Ỹ]/.test(line)
+            ) {
+                htmlBlocks.push(`<h3>${escapeHtml(line)}</h3>`);
+            } else {
+                htmlBlocks.push(`<p>${escapeHtml(line)}</p>`);
+            }
+        }
+        return htmlBlocks.join('\n');
+    }
+
+    private formatHtmlToPlainScript(htmlText: string, fallbackTitle: string): string {
+        if (!htmlText) return `CẢNH 1 - ${fallbackTitle}\n${fallbackTitle}`;
+        const plain = htmlText
+            .replace(/<\/(h[1-6]|p|div|li|tr)>/gi, '\n')
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<[^>]+>/g, '')
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/&amp;/gi, '&')
+            .replace(/&lt;/gi, '<')
+            .replace(/&gt;/gi, '>')
+            .replace(/&quot;/gi, '"')
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter((l) => l.length > 0)
+            .join('\n\n');
+        if (!/(?:CẢNH|PHÂN\s+CẢNH|SCENE)\s+\d+/i.test(plain)) {
+            return `CẢNH 1 - ${(fallbackTitle || 'KỊCH BẢN QUẢNG CÁO').toUpperCase()}\n\n${plain}`;
+        }
+        return plain;
+    }
+
+    private async generateAndPersistSingleTaskContent(
+        task: any,
+        userInstruction?: string
+    ): Promise<{ savedUuid: string; title: string; isScript: boolean }> {
+        const rawDomainName =
+            task?.domain ||
+            task?.domain_id ||
+            task?.domainName ||
+            this.editingItemDomain ||
+            'website';
+        const normTaskDomain = this.normalizeDomainKey(rawDomainName);
+        const matchedItem = this.items?.find(
+            (item: any) =>
+                item &&
+                !item.isTotalRow &&
+                item.id !== 'total-summary-row' &&
+                item.id !== 'monthly-total-summary-row' &&
+                this.normalizeDomainKey(item?.domainData?.domain || item?.name) ===
+                    normTaskDomain
+        );
+        const canonicalDomain =
+            matchedItem?.domainData?.domain || matchedItem?.name || rawDomainName;
+        const domainData = matchedItem?.domainData
+            ? { ...matchedItem.domainData, domain: canonicalDomain }
+            : { domain: canonicalDomain, name: canonicalDomain };
+
+        let styleInstructions = '';
+        if (domainData.note) {
+            styleInstructions += `\n- Định hướng chuyên môn tên miền (bám sát): ${domainData.note}`;
+        }
+        let domainWritingStyle =
+            domainData.writingStyle || this.editingItemWritingStyle;
+        if (!domainWritingStyle && this.settings?.domainStyles) {
+            domainWritingStyle =
+                this.settings.domainStyles[canonicalDomain] ||
+                this.settings.domainStyles[normTaskDomain];
+        }
+        if (domainWritingStyle && this.settings?.styles) {
+            const styleObj = this.settings.styles.find(
+                (s: any) =>
+                    s.name === domainWritingStyle || s.id === domainWritingStyle
+            );
+            if (styleObj) {
+                styleInstructions += `\n- Phong cách thể hiện (BẮT BUỘC): ${styleObj.name} (${styleObj.desc})`;
+            } else {
+                styleInstructions += `\n- Phong cách thể hiện: ${domainWritingStyle}`;
+            }
+        } else if (domainWritingStyle) {
+            styleInstructions += `\n- Phong cách thể hiện: ${domainWritingStyle}`;
+        }
+
+        const taskMetaClean = String(task?.meta || '')
+            .replace(/\bDone\b/gi, '')
+            .trim();
+        const combinedContext = `${task?.name || ''} ${taskMetaClean} ${userInstruction || ''}`;
+        const shouldSaveAsScript =
+            this.isScriptWritingCommand(userInstruction || '') ||
+            /(?:kịch bản|tvc|scene|phân cảnh|quay dựng|voiceover|short video|reels)/i.test(
+                combinedContext
+            );
+
+        const userDirectiveLine =
+            userInstruction && userInstruction.trim()
+                ? `\n- Yêu cầu trực tiếp từ người dùng (ƯU TIÊN SỐ 1): "${userInstruction.trim()}"`
+                : '';
+        const taskMetaLine = taskMetaClean
+            ? `\n- Mô tả / Ghi chú chi tiết của công việc: "${taskMetaClean}"`
+            : '';
+
+        let prompt = '';
+        if (shouldSaveAsScript) {
+            prompt = `Bạn là Đạo diễn Quảng cáo & Biên kịch Video/TVC chuyên nghiệp. Hãy viết ngay KỊCH BẢN SẢN XUẤT sẵn sàng quay dựng và đăng tải cho kênh/tên miền "${canonicalDomain}" theo công việc:
+- Chủ đề / Nhiệm vụ: "${task.name}"${taskMetaLine}${userDirectiveLine}${styleInstructions}
+
+YÊU CẦU BẮT BUỘC:
+1. Bám sát CHÍNH XÁC số lượng phân cảnh (scene) và thời lượng được nêu trong chủ đề/mô tả công việc hoặc yêu cầu người dùng (ví dụ: nếu công việc ghi "1 scene 10 giây" hoặc "1 scene 15 giây" thì chỉ viết ĐÚNG DUY NHẤT "CẢNH 1" gói gọn trọn vẹn trong thời lượng đó, tuyệt đối không tự chia thêm cảnh phụ; nếu không ghi rõ số cảnh thì chia 2 - 4 cảnh ngắn gọn phù hợp nền tảng "${canonicalDomain}").
+2. Thu hút ngay từ giây đầu (Hook), làm nổi bật điểm đắt giá nhất của sản phẩm/dịch vụ và chốt bằng lời kêu gọi hành động (CTA) sắc gọn.
+3. Trường "script" trình bày chuẩn định dạng phân cảnh dựng video:
+   - Tiêu đề cảnh: "CẢNH 1 - [NỘI/NGOẠI]. [BỐI CẢNH] ([MỐC THỜI GIAN, VD: 00:00 - 00:10])"
+   - Bên dưới mô tả rõ khung hình, góc máy, chuyển động, hiệu ứng âm thanh/nhạc nền và chữ hiển thị trên màn hình (Text on screen).
+   - Tên nhân vật hoặc VOICEOVER viết IN HOA trên một dòng riêng, dòng kế tiếp là câu thoại đầy đủ vừa khít thời lượng.
+4. Không suy luận lan man, trả về ĐÚNG DUY NHẤT 1 JSON Object hợp lệ theo cấu trúc sau (không kèm giải thích ngoài JSON):
+{
+  "title": "Tiêu đề kịch bản quảng cáo hấp dẫn, cụ thể",
+  "description": "Caption đăng bài thu hút kèm CTA ngắn gọn cho video",
+  "image_prompt": "Detailed English prompt to generate key visual or thumbnail for this video script",
+  "tags": ["tu-khoa-1", "tu-khoa-2", "tu-khoa-3"],
+  "script": "CẢNH 1 - NỘI. BỐI CẢNH CỤ THỂ (00:00 - 00:10)\\nMô tả khung hình, góc máy, hành động, âm thanh và Text on screen.\\n\\nVOICEOVER\\nLời thoại trọn vẹn đúng thời lượng kèm CTA."
+}`;
+        } else {
+            prompt = `Bạn là chuyên gia Content SEO & Copywriting. Hãy viết ngay một bài viết hoàn chỉnh, chuyên sâu (khoảng 800 - 1200 từ) cho kênh/website "${canonicalDomain}" với chủ đề/nhiệm vụ:
+- Chủ đề / Nhiệm vụ: "${task.name}"${taskMetaLine}${userDirectiveLine}${styleInstructions}
+
+YÊU CẦU BẮT BUỘC:
+1. Mở đầu bằng thẻ <p> Sapo cuốn hút chứa từ khóa chính, tiếp theo triển khai mạch lạc bằng các thẻ <h2>, <h3>, <p>, <ul>, <li>, <strong> (tuyệt đối không dùng Markdown).
+2. Không suy luận lan man, trả về ĐÚNG DUY NHẤT 1 JSON Object hợp lệ theo cấu trúc sau (không kèm giải thích ngoài JSON):
+{
+  "title": "Tiêu đề bài viết chuẩn SEO hấp dẫn",
+  "description": "Mô tả Meta Description ngắn gọn chuẩn SEO (140-160 ký tự)",
+  "image_prompt": "Detailed English prompt to generate featured illustration for this article",
+  "tags": ["tu-khoa-1", "tu-khoa-2", "tu-khoa-3"],
+  "content": "<p>Đoạn mở đầu Sapo...</p><h2>Tiêu đề phần 1</h2><p>Nội dung chi tiết...</p>"
+}`;
+        }
+
+        const response = await this._genaiService.generateContent({
+            model: 'gemini-3.8-flash',
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            tools: [],
+            config: {
+                ttsVoice: 'none',
+                disableThinking: true,
+                systemInstruction:
+                    'Trả về trực tiếp duy nhất 1 JSON Object hợp lệ theo đúng cấu trúc được yêu cầu. Không giải thích, không suy luận dài dòng.'
+            }
+        } as any);
+
+        const rawText =
+            response.text || (response as any).response?.text?.() || '';
+        const articleData = this.parseArticleDataSafely(
+            rawText,
+            task.name || 'Nội dung mới'
+        );
+
+        const finalTitle = (articleData.title || task.name || 'Nội dung mới').trim();
+        let finalScriptText = String(articleData.script || '').trim();
+        let finalContentHtml = String(articleData.content || '').trim();
+        const rawDescText = String(articleData.description || '').trim();
+
+        if (!finalContentHtml && finalScriptText) {
+            const scriptHtml = this.formatScriptToHtml(finalScriptText);
+            if (rawDescText) {
+                const escapedDesc = rawDescText
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                finalContentHtml = `<p><strong>Caption / Thông điệp:</strong> ${escapedDesc}</p>\n${scriptHtml}`;
+            } else {
+                finalContentHtml = scriptHtml;
+            }
+        }
+        if (!finalContentHtml && rawText.trim()) {
+            finalContentHtml = this.formatScriptToHtml(rawText.trim());
+        }
+        if (!finalContentHtml) {
+            throw new Error('AI không trả về nội dung hợp lệ để lưu CSDL.');
+        }
+
+        if (shouldSaveAsScript && !finalScriptText) {
+            finalScriptText = this.formatHtmlToPlainScript(
+                finalContentHtml,
+                finalTitle
+            );
+        }
+
+        const finalDescription =
+            (rawDescText || taskMetaClean || finalTitle).trim();
+        const generatedUuid = uuid.v4().replace(/-/g, '').substring(0, 10);
+
+        const archivePayload = this.buildArchivePayload({
+            uuid: generatedUuid,
+            title: finalTitle,
+            content: finalContentHtml,
+            description: finalDescription,
+            image_prompt: articleData.image_prompt || '',
+            tags: articleData.tags || [],
+            domainData: domainData,
+            rawUrl:
+                task._id ||
+                task.id ||
+                'task_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            taskId: task._id || task.id
+        });
+
+        // 1. Lưu bài viết vào CSDL Soạn bài (SQLite local_articles hoặc Server Archive)
+        const archiveRes: any = await firstValueFrom(
+            this._crawlService.storeArchive(archivePayload)
+        ).catch((err) => ({
+            success: false,
+            error: err?.message || String(err)
+        }));
+
+        if (!archiveRes || archiveRes.success === false || archiveRes.error) {
+            throw new Error(
+                archiveRes?.error ||
+                    archiveRes?.message ||
+                    'Không thể lưu bài viết vào CSDL Soạn bài.'
+            );
+        }
+
+        const savedUuid =
+            archiveRes?.uuid ||
+            archiveRes?.data?.uuid ||
+            archivePayload.uuid ||
+            generatedUuid;
+
+        // 2. Nếu là yêu cầu viết kịch bản (hoặc task kịch bản), lưu đồng thời vào CSDL Kịch bản (local_scripts & storeScript)
+        if (shouldSaveAsScript && finalScriptText) {
+            const activeUsername = this.user?.name || 'admin';
+            const isLocal = isAutoSaveLocalEnabled();
+            if (
+                isLocal &&
+                (window as any).electron &&
+                (window as any).electron.saveLocalScript
+            ) {
+                const localScriptRes: any = await (
+                    window as any
+                ).electron.saveLocalScript({
+                    uuid: savedUuid,
+                    username: activeUsername,
+                    title: finalTitle,
+                    outline: finalDescription,
+                    script: finalScriptText
+                });
+                if (localScriptRes && localScriptRes.success === false) {
+                    console.warn(
+                        'Cảnh báo lưu local_scripts:',
+                        localScriptRes.error
+                    );
+                }
+            }
+
+            if (this._blogService) {
+                if (!isLocal) {
+                    await firstValueFrom(
+                        this._blogService.storeScript({
+                            username: activeUsername,
+                            uuid: savedUuid,
+                            title: finalTitle,
+                            outline: finalDescription,
+                            script: finalScriptText
+                        })
+                    ).catch(() => null);
+                } else {
+                    this._blogService
+                        .storeScript({
+                            username: activeUsername,
+                            uuid: savedUuid,
+                            title: finalTitle,
+                            outline: finalDescription,
+                            script: finalScriptText
+                        })
+                        .pipe(takeUntil(this._unsubscribeAll))
+                        .subscribe({ next: () => {}, error: () => {} });
+                }
+            }
+
+            try {
+                this.multiAccountService.setItem(
+                    `ai_type_script_data_${savedUuid}`,
+                    true
+                );
+            } catch (e) {}
+        }
+
+        try {
+            this._h?.updateStatistics?.('writing', 1);
+        } catch (e) {}
+
+        // 3. Đánh dấu công việc đã hoàn thành [Done] trong RAM và lưu vào CSDL Tasks (SQLite local_tasks hoặc CouchDB)
+        const updatedMeta = (
+            (taskMetaClean ? taskMetaClean + ' ' : '') + 'Done'
+        ).trim();
+        task.done = true;
+        task.status = 'done';
+        task.isDone = true;
+        task.completed = true;
+        task.percent = 100;
+        task.article_uuid = savedUuid;
+        task.meta = updatedMeta;
+        if (task.originalTask) {
+            task.originalTask.done = true;
+            task.originalTask.status = 'done';
+            task.originalTask.isDone = true;
+            task.originalTask.completed = true;
+            task.originalTask.percent = 100;
+            task.originalTask.article_uuid = savedUuid;
+            task.originalTask.meta = updatedMeta;
+        }
+
+        const isLocalMode = isAutoSaveLocalEnabled();
+        const targetTaskDateIso = task.startDate
+            ? this.safeIsoDate(task.startDate)
+            : '';
+
+        let flatDomainTasks = matchedItem
+            ? this.getFlatDomainTasks(matchedItem)
+            : [];
+        let planTask = flatDomainTasks.find((t: any) => {
+            if (!t) return false;
+            const tId = t._id || t.id;
+            const targetId = task._id || task.id;
+            if (tId && targetId && String(tId) === String(targetId)) {
+                return true;
+            }
+            if (
+                targetTaskDateIso &&
+                t.startDate &&
+                this.safeIsoDate(t.startDate) === targetTaskDateIso &&
+                t.name === task.name
+            ) {
+                return true;
+            }
+            return false;
+        });
+
+        const taskRecordToPersist = planTask || task.originalTask || task;
+        taskRecordToPersist.done = true;
+        taskRecordToPersist.status = 'done';
+        taskRecordToPersist.isDone = true;
+        taskRecordToPersist.completed = true;
+        taskRecordToPersist.percent = 100;
+        taskRecordToPersist.article_uuid = savedUuid;
+        taskRecordToPersist.meta = updatedMeta;
+        taskRecordToPersist.domain_id = canonicalDomain;
+        taskRecordToPersist.domain = canonicalDomain;
+
+        try {
+            const existingId =
+                taskRecordToPersist._id || taskRecordToPersist.id;
+            const isRealCouchDbTask =
+                !!existingId &&
+                !!taskRecordToPersist._rev &&
+                String(taskRecordToPersist._rev).includes('-');
+            const canEdit = isLocalMode ? !!existingId : isRealCouchDbTask;
+
+            if (canEdit && existingId) {
+                taskRecordToPersist._id = existingId;
+                taskRecordToPersist.id = existingId;
+                const resEdit: any = await firstValueFrom(
+                    this._tasksService.edit({
+                        username: this.user?.name || 'admin',
+                        task: taskRecordToPersist
+                    })
+                ).catch(() => null);
+                const newRev =
+                    resEdit?.rev ||
+                    resEdit?._rev ||
+                    resEdit?.data?.rev ||
+                    resEdit?.data?._rev;
+                if (newRev) {
+                    taskRecordToPersist._rev = newRev;
+                }
+            } else {
+                const resAdd: any = await firstValueFrom(
+                    this._tasksService.add({
+                        username: this.user?.name || 'admin',
+                        task: taskRecordToPersist
+                    })
+                ).catch(() => null);
+                const newId =
+                    resAdd?.id ||
+                    resAdd?._id ||
+                    resAdd?.data?.id ||
+                    resAdd?.data?._id;
+                const newRev =
+                    resAdd?.rev ||
+                    resAdd?._rev ||
+                    resAdd?.data?.rev ||
+                    resAdd?.data?._rev;
+                if (newId) {
+                    taskRecordToPersist._id = newId;
+                    taskRecordToPersist.id = newId;
+                }
+                if (newRev) {
+                    taskRecordToPersist._rev = newRev;
+                }
+            }
+        } catch (errPersistTask) {
+            console.warn('Lỗi cập nhật trạng thái Done cho task:', errPersistTask);
+        }
+
+        if (matchedItem) {
+            if (!planTask) {
+                flatDomainTasks = [...flatDomainTasks, taskRecordToPersist];
+            }
+            if (!matchedItem.domainData) {
+                matchedItem.domainData = { domain: canonicalDomain };
+            }
+            matchedItem.domainData.plan = flatDomainTasks;
+            if (Array.isArray(this.allDomainsList)) {
+                const allDom = this.allDomainsList.find(
+                    (ad: any) =>
+                        ad &&
+                        this.normalizeDomainKey(ad.domain || ad.name) ===
+                            normTaskDomain
+                );
+                if (allDom) {
+                    allDom.plan = [...flatDomainTasks];
+                }
+            }
+            this.applyPackedTasks(matchedItem, flatDomainTasks);
+        }
+
+        this.updateTotalSummaryRow();
+        return {
+            savedUuid,
+            title: finalTitle,
+            isScript: shouldSaveAsScript
+        };
+    }
+
+    private async writeAndSaveContentForTasks(
+        tasksToProcess: any[],
+        targetDateLocal: string,
+        userInstruction?: string,
+        skippedUncheckedCount: number = 0
+    ): Promise<void> {
+        if (!tasksToProcess || tasksToProcess.length === 0) return;
+
+        this.isChatting = true;
+        const isScriptBatch = this.isScriptWritingCommand(userInstruction || '');
+        const contentKindLabel = isScriptBatch ? 'kịch bản' : 'bài viết';
+        const skippedNotice =
+            skippedUncheckedCount > 0
+                ? ` *(bỏ qua ${skippedUncheckedCount} công việc của tên miền không tích chọn)*`
+                : '';
+
+        this.chatHistory.push({
+            role: 'model',
+            content: `Dạ Sếp! Em đang tiến hành viết chi tiết ${contentKindLabel} và lưu vào CSDL cho **${tasksToProcess.length} công việc** thuộc các tên miền đã chọn của ngày **${targetDateLocal}**${skippedNotice}...`,
+            time: new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            })
+        });
+        this.cd.detectChanges();
+        this.scrollToBottom();
+
+        let successCount = 0;
+
+        for (let i = 0; i < tasksToProcess.length; i++) {
+            if (!this.isChatting) {
+                this.chatHistory.push({
+                    role: 'model',
+                    content: `Đã dừng tiến trình viết ${contentKindLabel} theo yêu cầu của Sếp!`
+                });
+                break;
+            }
+
+            const task = tasksToProcess[i];
+            const progressMsg: any = {
+                role: 'model',
+                content: `⏳ Đang viết và lưu CSDL [${i + 1}/${tasksToProcess.length}]: **${task.name}** (Tên miền: \`${task.domain}\`)...`,
+                time: new Date().toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })
+            };
+            this.chatHistory.push(progressMsg);
+            this.cd.detectChanges();
+            this.scrollToBottom();
+
+            try {
+                const savedInfo = await this.generateAndPersistSingleTaskContent(
+                    task,
+                    userInstruction
+                );
+                successCount++;
+                const savedWhere = savedInfo.isScript
+                    ? 'kho **Soạn bài** & **Kịch bản**'
+                    : 'kho **Soạn bài**';
+                progressMsg.content = `✅ [${i + 1}/${tasksToProcess.length}] Đã viết xong, lưu vào ${savedWhere} và đánh dấu Hoàn thành cho: **${savedInfo.title}** (\`${task.domain}\`)`;
+            } catch (err: any) {
+                progressMsg.content = `❌ [${i + 1}/${tasksToProcess.length}] Lỗi khi viết/lưu công việc **${task.name}** (\`${task.domain}\`): ${err?.message || err}`;
+            }
+
+            this.items = [...this.items];
+            this.saveScriptState();
+            this.cd.detectChanges();
+            this.scrollToBottom();
+        }
+
+        const doneSummaryWhere = isScriptBatch
+            ? 'CSDL **Soạn bài** & **Kịch bản** (có thể mở xem kịch bản hoặc dựng video ngay)'
+            : 'CSDL và kho **Soạn bài**';
+        this.chatHistory.push({
+            role: 'model',
+            content: `🎉 Báo cáo Sếp: Đã hoàn tất viết ${contentKindLabel}, lưu vào ${doneSummaryWhere} và đánh dấu Hoàn thành cho **${successCount}/${tasksToProcess.length} công việc** của ngày **${targetDateLocal}**!`,
+            time: new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            })
+        });
+        if (successCount > 0) {
+            this.toastr.success(
+                `Đã viết và lưu CSDL thành công ${successCount}/${tasksToProcess.length} ${contentKindLabel} ngày ${targetDateLocal}!`
+            );
+        }
+        this.isChatting = false;
+        this.saveScriptState();
+        this.cd.detectChanges();
+        this.scrollToBottom();
+    }
 
     async resolveTask(taskItem?: any): Promise<void> {
         const task = taskItem || this.editingItem;
@@ -230,86 +1203,16 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         this.cd.markForCheck();
 
         try {
-            const domainName = this.editingItemDomain || task.domain || 'website';
-            const styleInstructions = this.editingItemWritingStyle ? `\n- Phong cách viết: ${this.editingItemWritingStyle}` : '';
-            
-            const prompt = `Bạn là chuyên gia Content SEO. Hãy viết một bài blog chi tiết cho website ${domainName} với chủ đề/nhiệm vụ: "${task.name}".
-Yêu cầu:${styleInstructions}
-- Trả về ĐÚNG định dạng JSON sau, không kèm bất kỳ giải thích nào khác:
-{
-  "title": "Tiêu đề bài viết",
-  "content": "Nội dung bài viết (HTML, có thẻ h2, h3)",
-  "description": "Mô tả ngắn gọn",
-  "image_prompt": "Gợi ý ảnh tiếng Anh cho bài viết"
-}`;
-
-            const response = await this._genaiService.generateContent({
-                model: 'gemini-3.8-flash',
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                config: { ttsVoice: 'none' } as any
-            });
-
-            let rawText = response.text || (response as any).response?.text() || '';
-            let articleData = this.parseArticleDataSafely(rawText, task.name);
-
-            let archivePayload = this.buildArchivePayload({
-                title: articleData.title || task.name,
-                content: articleData.content || '',
-                description: articleData.description || '',
-                image_prompt: articleData.image_prompt || '',
-                tags: articleData.tags || [],
-                domainData: { domain: domainName, name: domainName },
-                rawUrl: task._id || task.id || Math.random().toString(36).substring(7),
-                taskId: task._id || task.id
-            });
-
-            // 1. Save to Crawl Service archive (nguồn dữ liệu duy nhất - server)
-            try {
-                await firstValueFrom(this._crawlService.storeArchive(archivePayload)).catch(() => null);
-            } catch (e) {}
-
-            // 3. Mark task as DONE in RAM and CouchDB!
-            task.done = true;
-            task.status = 'done';
-            task.meta = (task.meta ? task.meta.replace(/done/gi, '').trim() + ' ' : '') + 'Done';
-            if (task.originalTask) {
-                task.originalTask.done = true;
-                task.originalTask.status = 'done';
-                task.originalTask.meta = task.meta;
-            }
-
-            let matchedItem = this.items?.find((item: any) => item.name === domainName || item.name === task.domain);
-            let planTask = matchedItem?.domainData?.plan?.find((t: any) => (t._id || t.id) === (task._id || task.id) || t.name === task.name);
-            if (!planTask && matchedItem?.childrenItems?.[0]?.streamItems) {
-                planTask = matchedItem.childrenItems[0].streamItems.find((t: any) => (t._id || t.id) === (task._id || task.id) || t.name === task.name);
-            }
-            if (planTask) {
-                planTask.done = true;
-                planTask.status = 'done';
-                planTask.meta = task.meta;
-                
-                const isRealCouchDbTask = planTask._id && planTask._rev && String(planTask._rev).includes('-');
-                if (isRealCouchDbTask) {
-                    this._tasksService.edit({ username: this.user.name, task: planTask }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
-                } else {
-                    this._tasksService.add({ username: this.user.name, task: planTask }).pipe(takeUntil(this._unsubscribeAll)).subscribe((res: any) => {
-                        if (res) {
-                            if (res.id || res._id) planTask._id = res.id || res._id;
-                            if (res.rev || res._rev) planTask._rev = res.rev || res._rev;
-                        }
-                    });
-                }
-            }
-
-            if (matchedItem) {
-                const plan = matchedItem.domainData?.plan || matchedItem.childrenItems?.[0]?.streamItems || [];
-                this.applyPackedTasks(matchedItem, plan);
-            }
-
+            const savedInfo = await this.generateAndPersistSingleTaskContent(task);
             this.items = [...this.items];
-            this.toastr.success(`Đã giải quyết thành công công việc "${task.name}"!`);
+            this.saveScriptState();
+            this.toastr.success(
+                `Đã viết và lưu CSDL thành công "${savedInfo.title}"!`
+            );
         } catch (err: any) {
-            this.toastr.error(`Lỗi khi giải quyết công việc: ${err.message || err}`);
+            this.toastr.error(
+                `Lỗi khi giải quyết công việc: ${err?.message || err}`
+            );
         } finally {
             this.isResolvingSingleTask = false;
             this.cd.markForCheck();
@@ -414,11 +1317,14 @@ Yêu cầu:${styleInstructions}
         private _domainService: DomainService,
         private _tasksService: TasksService,
         private _crawlService: CrawlService,
+        private _blogService: BlogService,
         private _globalAgentService: GlobalAgentService,
         private _h: HelperService,
-        private _forumService: ForumService
+        private _forumService: ForumService,
+        private monthRangeState: ScheduleMonthRangeState
     ) {
         this.titleService.setTitle(`lên kịch bản | ai.type - công cụ tạo content`);
+        this.updateTimelineMonthRange(this.month, this.year);
 
         this.settings = getSettings();
         if (this.settings) {
@@ -465,10 +1371,32 @@ Yêu cầu:${styleInstructions}
                             // hãy chuyển thành Thẻ Xác Nhận Kế Hoạch Chi Tiết kèm Nút Confirm để Quản trị viên chủ động xác nhận
                             if (parsed[0] && (parsed[0].command === 'create_monthly_tasks' || parsed[0].command === 'schedule_tasks')) {
                                 const requestMonth = this.month || (new Date().getMonth() + 1);
-                                const requestYear = new Date().getFullYear();
+                                const requestYear = this.year || new Date().getFullYear();
                                 const daysInMonth = new Date(requestYear, requestMonth, 0).getDate();
-                                const validDomains = this.items.filter(item => item && item.id !== 'total-summary-row' && item.id !== 'monthly-total-summary-row');
+                                const validDomains = this.items.filter(
+                                    item =>
+                                        item &&
+                                        !item.isTotalRow &&
+                                        item.id !== 'total-summary-row' &&
+                                        item.id !== 'monthly-total-summary-row' &&
+                                        this.isDomainAutoWriteEnabled(item)
+                                );
                                 const monthStr = requestMonth.toString().padStart(2, '0');
+
+                                if (validDomains.length === 0) {
+                                    this.toastr.warning(
+                                        'Vui lòng tích chọn ít nhất 1 tên miền ở cột Công việc bên trái trước khi tạo công việc!',
+                                        'Chưa chọn tên miền'
+                                    );
+                                    this.chatHistory.push({
+                                        role: 'model',
+                                        content: `⚠️ **Chưa chọn tên miền thực thi**: Báo cáo Sếp, hiện chưa có tên miền nào được tích chọn ở cột **Công việc** bên trái. Sếp vui lòng tích chọn các tên miền muốn tạo công việc rồi gửi lại yêu cầu nhé!`
+                                    });
+                                    this.saveScriptState();
+                                    this.cd.detectChanges();
+                                    this.scrollToBottom();
+                                    return;
+                                }
 
                                 const now = new Date();
                                 const startDay = (requestYear === now.getFullYear() && requestMonth === (now.getMonth() + 1)) ? now.getDate() : 1;
@@ -511,7 +1439,7 @@ Yêu cầu:${styleInstructions}
 ### 📊 1. Tổng quan kế hoạch hệ thống:
 - 📅 **Thời gian áp dụng**: **01/${monthStr}/${requestYear}** đến **${daysInMonth}/${monthStr}/${requestYear}**
 - ⏳ **Số ngày làm việc thực tế**: **${workingDaysLeft} ngày** (đã loại trừ các ngày nghỉ/bỏ qua)
-- 🎯 **Tổng chỉ tiêu toàn hệ thống**: **${totalMonthlyTargetSum} bài** (${validDomains.length} Tên miền)
+- 🎯 **Tổng chỉ tiêu tên miền đã chọn**: **${totalMonthlyTargetSum} bài** (${validDomains.length} Tên miền)
 - 📝 **Số bài đã lên lịch sẵn**: **${totalCreatedTasksSum} bài**
 - 🚀 **Số bài bắt buộc tạo mới**: **${totalMissingTasksSum} bài**
 
@@ -527,11 +1455,15 @@ ${domainRows.join('\n')}
 
 👉 *Sếp vui lòng kiểm tra kế hoạch chi tiết ở trên và bấm nút xác nhận bên dưới để em bắt đầu khởi chạy kịch bản nhé!*`;
 
+                                const selectedDomains = validDomains
+                                    .map(item => this.normalizeDomainKey(item?.domainData?.domain || item?.name))
+                                    .filter(Boolean);
+
                                 this.chatHistory.push({
                                     role: 'model',
                                     content: confirmContent,
                                     isConfirmMessage: true,
-                                    confirmData: { month: requestMonth, year: requestYear }
+                                    confirmData: { type: 'month', month: requestMonth, year: requestYear, selectedDomains }
                                 });
                                 this.saveScriptState();
                                 this.cd.detectChanges();
@@ -559,7 +1491,7 @@ ${domainRows.join('\n')}
         if (state && state.domains && state.domains.length > 0) {
             this.isLoadingSchedule = true;
             this.cd.markForCheck();
-            this.processDomains(state.domains, state.statsData, state.month, state.forceGenerate);
+            this.processDomains(state.domains, state.statsData, state.month, state.forceGenerate, state.year);
             
             const newState = { ...state };
             delete newState.forceGenerate;
@@ -634,7 +1566,7 @@ ${domainRows.join('\n')}
             );
 
             if (!this.isLoadingSchedule) {
-                this.scrollToToday();
+                this.focusActiveMonthView();
                 if (typeof this.timelineComponent['_recalculateItemPositions'] === 'function') {
                     this.timelineComponent['_recalculateItemPositions']();
                 }
@@ -654,7 +1586,7 @@ ${domainRows.join('\n')}
       if (!d) return new Date();
       let dt: Date;
       if (d instanceof Date) {
-          dt = isNaN(d.getTime()) ? new Date() : d;
+          dt = isNaN(d.getTime()) ? new Date() : new Date(d.getTime());
       } else if (typeof d === 'number') {
           dt = new Date(d);
           if (isNaN(dt.getTime())) dt = new Date();
@@ -667,7 +1599,7 @@ ${domainRows.join('\n')}
                   const timePart = parts.length > 1 ? parts[1] : '08:00:00';
                   const dParts = datePart.split(/[\/-]/);
                   if (dParts.length === 3) {
-                      const year = new Date().getFullYear().toString();
+                      const yearPart = dParts.find(p => p.length === 4) || (this.year || new Date().getFullYear()).toString();
                       const otherParts = dParts.filter(p => p.length !== 4);
                       if (otherParts.length === 2) {
                           const p1 = parseInt(otherParts[0], 10);
@@ -676,7 +1608,7 @@ ${domainRows.join('\n')}
                           const day = p1 > 12 ? p1 : p2;
                           const formattedMonth = month.toString().padStart(2, '0');
                           const formattedDay = day.toString().padStart(2, '0');
-                          dt = new Date(`${year}-${formattedMonth}-${formattedDay}T${timePart}`);
+                          dt = new Date(`${yearPart}-${formattedMonth}-${formattedDay}T${timePart}`);
                       }
                   }
               }
@@ -686,14 +1618,18 @@ ${domainRows.join('\n')}
           dt = new Date();
       }
 
-      // If the date's year is different from the current view year (e.g. 2023 vs 2026),
-      // adjust the year to current year so the timeline component doesn't attempt to compute 3 years of columns and freeze!
-      const currentYear = new Date().getFullYear();
-      if (dt.getFullYear() !== currentYear) {
-          dt.setFullYear(currentYear);
+      if (dt.getFullYear() < 2000 || dt.getFullYear() > 2100) {
+          dt.setFullYear(this.year || new Date().getFullYear());
       }
 
       return dt;
+  }
+
+  private isTaskInMonth(t: any, targetMonth: number, targetYear: number): boolean {
+      if (!t || !t.startDate) return false;
+      const dObj = this.safeDate(t.startDate);
+      if (!dObj || isNaN(dObj.getTime())) return false;
+      return dObj.getFullYear() === targetYear && (dObj.getMonth() + 1) === targetMonth;
   }
 
   private safeIsoString(d: any): string {
@@ -715,30 +1651,196 @@ ${domainRows.join('\n')}
       return `${year}-${month}-${day}`;
   }
 
-    ngAfterViewChecked(): void { 
+    private _cachedMasterCheckbox: HTMLInputElement | null = null;
+    private _cachedHeaderCheckboxEl: HTMLElement | null = null;
+
+    ngAfterViewChecked(): void {
         this.renderCheckboxesInHeader();
+        this.renderPanelMasterCheckbox();
     }
 
-    private renderCheckboxesInHeader() {
-        if (!this.timelineComponent || !this.timelineComponent.zoom) return;
-        
-        // Chỉ thêm checkbox ở chế độ xem Ngày (chứa từng ngày trên 1 cột)
-        if (this.timelineComponent.zoom.viewMode !== TimelineViewMode.Day) return;
+    private syncPanelDomainCheckboxesDOM(singleKey?: string): void {
+        const panelEl =
+            this._timelineElement?.nativeElement?.querySelector('timeline-panel');
+        if (!panelEl) return;
 
-        const headerEl = this._timelineElement?.nativeElement?.querySelector('timeline-scale-header');
+        const updateRow = (rowEl: Element) => {
+            const key = rowEl.getAttribute('data-domain-key') || '';
+            if (!key) return;
+            const enabled = !this.disabledAutoWriteDomains.has(key);
+
+            const cb = rowEl.querySelector(
+                '.domain-autowrite-checkbox'
+            ) as HTMLInputElement | null;
+            if (cb && cb.checked !== enabled) {
+                cb.checked = enabled;
+            }
+
+            const nameEl = rowEl.querySelector(
+                '.item-name'
+            ) as HTMLElement | null;
+            if (nameEl) {
+                nameEl.classList.toggle('text-gray-800', enabled);
+                nameEl.classList.toggle('text-gray-400', !enabled);
+            }
+
+            const badgeEl = rowEl.querySelector(
+                '.domain-target-badge'
+            ) as HTMLElement | null;
+            if (badgeEl) {
+                badgeEl.classList.toggle('bg-indigo-50', enabled);
+                badgeEl.classList.toggle('text-indigo-700', enabled);
+                badgeEl.classList.toggle('bg-gray-100', !enabled);
+                badgeEl.classList.toggle('text-gray-400', !enabled);
+            }
+        };
+
+        if (singleKey) {
+            const safeSelectorKey = singleKey.replace(/"/g, '\\"');
+            const singleRow = panelEl.querySelector(
+                `.panel-item[data-domain-key="${safeSelectorKey}"]`
+            );
+            if (singleRow) {
+                updateRow(singleRow);
+                return;
+            }
+        }
+
+        const rows = panelEl.querySelectorAll('.panel-item[data-domain-key]');
+        rows.forEach(updateRow);
+    }
+
+    private renderPanelMasterCheckbox(force: boolean = false): void {
+        const sig = `${this.items?.length || 0}:${this.disabledAutoWriteDomains.size}`;
+        if (
+            !force &&
+            sig === this.lastMasterCheckboxSig &&
+            this._cachedMasterCheckbox?.isConnected
+        ) {
+            return;
+        }
+
+        const labelEl = this._timelineElement?.nativeElement?.querySelector(
+            'timeline-panel .label'
+        ) as HTMLElement | null;
+        if (!labelEl) return;
+
+        let totalCount = 0;
+        let enabledCount = 0;
+        if (Array.isArray(this.items)) {
+            for (const it of this.items) {
+                if (
+                    !it ||
+                    it.isTotalRow ||
+                    it.id === 'total-summary-row' ||
+                    it.id === 'monthly-total-summary-row'
+                ) {
+                    continue;
+                }
+                totalCount++;
+                if (this.isDomainAutoWriteEnabled(it)) {
+                    enabledCount++;
+                }
+            }
+        }
+
+        const allChecked = totalCount > 0 && enabledCount === totalCount;
+        const someChecked = enabledCount > 0 && enabledCount < totalCount;
+
+        let masterInput = labelEl.querySelector(
+            '.panel-master-checkbox'
+        ) as HTMLInputElement | null;
+        if (!masterInput) {
+            labelEl.style.justifyContent = 'flex-start';
+            labelEl.style.padding = '0 12px';
+
+            masterInput = document.createElement('input');
+            masterInput.type = 'checkbox';
+            masterInput.className = 'panel-master-checkbox';
+            masterInput.title =
+                'Chọn / bỏ chọn tất cả tên miền để viết bài tự động';
+            masterInput.style.width = '16px';
+            masterInput.style.height = '16px';
+            masterInput.style.marginRight = '8px';
+            masterInput.style.flexShrink = '0';
+            masterInput.style.pointerEvents = 'auto';
+            masterInput.style.cursor = 'pointer';
+
+            const inputRef = masterInput;
+            this.zone.runOutsideAngular(() => {
+                inputRef.addEventListener('mousedown', (e: Event) =>
+                    e.stopPropagation()
+                );
+                inputRef.addEventListener(
+                    'touchstart',
+                    (e: Event) => e.stopPropagation(),
+                    { passive: true }
+                );
+                inputRef.addEventListener('click', (e: Event) =>
+                    e.stopPropagation()
+                );
+                inputRef.addEventListener('change', (e: Event) => {
+                    e.stopPropagation();
+                    this.toggleAllDomainsAutoWrite();
+                });
+            });
+
+            labelEl.insertBefore(masterInput, labelEl.firstChild);
+        }
+
+        if (masterInput.checked !== allChecked) {
+            masterInput.checked = allChecked;
+        }
+        if (masterInput.indeterminate !== someChecked) {
+            masterInput.indeterminate = someChecked;
+        }
+        masterInput.disabled = totalCount === 0;
+        this._cachedMasterCheckbox = masterInput;
+        this.lastMasterCheckboxSig = sig;
+    }
+
+    private renderCheckboxesInHeader(force: boolean = false) {
+        if (!this.timelineComponent || !this.timelineComponent.zoom) return;
+
+        // Chỉ thêm checkbox ở chế độ xem Ngày (chứa từng ngày trên 1 cột)
+        if (this.timelineComponent.zoom.viewMode !== TimelineViewMode.Day) {
+            return;
+        }
+
+        const scaleCols = this.timelineComponent.scale?.columns;
+        const colCount = scaleCols?.length || 0;
+        const firstColTime = scaleCols?.[0]?.date
+            ? new Date(scaleCols[0].date).getTime()
+            : 0;
+        const sig = `${this.month}-${this.year}-${this.timelineComponent.zoom.columnWidth}-${colCount}-${firstColTime}-${this.disabledDates.size}`;
+        if (
+            !force &&
+            sig === this.lastHeaderCheckboxesSig &&
+            this._cachedHeaderCheckboxEl?.isConnected
+        ) {
+            return;
+        }
+
+        const headerEl =
+            this._timelineElement?.nativeElement?.querySelector(
+                'timeline-scale-header'
+            );
         if (!headerEl) return;
-        
+
         const columns = headerEl.querySelectorAll('.columns .column');
         if (!columns || columns.length === 0) return;
+
+        let firstRenderedCheckbox: HTMLElement | null = null;
 
         columns.forEach((col: HTMLElement, index: number) => {
             const scaleColumn = this.timelineComponent.scale.columns[index];
             if (!scaleColumn || !scaleColumn.date) return;
-            
-            const dateStr = this.safeIsoDate(scaleColumn.date);
-            const colWidth = col.offsetWidth || col.getBoundingClientRect().width;
 
-            let checkboxDiv = col.querySelector('.day-disable-checkbox') as HTMLElement;
+            const dateStr = this.safeIsoDate(scaleColumn.date);
+
+            let checkboxDiv = col.querySelector(
+                '.day-disable-checkbox'
+            ) as HTMLElement;
             if (!checkboxDiv) {
                 col.style.display = 'flex';
                 col.style.flexDirection = 'row';
@@ -747,20 +1849,21 @@ ${domainRows.join('\n')}
 
                 checkboxDiv = document.createElement('div');
                 checkboxDiv.className = 'day-disable-checkbox';
+                checkboxDiv.setAttribute('data-date-str', dateStr);
                 checkboxDiv.style.marginLeft = '8px';
                 checkboxDiv.style.display = 'flex';
                 checkboxDiv.style.alignItems = 'center';
                 checkboxDiv.style.pointerEvents = 'auto';
                 checkboxDiv.style.zIndex = '9999';
                 checkboxDiv.style.cursor = 'pointer';
-                
+
                 const input = document.createElement('input');
                 input.type = 'checkbox';
                 input.title = 'Bỏ qua ngày này khi AI lên lịch';
                 input.checked = this.disabledDates.has(dateStr);
                 input.style.pointerEvents = 'auto';
                 input.style.cursor = 'pointer';
-                
+
                 const label = document.createElement('span');
                 label.innerText = 'Bỏ qua';
                 label.style.fontSize = '10px';
@@ -769,97 +1872,190 @@ ${domainRows.join('\n')}
                 label.style.fontWeight = '500';
                 label.style.pointerEvents = 'auto';
                 label.style.cursor = 'pointer';
-                
-                // Xử lý sự kiện ngay khi chuột ấn xuống (mousedown/touchstart) để đạt tốc độ phản hồi nhanh nhất và né bị thư viện chặn
+
+                const divRef = checkboxDiv;
                 const handleToggle = (e: any) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    
-                    this.zone.run(() => {
-                        const isNowChecked = !this.disabledDates.has(dateStr);
-                        input.checked = isNowChecked;
-                        
-                        if (isNowChecked) {
-                            this.disabledDates.add(dateStr);
-                            
-                            // Chỉ lọc và repack cho các domain có task rơi vào ngày này
-                            let updatedAny = false;
-                            if (this.items && this.items.length) {
-                                this.items.forEach(domain => {
-                                    if (domain.domainData && domain.domainData.plan && domain.domainData.plan.length > 0) {
-                                        const hasTaskOnDate = domain.domainData.plan.some((t: any) => t.startDate && this.safeIsoDate(t.startDate) === dateStr);
-                                        if (hasTaskOnDate) {
-                                            domain.domainData.plan = domain.domainData.plan.filter((t: any) => {
-                                                if (!t.startDate) return true;
-                                                return this.safeIsoDate(t.startDate) !== dateStr;
-                                            });
-                                            this.applyPackedTasks(domain, domain.domainData.plan);
-                                            updatedAny = true;
-                                        }
-                                    }
-                                });
-                                if (updatedAny) {
-                                    this.updateTotalSummaryRow();
-                                }
-                            }
-                        } else {
-                            this.disabledDates.delete(dateStr);
-                        }
-                        
-                        this.saveScriptState();
-                        this.cd.detectChanges();
+                    const activeDateStr =
+                        divRef.getAttribute('data-date-str') || dateStr;
 
-                        // Hoãn lưu xuống CSDL DB (Debounce 800ms): Xử lý LẦN LƯỢT TỪNG DOMAIN để không làm quá tải băng thông & CSDL
-                        if (this.syncDisabledDatesDebounceTimer) {
-                            clearTimeout(this.syncDisabledDatesDebounceTimer);
+                    const isNowChecked = !this.disabledDates.has(activeDateStr);
+                    input.checked = isNowChecked;
+                    let updatedAny = false;
+
+                    if (isNowChecked) {
+                        this.disabledDates.add(activeDateStr);
+
+                        if (this.items && this.items.length) {
+                            this.items.forEach((domain) => {
+                                if (
+                                    domain.domainData &&
+                                    domain.domainData.plan &&
+                                    domain.domainData.plan.length > 0
+                                ) {
+                                    const hasTaskOnDate =
+                                        domain.domainData.plan.some(
+                                            (t: any) =>
+                                                t.startDate &&
+                                                this.safeIsoDate(
+                                                    t.startDate
+                                                ) === activeDateStr
+                                        );
+                                    if (hasTaskOnDate) {
+                                        domain.domainData.plan =
+                                            domain.domainData.plan.filter(
+                                                (t: any) => {
+                                                    if (!t.startDate)
+                                                        return true;
+                                                    return (
+                                                        this.safeIsoDate(
+                                                            t.startDate
+                                                        ) !== activeDateStr
+                                                    );
+                                                }
+                                            );
+                                        this.applyPackedTasks(
+                                            domain,
+                                            domain.domainData.plan
+                                        );
+                                        updatedAny = true;
+                                    }
+                                }
+                            });
+                            if (updatedAny) {
+                                this.updateTotalSummaryRow();
+                            }
                         }
-                        this.syncDisabledDatesDebounceTimer = setTimeout(async () => {
-                            if (this.items && this.items.length && this.user && this.user.name) {
-                                const domainItems = this.items.filter(d => d && d.domainData && !(d as any).isTotalRow);
+                    } else {
+                        this.disabledDates.delete(activeDateStr);
+                    }
+
+                    this.lastHeaderCheckboxesSig = `${this.month}-${this.year}-${this.timelineComponent.zoom.columnWidth}-${colCount}-${firstColTime}-${this.disabledDates.size}`;
+                    this.saveScriptState();
+                    if (updatedAny) {
+                        this.zone.run(() => {
+                            this.cd.detectChanges();
+                        });
+                    }
+
+                    if (this.syncDisabledDatesDebounceTimer) {
+                        clearTimeout(this.syncDisabledDatesDebounceTimer);
+                    }
+                    this.syncDisabledDatesDebounceTimer = setTimeout(
+                        async () => {
+                            if (
+                                this.items &&
+                                this.items.length &&
+                                this.user &&
+                                this.user.name
+                            ) {
+                                const domainItems = this.items.filter(
+                                    (d) =>
+                                        d &&
+                                        d.domainData &&
+                                        !(d as any).isTotalRow
+                                );
+                                const disabledArr = Array.from(
+                                    this.disabledDates
+                                );
                                 for (const domain of domainItems) {
-                                    domain.domainData.disabledDates = Array.from(this.disabledDates);
+                                    domain.domainData.disabledDates =
+                                        disabledArr;
+                                    const slimPayload: any = {
+                                        ...domain.domainData,
+                                        disabledDates: disabledArr,
+                                    };
+                                    delete slimPayload.plan;
+                                    delete slimPayload.childrenItems;
+                                    delete slimPayload.streamItems;
+                                    delete slimPayload._streamLevels;
                                     try {
                                         const res: any = await firstValueFrom(
-                                            this._domainService.edit({
-                                                username: this.user.name,
-                                                domain: domain.domainData
-                                            }).pipe(takeUntil(this._unsubscribeAll))
+                                            this._domainService
+                                                .edit({
+                                                    username: this.user.name,
+                                                    domain: slimPayload,
+                                                })
+                                                .pipe(
+                                                    takeUntil(
+                                                        this._unsubscribeAll
+                                                    )
+                                                )
                                         );
-                                        if (res && res.success && res.data && res.data._rev) {
-                                            domain.domainData._rev = res.data._rev;
+                                        if (
+                                            res &&
+                                            res.success &&
+                                            res.data &&
+                                            res.data._rev
+                                        ) {
+                                            domain.domainData._rev =
+                                                res.data._rev;
                                         }
                                     } catch (e) {
                                         // Bỏ qua lỗi mạng lẻ để không nghẽn tiến trình các domain khác
                                     }
+                                    await new Promise((r) => setTimeout(r, 0));
                                 }
                             }
-                        }, 800);
-                    });
+                        },
+                        800
+                    );
                 };
 
-                checkboxDiv.addEventListener('mousedown', handleToggle);
-                checkboxDiv.addEventListener('touchstart', handleToggle);
-                checkboxDiv.addEventListener('click', (e: any) => {
-                    e.preventDefault();
-                    e.stopPropagation();
+                this.zone.runOutsideAngular(() => {
+                    divRef.addEventListener('mousedown', handleToggle);
+                    divRef.addEventListener('touchstart', handleToggle);
+                    divRef.addEventListener('click', (e: any) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    });
                 });
-                
+
                 checkboxDiv.appendChild(input);
                 checkboxDiv.appendChild(label);
                 col.appendChild(checkboxDiv);
             } else {
+                if (checkboxDiv.getAttribute('data-date-str') !== dateStr) {
+                    checkboxDiv.setAttribute('data-date-str', dateStr);
+                }
                 const input = checkboxDiv.querySelector('input');
-                if (input && input.checked !== this.disabledDates.has(dateStr)) {
-                    input.checked = this.disabledDates.has(dateStr);
+                const isDisabled = this.disabledDates.has(dateStr);
+                if (input && input.checked !== isDisabled) {
+                    input.checked = isDisabled;
                 }
             }
+
+            if (!firstRenderedCheckbox) {
+                firstRenderedCheckbox = checkboxDiv;
+            }
         });
-        
-        // Cuộn khung chat xuống dưới cùng khi mới vào màn hình
-        this.scrollToBottom();
+
+        this._cachedHeaderCheckboxEl = firstRenderedCheckbox;
+        this.lastHeaderCheckboxesSig = sig;
     }
 
     ngOnDestroy(): void {
+        if (this.monthTasksSub) {
+            this.monthTasksSub.unsubscribe();
+            this.monthTasksSub = undefined;
+        }
+        if (this.syncDisabledDatesDebounceTimer) {
+            clearTimeout(this.syncDisabledDatesDebounceTimer);
+            this.syncDisabledDatesDebounceTimer = null;
+        }
+        if (this.syncDomainAutoWriteDebounceTimer) {
+            clearTimeout(this.syncDomainAutoWriteDebounceTimer);
+            this.syncDomainAutoWriteDebounceTimer = null;
+        }
+        if (this.saveAutoWriteContextTimer) {
+            clearTimeout(this.saveAutoWriteContextTimer);
+            this.saveAutoWriteContextTimer = null;
+        }
+        if (this.saveScriptContextTimer) {
+            clearTimeout(this.saveScriptContextTimer);
+            this.saveScriptContextTimer = null;
+        }
         this.sttCaptionUnsubscribe?.();
         this.sttCaptionUnsubscribe = undefined;
         this._unsubscribeAll.next(null);
@@ -868,13 +2064,199 @@ ${domainRows.join('\n')}
         this.liveStop$.complete();
     }
 
-    // --- TIMELINE & ZOOM ---
+    // --- TIMELINE, ZOOM & ĐIỀU HƯỚNG THÁNG ---
     zoomIn(): void { this.timelineComponent.zoomIn(); }
     zoomOut(): void { this.timelineComponent.zoomOut(); }
-    scrollToToday(): void { 
-        // Đặt mặc định zoom tới index 1 (tương đương 10px mỗi giờ) để lịch nhỏ gọn hơn
-        this.timelineComponent.changeZoomByIndex(1); 
-        this.timelineComponent.attachCameraToDate(new Date()); 
+
+    focusActiveMonthView(resetDefaultZoom: boolean = true): void {
+        if (!this.timelineComponent) return;
+        const focusDate = this.isViewingCurrentMonth
+            ? new Date()
+            : new Date(this.year || new Date().getFullYear(), (this.month || (new Date().getMonth() + 1)) - 1, 1, 8, 0, 0);
+
+        (this.timelineComponent as any).currentDate = focusDate;
+        if (resetDefaultZoom) {
+            this.timelineComponent.changeZoomByIndex(1);
+        }
+        if (typeof this.timelineComponent.redraw === 'function') {
+            this.timelineComponent.redraw();
+        }
+        this.timelineComponent.attachCameraToDate(focusDate);
+    }
+
+    scrollToToday(): void {
+        if (!this.isViewingCurrentMonth) {
+            this.goToCurrentMonth();
+            return;
+        }
+        this.focusActiveMonthView(true);
+    }
+
+    prevMonth(): void {
+        const currentMonth = this.month || (new Date().getMonth() + 1);
+        const currentYear = this.year || new Date().getFullYear();
+        let targetMonth = currentMonth - 1;
+        let targetYear = currentYear;
+        if (targetMonth < 1) {
+            targetMonth = 12;
+            targetYear -= 1;
+        }
+        this.navigateToMonth(targetMonth, targetYear);
+    }
+
+    nextMonth(): void {
+        const currentMonth = this.month || (new Date().getMonth() + 1);
+        const currentYear = this.year || new Date().getFullYear();
+        let targetMonth = currentMonth + 1;
+        let targetYear = currentYear;
+        if (targetMonth > 12) {
+            targetMonth = 1;
+            targetYear += 1;
+        }
+        this.navigateToMonth(targetMonth, targetYear);
+    }
+
+    goToCurrentMonth(): void {
+        const now = new Date();
+        const nowMonth = now.getMonth() + 1;
+        const nowYear = now.getFullYear();
+        if (this.month === nowMonth && this.year === nowYear && !this.isLoadingMonth) {
+            this.focusActiveMonthView(true);
+            return;
+        }
+        this.navigateToMonth(nowMonth, nowYear);
+    }
+
+    navigateToMonth(targetMonth: number, targetYear: number): void {
+        if (this.monthTasksSub) {
+            this.monthTasksSub.unsubscribe();
+            this.monthTasksSub = undefined;
+        }
+
+        const requestId = ++this.monthLoadRequestId;
+        this.month = targetMonth;
+        this.year = targetYear;
+        this.updateTimelineMonthRange(targetMonth, targetYear);
+
+        if (!this.allDomainsList || this.allDomainsList.length === 0) {
+            this.loadScheduleFromDB(targetMonth, targetYear);
+            return;
+        }
+
+        this.isLoadingMonth = true;
+        this.cd.markForCheck();
+
+        // Tháng đã từng xem trong phiên: hiển thị ngay dữ liệu đệm, công việc mới nhất được nạp ngầm phía sau
+        const cachedMonthDomains = AMXHScheduleComponent._monthViewCache.get(
+            this.getMonthCacheKey(targetMonth, targetYear)
+        );
+        if (cachedMonthDomains && cachedMonthDomains.length > 0) {
+            this.renderDomainRowsFast(
+                this.cloneDomainsForCache(cachedMonthDomains),
+                targetMonth,
+                targetYear,
+                false
+            );
+        }
+
+        const username = this.user?.name || 'admin';
+        const normalizeDomain = (s: any) => (String(s || '')).toLowerCase().trim().replace(/https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+
+        const domainsForMonth = this.allDomainsList.map((d: any) => {
+            const norm = normalizeDomain(d.domain || d.name);
+            const resolvedTarget = this.getResolvedTarget(norm, targetMonth, targetYear, d);
+            return {
+                ...d,
+                domain: norm,
+                name: norm,
+                monthlyTarget: resolvedTarget,
+                plan: []
+            };
+        });
+
+        const applyMonthDomains = (tasks: any[]) => {
+            if (requestId !== this.monthLoadRequestId) return;
+
+            const filteredMonthTasks = (tasks || []).filter((t: any) => this.isTaskInMonth(t, targetMonth, targetYear));
+            domainsForMonth.forEach((d: any) => {
+                const dNorm = normalizeDomain(d.domain || d.name || d.id);
+                d.plan = filteredMonthTasks.filter((t: any) => {
+                    if (t.domain_id === d.domain || t.domain_id === d.id || t.domain_id === d._id) return true;
+                    const tNorm = normalizeDomain(t.domain_id || t.domain || t.domainName);
+                    return !!(tNorm && dNorm && tNorm === dNorm);
+                });
+            });
+
+            this.allDomainsList = [...domainsForMonth];
+            this.items = domainsForMonth.map((domainData: any, index: number) => {
+                const dName = domainData.domain || domainData.name || `Domain-${index + 1}`;
+                const normKey = this.normalizeDomainKey(dName);
+                const isAutoWrite = normKey ? !this.disabledAutoWriteDomains.has(normKey) : (domainData.autoWrite !== false);
+                domainData.autoWrite = isAutoWrite;
+
+                const packed = this.packTasks((domainData.plan || []).map((task: any) => {
+                    const sDate = this.safeDate(task.startDate);
+                    const eDate = task.endDate ? this.safeDate(task.endDate) : new Date(new Date(sDate).setHours(17, 0, 0, 0));
+                    return {
+                        ...task,
+                        startDate: sDate,
+                        endDate: eDate
+                    };
+                }), index);
+
+                return {
+                    id: index,
+                    name: dName,
+                    autoWrite: isAutoWrite,
+                    domainData: domainData,
+                    childrenItemsExpanded: true,
+                    childrenItems: packed.childrenItems,
+                    streamItems: packed.streamItems
+                };
+            });
+
+            this.updateTotalSummaryRow();
+            this.saveScriptState();
+            this.isLoadingMonth = false;
+            // Nếu lượt nạp ban đầu bị thay thế bởi thao tác chuyển tháng, mở chỉ báo nạp tại đây
+            this.isLoadingSchedule = false;
+            this.hasRenderedMonthRows = true;
+            this.cd.markForCheck();
+            this.cd.detectChanges();
+
+            setTimeout(() => {
+                if (requestId !== this.monthLoadRequestId) return;
+                this.focusActiveMonthView(false);
+                if (this.timelineComponent && typeof (this.timelineComponent as any)['_recalculateItemPositions'] === 'function') {
+                    (this.timelineComponent as any)['_recalculateItemPositions']();
+                }
+                this.cd.markForCheck();
+                this.cd.detectChanges();
+            }, 0);
+        };
+
+        this.monthTasksSub = this._tasksService.fetch({
+            username: username,
+            year: targetYear,
+            targetYear: targetYear,
+            month: targetMonth,
+            onlySelectedMonth: true
+        }).subscribe({
+            next: (tasksRes: any) => {
+                let tasks: any[] = [];
+                if (Array.isArray(tasksRes)) {
+                    tasks = tasksRes;
+                } else if (tasksRes && Array.isArray(tasksRes.data)) {
+                    tasks = tasksRes.data;
+                } else if (tasksRes && Array.isArray(tasksRes.result)) {
+                    tasks = tasksRes.result;
+                }
+                applyMonthDomains(tasks);
+            },
+            error: () => {
+                applyMonthDomains([]);
+            }
+        });
     }
     zoomAndFitToContent(): void { this.timelineComponent.fitToContent(50); }
     changeZoom(event: Event): void { this.timelineComponent.changeZoomByIndex(+(event.target as HTMLInputElement).value); }
@@ -997,56 +2379,6 @@ ${domainRows.join('\n')}
         this.cd.markForCheck();
     }
 
-    toggleTaskSticky(task: any, event?: Event) {
-        if (event) event.stopPropagation();
-        if (!task) return;
-        const target = task.originalTask || task;
-        target.sticky = !target.sticky;
-        task.sticky = target.sticky;
-        if (this._tasksService) {
-            this._tasksService.edit({ username: this.user?.name, task: target }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
-        }
-        this.resortSelectedGroupTasks();
-        this.cd.markForCheck();
-    }
-
-    markSelectedTasksSticky(sticky: boolean) {
-        const selectedTasks = this.getSelectedGroupTasks();
-        if (selectedTasks.length === 0) {
-            this.toastr.warning('Vui lòng chọn ít nhất 1 công việc để ghim.');
-            return;
-        }
-
-        selectedTasks.forEach(task => {
-            const target = task.originalTask || task;
-            target.sticky = sticky;
-            task.sticky = sticky;
-            if (this._tasksService) {
-                this._tasksService.edit({ username: this.user?.name, task: target }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
-            }
-        });
-
-        this.toastr.success(sticky ? `Đã ghim ${selectedTasks.length} công việc quan trọng lên đầu danh sách.` : `Đã bỏ ghim ${selectedTasks.length} công việc.`);
-        this.selectedGroupTaskIds.clear();
-        this.resortSelectedGroupTasks();
-        this.cd.markForCheck();
-    }
-
-    isTaskSticky(task: any): boolean {
-        return !!(task?.sticky || task?.originalTask?.sticky);
-    }
-
-    resortSelectedGroupTasks() {
-        const tasks = this.selectedGroupItem?.tasks;
-        if (!tasks || tasks.length === 0) return;
-        const stickyTasks = tasks.filter((t: any) => this.isTaskSticky(t));
-        const normalTasks = tasks.filter((t: any) => !this.isTaskSticky(t));
-        const stickyTime = (t: any) => { const d = this.safeDate(t.startDate); return d && !isNaN(d.getTime()) ? d.getTime() : 0; };
-        stickyTasks.sort((a: any, b: any) => stickyTime(a) - stickyTime(b));
-        normalTasks.sort((a: any, b: any) => stickyTime(a) - stickyTime(b));
-        this.selectedGroupItem.tasks = [...stickyTasks, ...normalTasks];
-    }
-
     toggleTaskDone(task: any, event?: Event) {
         if (event) event.stopPropagation();
         task.done = !task.done;
@@ -1135,7 +2467,6 @@ ${domainRows.join('\n')}
                 this.selectedGroupItem.tasks.forEach((t: any) => {
                     t._expanded = false;
                 });
-                this.resortSelectedGroupTasks();
             }
             if (this.groupTasksDialog) {
                 this._matDialog.open(this.groupTasksDialog, {
@@ -1280,9 +2611,10 @@ ${domainRows.join('\n')}
     }
 
     statsData: any;
-    month: number;
+    month: number = new Date().getMonth() + 1;
+    year: number = new Date().getFullYear();
 
-    async processDomains(domains: any[], statsData: any, month: number, forceGenerate: boolean = false) {
+    async processDomains(domains: any[], statsData: any, month: number, forceGenerate: boolean = false, year?: number, targetDomainKeys?: Set<string>) {
         const normalizeDomain = (s: any) => (String(s || '')).toLowerCase().trim().replace(/https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
         const uniqueDomains = new Map<string, any>();
         (domains || []).forEach((d: any) => {
@@ -1297,10 +2629,15 @@ ${domainRows.join('\n')}
         });
         domains = Array.from(uniqueDomains.values());
 
+        const targetMonth = month || this.month || (new Date().getMonth() + 1);
+        const targetYear = year || this.year || new Date().getFullYear();
         this.statsData = statsData;
-        this.month = month;
-        this.updateTimeline3MonthsRange(month);
-        this.toastr.info('Đang nạp dữ liệu tên miền...', 'Xử lý');
+        this.month = targetMonth;
+        this.year = targetYear;
+        this.updateTimelineMonthRange(targetMonth, targetYear);
+        if (forceGenerate) {
+            this.toastr.info('Đang nạp dữ liệu tên miền...', 'Xử lý');
+        }
         this.disabledDates.clear();
 
         if (domains && domains.length > 0) {
@@ -1308,7 +2645,32 @@ ${domainRows.join('\n')}
                 if (d.disabledDates && Array.isArray(d.disabledDates)) {
                     d.disabledDates.forEach((date: string) => this.disabledDates.add(date));
                 }
+                const normKey = this.normalizeDomainKey(d.domain || d.name);
+                if (normKey) {
+                    if (
+                        !this.pendingAutoWriteSyncDomains.has(normKey) &&
+                        !this.isSyncingDomainsAutoWrite &&
+                        typeof d.autoWrite === 'boolean'
+                    ) {
+                        if (d.autoWrite === false) {
+                            this.disabledAutoWriteDomains.add(normKey);
+                        } else {
+                            this.disabledAutoWriteDomains.delete(normKey);
+                        }
+                    } else {
+                        d.autoWrite = !this.disabledAutoWriteDomains.has(normKey);
+                    }
+                }
             });
+        }
+        this.lastMasterCheckboxSig = '';
+        this.lastHeaderCheckboxesSig = '';
+
+        // Nhường luồng giao diện 1 nhịp để trình duyệt kịp vẽ và xử lý thao tác bấm của người dùng trước khi dựng dữ liệu
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        if (!forceGenerate && (this.month !== targetMonth || this.year !== targetYear)) {
+            // Người dùng đã chuyển sang tháng khác trong lúc chờ: bỏ kết quả cũ để không ghi đè tháng mới
+            return;
         }
 
         // Pre-populate all domain rows in this.items immediately so domain list doesn't vanish
@@ -1316,17 +2678,26 @@ ${domainRows.join('\n')}
             const dName = domainData.domain || domainData.name || `Domain-${index + 1}`;
             if (!domainData.domain) domainData.domain = dName;
             if (!domainData.name) domainData.name = dName;
+            const normKey = this.normalizeDomainKey(dName);
+            const isAutoWrite = normKey ? !this.disabledAutoWriteDomains.has(normKey) : (domainData.autoWrite !== false);
+            domainData.autoWrite = isAutoWrite;
 
-            const existingPlan = domainData.plan || [];
-            const packed = this.packTasks(existingPlan.map((task: any) => ({
-                ...task,
-                startDate: new Date(task.startDate),
-                endDate: new Date(task.endDate || new Date(task.startDate).setHours(17, 0, 0, 0))
-            })), index);
+            const existingPlan = (domainData.plan || []).filter((task: any) => this.isTaskInMonth(task, targetMonth, targetYear));
+            domainData.plan = existingPlan;
+            const packed = this.packTasks(existingPlan.map((task: any) => {
+                const sDate = this.safeDate(task.startDate);
+                const eDate = task.endDate ? this.safeDate(task.endDate) : new Date(new Date(sDate).setHours(17, 0, 0, 0));
+                return {
+                    ...task,
+                    startDate: sDate,
+                    endDate: eDate
+                };
+            }), index);
 
             return {
                 id: index,
                 name: dName,
+                autoWrite: isAutoWrite,
                 domainData: domainData,
                 childrenItemsExpanded: true,
                 childrenItems: packed.childrenItems,
@@ -1338,39 +2709,47 @@ ${domainRows.join('\n')}
 
         if (forceGenerate) {
             for (let i = 0; i < domains.length; i++) {
-                await this.generateDomainData(domains[i], i, statsData, month, forceGenerate);
+                const dNorm = this.normalizeDomainKey(domains[i]?.domain || domains[i]?.name);
+                const shouldGen = targetDomainKeys
+                    ? targetDomainKeys.has(dNorm)
+                    : this.isDomainAutoWriteEnabled(domains[i]);
+                await this.generateDomainData(domains[i], i, statsData, targetMonth, shouldGen);
             }
-        } else {
-            const requests = domains.map((domainData: any, index: number) => {
-                return this.generateDomainData(domainData, index, statsData, month, forceGenerate);
-            });
-            await Promise.all(requests);
         }
-        
+        // Không tạo mới: các hàng đã được đóng gói công việc ở bước trên, KHÔNG gọi lại generateDomainData
+        // (trước đây đóng gói lại từng tên miền và tính lại hàng tổng N lần, gây khựng giao diện khi mở màn hình).
+
         if (forceGenerate) {
+            const selectedCount = targetDomainKeys
+                ? targetDomainKeys.size
+                : domains.filter((d: any) => this.isDomainAutoWriteEnabled(d)).length;
             this._globalAgentService.sendStreamMessage({
                 role: 'model',
-                content: '✅ Tiến trình phân tích và tạo công việc cho tất cả tên miền đã hoàn tất!',
+                content: `✅ Tiến trình phân tích và tạo công việc cho ${selectedCount} tên miền đã chọn đã hoàn tất!`,
                 isStreaming: false
             });
+            this.updateTotalSummaryRow();
         }
-        
-        this.updateTotalSummaryRow();
+
         this.saveScriptState();
-        this.toastr.success('Hoàn thành lên kế hoạch cho tên miền!');
-        
-        // Cuộn timeline tới khung giờ hiện tại, tính lại vị trí các item rồi mới mở hiển thị mượt mà
+        if (forceGenerate) {
+            this.toastr.success('Hoàn thành lên kế hoạch cho tên miền!');
+        }
+
+        // Mở khóa ngay, cuộn timeline tới tháng đang xem ở nhịp kế tiếp (không chờ thêm độ trễ cố định)
+        const shouldResetZoom = !this.hasRenderedMonthRows;
+        this.hasRenderedMonthRows = true;
+        this.isLoadingSchedule = false;
+        this.cd.markForCheck();
+        this.cd.detectChanges();
         setTimeout(() => {
-            this.scrollToToday();
+            this.focusActiveMonthView(shouldResetZoom);
             if (this.timelineComponent && typeof (this.timelineComponent as any)['_recalculateItemPositions'] === 'function') {
                 (this.timelineComponent as any)['_recalculateItemPositions']();
             }
-            setTimeout(() => {
-                this.isLoadingSchedule = false;
-                this.cd.markForCheck();
-                this.cd.detectChanges();
-            }, 100);
-        }, 200);
+            this.cd.markForCheck();
+            this.cd.detectChanges();
+        }, 0);
     }
 
     private getNextValidDate(date: Date): Date {
@@ -1399,9 +2778,13 @@ ${domainRows.join('\n')}
         // Tìm domain item đã được pre-populate trong this.items
         let domainItem = this.items.find(it => it.id === index || it.name === dName);
         if (!domainItem) {
+            const normKey = this.normalizeDomainKey(dName);
+            const isAutoWrite = normKey ? !this.disabledAutoWriteDomains.has(normKey) : (domainData.autoWrite !== false);
+            domainData.autoWrite = isAutoWrite;
             domainItem = {
                 id: index,
                 name: dName,
+                autoWrite: isAutoWrite,
                 domainData: domainData,
                 childrenItemsExpanded: true,
                 childrenItems: [],
@@ -1419,7 +2802,7 @@ ${domainRows.join('\n')}
             })));
         }
 
-        if (!forceGenerate) {
+        if (!forceGenerate || !this.isDomainAutoWriteEnabled(domainData)) {
             return;
         }
 
@@ -1427,7 +2810,7 @@ ${domainRows.join('\n')}
         let dailyTarget = 0;
         let currentResult = 0;
         let missing = 0;
-        const targetYear = new Date().getFullYear();
+        const targetYear = this.year || new Date().getFullYear();
 
         if (domainData.monthlyTarget && domainData.monthlyTarget > 0) {
             const existingTasksInMonth = (domainData.plan || []).filter((t: any) => {
@@ -1439,8 +2822,8 @@ ${domainRows.join('\n')}
             currentResult = existingTasksInMonth;
             missing = forceGenerate ? domainData.monthlyTarget : Math.max(0, domainData.monthlyTarget - currentResult);
             
-            const isCurrentMonth = (month === (new Date().getMonth() + 1));
-            const startDay = isCurrentMonth ? new Date().getDate() : 1;
+            const isCurrentMonth = (targetYear === now.getFullYear() && month === (now.getMonth() + 1));
+            const startDay = isCurrentMonth ? now.getDate() : 1;
             const daysInMonth = new Date(targetYear, month, 0).getDate();
             
             let daysLeft = 0;
@@ -1465,8 +2848,8 @@ ${domainRows.join('\n')}
             return; // Đã đủ chỉ tiêu
         }
 
-        const isCurrentMonth = (month === (new Date().getMonth() + 1));
-        const startDay = isCurrentMonth ? new Date().getDate() : 1;
+        const isCurrentMonth = (targetYear === now.getFullYear() && month === (now.getMonth() + 1));
+        const startDay = isCurrentMonth ? now.getDate() : 1;
         const daysInMonthTotal = new Date(targetYear, month, 0).getDate();
         
         let validDates = [];
@@ -1509,7 +2892,7 @@ ${domainRows.join('\n')}
         for (let j = 0; j < validDates.length; j++) {
             const vDate = validDates[j];
             let sDate = new Date(vDate); sDate.setHours(8, 0, 0, 0);
-            let eDate = new Date(vDate); eDate.setHours(17, 0, 0, 0);
+            let eDate = new Date(vDate); eDate.setHours(18, 0, 0, 0);
             
             dayDummyIds[j] = [];
             for (let k = 0; k < distribution[j]; k++) {
@@ -1664,9 +3047,22 @@ Không dùng markdown \`\`\`json.`;
                 const chunkSize = 5;
                 for (let i = 0; i < newTasksToAdd.length; i += chunkSize) {
                     const chunk = newTasksToAdd.slice(i, i + chunkSize);
-                    await Promise.all(chunk.map(t => {
+                    await Promise.all(chunk.map(async (t: any) => {
                         const taskPayload = { ...t, domain_id: dName, domain: dName };
-                        return firstValueFrom(this._tasksService.add({ username: this.user.name, task: taskPayload })).catch(() => {});
+                        const res: any = await firstValueFrom(
+                            this._tasksService.add({ username: this.user.name, task: taskPayload })
+                        ).catch(() => null);
+                        if (res && !res.error) {
+                            const savedId = res.id || res._id || res.data?.id || res.data?._id;
+                            const savedRev = res.rev || res._rev || res.data?.rev || res.data?._rev;
+                            if (savedId) {
+                                t._id = savedId;
+                                t.id = savedId;
+                            }
+                            if (savedRev) {
+                                t._rev = savedRev;
+                            }
+                        }
                     }));
                     if (i + chunkSize < newTasksToAdd.length) {
                         await new Promise(resolve => setTimeout(resolve, 150));
@@ -2168,7 +3564,7 @@ Không dùng markdown \`\`\`json.`;
 
     getResolvedTarget(domain: string, month?: number, selectedYear?: number, domainObj?: any): number {
         const m = month || this.month || (new Date().getMonth() + 1);
-        const y = selectedYear || new Date().getFullYear();
+        const y = selectedYear || this.year || new Date().getFullYear();
         this.settings = getSettings();
         const domainTargets = this.settings?.domainTargets;
 
@@ -2223,12 +3619,142 @@ Không dùng markdown \`\`\`json.`;
         return result;
     }
 
-    loadScheduleFromDB() {
+    private getMonthCacheKey(month: number, year: number): string {
+        return `${this.user?.name || 'admin'}|${year}-${month}`;
+    }
+
+    private cloneDomainsForCache(domains: any[]): any[] {
+        return (domains || []).map((d: any) => ({
+            ...d,
+            plan: Array.isArray(d?.plan) ? d.plan.map((t: any) => ({ ...t })) : [],
+        }));
+    }
+
+    /** Chụp lại dữ liệu đang hiển thị (tên miền + công việc) vào bộ nhớ đệm của tháng hiện tại. */
+    private snapshotCurrentMonthToCache(): void {
+        try {
+            if (!Array.isArray(this.items) || !this.month || !this.year) return;
+            const realItems = this.items.filter(
+                (it: any) =>
+                    it &&
+                    !it.isTotalRow &&
+                    it.id !== 'total-summary-row' &&
+                    it.id !== 'monthly-total-summary-row' &&
+                    it.domainData
+            );
+            if (realItems.length === 0) return;
+            const domains = realItems.map((it: any) => {
+                const stream = it.childrenItems?.[0]?.streamItems?.length
+                    ? it.childrenItems[0].streamItems
+                    : it.streamItems || [];
+                const tasks: any[] = [];
+                stream.forEach((st: any) => {
+                    if (!st || st.isLoading) return;
+                    if (Array.isArray(st.tasks) && st.tasks.length) {
+                        st.tasks.forEach((t: any) => t && !t.isLoading && tasks.push({ ...t }));
+                    } else if (!st.isGroup) {
+                        tasks.push({ ...st });
+                    }
+                });
+                return { ...it.domainData, plan: tasks };
+            });
+            AMXHScheduleComponent._monthViewCache.set(
+                this.getMonthCacheKey(this.month, this.year),
+                domains
+            );
+        } catch (e) {}
+    }
+
+    /**
+     * Dựng nhanh các hàng tên miền (kèm công việc nếu có) mà KHÔNG khóa màn hình,
+     * dùng cho bộ nhớ đệm và cho danh sách tên miền khi công việc đang tải.
+     */
+    private renderDomainRowsFast(domains: any[], month: number, year: number, resetZoom: boolean = true): void {
+        const rows = (domains || []).map((d: any) => ({
+            ...d,
+            plan: (d?.plan || []).filter((t: any) => this.isTaskInMonth(t, month, year)),
+        }));
+        rows.forEach((d: any) => {
+            if (Array.isArray(d.disabledDates)) {
+                d.disabledDates.forEach((date: string) => this.disabledDates.add(date));
+            }
+        });
+
+        this.items = rows.map((domainData: any, index: number) => {
+            const dName = domainData.domain || domainData.name || `Domain-${index + 1}`;
+            const normKey = this.normalizeDomainKey(dName);
+            const isAutoWrite = normKey
+                ? !this.disabledAutoWriteDomains.has(normKey)
+                : domainData.autoWrite !== false;
+            domainData.autoWrite = isAutoWrite;
+            const packed = this.packTasks(
+                (domainData.plan || []).map((task: any) => {
+                    const sDate = this.safeDate(task.startDate);
+                    const eDate = task.endDate
+                        ? this.safeDate(task.endDate)
+                        : new Date(new Date(sDate).setHours(17, 0, 0, 0));
+                    return { ...task, startDate: sDate, endDate: eDate };
+                }),
+                index
+            );
+            return {
+                id: index,
+                name: dName,
+                autoWrite: isAutoWrite,
+                domainData: domainData,
+                childrenItemsExpanded: true,
+                childrenItems: packed.childrenItems,
+                streamItems: packed.streamItems,
+            };
+        });
+        this.lastMasterCheckboxSig = '';
+        this.lastHeaderCheckboxesSig = '';
+        this.updateTotalSummaryRow();
+        this.hasRenderedMonthRows = true;
+        this.cd.markForCheck();
+        this.cd.detectChanges();
+
+        setTimeout(() => {
+            this.focusActiveMonthView(resetZoom);
+            if (
+                this.timelineComponent &&
+                typeof (this.timelineComponent as any)['_recalculateItemPositions'] === 'function'
+            ) {
+                (this.timelineComponent as any)['_recalculateItemPositions']();
+            }
+            this.cd.markForCheck();
+        }, 0);
+    }
+
+    loadScheduleFromDB(targetMonthParam?: number, targetYearParam?: number) {
+        if (this.monthTasksSub) {
+            this.monthTasksSub.unsubscribe();
+            this.monthTasksSub = undefined;
+        }
+        const requestId = ++this.monthLoadRequestId;
+        const activeMonth = targetMonthParam || this.month || (new Date().getMonth() + 1);
+        const activeYear = targetYearParam || this.year || new Date().getFullYear();
+        this.month = activeMonth;
+        this.year = activeYear;
+        this.updateTimelineMonthRange(activeMonth, activeYear);
+
+        // Hiển thị NGAY dữ liệu của lần mở gần nhất (nếu có) để người dùng thao tác được liền,
+        // dữ liệu mới từ máy chủ sẽ được nạp ngầm và cập nhật lại sau.
+        const cachedDomains = AMXHScheduleComponent._monthViewCache.get(
+            this.getMonthCacheKey(activeMonth, activeYear)
+        );
+        this.hasRenderedMonthRows = false;
+        if (cachedDomains && cachedDomains.length > 0) {
+            this.allDomainsList = this.cloneDomainsForCache(cachedDomains);
+            this.renderDomainRowsFast(this.allDomainsList, activeMonth, activeYear);
+        }
+
         this.isLoadingSchedule = true;
         this.cd.markForCheck();
         const username = this.user?.name || 'admin';
         this._domainService.fetch({ username: username }).subscribe({
             next: (res: any) => {
+                if (requestId !== this.monthLoadRequestId) return;
                 let domains: any[] = [];
                 if (res && res.success && Array.isArray(res.data)) {
                     domains = res.data;
@@ -2252,16 +3778,27 @@ Không dùng markdown \`\`\`json.`;
                     domains = Array.from(uniqueDomains.values());
 
                     this.allDomainsList = [...domains];
-                    const currentMonth = new Date().getMonth() + 1;
-                    const currentYear = new Date().getFullYear();
                     domains.forEach((d: any) => {
-                        d.monthlyTarget = this.getResolvedTarget(d.domain, currentMonth, currentYear, d);
+                        d.monthlyTarget = this.getResolvedTarget(d.domain, activeMonth, activeYear, d);
                         d.plan = []; // Initialize empty plan
                     });
 
-                    // Fetch tasks from tasks db
-                    this._tasksService.fetch({ username: username, year: currentYear }).subscribe({
+                    // Chưa có dữ liệu cũ để hiển thị: dựng ngay danh sách tên miền (chưa có công việc)
+                    // để cột Công việc, checkbox và thanh điều hướng dùng được trong lúc chờ tải công việc.
+                    if (!this.hasRenderedMonthRows) {
+                        this.renderDomainRowsFast(domains, activeMonth, activeYear);
+                    }
+
+                    // Chỉ lấy dữ liệu tasks của đúng tháng đang chọn
+                    this.monthTasksSub = this._tasksService.fetch({
+                        username: username,
+                        year: activeYear,
+                        targetYear: activeYear,
+                        month: activeMonth,
+                        onlySelectedMonth: true
+                    }).subscribe({
                         next: (tasksRes: any) => {
+                            if (requestId !== this.monthLoadRequestId) return;
                             let tasks: any[] = [];
                             if (Array.isArray(tasksRes)) {
                                 tasks = tasksRes;
@@ -2271,22 +3808,24 @@ Không dùng markdown \`\`\`json.`;
                                 tasks = tasksRes.result;
                             }
                             
-                            if (tasks.length > 0) {
+                            const filteredMonthTasks = tasks.filter((t: any) => this.isTaskInMonth(t, activeMonth, activeYear));
+                            if (filteredMonthTasks.length > 0) {
                                 const normalizeDomain = (s: any) => (String(s || '')).toLowerCase().trim().replace(/https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
-                                domains.forEach((d: any, index: number) => {
+                                domains.forEach((d: any) => {
                                     const dNorm = normalizeDomain(d.domain || d.name || d.id);
-                                    d.plan = tasks.filter((t: any) => {
+                                    d.plan = filteredMonthTasks.filter((t: any) => {
                                         if (t.domain_id === d.domain || t.domain_id === d.id || t.domain_id === d._id) return true;
                                         const tNorm = normalizeDomain(t.domain_id || t.domain || t.domainName);
                                         return !!(tNorm && dNorm && tNorm === dNorm);
                                     });
                                 });
                             }
-                            this.processDomains(domains, undefined, currentMonth, false);
+                            this.allDomainsList = [...domains];
+                            this.processDomains(domains, undefined, activeMonth, false, activeYear);
                         },
                         error: () => {
-                            // If tasks fail to load, still process domains
-                            this.processDomains(domains, undefined, currentMonth, false);
+                            if (requestId !== this.monthLoadRequestId) return;
+                            this.processDomains(domains, undefined, activeMonth, false, activeYear);
                         }
                     });
                 } else {
@@ -2296,6 +3835,7 @@ Không dùng markdown \`\`\`json.`;
                 }
             },
             error: () => {
+                if (requestId !== this.monthLoadRequestId) return;
                 this.isLoadingSchedule = false;
                 this.loadScriptState();
                 this.cd.markForCheck();
@@ -2305,36 +3845,127 @@ Không dùng markdown \`\`\`json.`;
 
     saveScriptState() {
         try {
-            // Chỉ lưu trạng thái giao diện UI (lịch sử chat, ngày bỏ qua), DỮ LIỆU CÔNG VIỆC VÀ TÊN MIỀN BẮT BUỘC LƯU VÀO CSDL COUCHDB
-            this.multiAccountService.setItem(this.STORAGE_KEY + '_CHAT', this.chatHistory);
-            this.multiAccountService.setItem(this.STORAGE_KEY + '_DISABLED_DATES', Array.from(this.disabledDates));
-            this.multiAccountService.forceSave();
-            
-            // Cập nhật ngữ cảnh cho Global AI Agent trên Header
-            if (this._globalAgentService) {
-                const currentMonth = this.month || (new Date().getMonth() + 1);
-                const currentYear = new Date().getFullYear();
-                
-                const summaryData = this.items.map(item => {
-                    const streamItems = item.childrenItems?.[0]?.streamItems || [];
-                    const monthlyTarget = item.domainData?.monthlyTarget || this.getResolvedTarget(item.name, currentMonth, currentYear) || 0;
-                    const currentResult = (this.statsData && this.statsData[item.name] && this.statsData[item.name][currentMonth]) ? this.statsData[item.name][currentMonth] : 0;
-                    
-                    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-                    let remainingDays = 0;
-                    for (let i = new Date().getDate(); i <= daysInMonth; i++) {
-                        const checkDate = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${i.toString().padStart(2, '0')}`;
-                        if (!this.disabledDates.has(checkDate)) {
-                            remainingDays++;
-                        }
+            // Chỉ ghi vào MultiAccountService khi dữ liệu thực sự thay đổi và KHÔNG gọi forceSave() đồng bộ (tránh mã hóa AES chặn luồng giao diện)
+            const chatLen = this.chatHistory?.length || 0;
+            const lastMsgLen =
+                chatLen > 0
+                    ? String(this.chatHistory[chatLen - 1]?.content || '').length
+                    : 0;
+            const chatSig = `${chatLen}:${lastMsgLen}`;
+            if (chatSig !== this.lastSavedChatSig) {
+                this.lastSavedChatSig = chatSig;
+                this.zone.runOutsideAngular(() => {
+                    this.multiAccountService.setItem(
+                        this.STORAGE_KEY + '_CHAT',
+                        this.chatHistory
+                    );
+                });
+            }
+
+            const disabledDatesArr = Array.from(this.disabledDates);
+            const datesSig = disabledDatesArr.join(',');
+            if (datesSig !== this.lastSavedDisabledDatesSig) {
+                this.lastSavedDisabledDatesSig = datesSig;
+                try {
+                    localStorage.setItem(
+                        this.STORAGE_KEY + '_DISABLED_DATES',
+                        JSON.stringify(disabledDatesArr)
+                    );
+                } catch (e) {}
+                this.zone.runOutsideAngular(() => {
+                    this.multiAccountService.setItem(
+                        this.STORAGE_KEY + '_DISABLED_DATES',
+                        disabledDatesArr
+                    );
+                });
+            }
+
+            try {
+                const autoWriteJson = JSON.stringify(
+                    Array.from(this.disabledAutoWriteDomains)
+                );
+                localStorage.setItem(this.getAutoWriteStorageKey(), autoWriteJson);
+                localStorage.setItem(
+                    this.STORAGE_KEY + '_DISABLED_AUTO_WRITE_DOMAINS',
+                    autoWriteJson
+                );
+            } catch (e) {}
+
+            if (this.saveScriptContextTimer) {
+                clearTimeout(this.saveScriptContextTimer);
+            }
+            this.zone.runOutsideAngular(() => {
+                this.saveScriptContextTimer = setTimeout(() => {
+                    this.saveScriptContextTimer = null;
+                    this.updateGlobalAgentScheduleContext();
+                    if (!this.isLoadingSchedule && !this.isLoadingMonth) {
+                        this.snapshotCurrentMonthToCache();
                     }
-                    
+                }, 300);
+            });
+        } catch (e) {
+            console.error('Lỗi khi lưu trạng thái:', e);
+        }
+    }
+
+    private updateGlobalAgentScheduleContext(): void {
+        try {
+            if (!this._globalAgentService || !Array.isArray(this.items)) {
+                return;
+            }
+            const currentMonth = this.month || new Date().getMonth() + 1;
+            const currentYear = this.year || new Date().getFullYear();
+            const now = new Date();
+            const startRemainingDay =
+                currentYear === now.getFullYear() &&
+                currentMonth === now.getMonth() + 1
+                    ? now.getDate()
+                    : 1;
+            const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+            const monthPadded = currentMonth.toString().padStart(2, '0');
+
+            let remainingDays = 0;
+            for (let i = startRemainingDay; i <= daysInMonth; i++) {
+                const checkDate = `${currentYear}-${monthPadded}-${i.toString().padStart(2, '0')}`;
+                if (!this.disabledDates.has(checkDate)) {
+                    remainingDays++;
+                }
+            }
+
+            const summaryData = this.items
+                .filter(
+                    (item: any) =>
+                        item &&
+                        !item.isTotalRow &&
+                        item.id !== 'total-summary-row' &&
+                        item.id !== 'monthly-total-summary-row' &&
+                        this.isDomainAutoWriteEnabled(item)
+                )
+                .map((item) => {
+                    const streamItems = item.childrenItems?.[0]?.streamItems || [];
+                    const monthlyTarget =
+                        item.domainData?.monthlyTarget ||
+                        this.getResolvedTarget(item.name, currentMonth, currentYear) ||
+                        0;
+                    const currentResult =
+                        this.statsData &&
+                        this.statsData[item.name] &&
+                        this.statsData[item.name][currentMonth]
+                            ? this.statsData[item.name][currentMonth]
+                            : 0;
+
                     let missing = monthlyTarget - currentResult;
                     if (missing < 0) missing = 0;
-                    const dailyTarget = monthlyTarget > 0 ? (remainingDays > 0 ? Math.ceil(missing / remainingDays) : missing) : 0;
+                    const dailyTarget =
+                        monthlyTarget > 0
+                            ? remainingDays > 0
+                                ? Math.ceil(missing / remainingDays)
+                                : missing
+                            : 0;
 
                     return {
                         domain: item.name,
+                        autoWrite: this.isDomainAutoWriteEnabled(item),
                         monthlyTarget: monthlyTarget,
                         currentResult: currentResult,
                         missingTasks: missing,
@@ -2347,22 +3978,25 @@ Không dùng markdown \`\`\`json.`;
                             name: t.name,
                             startDate: t.startDate,
                             endDate: t.endDate,
-                            meta: t.meta || ''
-                        }))
+                            meta: t.meta || '',
+                        })),
                     };
                 });
-                const tzOffset = -(new Date().getTimezoneOffset() / 60);
-                const tzString = tzOffset >= 0 ? '+' + tzOffset : tzOffset;
-                const disabledStr = Array.from(this.disabledDates).join(', ');
 
-                const tzOffsetStr = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-                const todayStr = tzOffsetStr(new Date());
+            const tzOffset = -(new Date().getTimezoneOffset() / 60);
+            const tzString = tzOffset >= 0 ? '+' + tzOffset : tzOffset;
+            const disabledStr = Array.from(this.disabledDates).join(', ');
+            const tzOffsetStr = (date: Date) =>
+                new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+                    .toISOString()
+                    .slice(0, 10);
+            const todayStr = tzOffsetStr(new Date());
 
-                this._globalAgentService.updateContext({
-                    sourcePage: 'Lịch viết bài (Schedule)',
-                    action: 'schedule_tasks',
-                    data: summaryData,
-                    prompt: `BẠN LÀ MỘT HỆ THỐNG XỬ LÝ DỮ LIỆU. BẠN PHẢI TRẢ VỀ MẢNG JSON [ ... ]. BẠN PHẢI BỌC KẾT QUẢ TRONG CẶP MARKDOWN \`\`\`json VÀ \`\`\`.
+            this._globalAgentService.updateContext({
+                sourcePage: 'Lịch viết bài (Schedule)',
+                action: 'schedule_tasks',
+                data: summaryData,
+                prompt: `BẠN LÀ MỘT HỆ THỐNG XỬ LÝ DỮ LIỆU. BẠN PHẢI TRẢ VỀ MẢNG JSON [ ... ]. BẠN PHẢI BỌC KẾT QUẢ TRONG CẶP MARKDOWN \`\`\`json VÀ \`\`\`.
 KHÔNG ĐƯỢC CHÀO HỎI. KHÔNG ĐƯỢC GIẢI THÍCH.
 
 
@@ -2392,10 +4026,9 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
     ]
   }
 ]
-\`\`\``
-                });
-            }
-        } catch (e) { console.error('Lỗi khi lưu trạng thái:', e); }
+\`\`\``,
+            });
+        } catch (e) {}
     }
 
     loadScriptState() {
@@ -2414,7 +4047,49 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                     } catch(e) {}
                 }
             }
-            
+            this.lastSavedDisabledDatesSig = Array.from(this.disabledDates).join(',');
+
+            let parsedAutoWriteDomains: any[] | null = null;
+            try {
+                const scopedRaw = localStorage.getItem(this.getAutoWriteStorageKey());
+                if (scopedRaw) {
+                    const parsed = JSON.parse(scopedRaw);
+                    if (Array.isArray(parsed)) {
+                        parsedAutoWriteDomains = parsed;
+                    }
+                }
+            } catch (e) {}
+
+            if (!parsedAutoWriteDomains) {
+                const savedDisabledDomains = this.multiAccountService.getItem(
+                    this.STORAGE_KEY + '_DISABLED_AUTO_WRITE_DOMAINS'
+                );
+                if (savedDisabledDomains && Array.isArray(savedDisabledDomains)) {
+                    parsedAutoWriteDomains = savedDisabledDomains;
+                }
+            }
+
+            if (!parsedAutoWriteDomains) {
+                try {
+                    const oldSavedDomains = localStorage.getItem(
+                        this.STORAGE_KEY + '_DISABLED_AUTO_WRITE_DOMAINS'
+                    );
+                    if (oldSavedDomains) {
+                        const parsed = JSON.parse(oldSavedDomains);
+                        if (Array.isArray(parsed)) {
+                            parsedAutoWriteDomains = parsed;
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            if (parsedAutoWriteDomains) {
+                parsedAutoWriteDomains.forEach((d: any) => {
+                    const norm = this.normalizeDomainKey(d);
+                    if (norm) this.disabledAutoWriteDomains.add(norm);
+                });
+            }
+
             const savedChat = this.multiAccountService.getItem(this.STORAGE_KEY + '_CHAT');
             if (savedChat && Array.isArray(savedChat)) {
                 this.chatHistory = savedChat;
@@ -2426,6 +4101,12 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                     } catch(e) {}
                 }
             }
+            const chatLen = this.chatHistory?.length || 0;
+            const lastMsgLen =
+                chatLen > 0
+                    ? String(this.chatHistory[chatLen - 1]?.content || '').length
+                    : 0;
+            this.lastSavedChatSig = `${chatLen}:${lastMsgLen}`;
         } catch (e) { console.error('Lỗi khi tải trạng thái giao diện:', e); }
     }
 
@@ -2443,10 +4124,12 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         this.toastr.info('Đã xóa ngữ cảnh AI và kịch bản cũ.');
     }
 
-    async deleteAllMonthTasksFromDB(year: number, month: number): Promise<number> {
+    async deleteAllMonthTasksFromDB(year: number, month: number, targetDomainKeys?: Set<string>): Promise<number> {
         try {
             // Fetch fresh tasks directly from CouchDB server
-            const tasksRes: any = await firstValueFrom(this._tasksService.fetch({ username: this.user.name, year: year })).catch(() => null);
+            const tasksRes: any = await firstValueFrom(
+                this._tasksService.fetch({ username: this.user.name, year: year, month: month })
+            ).catch(() => null);
             let serverTasks: any[] = [];
             if (Array.isArray(tasksRes)) {
                 serverTasks = tasksRes;
@@ -2456,28 +4139,53 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                 serverTasks = tasksRes.result;
             }
 
+            const matchesTargetDomain = (t: any, fallbackDomain?: string): boolean => {
+                if (!targetDomainKeys) return true;
+                const rawDom = t?.domain_id || t?.domain || t?.domainName || fallbackDomain || '';
+                const norm = this.normalizeDomainKey(rawDom);
+                return !!(norm && targetDomainKeys.has(norm));
+            };
+
             const monthTasksToDelete: any[] = [];
 
-            // 1. Check server tasks for matching month
+            // 1. Check server tasks for matching month (and selected domains when specified)
             serverTasks.forEach((t: any) => {
                 if (!t || !t.startDate) return;
                 const dObj = this.safeDate(t.startDate);
-                if (dObj && dObj.getFullYear() === year && (dObj.getMonth() + 1) === month) {
+                if (dObj && dObj.getFullYear() === year && (dObj.getMonth() + 1) === month && matchesTargetDomain(t)) {
                     monthTasksToDelete.push(t);
                 }
             });
 
-            // 2. Check RAM tasks for matching month
-            const sourceLists = [
-                ...(this.items || []).flatMap((d: any) => d?.childrenItems?.[0]?.streamItems || (d?.domainData?.plan || [])),
-                ...(this.allDomainsList || []).flatMap((d: any) => d?.plan || [])
-            ];
-            sourceLists.forEach((t: any) => {
-                if (!t || !t.startDate) return;
-                const dObj = this.safeDate(t.startDate);
-                if (dObj && dObj.getFullYear() === year && (dObj.getMonth() + 1) === month) {
-                    monthTasksToDelete.push(t);
-                }
+            // 2. Check RAM tasks for matching month (and selected domains when specified)
+            (this.items || []).forEach((d: any) => {
+                if (!d || d.isTotalRow || d.id === 'total-summary-row' || d.id === 'monthly-total-summary-row') return;
+                const dName = d?.domainData?.domain || d?.name || '';
+                const dNorm = this.normalizeDomainKey(dName);
+                if (targetDomainKeys && (!dNorm || !targetDomainKeys.has(dNorm))) return;
+                const list = d?.childrenItems?.[0]?.streamItems || d?.domainData?.plan || [];
+                list.forEach((t: any) => {
+                    if (!t || !t.startDate) return;
+                    const dObj = this.safeDate(t.startDate);
+                    if (dObj && dObj.getFullYear() === year && (dObj.getMonth() + 1) === month) {
+                        monthTasksToDelete.push(t);
+                    }
+                });
+            });
+
+            (this.allDomainsList || []).forEach((d: any) => {
+                if (!d) return;
+                const dName = d?.domain || d?.name || '';
+                const dNorm = this.normalizeDomainKey(dName);
+                if (targetDomainKeys && (!dNorm || !targetDomainKeys.has(dNorm))) return;
+                const list = d?.plan || [];
+                list.forEach((t: any) => {
+                    if (!t || !t.startDate) return;
+                    const dObj = this.safeDate(t.startDate);
+                    if (dObj && dObj.getFullYear() === year && (dObj.getMonth() + 1) === month) {
+                        monthTasksToDelete.push(t);
+                    }
+                });
             });
 
             if (monthTasksToDelete.length > 0) {
@@ -2609,7 +4317,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
 
     resetCurrentMonth(targetMonthParam?: number, targetYearParam?: number) {
         const currentMonth = targetMonthParam || this.month || (new Date().getMonth() + 1);
-        const currentYear = targetYearParam || new Date().getFullYear();
+        const currentYear = targetYearParam || this.year || new Date().getFullYear();
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Khôi phục Mặc định',
             message: `Bạn có chắc chắn muốn xóa toàn bộ công việc trong tháng ${currentMonth}/${currentYear} không? Hành động này không thể hoàn tác!`,
@@ -2881,7 +4589,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
 
         const realDomainItems = this.items.filter(it => it && it.id !== 'total-summary-row' && it.id !== 'monthly-total-summary-row');
 
-        const dayMap: { [key: string]: { tasks: any[]; sDate: Date; eDate: Date } } = {};
+        const dayMap: { [key: string]: { tasks: any[]; sDate: Date; eDate: Date; seen: Set<string> } } = {};
 
         realDomainItems.forEach(domainItem => {
             let allStreamItems: any[] = [];
@@ -2912,12 +4620,21 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                         sDate.setHours(8, 0, 0, 0);
                         const eDate = new Date(sDateObj.getTime());
                         eDate.setHours(17, 0, 0, 0);
-                        dayMap[dayKey] = { tasks: [], sDate, eDate };
+                        dayMap[dayKey] = { tasks: [], sDate, eDate, seen: new Set<string>() };
                     }
 
-                    if (!dayMap[dayKey].tasks.some(existing => (existing.id && existing.id === t.id) || (existing._id && existing._id === t._id) || (existing.name === t.name && existing.startDate === t.startDate))) {
-                        dayMap[dayKey].tasks.push(t);
+                    // Khử trùng bằng Set (O(1)) thay cho .some() lồng nhau (O(n²)) khi số công việc lớn
+                    const day = dayMap[dayKey];
+                    const idKey = t.id ? `id:${t.id}` : '';
+                    const revKey = t._id ? `_id:${t._id}` : '';
+                    const nameKey = typeof t.startDate === 'string' ? `n:${t.name}|${t.startDate}` : '';
+                    if ((idKey && day.seen.has(idKey)) || (revKey && day.seen.has(revKey)) || (nameKey && day.seen.has(nameKey))) {
+                        return;
                     }
+                    if (idKey) day.seen.add(idKey);
+                    if (revKey) day.seen.add(revKey);
+                    if (nameKey) day.seen.add(nameKey);
+                    day.tasks.push(t);
                 });
             });
         });
@@ -3046,14 +4763,15 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         });
 
         const currentViewMonth = this.month || (new Date().getMonth() + 1);
+        const currentViewYear = this.year || new Date().getFullYear();
         const tasksInCurrentViewMonth = allMonthTasks.filter(t => {
             const d = this.safeDate(t.startDate);
-            return d && (d.getMonth() + 1) === currentViewMonth;
+            return d && d.getFullYear() === currentViewYear && (d.getMonth() + 1) === currentViewMonth;
         });
 
         const monthlySummaryRow = {
             id: 'monthly-total-summary-row',
-            name: `Tổng công việc Tháng ${currentViewMonth.toString().padStart(2, '0')} (${tasksInCurrentViewMonth.length})`,
+            name: `Tổng công việc Tháng ${currentViewMonth.toString().padStart(2, '0')}/${currentViewYear} (${tasksInCurrentViewMonth.length})`,
             isTotalRow: true,
             isMonthlyTotalRow: true,
             streamItems: monthlyStreamItems,
@@ -3103,23 +4821,21 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
 
         Object.keys(dayGroups).forEach(dayKey => {
             const dayTasks = dayGroups[dayKey];
-            // Uu tien task ghim (sticky) len dau ngay
             dayTasks.sort((a, b) => {
-                const sa = a?.sticky || a?.originalTask?.sticky ? 1 : 0;
-                const sb = b?.sticky || b?.originalTask?.sticky ? 1 : 0;
-                if (sa !== sb) return sb - sa;
                 const ta = this.safeDate(a.startDate)?.getTime() || 0;
                 const tb = this.safeDate(b.startDate)?.getTime() || 0;
                 return ta - tb;
             });
             const count = dayTasks.length;
+            const allLoading = dayTasks.every(t => t.isLoading);
+            const someLoading = dayTasks.some(t => t.isLoading);
             
             const baseDate = this.safeDate(dayTasks[0].startDate);
             const sDate = new Date(baseDate.getTime());
             sDate.setHours(8, 0, 0, 0);
 
             const eDate = new Date(baseDate.getTime());
-            eDate.setHours(17, 0, 0, 0);
+            eDate.setHours(allLoading ? 18 : 17, 0, 0, 0);
 
             if (count === 1) {
                 const t = { ...dayTasks[0] };
@@ -3133,8 +4849,6 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                     t.isGroup = false;
                 });
                 
-                const allLoading = dayTasks.every(t => t.isLoading);
-                const someLoading = dayTasks.some(t => t.isLoading);
                 parentStreamItems.push({
                     id: `${parentId}-${dayKey}-group`,
                     name: allLoading ? 'Đang tạo' : `${count} công việc`,
@@ -3251,7 +4965,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
     }
 
     parseArticleDataSafely(rawText: string, fallbackTitle: string = 'Bài viết mới'): any {
-        if (!rawText) return { title: fallbackTitle, content: '', description: '', image_prompt: '' };
+        if (!rawText) return { title: fallbackTitle, content: '', script: '', description: '', image_prompt: '', tags: [] };
         
         // 1. Thử parse JSON hoàn chỉnh
         const cleaned = this.cleanArticleJsonString(rawText);
@@ -3261,6 +4975,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                 return {
                     title: parsed.title || fallbackTitle,
                     content: parsed.content || '',
+                    script: parsed.script || '',
                     description: parsed.description || '',
                     image_prompt: parsed.image_prompt || '',
                     tags: Array.isArray(parsed.tags) ? parsed.tags : []
@@ -3271,6 +4986,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         // 2. Thử bóc tách từng trường qua Regex (nếu JSON bị cắt đuôi hoặc bị lỗi format)
         let title = fallbackTitle;
         let content = '';
+        let script = '';
         let description = '';
         let imagePrompt = '';
 
@@ -3302,10 +5018,9 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         }
 
         // Bóc tách content
-        const contentMatch = rawText.match(/"content"\s*:\s*"([\s\S]+?)(?=(?:",\s*"(?:description|image_prompt|tags|title)"|"\s*\}|$))/i);
+        const contentMatch = rawText.match(/"content"\s*:\s*"([\s\S]+?)(?=(?:",\s*"(?:description|image_prompt|tags|title|script)"|"\s*\}|$))/i);
         if (contentMatch && contentMatch[1]) {
             let rawContentStr = contentMatch[1];
-            // Xóa phần nháy kép đóng thừa ở cuối nếu có
             if (rawContentStr.endsWith('"')) {
                 rawContentStr = rawContentStr.slice(0, -1);
             }
@@ -3321,10 +5036,28 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
             }
         }
 
+        // Bóc tách script
+        const scriptMatch = rawText.match(/"script"\s*:\s*"([\s\S]+?)(?=(?:",\s*"(?:description|image_prompt|tags|title|content)"|"\s*\}|$))/i);
+        if (scriptMatch && scriptMatch[1]) {
+            let rawScriptStr = scriptMatch[1];
+            if (rawScriptStr.endsWith('"')) {
+                rawScriptStr = rawScriptStr.slice(0, -1);
+            }
+            try {
+                script = JSON.parse(`"${rawScriptStr.replace(/"/g, '\\"').replace(/\\"/g, '\\"')}"`);
+            } catch (e) {
+                script = rawScriptStr
+                    .replace(/\\n/g, '\n')
+                    .replace(/\\r/g, '')
+                    .replace(/\\t/g, ' ')
+                    .replace(/\\"/g, '"')
+                    .replace(/\\\\/g, '\\');
+            }
+        }
+
         // 3. Fallback: Nếu không bóc tách được content từ JSON, dùng toàn bộ rawText nếu nó chứa HTML hoặc text tự do
-        if (!content) {
+        if (!content && !script) {
             let stripped = rawText.trim();
-            // Nếu rawText chỉ là dấu mở ngoặc JSON lỗi như "{\n" hoặc "```"
             if (stripped.startsWith('{') && stripped.length < 10) {
                 content = '';
             } else {
@@ -3335,6 +5068,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         return {
             title: title || fallbackTitle,
             content: content || '',
+            script: script || '',
             description: description || '',
             image_prompt: imagePrompt || '',
             tags: []
@@ -3407,6 +5141,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
     }
 
     buildArchivePayload(params: {
+        uuid?: string;
         title: string;
         content: string;
         description: string;
@@ -3416,6 +5151,8 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         rawUrl?: string;
         taskId?: string;
     }): any {
+        const targetUuid =
+            params.uuid || uuid.v4().replace(/-/g, '').substring(0, 10);
         const title = params.title || 'Bài viết mới';
         const rawContent = params.content || '';
         const description = params.description || '';
@@ -3464,8 +5201,11 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         const promptList = description ? [`<p id="source-prompt-${uuid.v4()}">${description}</p>`] : (title ? [`<p id="source-prompt-${uuid.v4()}">${title}</p>`] : []);
 
         return {
+            uuid: targetUuid,
             title: title,
             url: params.rawUrl || (taskId ? String(taskId) : ('draft_' + Date.now() + Math.floor(Math.random() * 1000))),
+            content: rawContent || doneParagraphs.join('\n\n'),
+            description: description,
             source: {
                 p: sourceP,
                 span: [],
@@ -3530,8 +5270,9 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                 kw: []
             },
             arr_keyword: tags,
+            tags: tags,
             domain: domainData.domain || domainData.name || 'https://type.vn',
-            username: this.user.name,
+            username: this.user?.name || 'admin',
             thumbnail: imagePrompt
         };
     }
@@ -3541,18 +5282,28 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
     // -----------------------------------------------------------------------------------------------------
     saveDraftsToAiWriter(drafts: any[]) {
         if (!drafts || drafts.length === 0) return;
-        this.toastr.info(`Đang lưu ${drafts.length} bài viết vào Soạn bài...`, 'Đang xử lý');
+
+        const eligibleDrafts = drafts.filter((draft: any) => {
+            const draftDomainKey = this.normalizeDomainKey(draft?.domain);
+            if (!draftDomainKey) return false;
+            return this.isDomainAutoWriteEnabled(draftDomainKey);
+        });
+
+        if (eligibleDrafts.length === 0) {
+            this.toastr.warning('Không có bài viết nào được lưu vì tên miền tương ứng chưa được tích chọn viết bài tự động.');
+            return;
+        }
+
+        this.toastr.info(`Đang lưu ${eligibleDrafts.length} bài viết vào Soạn bài...`, 'Đang xử lý');
         let savedCount = 0;
         
-        drafts.forEach(async draft => {
-            const draftDomainName = (draft.domain || '').toLowerCase().trim().replace(/https?:\/\//, '').replace(/\/$/, '');
+        eligibleDrafts.forEach(async draft => {
+            const draftDomainName = this.normalizeDomainKey(draft.domain);
             let matchedItem = this.items?.find((i: any) => {
-                const dName = (i.name || '').toLowerCase().trim().replace(/https?:\/\//, '').replace(/\/$/, '');
+                if (!i || i.isTotalRow) return false;
+                const dName = this.normalizeDomainKey(i.name);
                 return dName === draftDomainName;
             });
-            if (!matchedItem && this.items && this.items.length > 0) {
-                matchedItem = this.items[0]; // Fallback to first domain if not found
-            }
             
             let domainData = matchedItem?.domainData || { domain: draft.domain || '' };
             
@@ -3603,7 +5354,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                         }
                     }
 
-                    if (savedCount === drafts.length) {
+                    if (savedCount === eligibleDrafts.length) {
                         this.toastr.success(`Đã lưu thành công ${savedCount} bài viết vào kho Soạn bài!`);
                         const successMsg = `Dạ Sếp ơi, em đã tự động lưu thành công ${savedCount} bài viết vào kho Soạn bài rồi nhé!`;
                         this.chatHistory.push({ role: 'model', content: `✅ ${successMsg.replace('vào kho Soạn bài', 'vào kho **Soạn bài** (Dàn ý)')}` });
@@ -3628,17 +5379,20 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
     get promptSuggestions(): { label: string; text: string; icon: string }[] {
         const now = new Date();
         const dayStr = now.getDate().toString().padStart(2, '0');
-        const monthStr = (now.getMonth() + 1).toString().padStart(2, '0');
-        const year = now.getFullYear();
+        const nowMonthStr = (now.getMonth() + 1).toString().padStart(2, '0');
+        const activeMonth = this.month || (now.getMonth() + 1);
+        const activeYear = this.year || now.getFullYear();
+        const monthStr = activeMonth.toString().padStart(2, '0');
+        const year = activeYear;
 
-        const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const nextMonthDate = new Date(activeYear, activeMonth, 1);
         const nextMonthStr = (nextMonthDate.getMonth() + 1).toString().padStart(2, '0');
         const nextMonthYear = nextMonthDate.getFullYear();
 
         return [
             {
-                label: `Viết blog chuẩn SEO ngày ${dayStr}/${monthStr}`,
-                text: `Viết bài blog chi tiết dựa trên tasks ngày ${dayStr}/${monthStr}`,
+                label: `Viết blog chuẩn SEO ngày ${dayStr}/${nowMonthStr}`,
+                text: `Viết bài blog chi tiết dựa trên tasks ngày ${dayStr}/${nowMonthStr}`,
                 icon: 'heroicons_outline:document-text'
             },
             {
@@ -3657,8 +5411,8 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                 icon: 'heroicons_outline:trash'
             },
             {
-                label: `Cập nhật công việc ngày ${dayStr}/${monthStr}`,
-                text: `Cập nhật công việc ngày ${dayStr}/${monthStr} cho tất cả tên miền`,
+                label: `Cập nhật công việc ngày ${dayStr}/${nowMonthStr}`,
+                text: `Cập nhật công việc ngày ${dayStr}/${nowMonthStr} cho tất cả tên miền`,
                 icon: 'heroicons_outline:refresh'
             },
             {
@@ -3681,6 +5435,16 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
             event.preventDefault();
         }
         if (!this.chatPrompt || !this.chatPrompt.trim() || this.isChatting) return;
+
+        // Giao diện không còn bị khóa khi đang nạp dữ liệu, nhưng lệnh AI phải chờ đủ công việc của tháng
+        // để tránh tạo trùng / đếm sai số công việc đã có.
+        if (this.isLoadingSchedule || this.isLoadingMonth) {
+            this.toastr.info(
+                'Đang nạp xong dữ liệu công việc của tháng, vui lòng gửi lại sau giây lát.',
+                'Đang đồng bộ'
+            );
+            return;
+        }
 
         let userMessage = this.chatPrompt.trim();
         this.chatPrompt = '';
@@ -3716,20 +5480,52 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         this.cd.detectChanges();
 
         try {
-            const isBlogWritingIntent = !!userMessage.match(/(viết blog|viết bài|soạn bài|chạy bài|sinh bài|tạo bài viết|viết nội dung|viết chi tiết)/i) 
-                && !userMessage.match(/(tạo công việc|tạo task|chỉnh sửa công việc|sửa task|cập nhật công việc|cập nhật task|lên lịch|phân bổ task)/i);
+            const isBlogWritingIntent = this.isContentWritingCommand(userMessage);
 
             if (isBlogWritingIntent) {
-                // Parse target date from userMessage
-                let targetDay = new Date().getDate();
-                let targetMonth = new Date().getMonth() + 1;
-                let targetYear = new Date().getFullYear();
+                // Phân tích ngày mục tiêu từ câu lệnh người dùng (hỗ trợ dd/mm, dd-mm, ngày dd tháng mm, ngày dd, hôm nay, ngày mai)
+                const nowDate = new Date();
+                let targetDay = nowDate.getDate();
+                let targetMonth = nowDate.getMonth() + 1;
+                let targetYear = nowDate.getFullYear();
 
-                const dateMatch = userMessage.match(/ngày\s*(\d{1,2})(?:[\/\-](\d{1,2}))?(?:[\/\-](\d{4}))?/i);
-                if (dateMatch) {
-                    targetDay = parseInt(dateMatch[1]);
-                    if (dateMatch[2]) targetMonth = parseInt(dateMatch[2]);
-                    if (dateMatch[3]) targetYear = parseInt(dateMatch[3]);
+                const slashDateMatch = userMessage.match(
+                    /\b(0?[1-9]|[12]\d|3[01])[\/\-](0?[1-9]|1[0-2])(?:[\/\-](\d{4}))?\b/
+                );
+                const textDateMatch = userMessage.match(
+                    /ngày\s*(0?[1-9]|[12]\d|3[01])\s*tháng\s*(0?[1-9]|1[0-2])(?:\s*năm\s*(\d{4}))?/i
+                );
+                const dayOnlyMatch = userMessage.match(
+                    /(?:ngày|cho\s+ngày)\s*(0?[1-9]|[12]\d|3[01])\b/i
+                );
+                const isTomorrow = /\b(?:ngày\s+mai|mai)\b/i.test(userMessage);
+
+                if (slashDateMatch) {
+                    targetDay = parseInt(slashDateMatch[1], 10);
+                    targetMonth = parseInt(slashDateMatch[2], 10);
+                    if (slashDateMatch[3]) {
+                        targetYear = parseInt(slashDateMatch[3], 10);
+                    } else if (this.year && targetMonth === this.month) {
+                        targetYear = this.year;
+                    }
+                } else if (textDateMatch) {
+                    targetDay = parseInt(textDateMatch[1], 10);
+                    targetMonth = parseInt(textDateMatch[2], 10);
+                    if (textDateMatch[3]) {
+                        targetYear = parseInt(textDateMatch[3], 10);
+                    } else if (this.year && targetMonth === this.month) {
+                        targetYear = this.year;
+                    }
+                } else if (dayOnlyMatch) {
+                    targetDay = parseInt(dayOnlyMatch[1], 10);
+                    targetMonth = this.month || nowDate.getMonth() + 1;
+                    targetYear = this.year || nowDate.getFullYear();
+                } else if (isTomorrow) {
+                    const tmr = new Date(nowDate);
+                    tmr.setDate(tmr.getDate() + 1);
+                    targetDay = tmr.getDate();
+                    targetMonth = tmr.getMonth() + 1;
+                    targetYear = tmr.getFullYear();
                 }
 
                 const dayStr = targetDay.toString().padStart(2, '0');
@@ -3737,227 +5533,215 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                 const targetDateIso = `${targetYear}-${monthStr}-${dayStr}`;
                 const targetDateLocal = `${dayStr}/${monthStr}/${targetYear}`;
 
-                // 1. Collect all tasks from RAM domain items (unpacking group items)
-                const sourceLists: any[] = [];
-                (this.items || []).forEach((d: any) => {
-                    if (!d || d.id === 'total-summary-row' || d.id === 'monthly-total-summary-row') return;
-                    const domainName = d.name || d.domain || d.domainData?.domain || d.domainData?.name;
-                    
-                    // From domainData.plan
-                    if (d.domainData?.plan && Array.isArray(d.domainData.plan)) {
-                        d.domainData.plan.forEach((t: any) => {
-                            if (t) sourceLists.push({ ...t, domain: domainName, originalTask: t });
-                        });
-                    }
-
-                    // From streamItems & childrenItems (unpack group items)
-                    const streamList = [
-                        ...(d.streamItems || []),
-                        ...(d.childrenItems?.[0]?.streamItems || [])
-                    ];
-                    streamList.forEach((st: any) => {
-                        if (!st) return;
-                        if (st.isGroup && Array.isArray(st.tasks)) {
-                            st.tasks.forEach((t: any) => {
-                                if (t) sourceLists.push({ ...t, domain: domainName, originalTask: t });
-                            });
-                        } else if (!st.isGroup) {
-                            sourceLists.push({ ...st, domain: domainName, originalTask: st });
-                        }
+                const realDomainItems = (this.items || []).filter(
+                    (d: any) =>
+                        d &&
+                        !d.isTotalRow &&
+                        d.id !== 'total-summary-row' &&
+                        d.id !== 'monthly-total-summary-row'
+                );
+                if (
+                    realDomainItems.length > 0 &&
+                    realDomainItems.every((d: any) => !this.isDomainAutoWriteEnabled(d))
+                ) {
+                    this.chatHistory.push({
+                        role: 'model',
+                        content: `Dạ Sếp ơi, hiện chưa có tên miền nào được tích chọn viết bài tự động ở cột **Công việc** bên trái. Sếp vui lòng tích chọn checkbox ở đằng trước các tên miền muốn xử lý rồi thử lại nhé!`
                     });
-                });
-
-                // From allDomainsList
-                (this.allDomainsList || []).forEach((d: any) => {
-                    const domainName = d.domain || d.name;
-                    if (d.plan && Array.isArray(d.plan)) {
-                        d.plan.forEach((t: any) => {
-                            if (t) sourceLists.push({ ...t, domain: domainName, originalTask: t });
-                        });
-                    }
-                });
-
-                // If RAM has no tasks for targetDateIso, also try fetching from server
-                let tasksToProcess: any[] = [];
-                const seenIds = new Set();
-
-                sourceLists.forEach((task: any) => {
-                    if (!task || !task.startDate) return;
-                    const dObj = this.safeDate(task.startDate);
-                    if (!dObj || isNaN(dObj.getTime())) return;
-                    const dIso = `${dObj.getFullYear()}-${(dObj.getMonth() + 1).toString().padStart(2, '0')}-${dObj.getDate().toString().padStart(2, '0')}`;
-                    if (dIso === targetDateIso && !this.isTaskDone(task)) {
-                        const taskId = task._id || task.id || (task.name + dIso);
-                        if (!seenIds.has(taskId)) {
-                            seenIds.add(taskId);
-                            tasksToProcess.push(task);
-                        }
-                    }
-                });
-
-                // Fallback to CouchDB server query if RAM tasks list is empty
-                if (tasksToProcess.length === 0 && this._tasksService && this.user?.name) {
-                    try {
-                        const serverRes: any = await firstValueFrom(this._tasksService.fetch({ username: this.user.name, year: targetYear })).catch(() => null);
-                        let serverTasks: any[] = [];
-                        if (Array.isArray(serverRes)) serverTasks = serverRes;
-                        else if (serverRes && Array.isArray(serverRes.data)) serverTasks = serverRes.data;
-                        else if (serverRes && Array.isArray(serverRes.result)) serverTasks = serverRes.result;
-
-                        serverTasks.forEach((st: any) => {
-                            if (!st || !st.startDate) return;
-                            const dObj = this.safeDate(st.startDate);
-                            if (!dObj || isNaN(dObj.getTime())) return;
-                            const dIso = `${dObj.getFullYear()}-${(dObj.getMonth() + 1).toString().padStart(2, '0')}-${dObj.getDate().toString().padStart(2, '0')}`;
-                            if (dIso === targetDateIso && !this.isTaskDone(st)) {
-                                const taskId = st._id || st.id || (st.name + dIso);
-                                if (!seenIds.has(taskId)) {
-                                    seenIds.add(taskId);
-                                    tasksToProcess.push({
-                                        ...st,
-                                        domain: st.domain || st.domainName || (this.items?.[0]?.name) || 'default',
-                                        originalTask: st
-                                    });
-                                }
-                            }
-                        });
-                    } catch (e) {
-                        console.error('Lỗi khi nạp task từ CSDL phục vụ viết blog:', e);
-                    }
-                }
-
-                if (tasksToProcess.length === 0) {
-                    this.chatHistory.push({ role: 'model', content: `Dạ Sếp ơi, ngày **${targetDateLocal}** không có task nào chưa hoàn thành để viết bài cả ạ! Sếp nghỉ ngơi đi ạ! 😎` });
                     this.isChatting = false;
                     this.cd.detectChanges();
                     this.scrollToBottom();
                     return;
                 }
 
-                this.chatHistory.push({ role: 'model', content: `Dạ Sếp! Em đang tiến hành chạy kịch bản viết blog cho **${tasksToProcess.length} task** của ngày **${targetDateLocal}**... 🚀` });
-                this.cd.detectChanges();
-                this.scrollToBottom();
+                // 1. Thu thập chính xác danh sách công việc trong ngày từ từng tên miền (giải nén đầy đủ group items)
+                const pendingCheckedDayTasks: any[] = [];
+                const allCheckedDayTasks: any[] = [];
+                const seenCheckedKeys = new Set<string>();
+                const seenSkippedKeys = new Set<string>();
+                const skippedDomainNames = new Set<string>();
+                let skippedUncheckedCount = 0;
 
-                let successCount = 0;
+                realDomainItems.forEach((d: any) => {
+                    const domainName =
+                        d.domainData?.domain || d.name || d.domainData?.name || '';
+                    const normDom = this.normalizeDomainKey(domainName);
+                    if (!normDom) return;
 
-                for (let i = 0; i < tasksToProcess.length; i++) {
-                    if (!this.isChatting) {
-                        this.chatHistory.push({ role: 'model', content: `🛑 Đã dừng xử lý theo yêu cầu của Sếp!` });
-                        break;
-                    }
-                    const task = tasksToProcess[i];
-                    
-                    this.chatHistory.push({ role: 'model', content: `⏳ Đang xử lý task [${i+1}/${tasksToProcess.length}]: **${task.name}** (Domain: ${task.domain})...` });
-                    this.cd.detectChanges();
-                    this.scrollToBottom();
-
-                    let domainData = this.items?.find((item: any) => item.name === task.domain)?.domainData || { domain: task.domain };
-                    let styleInstructions = '';
-                    if (domainData.note) {
-                        styleInstructions += `\n- Phân tích chuyên môn (bám sát): ${domainData.note}`;
-                    }
-                    
-                    let domainWritingStyle = domainData.writingStyle;
-                    if (!domainWritingStyle && this.settings?.domainStyles) {
-                        domainWritingStyle = this.settings.domainStyles[task.domain];
-                    }
-                    
-                    if (domainWritingStyle && this.settings?.styles) {
-                        const styleObj = this.settings.styles.find((s: any) => s.name === domainWritingStyle || s.id === domainWritingStyle);
-                        if (styleObj) {
-                            styleInstructions += `\n- Phong cách viết (BẮT BUỘC): ${styleObj.name} (${styleObj.desc})`;
+                    let flatTasks = this.getFlatDomainTasks(d);
+                    if (flatTasks.length === 0 && Array.isArray(this.allDomainsList)) {
+                        const fallbackDom = this.allDomainsList.find(
+                            (ad: any) =>
+                                ad &&
+                                this.normalizeDomainKey(ad.domain || ad.name) === normDom
+                        );
+                        if (fallbackDom && Array.isArray(fallbackDom.plan)) {
+                            flatTasks = fallbackDom.plan.filter(
+                                (t: any) => t && !t.isLoading
+                            );
                         }
                     }
 
-                    try {
-                        const prompt = `Bạn là chuyên gia Content SEO. Hãy viết một bài blog chi tiết cho website ${task.domain} với chủ đề/nhiệm vụ: "${task.name}".
-Yêu cầu:${styleInstructions}
-- Trả về ĐÚNG định dạng JSON sau, không kèm bất kỳ giải thích nào khác:
-{
-  "title": "Tiêu đề bài viết",
-  "content": "Nội dung bài viết (HTML, có thẻ h2, h3)",
-  "description": "Mô tả ngắn gọn",
-  "image_prompt": "Gợi ý ảnh tiếng Anh cho bài viết"
-}`;
-                        const response = await this._genaiService.generateContent({
-                            model: 'gemini-3.8-flash',
-                            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                            config: { ttsVoice: 'none' } as any
-                        });
-                        
-                        let rawText = response.text || (response as any).response?.text() || '';
-                        let articleData = this.parseArticleDataSafely(rawText, task.name);
+                    const isEnabled = this.isDomainAutoWriteEnabled(d);
+                    flatTasks.forEach((t: any, idx: number) => {
+                        if (!t || !t.startDate) return;
+                        if (this.safeIsoDate(t.startDate) !== targetDateIso) return;
+                        const uniqueKey = `${normDom}::${
+                            t._id || t.id || `${idx}_${t.name || ''}`
+                        }`;
 
-                        let archivePayload = this.buildArchivePayload({
-                            title: articleData.title || task.name,
-                            content: articleData.content || '',
-                            description: articleData.description || '',
-                            image_prompt: articleData.image_prompt || '',
-                            tags: articleData.tags || [],
-                            domainData: domainData,
-                            rawUrl: task._id || task.id || Math.random().toString(36).substring(7),
-                            taskId: task._id || task.id
-                        });
-
-                        // 1. Save to Crawl Service archive
-                        try {
-                            await firstValueFrom(this._crawlService.storeArchive(archivePayload)).catch(() => null);
-                        } catch (e) {}
-
-
-                        // 3. Mark task as DONE in RAM and CouchDB!
-                        if (task.originalTask) {
-                            task.originalTask.done = true;
-                            task.originalTask.status = 'done';
-                            task.originalTask.meta = (task.originalTask.meta ? task.originalTask.meta.replace(/done/gi, '').trim() + ' ' : '') + 'Done';
+                        if (!isEnabled) {
+                            if (!this.isTaskDone(t) && !seenSkippedKeys.has(uniqueKey)) {
+                                seenSkippedKeys.add(uniqueKey);
+                                skippedUncheckedCount++;
+                                skippedDomainNames.add(this.cleanDomain(domainName));
+                            }
+                            return;
                         }
-                        task.done = true;
-                        task.status = 'done';
 
-                        let matchedItem = this.items?.find((item: any) => item.name === task.domain);
-                        let planTask = matchedItem?.domainData?.plan?.find((t: any) => (t._id || t.id) === (task._id || task.id) || t.name === task.name);
-                        if (!planTask && matchedItem?.childrenItems?.[0]?.streamItems) {
-                            planTask = matchedItem.childrenItems[0].streamItems.find((t: any) => (t._id || t.id) === (task._id || task.id) || t.name === task.name);
-                        }
-                        if (planTask) {
-                            planTask.done = true;
-                            planTask.status = 'done';
-                            planTask.meta = task.originalTask ? task.originalTask.meta : 'Done';
-                            
-                            const isRealCouchDbTask = planTask._id && planTask._rev && String(planTask._rev).includes('-');
-                            if (isRealCouchDbTask) {
-                                this._tasksService.edit({ username: this.user.name, task: planTask }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
-                            } else {
-                                this._tasksService.add({ username: this.user.name, task: planTask }).pipe(takeUntil(this._unsubscribeAll)).subscribe((res: any) => {
-                                    if (res) {
-                                        if (res.id || res._id) planTask._id = res.id || res._id;
-                                        if (res.rev || res._rev) planTask._rev = res.rev || res._rev;
-                                    }
-                                });
+                        if (!seenCheckedKeys.has(uniqueKey)) {
+                            seenCheckedKeys.add(uniqueKey);
+                            const wrappedTask = {
+                                ...t,
+                                domain: domainName,
+                                originalTask: t
+                            };
+                            allCheckedDayTasks.push(wrappedTask);
+                            if (!this.isTaskDone(t)) {
+                                pendingCheckedDayTasks.push(wrappedTask);
                             }
                         }
+                    });
+                });
 
-                        if (matchedItem) {
-                            const plan = matchedItem.domainData?.plan || matchedItem.childrenItems?.[0]?.streamItems || [];
-                            this.applyPackedTasks(matchedItem, plan);
-                        }
+                // 2. Fallback truy vấn CSDL nếu trong RAM chưa nạp tháng mục tiêu
+                if (
+                    allCheckedDayTasks.length === 0 &&
+                    skippedUncheckedCount === 0 &&
+                    this._tasksService
+                ) {
+                    try {
+                        const serverRes: any = await firstValueFrom(
+                            this._tasksService.fetch({
+                                username: this.user?.name || 'admin',
+                                year: targetYear,
+                                month: targetMonth,
+                                onlySelectedMonth: true
+                            })
+                        ).catch(() => null);
+                        let serverTasks: any[] = [];
+                        if (Array.isArray(serverRes)) serverTasks = serverRes;
+                        else if (serverRes && Array.isArray(serverRes.data))
+                            serverTasks = serverRes.data;
+                        else if (serverRes && Array.isArray(serverRes.result))
+                            serverTasks = serverRes.result;
 
-                        successCount++;
-                        this.chatHistory.push({ role: 'model', content: `✅ Đã viết bài & đánh dấu Hoàn Thành [Done] cho task: **${articleData?.title || task.name}**` });
-                    } catch (err: any) {
-                        this.chatHistory.push({ role: 'model', content: `❌ Lỗi khi xử lý task **${task.name}**: ${err.message}` });
+                        serverTasks.forEach((st: any, idx: number) => {
+                            if (!st || !st.startDate) return;
+                            if (this.safeIsoDate(st.startDate) !== targetDateIso)
+                                return;
+                            const taskDomain =
+                                st.domain || st.domain_id || st.domainName || '';
+                            const normDom = this.normalizeDomainKey(taskDomain);
+                            if (!normDom) return;
+                            const uniqueKey = `${normDom}::${
+                                st._id || st.id || `${idx}_${st.name || ''}`
+                            }`;
+
+                            if (!this.isDomainAutoWriteEnabled(taskDomain)) {
+                                if (
+                                    !this.isTaskDone(st) &&
+                                    !seenSkippedKeys.has(uniqueKey)
+                                ) {
+                                    seenSkippedKeys.add(uniqueKey);
+                                    skippedUncheckedCount++;
+                                    skippedDomainNames.add(
+                                        this.cleanDomain(taskDomain)
+                                    );
+                                }
+                                return;
+                            }
+
+                            if (!seenCheckedKeys.has(uniqueKey)) {
+                                seenCheckedKeys.add(uniqueKey);
+                                const wrapped = {
+                                    ...st,
+                                    domain: taskDomain,
+                                    originalTask: st
+                                };
+                                allCheckedDayTasks.push(wrapped);
+                                if (!this.isTaskDone(st)) {
+                                    pendingCheckedDayTasks.push(wrapped);
+                                }
+                            }
+                        });
+                    } catch (e) {
+                        console.error(
+                            'Lỗi khi nạp task từ CSDL phục vụ viết bài/kịch bản:',
+                            e
+                        );
                     }
-                    
-                    this.items = [...this.items];
-                    this.saveScriptState();
-                    this.cd.detectChanges();
-                    this.scrollToBottom();
                 }
 
-                this.chatHistory.push({ role: 'model', content: `🎉 Báo cáo Sếp: Đã hoàn tất viết blog và đánh dấu [Done] cho **${successCount}/${tasksToProcess.length} task** của ngày **${targetDateLocal}**! Tất cả bài viết đã được lưu vào CSDL và kho Soạn bài. 😎` });
-                this.isChatting = false;
-                this.cd.detectChanges();
-                this.scrollToBottom();
+                const isExplicitRewrite = /(?:viết|soạn|tạo|làm|dựng|sinh|chạy)\s+lại/i.test(
+                    userMessage
+                );
+                const isCustomTopicOrScript =
+                    this.isScriptWritingCommand(userMessage) ||
+                    !/viết\s+bài\s+blog\s+chi\s+tiết\s+dựa\s+trên\s+tasks/i.test(
+                        userMessage
+                    );
+
+                let tasksToProcess = pendingCheckedDayTasks;
+                if (
+                    tasksToProcess.length === 0 &&
+                    allCheckedDayTasks.length > 0 &&
+                    (isExplicitRewrite || isCustomTopicOrScript)
+                ) {
+                    tasksToProcess = allCheckedDayTasks;
+                }
+
+                // Nếu ngày đó hoàn toàn chưa có công việc nào trên lịch cho các tên miền đã chọn, tự động đề xuất danh sách công việc kèm nút xác nhận viết & lưu CSDL
+                if (
+                    tasksToProcess.length === 0 &&
+                    allCheckedDayTasks.length === 0 &&
+                    skippedUncheckedCount === 0
+                ) {
+                    await this.executeDayTaskGeneration(
+                        targetYear,
+                        targetMonth,
+                        targetDay,
+                        userMessage
+                    );
+                    return;
+                }
+
+                if (tasksToProcess.length === 0) {
+                    if (skippedUncheckedCount > 0) {
+                        const skippedListText =
+                            Array.from(skippedDomainNames).join(', ');
+                        this.chatHistory.push({
+                            role: 'model',
+                            content: `Dạ Sếp ơi, ngày **${targetDateLocal}** không có công việc nào thuộc các tên miền được tích chọn (đã bỏ qua **${skippedUncheckedCount} công việc** của tên miền chưa chọn: **${skippedListText}**). Sếp vui lòng tích chọn checkbox trước tên miền muốn thực thi nhé!`
+                        });
+                    } else {
+                        this.chatHistory.push({
+                            role: 'model',
+                            content: `Dạ Sếp ơi, tất cả công việc ngày **${targetDateLocal}** đều đã hoàn thành rồi ạ! Nếu muốn viết mới đè lên, Sếp nhắn **"Viết lại bài ngày ${dayStr}/${monthStr}"** nhé!`
+                        });
+                    }
+                    this.isChatting = false;
+                    this.cd.detectChanges();
+                    this.scrollToBottom();
+                    return;
+                }
+
+                await this.writeAndSaveContentForTasks(
+                    tasksToProcess,
+                    targetDateLocal,
+                    userMessage,
+                    skippedUncheckedCount
+                );
                 return;
             }
 
@@ -4098,10 +5882,45 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
 
                         if (isMonthRequest && isTaskCreateIntent) {
                             const daysInMonth = new Date(requestYear, requestMonth, 0).getDate();
-                            let validDomains = (this.allDomainsList && this.allDomainsList.length > 0) 
-                                ? this.allDomainsList.map((d: any, i: number) => ({ id: i, name: d.domain || d.name, domainData: d, childrenItems: [{ streamItems: d.plan || [] }] }))
-                                : this.items.filter((item: any) => item && item.id !== 'total-summary-row' && item.id !== 'monthly-total-summary-row');
+                            const realTimelineItems = Array.isArray(this.items)
+                                ? this.items.filter(
+                                      (item: any) =>
+                                          item &&
+                                          !item.isTotalRow &&
+                                          item.id !== 'total-summary-row' &&
+                                          item.id !== 'monthly-total-summary-row'
+                                  )
+                                : [];
+                            const baseDomains =
+                                realTimelineItems.length > 0
+                                    ? realTimelineItems
+                                    : (this.allDomainsList || []).map((d: any, i: number) => ({
+                                          id: i,
+                                          name: d.domain || d.name,
+                                          autoWrite: d.autoWrite,
+                                          domainData: d,
+                                          childrenItems: [{ streamItems: d.plan || [] }]
+                                      }));
+                            const validDomains = baseDomains.filter((item: any) =>
+                                this.isDomainAutoWriteEnabled(item)
+                            );
                             const monthStr = requestMonth.toString().padStart(2, '0');
+
+                            if (validDomains.length === 0) {
+                                this.toastr.warning(
+                                    'Vui lòng tích chọn ít nhất 1 tên miền ở cột Công việc bên trái trước khi tạo công việc!',
+                                    'Chưa chọn tên miền'
+                                );
+                                this.chatHistory.push({
+                                    role: 'model',
+                                    content: `⚠️ **Chưa chọn tên miền thực thi**: Báo cáo Sếp, hiện chưa có tên miền nào được tích chọn ở cột **Công việc** bên trái. Sếp vui lòng tích chọn các tên miền muốn tạo công việc rồi gửi lại yêu cầu nhé!`,
+                                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                });
+                                this.isChatting = false;
+                                this.cd.detectChanges();
+                                this.scrollToBottom();
+                                return;
+                            }
 
                             const now = new Date();
                             const startDay = (requestYear === now.getFullYear() && requestMonth === (now.getMonth() + 1)) ? now.getDate() : 1;
@@ -4121,7 +5940,13 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                             const domainRows = validDomains.map((item: any) => {
                                 const rawName = (item.name || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
                                 const monthlyTarget = item.domainData?.monthlyTarget || this.getResolvedTarget(item.name, requestMonth, requestYear) || 0;
-                                const streamItems = item.childrenItems?.[0]?.streamItems || (item.domainData?.plan || []);
+                                const allDomainPlan = (this.allDomainsList || []).find(
+                                    (d: any) => this.normalizeDomainKey(d?.domain || d?.name) === this.normalizeDomainKey(rawName)
+                                )?.plan;
+                                const streamItems =
+                                    requestMonth === this.month && requestYear === this.year
+                                        ? item.childrenItems?.[0]?.streamItems || (item.domainData?.plan || [])
+                                        : allDomainPlan || item.childrenItems?.[0]?.streamItems || (item.domainData?.plan || []);
                                 
                                 const doneTasksInMonth = streamItems.filter((t: any) => {
                                     if (!t.startDate) return false;
@@ -4161,7 +5986,7 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
 ### 📊 1. Tổng quan kế hoạch hệ thống:
 - 📅 **Thời gian áp dụng**: **01/${monthStr}/${requestYear}** đến **${daysInMonth}/${monthStr}/${requestYear}**
 - ⏳ **Số ngày làm việc thực tế**: **${workingDaysLeft} ngày** (đã loại trừ các ngày nghỉ/bỏ qua)
-- 🎯 **Tổng chỉ tiêu toàn hệ thống**: **${totalMonthlyTargetSum} bài** (${validDomains.length} Tên miền)
+- 🎯 **Tổng chỉ tiêu tên miền đã chọn**: **${totalMonthlyTargetSum} bài** (${validDomains.length} Tên miền)
 - 📝 **Số bài đã lên lịch sẵn**: **${totalCreatedTasksSum} bài**
 - 🚀 **Số bài bắt buộc tạo mới**: **${totalMissingTasksSum} bài**
 
@@ -4183,11 +6008,15 @@ ${domainTopicsList}
 
 👉 *Em đã sổ toàn bộ kế hoạch trên khung chat để Sếp duyệt. Sếp kiểm tra xong bấm nút bên dưới để em tiến hành sinh kịch bản ngay nhé!*`;
 
+                            const selectedDomains = validDomains
+                                .map((item: any) => this.normalizeDomainKey(item?.domainData?.domain || item?.name))
+                                .filter(Boolean);
+
                             this.chatHistory.push({
                                 role: 'model',
                                 content: confirmContent,
                                 isConfirmMessage: true,
-                                confirmData: { type: 'month', month: requestMonth, year: requestYear }
+                                confirmData: { type: 'month', month: requestMonth, year: requestYear, selectedDomains }
                             });
                             this.isChatting = false;
                             this.cd.detectChanges();
@@ -4227,31 +6056,63 @@ ${domainTopicsList}
                                 return;
                             }
 
+                            const selectedDomainKeys = this.getSelectedAutoWriteDomainKeys();
+                            if (selectedDomainKeys.size === 0) {
+                                this.toastr.warning(
+                                    'Vui lòng tích chọn ít nhất 1 tên miền ở cột Công việc bên trái trước khi tạo công việc!',
+                                    'Chưa chọn tên miền'
+                                );
+                                this.chatHistory.push({
+                                    role: 'model',
+                                    content: `⚠️ **Chưa chọn tên miền thực thi**: Báo cáo Sếp, hiện chưa có tên miền nào được tích chọn ở cột **Công việc** bên trái. Sếp vui lòng tích chọn các tên miền muốn tạo công việc rồi gửi lại yêu cầu nhé!`,
+                                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                });
+                                this.isChatting = false;
+                                this.cd.detectChanges();
+                                this.scrollToBottom();
+                                return;
+                            }
+
                             const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                             this.chatHistory.push({
                                 role: 'model',
-                                content: `🚀 Dạ Sếp! Em đang tiến hành dọn dẹp và gọi AI Agent phân tích để tạo mới / cập nhật lại công việc ngày **${dayStr}/${monthStr}/${requestYear}** cho tất cả các tên miền...`,
+                                content: `🚀 Dạ Sếp! Em đang tiến hành dọn dẹp và gọi AI Agent phân tích để tạo mới / cập nhật lại công việc ngày **${dayStr}/${monthStr}/${requestYear}** cho **${selectedDomainKeys.size} tên miền đã chọn**...`,
                                 time: nowTime
                             });
                             this.cd.detectChanges();
                             this.scrollToBottom();
 
-                            await this.executeDayTaskGeneration(requestYear, requestMonth, requestDay);
+                            await this.executeDayTaskGeneration(requestYear, requestMonth, requestDay, userMessage);
                             return;
                         }
 
                         if (!this.items) {
                             const daysInMonth = new Date(requestYear, requestMonth, 0).getDate();
-                            const validDomains = this.items.filter(item => item && item.id !== 'total-summary-row' && item.id !== 'monthly-total-summary-row');
+                            const validDomains = (this.allDomainsList || []).filter((d: any) => this.isDomainAutoWriteEnabled(d));
                             const totalDomains = validDomains.length;
                             const monthStr = requestMonth.toString().padStart(2, '0');
+
+                            if (totalDomains === 0) {
+                                this.toastr.warning(
+                                    'Vui lòng tích chọn ít nhất 1 tên miền ở cột Công việc bên trái trước khi tạo công việc!',
+                                    'Chưa chọn tên miền'
+                                );
+                                this.chatHistory.push({
+                                    role: 'model',
+                                    content: `⚠️ **Chưa chọn tên miền thực thi**: Sếp vui lòng tích chọn ít nhất 1 tên miền ở cột **Công việc** bên trái trước khi tạo lịch nhé!`
+                                });
+                                this.isChatting = false;
+                                this.cd.detectChanges();
+                                this.scrollToBottom();
+                                return;
+                            }
 
                             const confirmContent = `🤖 **Xác nhận phương án tạo lịch tự động**
 
 Em đã phân tích và chuẩn hóa kế hoạch xử lý cho **Tháng ${monthStr}/${requestYear}** như sau:
 
 - 📅 **Thời gian áp dụng**: Từ **01/${monthStr}/${requestYear}** đến **${daysInMonth}/${monthStr}/${requestYear}**
-- 🌐 **Quy mô thực thi**: **${totalDomains} Tên miền**
+- 🌐 **Quy mô thực thi**: **${totalDomains} Tên miền đã chọn**
 - 🎯 **Quy tắc phân bổ**: Tự động tính số bài thiếu, phân bổ đều theo số ngày làm việc thực tế còn lại (đã trừ các ngày nghỉ/bỏ qua).
 
 👉 *Sếp bấm nút xác nhận bên dưới để em bắt đầu khởi chạy kịch bản tạo lịch nhé!*`;
@@ -4260,7 +6121,13 @@ Em đã phân tích và chuẩn hóa kế hoạch xử lý cho **Tháng ${monthS
                                 role: 'model',
                                 content: confirmContent,
                                 isConfirmMessage: true,
-                                confirmData: { month: requestMonth, year: requestYear }
+                                confirmData: {
+                                    month: requestMonth,
+                                    year: requestYear,
+                                    selectedDomains: validDomains
+                                        .map((d: any) => this.normalizeDomainKey(d?.domain || d?.name))
+                                        .filter(Boolean)
+                                }
                             });
                             this.isChatting = false;
                             this.cd.detectChanges();
@@ -4268,7 +6135,32 @@ Em đã phân tích và chuẩn hóa kế hoạch xử lý cho **Tháng ${monthS
                             return;
                         }
 
-                        contextData = this.items.map((d: any) => {
+                        const enabledItemsForContext = this.items.filter(
+                            (d: any) =>
+                                d &&
+                                !d.isTotalRow &&
+                                d.id !== 'total-summary-row' &&
+                                d.id !== 'monthly-total-summary-row' &&
+                                this.isDomainAutoWriteEnabled(d)
+                        );
+
+                        if ((isTaskCreateIntent || isBlogWritingIntent) && enabledItemsForContext.length === 0) {
+                            this.toastr.warning(
+                                'Vui lòng tích chọn ít nhất 1 tên miền ở cột Công việc bên trái!',
+                                'Chưa chọn tên miền'
+                            );
+                            this.chatHistory.push({
+                                role: 'model',
+                                content: `⚠️ **Chưa chọn tên miền thực thi**: Báo cáo Sếp, hiện chưa có tên miền nào được tích chọn ở cột **Công việc** bên trái. Sếp vui lòng tích chọn các tên miền muốn xử lý rồi gửi lại yêu cầu nhé!`,
+                                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            });
+                            this.isChatting = false;
+                            this.cd.detectChanges();
+                            this.scrollToBottom();
+                            return;
+                        }
+
+                        contextData = enabledItemsForContext.map((d: any) => {
                             const currentMonth = targetDate.getMonth() + 1;
                             const currentYear = targetDate.getFullYear();
                             this.month = currentMonth;
@@ -4331,6 +6223,7 @@ Em đã phân tích và chuẩn hóa kế hoạch xử lý cho **Tháng ${monthS
 
                             return {
                                 domain: d.name,
+                                autoWrite: this.isDomainAutoWriteEnabled(d),
                                 monthlyTarget: finalMonthlyTarget,
                                 createdTasksInMonth: createdTasksInMonth,
                                 missingTasksToCreate: missingTasksToCreate,
@@ -4398,7 +6291,7 @@ LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG TÁC VỤ:
 - TUYỆT ĐỐI KHÔNG dùng các tên chung chung như "Công việc 1", "Tạo bài viết SEO", "Viết bài mới". 
 - QUY TẮC HIỂN THỊ: BẮT BUỘC XỔ TOÀN BỘ KẾ HOẠCH BÀI VIẾT VÀ BẢNG PHÂN BỔ TRỰC TIẾP TRONG NỘI DUNG CHAT CHO QUẢN TRỊ VIÊN ĐỌC. TUYỆT ĐỐI KHÔNG TẠO HOẶC NÊU THÔNG BÁO GHI VÀO FILE .MD RỜI (NHƯ ke_hoach_cong_viec.md HAY BẤT KỲ FILE NÀO KHÁC). MỌI THÔNG TIN PHẢI ĐƯỢC HIỂN THỊ ĐẦY ĐỦ TRÊN KHUNG CHAT.
 
-ĐẶC BIỆT: Nếu người dùng yêu cầu "viết blog", "lên dàn ý" và "lưu vào Soạn bài" (hoặc lưu nháp), BẠN KHÔNG TRẢ VỀ MẢNG LỊCH LÀM VIỆC NHƯ BÌNH THƯỜNG. Thay vào đó, bạn PHẢI trả về ĐÚNG định dạng JSON Object sau bên trong block code JSON:
+ĐẶC BIỆT: Nếu người dùng yêu cầu "viết blog", "lên dàn ý" và "lưu vào Soạn bài" (hoặc lưu nháp), BẠN CHỈ ĐƯỢC VIẾT BÀI CHO CÁC TÊN MIỀN CÓ TRƯỜNG "autoWrite": true (TUYỆT ĐỐI BỎ QUA các tên miền có "autoWrite": false) VÀ BẠN KHÔNG TRẢ VỀ MẢNG LỊCH LÀM VIỆC NHƯ BÌNH THƯỜNG. Thay vào đó, bạn PHẢI trả về ĐÚNG định dạng JSON Object sau bên trong block code JSON:
 \`\`\`json
 {
   "action": "save_to_outline",
@@ -4894,7 +6787,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
         }
     }
 
-    async commitDayTasksToDB(confirmData: any) {
+    async commitDayTasksToDB(confirmData: any, originatingUserRequest?: string) {
         const { normalizedList, vDateStrIso, vDateStrLocal } = confirmData;
         if (!normalizedList || !Array.isArray(normalizedList)) return;
 
@@ -4902,29 +6795,70 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
         this.cd.detectChanges();
 
         const normalizeDomain = (s: any) => (String(s || '')).toLowerCase().trim().replace(/https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+        const isLocalMode = isAutoSaveLocalEnabled();
+
+        // Lấy danh sách task hiện có từ DB của tháng này để đồng bộ chính xác _id/_rev và tránh nhân bản task cũ
+        let dbMonthTasks: any[] = [];
+        try {
+            const tasksRes: any = await firstValueFrom(
+                this._tasksService.fetch({
+                    username: this.user?.name || 'admin',
+                    year: confirmData.year || this.year,
+                    month: confirmData.month || this.month,
+                    onlySelectedMonth: true
+                })
+            ).catch(() => null);
+            if (Array.isArray(tasksRes)) {
+                dbMonthTasks = tasksRes;
+            } else if (tasksRes && Array.isArray(tasksRes.data)) {
+                dbMonthTasks = tasksRes.data;
+            } else if (tasksRes && Array.isArray(tasksRes.result)) {
+                dbMonthTasks = tasksRes.result;
+            }
+        } catch (e) {}
+
+        let savedTasksCount = 0;
+        let savedDomainsCount = 0;
+        const committedTasksForWriting: any[] = [];
 
         for (const entry of normalizedList) {
             const targetNorm = normalizeDomain(entry.domain || '');
-            const matchedItem = this.items.find(it => it && it.name && normalizeDomain(it.name) === targetNorm);
-            if (!matchedItem) continue;
+            const matchedItem = this.items.find(
+                (it: any) =>
+                    it &&
+                    !it.isTotalRow &&
+                    normalizeDomain(it?.domainData?.domain || it?.name) ===
+                        targetNorm
+            );
+            if (!matchedItem || !this.isDomainAutoWriteEnabled(matchedItem)) continue;
+            savedDomainsCount++;
 
             const canonicalDomainName = matchedItem.domainData?.domain || matchedItem.name;
             if (!matchedItem.domainData) matchedItem.domainData = { domain: canonicalDomainName };
-            if (!Array.isArray(matchedItem.domainData.plan)) {
-                matchedItem.domainData.plan = matchedItem.childrenItems?.[0]?.streamItems ? [...matchedItem.childrenItems[0].streamItems] : [];
-            }
+            const flatCurrentTasks = this.getFlatDomainTasks(matchedItem);
 
-            // Tìm tất cả các task cũ của domain này trong ngày vDateStrIso
-            const oldDayTasks: any[] = [];
+            // Tìm tất cả các task cũ trong RAM của domain này trong ngày vDateStrIso và các ngày khác
+            const ramOldDayTasks: any[] = [];
             const otherDayTasks: any[] = [];
 
-            matchedItem.domainData.plan.forEach((t: any) => {
+            flatCurrentTasks.forEach((t: any) => {
                 if (t && t.startDate && this.safeIsoDate(t.startDate) === vDateStrIso) {
-                    oldDayTasks.push(t);
+                    ramOldDayTasks.push(t);
                 } else if (t) {
                     otherDayTasks.push(t);
                 }
             });
+
+            // Ghép thông tin _id/_rev thực tế từ DB cho các task ngày vDateStrIso của domain này
+            const dbDayTasksForDomain = dbMonthTasks.filter((dbt: any) => {
+                if (!dbt || !dbt.startDate || this.safeIsoDate(dbt.startDate) !== vDateStrIso) return false;
+                const dbNorm = normalizeDomain(dbt.domain_id || dbt.domain || dbt.domainName || '');
+                return dbNorm === targetNorm;
+            });
+
+            const oldDayTasks: any[] =
+                dbDayTasksForDomain.length > 0 ? dbDayTasksForDomain : ramOldDayTasks;
+            const reusedDbIds = new Set<string>();
 
             const newDayTasksList: any[] = [];
             const desiredTasks = entry.tasks || [];
@@ -4954,15 +6888,24 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
 
                 try {
                     let savedSuccessfully = false;
-                    const isRealCouchDbTask = existingTask && existingTask._id && existingTask._rev && String(existingTask._rev).includes('-');
+                    const existingId = existingTask?._id || existingTask?.id;
+                    const isRealCouchDbTask =
+                        !!existingTask &&
+                        !!existingTask._id &&
+                        !!existingTask._rev &&
+                        String(existingTask._rev).includes('-');
+                    const canEditInPlace = isLocalMode ? !!existingId : isRealCouchDbTask;
 
-                    if (isRealCouchDbTask) {
-                        taskPayload['_id'] = existingTask._id;
-                        taskPayload['id'] = existingTask._id;
-                        taskPayload['_rev'] = existingTask._rev;
-                        const resEdit: any = await firstValueFrom(this._tasksService.edit({ username: this.user.name, task: taskPayload })).catch(() => null);
-                        if (resEdit && !resEdit.error && !resEdit.message) {
+                    if (canEditInPlace && existingId) {
+                        taskPayload['_id'] = existingId;
+                        taskPayload['id'] = existingId;
+                        if (existingTask._rev) {
+                            taskPayload['_rev'] = existingTask._rev;
+                        }
+                        const resEdit: any = await firstValueFrom(this._tasksService.edit({ username: this.user?.name || 'admin', task: taskPayload })).catch(() => null);
+                        if (resEdit && !resEdit.error && (isLocalMode ? resEdit.success !== false : !resEdit.message)) {
                             savedSuccessfully = true;
+                            reusedDbIds.add(String(existingId));
                             const newRev = resEdit.rev || resEdit._rev || resEdit.data?.rev || resEdit.data?._rev;
                             if (newRev) {
                                 taskPayload._rev = newRev;
@@ -4974,7 +6917,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                         delete taskPayload['_id'];
                         delete taskPayload['id'];
                         delete taskPayload['_rev'];
-                        const resAdd: any = await firstValueFrom(this._tasksService.add({ username: this.user.name, task: taskPayload })).catch(() => null);
+                        const resAdd: any = await firstValueFrom(this._tasksService.add({ username: this.user?.name || 'admin', task: taskPayload })).catch(() => null);
                         if (resAdd && !resAdd.error) {
                             const newId = resAdd.id || resAdd._id || resAdd.data?.id || resAdd.data?._id;
                             const newRev = resAdd.rev || resAdd._rev || resAdd.data?.rev || resAdd.data?._rev;
@@ -4992,24 +6935,38 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                 }
 
                 newDayTasksList.push(taskPayload);
+                committedTasksForWriting.push({
+                    ...taskPayload,
+                    domain: canonicalDomainName,
+                    originalTask: taskPayload
+                });
+                savedTasksCount++;
             }
 
-            // 2. XÓA CÁC TASK DƯ THỪA CŨ TRONG NGÀY (nếu có nhiều hơn số lượng bài mới)
-            if (oldDayTasks.length > desiredTasks.length) {
-                const excessOldTasks = oldDayTasks.slice(desiredTasks.length);
-                for (const oldTask of excessOldTasks) {
-                    try {
-                        if (oldTask && (oldTask._id || oldTask.id)) {
-                            await firstValueFrom(this._tasksService.delete({ username: this.user.name, task: oldTask })).catch(() => null);
-                        }
-                    } catch (err) {
-                        console.warn('Lỗi xóa task cũ dư thừa trong CSDL:', err);
-                    }
+            // 2. Xóa các task cũ trong ngày không được cập nhật trực tiếp (dư thừa hoặc thay mới bằng ID khác)
+            const tasksToCleanup = [...dbDayTasksForDomain, ...ramOldDayTasks];
+            const cleanedIds = new Set<string>();
+            for (const oldTask of tasksToCleanup) {
+                const oldId = String(oldTask?._id || oldTask?.id || '');
+                if (!oldId || reusedDbIds.has(oldId) || cleanedIds.has(oldId)) continue;
+                cleanedIds.add(oldId);
+                try {
+                    await firstValueFrom(this._tasksService.delete({ username: this.user?.name || 'admin', task: oldTask })).catch(() => null);
+                } catch (err) {
+                    console.warn('Lỗi xóa task cũ dư thừa trong CSDL:', err);
                 }
             }
 
-            // 3. Cập nhật lại toàn bộ plan trong RAM cho domain này
+            // 3. Cập nhật lại toàn bộ plan trong RAM và allDomainsList cho domain này
             matchedItem.domainData.plan = [...otherDayTasks, ...newDayTasksList];
+            if (Array.isArray(this.allDomainsList)) {
+                const allDomEntry = this.allDomainsList.find(
+                    (ad: any) => ad && normalizeDomain(ad.domain || ad.name) === targetNorm
+                );
+                if (allDomEntry) {
+                    allDomEntry.plan = [...matchedItem.domainData.plan];
+                }
+            }
             this.applyPackedTasks(matchedItem, matchedItem.domainData.plan);
         }
 
@@ -5017,26 +6974,75 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
         this.updateTotalSummaryRow();
         this.items = [...this.items];
         this.saveScriptState();
-        this.isChatting = false;
         this.cd.detectChanges();
 
+        const effectivePrompt = String(
+            originatingUserRequest || confirmData?.userRequest || ''
+        ).trim();
+
+        // Nếu thẻ xác nhận này xuất phát từ lệnh yêu cầu VIẾT kịch bản / bài viết (ví dụ: "Viết kịch bản quảng cáo ngày 14/11"),
+        // tiến hành viết trọn vẹn nội dung và lưu thẳng vào CSDL Soạn bài & Kịch bản ngay sau khi lưu lịch!
+        if (
+            this.isContentWritingCommand(effectivePrompt) &&
+            committedTasksForWriting.length > 0
+        ) {
+            await this.writeAndSaveContentForTasks(
+                committedTasksForWriting,
+                vDateStrLocal,
+                effectivePrompt,
+                0
+            );
+            return;
+        }
+
+        this.isChatting = false;
         this.chatHistory.push({
             role: 'model',
-            content: `🎉 Báo cáo Sếp: Em đã hoàn tất lưu CSDL và làm mới **${normalizedList.reduce((acc, d) => acc + (d.tasks?.length || 0), 0)} công việc** ngày **${vDateStrLocal}** trên lịch cho tất cả các tên miền rồi nhé! 😎`
+            content: `🎉 Báo cáo Sếp: Em đã hoàn tất lưu CSDL và làm mới **${savedTasksCount} công việc** ngày **${vDateStrLocal}** trên lịch cho **${savedDomainsCount} tên miền đã chọn** rồi nhé! 😎`
         });
         this.cd.detectChanges();
         this.scrollToBottom();
 
         this.toastr.success(`Đã cập nhật và lưu CSDL công việc ngày ${vDateStrLocal}!`);
-        this.chatHistory.push({
-            role: 'model',
-            content: `🎉 Báo cáo Sếp: Em đã hoàn tất lưu CSDL công việc ngày **${vDateStrLocal}** trên lịch cho tất cả các tên miền rồi nhé! 😎`
-        });
-        this.scrollToBottom();
     }
 
     async confirmAndExecuteTask(confirmData: any, msg?: any) {
-        if (this.isChatting) return;
+        if (this.isChatting || !confirmData) return;
+
+        const liveSelectedKeys = this.getSelectedAutoWriteDomainKeys();
+        if (
+            confirmData?.type !== 'save_parsed_tasks' &&
+            liveSelectedKeys.size === 0
+        ) {
+            this.toastr.warning(
+                'Vui lòng tích chọn ít nhất 1 tên miền ở cột Công việc bên trái trước khi xác nhận!',
+                'Chưa chọn tên miền'
+            );
+            this.chatHistory.push({
+                role: 'model',
+                content: `⚠️ **Chưa chọn tên miền thực thi**: Báo cáo Sếp, hiện chưa có tên miền nào được tích chọn ở cột **Công việc** bên trái nên em chưa thực hiện lưu công việc ạ!`
+            });
+            this.cd.detectChanges();
+            this.scrollToBottom();
+            return;
+        }
+
+        // Truy xuất câu lệnh gốc của người dùng đã tạo ra thẻ xác nhận này (hỗ trợ cả các thẻ đã lưu trong lịch sử chat trước đó)
+        let effectiveUserRequest = String(confirmData?.userRequest || '').trim();
+        if (!effectiveUserRequest && Array.isArray(this.chatHistory)) {
+            const msgIdx = msg
+                ? this.chatHistory.indexOf(msg)
+                : this.chatHistory.length - 1;
+            const searchFrom =
+                msgIdx >= 0 ? msgIdx : this.chatHistory.length - 1;
+            for (let k = searchFrom; k >= 0; k--) {
+                const histItem = this.chatHistory[k];
+                if (histItem && histItem.role === 'user' && histItem.content) {
+                    effectiveUserRequest = String(histItem.content).trim();
+                    break;
+                }
+            }
+        }
 
         if (msg) {
             msg.isConfirmed = true;
@@ -5054,7 +7060,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
 
         try {
             if (confirmData.type === 'save_day_parsed_tasks' && confirmData.normalizedList) {
-                await this.commitDayTasksToDB(confirmData);
+                await this.commitDayTasksToDB(confirmData, effectiveUserRequest);
                 return;
             }
 
@@ -5074,6 +7080,8 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                 return;
             }
 
+            const targetDomainKeys = this.getSelectedAutoWriteDomainKeys();
+
             if (confirmData.type === 'day' || confirmData.day) {
                 const dayStr = confirmData.day.toString().padStart(2, '0');
                 const monthStr = confirmData.month.toString().padStart(2, '0');
@@ -5081,23 +7089,23 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
 
                 this.chatHistory.push({
                     role: 'model',
-                    content: `🚀 Sếp đã xác nhận! Em bắt đầu tự động tạo và điều chỉnh công việc cho ngày **${formattedDate}** cho tất cả các tên miền...`
+                    content: `🚀 Sếp đã xác nhận! Em bắt đầu tự động tạo và điều chỉnh công việc cho ngày **${formattedDate}** cho **${targetDomainKeys.size} tên miền đã chọn**...`
                 });
                 this.cd.detectChanges();
                 this.scrollToBottom();
 
-                await this.executeDayTaskGeneration(confirmData.year, confirmData.month, confirmData.day);
+                await this.executeDayTaskGeneration(confirmData.year, confirmData.month, confirmData.day, confirmData.userRequest);
             } else {
                 const monthStr = confirmData.month.toString().padStart(2, '0');
                 this.chatHistory.push({
                     role: 'model',
-                    content: `🚀 Sếp đã xác nhận! Em bắt đầu tự động tạo và phân bổ công việc cho **Tháng ${monthStr}/${confirmData.year}** cho tất cả các tên miền...`
+                    content: `🚀 Sếp đã xác nhận! Em bắt đầu tự động tạo và phân bổ công việc cho **Tháng ${monthStr}/${confirmData.year}** cho **${targetDomainKeys.size} tên miền đã chọn**...`
                 });
                 this.cd.detectChanges();
                 this.scrollToBottom();
 
-                // Sweep CSDL CouchDB xóa sạch task cũ của tháng này trước khi tạo lịch mới
-                await this.deleteAllMonthTasksFromDB(confirmData.year, confirmData.month);
+                // Chỉ xóa task cũ của tháng này đối với các tên miền ĐÃ CHỌN, giữ nguyên vẹn task của các tên miền không chọn
+                await this.deleteAllMonthTasksFromDB(confirmData.year, confirmData.month, targetDomainKeys);
 
                 let rawDomains = (this.allDomainsList && this.allDomainsList.length > 0) ? [...this.allDomainsList] : [];
                 if (rawDomains.length === 0) {
@@ -5115,24 +7123,48 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                         .filter(d => !!d && !!d.domain);
                 }
 
-                // Xóa sạch plan của tháng này trong bộ nhớ allDomainsList và rawDomains trước khi tạo
+                // Bảo toàn task đang hiển thị của các tên miền KHÔNG chọn và chỉ làm sạch plan tháng này của các tên miền ĐÃ CHỌN
+                const livePlanByDomain = new Map<string, any[]>();
+                (this.items || []).forEach((it: any) => {
+                    if (!it || it.isTotalRow || it.id === 'total-summary-row' || it.id === 'monthly-total-summary-row') return;
+                    const k = this.normalizeDomainKey(it?.domainData?.domain || it?.name);
+                    if (!k) return;
+                    const liveTasks = it?.childrenItems?.[0]?.streamItems || it?.domainData?.plan || [];
+                    if (Array.isArray(liveTasks) && liveTasks.length > 0) {
+                        livePlanByDomain.set(k, [...liveTasks]);
+                    }
+                });
+
                 [rawDomains, this.allDomainsList].forEach(list => {
                     if (list && list.length > 0) {
                         list.forEach((d: any) => {
-                            if (d && d.plan && Array.isArray(d.plan)) {
-                                d.plan = d.plan.filter((t: any) => {
-                                    if (!t || !t.startDate) return false;
-                                    const dObj = this.safeDate(t.startDate);
-                                    return dObj && (dObj.getFullYear() !== confirmData.year || (dObj.getMonth() + 1) !== confirmData.month);
-                                });
+                            if (!d) return;
+                            const dKey = this.normalizeDomainKey(d.domain || d.name);
+                            if (targetDomainKeys.has(dKey)) {
+                                if (d.plan && Array.isArray(d.plan)) {
+                                    d.plan = d.plan.filter((t: any) => {
+                                        if (!t || !t.startDate) return false;
+                                        const dObj = this.safeDate(t.startDate);
+                                        return dObj && (dObj.getFullYear() !== confirmData.year || (dObj.getMonth() + 1) !== confirmData.month);
+                                    });
+                                }
+                            } else if (dKey && livePlanByDomain.has(dKey)) {
+                                const existingPlan = Array.isArray(d.plan) ? d.plan : [];
+                                if (existingPlan.length === 0) {
+                                    d.plan = [...(livePlanByDomain.get(dKey) || [])];
+                                }
                             }
                         });
                     }
                 });
 
                 this.month = confirmData.month;
-                this.updateTimeline3MonthsRange(confirmData.month);
-                await this.processDomains(rawDomains, this.statsData, confirmData.month, true);
+                this.year = confirmData.year || this.year || new Date().getFullYear();
+                this.updateTimelineMonthRange(this.month, this.year);
+                rawDomains.forEach((d: any) => {
+                    d.monthlyTarget = this.getResolvedTarget(d.domain || d.name, this.month, this.year, d);
+                });
+                await this.processDomains(rawDomains, this.statsData, this.month, true, this.year, targetDomainKeys);
             }
         } catch (err: any) {
             console.error('Lỗi khi thực thi task:', err);
@@ -5144,7 +7176,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
         }
     }
 
-    async executeDayTaskGeneration(year: number, month: number, day: number) {
+    async executeDayTaskGeneration(year: number, month: number, day: number, userInstruction?: string) {
         const dayStr = day.toString().padStart(2, '0');
         const monthStr = month.toString().padStart(2, '0');
         const vDateStrLocal = `${dayStr}/${monthStr}/${year}`;
@@ -5169,6 +7201,21 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
             return;
         }
 
+        const selectedDomainKeys = this.getSelectedAutoWriteDomainKeys();
+        if (selectedDomainKeys.size === 0) {
+            this.toastr.warning(
+                'Vui lòng tích chọn ít nhất 1 tên miền ở cột Công việc bên trái trước khi tạo công việc!',
+                'Chưa chọn tên miền'
+            );
+            this.chatHistory.push({
+                role: 'model',
+                content: `⚠️ **Chưa chọn tên miền thực thi**: Báo cáo Sếp, hiện chưa có tên miền nào được tích chọn ở cột **Công việc** bên trái nên em không thể tạo công việc ngày **${vDateStrLocal}** được ạ!`
+            });
+            this.isChatting = false;
+            this.cd.detectChanges();
+            return;
+        }
+
         this.toastr.info(`Đang gọi AI Agent phân tích và đề xuất công việc cho ngày ${vDateStrLocal}...`, 'Đang xử lý');
         if (this._globalAgentService) {
             this._globalAgentService.sendStreamMessage({
@@ -5178,27 +7225,56 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
             });
         }
 
-        // Tính tổng số ngày làm việc thực tế trong cả tháng
+        // Tính số ngày làm việc thực tế còn lại trong tháng (không tính các ngày đã qua của tháng hiện tại)
+        const now = new Date();
         const daysInMonth = new Date(year, month, 0).getDate();
-        let totalWorkingDaysInMonth = 0;
-        for (let i = 1; i <= daysInMonth; i++) {
+        const startWorkingDay =
+            year === now.getFullYear() && month === now.getMonth() + 1
+                ? Math.min(day, now.getDate())
+                : 1;
+        let remainingWorkingDays = 0;
+        for (let i = startWorkingDay; i <= daysInMonth; i++) {
             const checkDate = `${year}-${monthStr}-${i.toString().padStart(2, '0')}`;
             if (!this.disabledDates.has(checkDate)) {
-                totalWorkingDaysInMonth++;
+                remainingWorkingDays++;
             }
         }
-        if (totalWorkingDaysInMonth === 0) totalWorkingDaysInMonth = daysInMonth;
+        if (remainingWorkingDays === 0) remainingWorkingDays = 1;
+
+        // Kiểm tra nếu người dùng có chỉ định rõ số bài trên mỗi tên miền trong câu lệnh
+        let explicitPerDomainCount = 0;
+        if (userInstruction && userInstruction.trim()) {
+            const strippedDates = userInstruction
+                .replace(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/g, ' ')
+                .replace(/(?:ngày|tháng|năm)\s*\d+/gi, ' ');
+            const explicitCountMatch = strippedDates.match(
+                /(?:tạo|sinh|lên lịch|mỗi tên miền|mỗi domain)\s*(\d+)\s*(?:bài|công việc|task)\b/i
+            );
+            if (explicitCountMatch) {
+                const parsedCount = parseInt(explicitCountMatch[1], 10);
+                if (parsedCount > 0 && parsedCount <= 50) {
+                    explicitPerDomainCount = parsedCount;
+                }
+            }
+        }
 
         const normalizeDomainHelper = (s: any) => (String(s || '')).toLowerCase().trim().replace(/https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
         const seenDomainNames = new Set<string>();
         const hasConfiguredTargets = !!(this.settings?.domainTargets && Object.keys(this.settings.domainTargets).length > 0);
 
         let validItems = this.items.filter(item => {
-            if (!item || item.id === 'total-summary-row' || item.id === 'monthly-total-summary-row') return false;
+            if (!item || item.isTotalRow || item.id === 'total-summary-row' || item.id === 'monthly-total-summary-row') return false;
+            if (!this.isDomainAutoWriteEnabled(item)) return false;
             const rawName = item.domainData?.domain || item.name;
             const norm = normalizeDomainHelper(rawName);
             if (!norm || seenDomainNames.has(norm)) return false;
             seenDomainNames.add(norm);
+
+            const flatTasks = this.getFlatDomainTasks(item);
+            const existingOnTargetDay = flatTasks.filter(
+                (t: any) => t && t.startDate && this.safeIsoDate(t.startDate) === vDateStrIso
+            ).length;
+            if (existingOnTargetDay > 0) return true;
 
             let monthlyTarget = this.getResolvedTarget(norm, month, year);
             if (!hasConfiguredTargets && monthlyTarget === 0) {
@@ -5207,35 +7283,66 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
             return monthlyTarget > 0;
         });
 
+        if (validItems.length === 0) {
+            this.toastr.warning('Các tên miền đã chọn đều có chỉ tiêu tháng là 0 bài!', 'Không có chỉ tiêu');
+            this.chatHistory.push({
+                role: 'model',
+                content: `⚠️ **Không có chỉ tiêu cần tạo**: Các tên miền đang tích chọn đều có chỉ tiêu tháng **0 bài** nên không có công việc mới cần tạo cho ngày **${vDateStrLocal}** ạ!`
+            });
+            this.isChatting = false;
+            this.saveScriptState();
+            this.cd.detectChanges();
+            return;
+        }
+
         let contextData = validItems.map((d: any) => {
-            const streamItems = d.childrenItems?.[0]?.streamItems || (d.domainData?.plan || []);
+            let flatTasks = this.getFlatDomainTasks(d);
             const rawName = d.domainData?.domain || d.name;
             const norm = normalizeDomainHelper(rawName);
+            if (flatTasks.length === 0 && Array.isArray(this.allDomainsList)) {
+                const fallbackDom = this.allDomainsList.find(
+                    (ad: any) => ad && normalizeDomainHelper(ad.domain || ad.name) === norm
+                );
+                if (fallbackDom && Array.isArray(fallbackDom.plan)) {
+                    flatTasks = fallbackDom.plan.filter((t: any) => t && !t.isLoading);
+                }
+            }
+
             let monthlyTarget = this.getResolvedTarget(norm, month, year);
             if (!hasConfiguredTargets && monthlyTarget === 0) {
                 monthlyTarget = d.domainData?.monthlyTarget || 0;
             }
             
-            const createdTasksInMonth = streamItems.filter((t: any) => {
+            const createdTasksInMonth = flatTasks.filter((t: any) => {
                 if (!t || !t.startDate) return false;
                 const dObj = this.safeDate(t.startDate);
                 return dObj && dObj.getFullYear() === year && (dObj.getMonth() + 1) === month;
             }).length;
 
-            const doneTasksInMonth = streamItems.filter((t: any) => {
+            const doneTasksInMonth = flatTasks.filter((t: any) => {
                 if (!t || !t.startDate) return false;
                 const dObj = this.safeDate(t.startDate);
                 return dObj && dObj.getFullYear() === year && (dObj.getMonth() + 1) === month && this.isTaskDone(t);
             }).length;
 
+            const existingDayTasks = flatTasks.filter(
+                (t: any) => t && t.startDate && this.safeIsoDate(t.startDate) === vDateStrIso
+            );
+
             const missingTasksToCreate = Math.max(0, monthlyTarget - doneTasksInMonth);
 
-            // Công thức chuẩn: Chỉ tiêu ngày = ceil(Chỉ tiêu tháng / Tổng số ngày làm việc)
+            // Nếu ngày đó đã có sẵn công việc trên lịch (ví dụ 3 + 2 + 3 = 8 bài), giữ nguyên đúng số lượng bài của từng tên miền trong ngày đó khi cập nhật!
+            // Nếu ngày đó chưa có công việc nào, tính theo số ngày làm việc thực tế còn lại trong tháng.
             let computedDailyTarget = 1;
-            if (d.domainData?.dailyTarget && d.domainData.dailyTarget > 0) {
+            if (explicitPerDomainCount > 0) {
+                computedDailyTarget = explicitPerDomainCount;
+            } else if (existingDayTasks.length > 0) {
+                computedDailyTarget = existingDayTasks.length;
+            } else if (d.domainData?.dailyTarget && d.domainData.dailyTarget > 0) {
                 computedDailyTarget = d.domainData.dailyTarget;
             } else if (monthlyTarget > 0) {
-                computedDailyTarget = Math.max(1, Math.ceil(monthlyTarget / totalWorkingDaysInMonth));
+                const targetPool = missingTasksToCreate > 0 ? missingTasksToCreate : monthlyTarget;
+                computedDailyTarget = Math.max(1, Math.ceil(targetPool / remainingWorkingDays));
             }
 
             let writingStyleInfo = 'Phong cách tự do';
@@ -5255,40 +7362,70 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                 monthlyTarget: monthlyTarget,
                 createdTasksInMonth: createdTasksInMonth,
                 doneTasksInMonth: doneTasksInMonth,
+                existingDayTasksCount: existingDayTasks.length,
+                existingDayTasks: existingDayTasks.map((t: any) => ({
+                    name: t.name || t.title || '',
+                    meta: t.meta || ''
+                })),
                 missingTasksToCreate: missingTasksToCreate,
-                workingDaysLeft: totalWorkingDaysInMonth,
+                workingDaysLeft: remainingWorkingDays,
                 dailyTarget: computedDailyTarget,
                 aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
                 writingStyle: writingStyleInfo
             };
         });
 
-        const tzOffset = -(new Date().getTimezoneOffset() / 60);
-        const tzString = tzOffset >= 0 ? '+' + tzOffset : tzOffset;
+        const totalExpectedDayTasks = contextData.reduce(
+            (sum: number, c: any) => sum + (Number(c.dailyTarget) || 0),
+            0
+        );
+        const perDomainQuotaSummary = contextData
+            .map((c: any) => `- ${c.domain}: BẮT BUỘC đúng ${c.dailyTarget} công việc`)
+            .join('\n');
 
-        let dayPromptText = `DỮ LIỆU JSON CÁC TÊN MIỀN HIỆN TẠI CHO NGÀY ${vDateStrLocal}:
+        const trimmedUserInstruction = (userInstruction || '').trim();
+        const userRequestSection = trimmedUserInstruction
+            ? `NGUYÊN VĂN YÊU CẦU TỪ NGƯỜI DÙNG:\n"${trimmedUserInstruction}"\n\nLƯU Ý ƯU TIÊN SỐ 1 VỀ NỘI DUNG: Nếu trong yêu cầu trên người dùng có chỉ định chủ đề, kịch bản hoặc định hướng cụ thể (ví dụ: viết kịch bản quảng cáo sản phẩm, review, khuyến mãi...), BẮT BUỘC 100% tiêu đề (name) và mô tả chi tiết (meta) của TẤT CẢ ${totalExpectedDayTasks} công việc phải bám sát yêu cầu cụ thể đó của người dùng, tùy biến sáng tạo theo từng nền tảng/ngách tên miền và không trùng lặp ý tưởng giữa các bài trong cùng tên miền!`
+            : `Tạo mới / cập nhật danh sách công việc (tiêu đề name & mô tả meta) cho các tên miền trong duy nhất ngày ${vDateStrLocal} đạt đúng chỉ tiêu dailyTarget của từng tên miền và đưa toàn bộ về trạng thái MỚI (chưa làm).`;
+
+        let dayPromptText = `DỮ LIỆU JSON CÁC TÊN MIỀN ĐÃ CHỌN CHO NGÀY ${vDateStrLocal}:
 \`\`\`json
 ${JSON.stringify(contextData, null, 2)}
 \`\`\`
 
 YÊU CẦU CỦA NGƯỜI DÙNG:
-Tạo mới công việc (tiêu đề name & mô tả meta) cho các tên miền cho duy nhất ngày ${vDateStrLocal} để đạt đúng chỉ tiêu dailyTarget và đưa toàn bộ về trạng thái MỚI (chưa làm).
+${userRequestSection}
 
-HƯỚNG DẪN TRẢ LỜI:
-Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc.
-BẠN HÃY TRÒ CHUYỆN VỚI NGƯỜI DÙNG BẰNG GIỌNG ĐIỆU VUI VẺ, THÂN THIỆN, CÓ SỬ DỤNG EMOJI (ĐÓNG VAI LÀ TRỢ LÝ ĐÁNG YÊU, GỌI NGƯỜI DÙNG LÀ SẾP).
-DỮ LIỆU CÔNG VIỆC BẮT BUỘC PHẢI ĐƯỢC ĐẶT BÊN TRONG BLOCK CODE MẶC ĐỊNH LÀ \`\`\`json [ ... ] \`\`\`.
+CHỈ TIÊU SỐ LƯỢNG BẮT BUỘC TRONG NGÀY ${vDateStrLocal} (TỔNG CỘNG ĐÚNG ${totalExpectedDayTasks} CÔNG VIỆC):
+${perDomainQuotaSummary}
+
+HƯỚNG DẪN ĐỊNH DẠNG TRẢ VỀ:
+DỮ LIỆU CÔNG VIỆC BẮT BUỘC ĐẶT TRONG BLOCK CODE \`\`\`json ... \`\`\` THEO ĐÚNG CẤU TRÚC MẢNG SAU:
+\`\`\`json
+[
+  {
+    "domain": "ten-mien.com",
+    "tasks": [
+      {
+        "name": "Tiêu đề cụ thể #1",
+        "meta": "Mô tả chi tiết kịch bản / nội dung triển khai #1",
+        "startDate": "${vDateStrIso}T08:00:00",
+        "endDate": "${vDateStrIso}T17:00:00"
+      }
+    ]
+  }
+]
+\`\`\`
 
 QUY TẮC BẮT BUỘC:
-1. Đối với mỗi tên miền: BẠN BẮT BUỘC TẠO ĐÚNG SỐ LƯỢNG BÀI VIẾT BẰNG "dailyTarget" (Ví dụ: nếu dailyTarget = 1 thì CHỈ ĐƯỢC TẠO ĐÚNG 1 BÀI cho tên miền đó, TUYỆT ĐỐI KHÔNG TẠO THỪA).
-2. Định hướng chuyên môn theo tên miền (BẮT BUỘC):
+1. Với MỖI tên miền, mảng "tasks" BẮT BUỘC có ĐÚNG số phần tử bằng "dailyTarget" của tên miền đó (Tổng số công việc trên toàn bộ các tên miền phải đúng bằng ${totalExpectedDayTasks} công việc; TUYỆT ĐỐI KHÔNG chỉ trả 1 bài khi dailyTarget > 1, và KHÔNG tạo thừa).
+2. Định hướng chuyên môn mặc định (áp dụng kết hợp cùng yêu cầu cụ thể của người dùng):
    - type.vn / ai.type.vn: Nền tảng AI Content Creator, sáng tạo nội dung, bài viết blog SEO, Copywriting, tự động hóa marketing. TUYỆT ĐỐI CẤM viết về bàn phím, gõ 10 ngón, đánh máy chữ.
    - hopthu.vn: Dịch vụ Email Doanh nghiệp (Business Email), bảo mật email, chống spam, xác thực DKIM/SPF/DMARC.
    - tadu.cloud: Máy chủ đám mây, Cloud Server, Cloud Hosting, VPS NVMe tốc độ cao.
    - yenai.vn: Tin tức công nghệ, Trí tuệ nhân tạo (AI), AI Agent, giải pháp chuyển đổi số.
-3. Tiêu đề (name) và mô tả (meta) phải độc đáo, đúng chuyên môn ngách SEO, áp dụng đúng phong cách "writingStyle" và "aiAnalysis" của từng tên miền.
-4. Tất cả các task BẮT BUỘC chỉ thuộc về ngày ${vDateStrIso} (startDate là "${vDateStrIso}T08:00:00", endDate là "${vDateStrIso}T17:00:00").
-5. Tất cả các task đều ở trạng thái MỚI (chưa làm).`;
+3. Mỗi công việc trong cùng một tên miền phải có tiêu đề (name) và kịch bản/mô tả (meta) riêng biệt, chi tiết, áp dụng đúng "writingStyle", "aiAnalysis" và đặc biệt là yêu cầu cụ thể của người dùng.
+4. Tất cả các task BẮT BUỘC thuộc ngày ${vDateStrIso} (startDate: "${vDateStrIso}T08:00:00", endDate: "${vDateStrIso}T17:00:00") và ở trạng thái MỚI (chưa làm).`;
 
         let contents = [
             {
@@ -5301,7 +7438,7 @@ QUY TẮC BẮT BUỘC:
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3.8-flash',
                 contents: contents,
-                tools: [{ googleSearch: {} }],
+                tools: [],
                 config: { ttsVoice: 'none' }
             } as any);
 
@@ -5342,15 +7479,18 @@ QUY TẮC BẮT BUỘC:
                     }
                 }
 
-                // XÂY DỰNG normalizedList CHÍNH XÁC THEO TỪNG TÊN MIỀN TRONG contextData (KHÔNG LẤY TÊN MIỀN NGOÀI)
-                const normalizeDomainHelper = (s: any) => (String(s || '')).toLowerCase().trim().replace(/https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+                // XÂY DỰNG normalizedList CHÍNH XÁC THEO TỪNG TÊN MIỀN TRONG contextData (GỘP TẤT CẢ ENTRY CÙNG DOMAIN)
                 let normalizedList: { domain: string, tasks: any[] }[] = [];
 
                 contextData.forEach((ctx: any) => {
                     if (!ctx.domain || ctx.dailyTarget <= 0) return;
                     const normCtxDomain = normalizeDomainHelper(ctx.domain);
-                    let normEntry = rawNormalizedList.find((entry: any) => normalizeDomainHelper(entry.domain) === normCtxDomain);
-                    let finalTasks = normEntry?.tasks ? [...normEntry.tasks] : [];
+                    const matchingEntries = rawNormalizedList.filter(
+                        (entry: any) => normalizeDomainHelper(entry.domain) === normCtxDomain
+                    );
+                    let finalTasks = matchingEntries.flatMap((entry: any) =>
+                        Array.isArray(entry.tasks) ? entry.tasks : []
+                    );
                     
                     // Cắt bớt nếu AI trả thừa bài
                     if (finalTasks.length > ctx.dailyTarget) {
@@ -5362,8 +7502,10 @@ QUY TẮC BẮT BUỘC:
                         const needed = ctx.dailyTarget - finalTasks.length;
                         for (let k = 1; k <= needed; k++) {
                             finalTasks.push({
-                                name: `Bài viết SEO ${ctx.domain} #${finalTasks.length + 1}`,
-                                meta: `Nội dung truyền thông tự động đạt chỉ tiêu ngày ${vDateStrLocal}`,
+                                name: `Kịch bản nội dung ${ctx.domain} #${finalTasks.length + 1}`,
+                                meta: trimmedUserInstruction
+                                    ? `Triển khai theo yêu cầu: ${trimmedUserInstruction} (${vDateStrLocal})`
+                                    : `Nội dung truyền thông tự động đạt chỉ tiêu ngày ${vDateStrLocal}`,
                                 startDate: `${vDateStrIso}T08:00:00`,
                                 endDate: `${vDateStrIso}T17:00:00`
                             });
@@ -5407,7 +7549,10 @@ QUY TẮC BẮT BUỘC:
                     }
                 });
 
-                previewMessage += `👉 *Sếp vui lòng kiểm tra danh sách **${totalTasksCount} công việc** mới ở trên. Bấm nút xác nhận bên dưới để chính thức lưu vào CSDL nhé!*`;
+                const isWritingConfirm = this.isContentWritingCommand(trimmedUserInstruction);
+                previewMessage += isWritingConfirm
+                    ? `👉 *Sếp vui lòng kiểm tra danh sách **${totalTasksCount} chủ đề** ở trên. Bấm nút xác nhận bên dưới để em tiến hành viết chi tiết toàn bộ và lưu vào CSDL nhé!*`
+                    : `👉 *Sếp vui lòng kiểm tra danh sách **${totalTasksCount} công việc** mới ở trên. Bấm nút xác nhận bên dưới để chính thức lưu vào CSDL nhé!*`;
 
                 const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 this.chatHistory.push({
@@ -5422,7 +7567,10 @@ QUY TẮC BẮT BUỘC:
                         year: year,
                         month: month,
                         day: day,
-                        buttonText: `Xác nhận lưu vào CSDL`
+                        userRequest: trimmedUserInstruction,
+                        buttonText: isWritingConfirm
+                            ? `Xác nhận viết & lưu vào CSDL`
+                            : `Xác nhận lưu vào CSDL`
                     },
                     time: nowTime
                 });
@@ -5502,10 +7650,21 @@ QUY TẮC BẮT BUỘC:
             parsed = extractedTasks;
         }
 
+        const firstEnabledDomainName =
+            (this.items || []).find(
+                (it: any) =>
+                    it &&
+                    !it.isTotalRow &&
+                    it.id !== 'total-summary-row' &&
+                    it.id !== 'monthly-total-summary-row' &&
+                    this.isDomainAutoWriteEnabled(it)
+            )?.name || '';
+
         // Nếu AI lười, trả thẳng array task thay vì array domain
         if (parsed.length > 0 && !parsed[0].domain && (parsed[0].name || parsed[0].title)) {
+            if (!firstEnabledDomainName) return false;
             parsed = [{
-                domain: this.items.length > 0 ? this.items[0].name : '',
+                domain: firstEnabledDomainName,
                 tasks: parsed
             }];
         }
@@ -5519,19 +7678,23 @@ QUY TẮC BẮT BUỘC:
             }
 
             if (!parsedDomain.domain && parsedDomain.tasks) {
-                 parsedDomain.domain = this.items.length > 0 ? this.items[0].name : '';
+                parsedDomain.domain = firstEnabledDomainName;
             }
-            const domainName = (parsedDomain.domain || '').toLowerCase().trim().replace(/https?:\/\//, '').replace(/\/$/, '');
-            let existingDomainIndex = this.items.findIndex(d => {
-                const dName = d.name.toLowerCase().trim().replace(/https?:\/\//, '').replace(/\/$/, '');
+            const domainName = this.normalizeDomainKey(parsedDomain.domain || '');
+            if (!domainName) return;
+
+            const existingDomainIndex = this.items.findIndex((d: any) => {
+                if (!d || d.isTotalRow || d.id === 'total-summary-row' || d.id === 'monthly-total-summary-row') return false;
+                const dName = this.normalizeDomainKey(d?.domainData?.domain || d?.name || '');
                 return dName === domainName;
             });
-            
-            // Đã xóa fallback dùng includes() để tránh nhầm lẫn subdomain (ví dụ: type.vn và ai.type.vn)
-            
-            // Fallback nếu không tìm thấy domain khớp
-            if (existingDomainIndex === -1 && this.items.length > 0) {
-                existingDomainIndex = 0; // Tự động gán vào domain đầu tiên
+
+            if (existingDomainIndex === -1) {
+                return;
+            }
+
+            if (!this.editingItem && !this.isDomainAutoWriteEnabled(this.items[existingDomainIndex])) {
+                return;
             }
 
             if (existingDomainIndex > -1) {
@@ -5674,9 +7837,12 @@ QUY TẮC BẮT BUỘC:
                         }
                     });
                     
-                    this.applyPackedTasks(existingDomain, newTasks);
+                    const activeViewMonth = this.month || (new Date().getMonth() + 1);
+                    const activeViewYear = this.year || new Date().getFullYear();
+                    const visibleMonthTasks = newTasks.filter((nt: any) => this.isTaskInMonth(nt, activeViewMonth, activeViewYear));
+                    this.applyPackedTasks(existingDomain, visibleMonthTasks);
                     if ((existingDomain as any).domainData) {
-                        (existingDomain as any).domainData.plan = newTasks;
+                        (existingDomain as any).domainData.plan = visibleMonthTasks;
                     }
                     this.items[existingDomainIndex] = existingDomain;
                 }
@@ -5753,43 +7919,88 @@ QUY TẮC BẮT BUỘC:
     setupDragToScroll() {
         if (!this._timelineElement) return;
         const ele = this._timelineElement.nativeElement as HTMLElement;
-        
+        if (!ele || this.boundTimelineElements.has(ele)) return;
+        this.boundTimelineElements.add(ele);
+
         ele.style.cursor = 'grab';
 
-        ele.addEventListener('mousedown', (e: MouseEvent) => {
-            // Prevent panning if clicking on a timeline item, panel item, button, or resize handle
-            const target = e.target as HTMLElement;
-            if (target.closest('.timeline-item') || target.closest('.panel-item') || target.closest('button') || target.closest('.item-content') || target.closest('[mwlResizeHandle]')) {
-                return;
-            }
-            
-            this.isDraggingTimeline = true;
-            ele.style.cursor = 'grabbing';
-            this.timelineStartX = e.pageX - ele.offsetLeft;
-            this.timelineStartY = e.pageY - ele.offsetTop;
-            this.timelineScrollLeft = ele.scrollLeft;
-            this.timelineScrollTop = ele.scrollTop;
-        });
+        this.zone.runOutsideAngular(() => {
+            const stopCheckboxBubble = (e: Event) => {
+                const target = e.target as HTMLElement | null;
+                if (
+                    target &&
+                    target.classList.contains('domain-autowrite-checkbox')
+                ) {
+                    e.stopPropagation();
+                }
+            };
 
-        ele.addEventListener('mouseleave', () => {
-            this.isDraggingTimeline = false;
-            ele.style.cursor = 'grab';
-        });
+            ele.addEventListener('click', stopCheckboxBubble);
+            ele.addEventListener('touchstart', stopCheckboxBubble, {
+                passive: true,
+            });
 
-        ele.addEventListener('mouseup', () => {
-            this.isDraggingTimeline = false;
-            ele.style.cursor = 'grab';
-        });
+            ele.addEventListener('change', (e: Event) => {
+                const target = e.target as HTMLInputElement | null;
+                if (
+                    target &&
+                    target.classList.contains('domain-autowrite-checkbox')
+                ) {
+                    e.stopPropagation();
+                    const key =
+                        target.getAttribute('data-domain-key') ||
+                        target
+                            .closest('.panel-item')
+                            ?.getAttribute('data-domain-key') ||
+                        '';
+                    if (key) {
+                        this.setDomainAutoWriteByKey(key, !!target.checked);
+                    }
+                }
+            });
 
-        ele.addEventListener('mousemove', (e: MouseEvent) => {
-            if (!this.isDraggingTimeline) return;
-            e.preventDefault();
-            const x = e.pageX - ele.offsetLeft;
-            const y = e.pageY - ele.offsetTop;
-            const walkX = (x - this.timelineStartX) * 1.5; // Scroll speed multiplier
-            const walkY = (y - this.timelineStartY) * 1.5;
-            ele.scrollLeft = this.timelineScrollLeft - walkX;
-            ele.scrollTop = this.timelineScrollTop - walkY;
+            ele.addEventListener('mousedown', (e: MouseEvent) => {
+                const target = e.target as HTMLElement;
+                if (target.classList.contains('domain-autowrite-checkbox')) {
+                    e.stopPropagation();
+                    return;
+                }
+                if (
+                    target.closest(
+                        '.timeline-item, .panel-item, .label, input, button, .item-content, [mwlResizeHandle]'
+                    )
+                ) {
+                    return;
+                }
+
+                this.isDraggingTimeline = true;
+                ele.style.cursor = 'grabbing';
+                this.timelineStartX = e.pageX - ele.offsetLeft;
+                this.timelineStartY = e.pageY - ele.offsetTop;
+                this.timelineScrollLeft = ele.scrollLeft;
+                this.timelineScrollTop = ele.scrollTop;
+            });
+
+            ele.addEventListener('mouseleave', () => {
+                this.isDraggingTimeline = false;
+                ele.style.cursor = 'grab';
+            });
+
+            ele.addEventListener('mouseup', () => {
+                this.isDraggingTimeline = false;
+                ele.style.cursor = 'grab';
+            });
+
+            ele.addEventListener('mousemove', (e: MouseEvent) => {
+                if (!this.isDraggingTimeline) return;
+                e.preventDefault();
+                const x = e.pageX - ele.offsetLeft;
+                const y = e.pageY - ele.offsetTop;
+                const walkX = (x - this.timelineStartX) * 1.5;
+                const walkY = (y - this.timelineStartY) * 1.5;
+                ele.scrollLeft = this.timelineScrollLeft - walkX;
+                ele.scrollTop = this.timelineScrollTop - walkY;
+            });
         });
     }
 }

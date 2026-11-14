@@ -78,6 +78,10 @@ function getArticlesDatabase(username) {
     articlesDbInstances[sanitized] = dbInstance;
 
     dbInstance.serialize(() => {
+        dbInstance.run(`PRAGMA journal_mode = WAL`);
+        dbInstance.run(`PRAGMA synchronous = NORMAL`);
+        dbInstance.run(`PRAGMA temp_store = MEMORY`);
+
         dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_articles (
                 uuid TEXT PRIMARY KEY,
@@ -106,6 +110,8 @@ function getArticlesDatabase(username) {
         `);
         dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_articles_username ON local_articles(username)`);
         dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_articles_updated_at ON local_articles(updated_at)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_articles_user_updated ON local_articles(username, updated_at DESC)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_articles_domain_created ON local_articles(domain, created_at)`);
 
         dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_chats (
@@ -162,6 +168,7 @@ function getArticlesDatabase(username) {
         dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_tasks_username ON local_tasks(username)`);
         dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_tasks_domain_id ON local_tasks(domain_id)`);
         dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_tasks_year ON local_tasks(year)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_tasks_ym ON local_tasks(username, year, month)`);
 
         dbInstance.run(`
             CREATE TABLE IF NOT EXISTS local_nodes (
@@ -1174,14 +1181,52 @@ function registerLocalArticlesHandlers() {
 
     /**
      * Lấy danh sách các bài viết lưu trong database local SQLite (articles.sqlite)
+     * Mặc định chỉ truy xuất metadata siêu nhẹ (bỏ qua content/markdown/done_json/base64 trong source_json)
+     * để không bao giờ gây nghẽn IPC / treo luồng UI khi nạp danh sách hàng nghìn bài viết.
      */
     ipcMain.handle('list-local-articles', async (event, payload) => {
         try {
-            const { username = getActiveLocalUsername(), uuids, keyword, domain } = payload || {};
+            const {
+                username = getActiveLocalUsername(),
+                uuids,
+                keyword,
+                domain,
+                includeContent = false
+            } = payload || {};
             const db = getArticlesDatabase(username);
 
             const rows = await new Promise((resolve, reject) => {
-                let query = 'SELECT a.*, (s.uuid IS NOT NULL) AS has_script FROM local_articles a LEFT JOIN local_scripts s ON a.uuid = s.uuid';
+                const selectCols = includeContent
+                    ? 'a.*, (s.uuid IS NOT NULL) AS has_script'
+                    : `a.uuid,
+                       a.title,
+                       a.url,
+                       a.domain,
+                       a.username,
+                       CASE WHEN length(a.thumbnail) <= 4096 THEN a.thumbnail ELSE NULL END AS thumbnail,
+                       substr(a.description, 1, 600) AS description,
+                       a.tags_json,
+                       CASE
+                           WHEN a.source_json IS NOT NULL AND json_valid(a.source_json) THEN json_object(
+                               'wp_domain', json_extract(a.source_json, '$.wp_domain'),
+                               'wp_post_link', json_extract(a.source_json, '$.wp_post_link'),
+                               'wp_link', json_extract(a.source_json, '$.wp_link'),
+                               'wp_post_id', json_extract(a.source_json, '$.wp_post_id'),
+                               'post_url', json_extract(a.source_json, '$.post_url'),
+                               'wpPosts', json_extract(a.source_json, '$.wpPosts'),
+                               'encrypted', json_extract(a.source_json, '$.encrypted'),
+                               'is_encrypted', json_extract(a.source_json, '$.is_encrypted'),
+                               'style', json_extract(a.source_json, '$.style')
+                           )
+                           ELSE NULL
+                       END AS source_json,
+                       a.is_local,
+                       a.is_encrypted,
+                       a.created_at,
+                       a.updated_at,
+                       (s.uuid IS NOT NULL) AS has_script`;
+
+                let query = `SELECT ${selectCols} FROM local_articles a LEFT JOIN local_scripts s ON a.uuid = s.uuid`;
                 const conditions = [];
                 const params = [];
 
@@ -1234,11 +1279,13 @@ function registerLocalArticlesHandlers() {
                 } catch (e) {}
 
                 let parsedDone = null;
-                try {
-                    if (r.done_json) parsedDone = JSON.parse(r.done_json);
-                } catch (e) {}
+                if (includeContent && r.done_json) {
+                    try {
+                        parsedDone = JSON.parse(r.done_json);
+                    } catch (e) {}
+                }
 
-                return {
+                const item = {
                     uuid: r.uuid,
                     title: r.title,
                     url: r.url,
@@ -1248,13 +1295,20 @@ function registerLocalArticlesHandlers() {
                     description: r.description,
                     tags: parsedTags,
                     source: parsedSource,
-                    done: parsedDone,
                     is_local: true,
                     is_encrypted: !!r.is_encrypted,
                     has_script: !!r.has_script,
                     created_at: r.created_at,
                     updated_at: r.updated_at
                 };
+
+                if (includeContent) {
+                    item.done = parsedDone;
+                    item.content = r.content;
+                    item.markdown = r.markdown;
+                }
+
+                return item;
             });
 
             return { success: true, articles, total: articles.length };
@@ -1842,7 +1896,8 @@ function registerLocalArticlesHandlers() {
                 }
             }
 
-            const preservedExtraKeys = ['_id', '_rev', 'disabledDates', 'plan', 'monthlyTargets'];
+            delete mergedExtra.plan;
+            const preservedExtraKeys = ['_id', '_rev', 'disabledDates', 'monthlyTargets', 'autoWrite'];
             for (const key of preservedExtraKeys) {
                 if (record[key] !== undefined) {
                     mergedExtra[key] = record[key];
@@ -1949,6 +2004,9 @@ function registerLocalArticlesHandlers() {
                 if (sd.extra_json) {
                     try {
                         extra = JSON.parse(sd.extra_json) || {};
+                        if (extra && typeof extra === 'object') {
+                            delete extra.plan;
+                        }
                     } catch (e) {
                         extra = {};
                     }
@@ -1985,13 +2043,15 @@ function registerLocalArticlesHandlers() {
         try {
             const targetUser = (payload && (payload.username || payload.user)) || getActiveLocalUsername();
             const db = getArticlesDatabase(targetUser);
-            const year = payload?.year ? parseInt(payload.year, 10) : new Date().getFullYear();
+            const rawTargetYear = payload?.targetYear ?? payload?.year;
+            const year = rawTargetYear ? parseInt(rawTargetYear, 10) : null;
+            const month = payload?.month ? parseInt(payload.month, 10) : null;
 
             // 1. Lấy tasks từ bảng local_tasks
             let query = 'SELECT * FROM local_tasks WHERE 1=1';
             const params = [];
 
-            if (payload?.year) {
+            if (year && !month) {
                 query += ' AND year = ?';
                 params.push(year);
             }
@@ -2018,6 +2078,22 @@ function registerLocalArticlesHandlers() {
                 } catch (e) {
                     taskObj = {};
                 }
+
+                let resolvedYear = r.year;
+                let resolvedMonth = r.month;
+                let resolvedDay = r.day;
+                if (taskObj && taskObj.startDate) {
+                    const parsedStart = new Date(taskObj.startDate);
+                    if (!isNaN(parsedStart.getTime())) {
+                        resolvedYear = parsedStart.getFullYear();
+                        resolvedMonth = parsedStart.getMonth() + 1;
+                        resolvedDay = parsedStart.getDate();
+                    }
+                }
+
+                if (year && resolvedYear && Number(resolvedYear) !== year) return;
+                if (month && resolvedMonth && Number(resolvedMonth) !== month) return;
+
                 const t = {
                     ...taskObj,
                     _id: r.id,
@@ -2025,9 +2101,9 @@ function registerLocalArticlesHandlers() {
                     username: r.username,
                     domain_id: r.domain_id,
                     domain: r.domain_id,
-                    year: r.year,
-                    month: r.month,
-                    day: r.day,
+                    year: resolvedYear,
+                    month: resolvedMonth,
+                    day: resolvedDay,
                     title: r.title,
                     name: r.title,
                     status: r.status,
@@ -2061,7 +2137,8 @@ function registerLocalArticlesHandlers() {
                 const artMonth = dObj.getMonth() + 1;
                 const artDay = dObj.getDate();
 
-                if (payload?.year && artYear !== year) continue;
+                if (year && artYear !== year) continue;
+                if (month && artMonth !== month) continue;
 
                 const startStr = `${artYear}-${String(artMonth).padStart(2, '0')}-${String(artDay).padStart(2, '0')}T08:00:00`;
                 const endStr = `${artYear}-${String(artMonth).padStart(2, '0')}-${String(artDay).padStart(2, '0')}T17:00:00`;
@@ -2114,9 +2191,11 @@ function registerLocalArticlesHandlers() {
             const db = getArticlesDatabase(username);
             const id = task._id || task.id || ('local_task_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
             const domainId = task.domain_id || task.domain || task.domainName || '';
-            const year = task.year ? parseInt(task.year, 10) : new Date().getFullYear();
-            const month = task.month ? parseInt(task.month, 10) : (new Date().getMonth() + 1);
-            const day = task.day ? parseInt(task.day, 10) : new Date().getDate();
+            const parsedStart = task.startDate ? new Date(task.startDate) : null;
+            const hasValidStart = parsedStart && !isNaN(parsedStart.getTime());
+            const year = task.year ? parseInt(task.year, 10) : (hasValidStart ? parsedStart.getFullYear() : new Date().getFullYear());
+            const month = task.month ? parseInt(task.month, 10) : (hasValidStart ? (parsedStart.getMonth() + 1) : (new Date().getMonth() + 1));
+            const day = task.day ? parseInt(task.day, 10) : (hasValidStart ? parsedStart.getDate() : new Date().getDate());
             const title = task.title || task.name || '';
             const status = task.status || (task.done ? 'done' : 'pending');
             const done = task.done ? 1 : 0;

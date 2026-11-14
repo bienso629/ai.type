@@ -5031,10 +5031,18 @@ ipcMain.handle('get-plugins-status', async (event) => {
             let binToProbe = userColabFoundBinary;
 
             if (binToProbe) {
-                const out = cp.execFileSync(binToProbe, ['--version'], { timeout: 1500, encoding: 'utf8' });
-                if (out && out.trim()) {
-                    colabVersion = out.trim().split(/\s+/).pop();
+                const stat = fs.statSync(binToProbe);
+                const cacheKey = `${binToProbe}:${stat.mtimeMs}`;
+                if (!global.__colabVersionCache || global.__colabVersionCache.key !== cacheKey) {
+                    const out = await new Promise((resolve) => {
+                        cp.execFile(binToProbe, ['--version'], { timeout: 1500, encoding: 'utf8' }, (err, stdout) => {
+                            resolve(err ? '' : (stdout || ''));
+                        });
+                    });
+                    const parsedVer = (out && out.trim()) ? out.trim().split(/\s+/).pop() : colabVersion;
+                    global.__colabVersionCache = { key: cacheKey, version: parsedVer || colabVersion };
                 }
+                colabVersion = global.__colabVersionCache.version;
             } else {
                 const manifestPath = path.join(userPluginsDir, 'colab_agent.json');
                 if (fs.existsSync(manifestPath)) {

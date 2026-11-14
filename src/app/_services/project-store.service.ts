@@ -46,8 +46,17 @@ const LEGACY_KEYS = {
 @Injectable({ providedIn: 'root' })
 export class ProjectStoreService {
     private migrateGuard: Set<string> = new Set();
+    private registryUuidSet: Set<string> | null = null;
+    private registryAccountId: string | null = null;
 
     constructor(private multiAccountService: MultiAccountService) {
+        this.multiAccountService.activeAccount$.subscribe(() => {
+            if (this.registryAccountId !== this.multiAccountService.currentAccountId) {
+                this.registryUuidSet = null;
+                this.registryAccountId = this.multiAccountService.currentAccountId;
+            }
+        });
+
         // Sau khi phiên đăng nhập sẵn sàng, nạp registry từ đĩa ở nền
         // để các kiểm tra hasProject() có dữ liệu ngay cả khi người dùng
         // đi thẳng vào trang khác (không qua Dashboard).
@@ -77,29 +86,49 @@ export class ProjectStoreService {
         return u?.name || u?.username || u?.email || null;
     }
 
-    // ===================== REGISTRY (đồng bộ, siêu nhẹ) =====================
+    // ===================== REGISTRY (đồng bộ, siêu nhẹ, O(1) lookup) =====================
 
     private getRegistry(): any[] {
         return this.multiAccountService.getItem(REGISTRY_KEY) || [];
+    }
+
+    private ensureRegistrySet(): Set<string> {
+        if (!this.registryUuidSet) {
+            const reg = this.getRegistry();
+            this.registryUuidSet = new Set<string>();
+            for (let i = 0; i < reg.length; i++) {
+                const item = reg[i];
+                if (item && item.uuid) {
+                    this.registryUuidSet.add(item.uuid);
+                }
+            }
+            this.registryAccountId = this.multiAccountService.currentAccountId;
+        }
+        return this.registryUuidSet;
     }
 
     private updateRegistry(uuid: string, patch: Partial<ProjectListItem>): void {
         if (!uuid) return;
         const reg = this.getRegistry().filter((r) => r && r.uuid !== uuid);
         reg.unshift({ uuid, updatedAt: Date.now(), ...patch });
-        this.multiAccountService.setItem(REGISTRY_KEY, reg.slice(0, 500));
+        const trimmed = reg.slice(0, 500);
+        this.registryUuidSet = new Set(trimmed.filter((r) => r && r.uuid).map((r) => r.uuid));
+        this.multiAccountService.setItem(REGISTRY_KEY, trimmed);
     }
 
     private removeFromRegistry(uuid: string): void {
         if (!uuid) return;
         const reg = this.getRegistry().filter((r) => r && r.uuid !== uuid);
+        if (this.registryUuidSet) {
+            this.registryUuidSet.delete(uuid);
+        }
         this.multiAccountService.setItem(REGISTRY_KEY, reg);
     }
 
-    /** Kiểm tra đồng bộ (dành cho template) dựa trên registry */
+    /** Kiểm tra đồng bộ O(1) (dành cho template) dựa trên Set cache trong RAM */
     hasProject(uuid: string | null | undefined): boolean {
         if (!uuid) return false;
-        return this.getRegistry().some((r) => r && r.uuid === uuid);
+        return this.ensureRegistrySet().has(uuid);
     }
 
     /** Kiểm tra nền: nếu registry thiếu nhưng đĩa có thì tự bổ sung (best-effort) */
@@ -256,7 +285,9 @@ export class ProjectStoreService {
             hasCasting: !!p.hasCasting,
             updatedAt: p.updatedAt || 0,
         }));
-        this.multiAccountService.setItem(REGISTRY_KEY, reg.slice(0, 500));
+        const trimmed = reg.slice(0, 500);
+        this.registryUuidSet = new Set(trimmed.filter((r) => r && r.uuid).map((r) => r.uuid));
+        this.multiAccountService.setItem(REGISTRY_KEY, trimmed);
     }
 
     // ===================== MIGRATION (1 lần / tài khoản) =====================

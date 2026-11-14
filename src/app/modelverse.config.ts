@@ -185,6 +185,13 @@ export function getModelverseConfig(modelName: string): VideoModelConfig | undef
 // TEXT / CHAT MODEL CONFIGURATION
 // ==========================================
 
+export type ThinkingControlMode =
+    | 'thinking_object'
+    | 'enable_thinking'
+    | 'reasoning_effort'
+    | 'gemini_thinking'
+    | 'anthropic_thinking';
+
 export interface TextModelConfig {
     // API chuẩn: openai (mặc định), anthropic (claude), gemini, custom
     apiFormat: 'openai' | 'anthropic' | 'gemini' | 'custom';
@@ -192,8 +199,11 @@ export interface TextModelConfig {
     // Tên endpoint thay thế nếu không dùng /chat/completions mặc định (tương đối so với gốc đã có phiên bản, VD: '/messages')
     endpointOverride?: string;
     
-    // Sử dụng max_completion_tokens thay vì max_tokens (Thường dùng cho model reasoning như o1, o3, deepseek-reasoner)
+    // Sử dụng max_completion_tokens thay vì max_tokens (Thường dùng cho model reasoning như gpt-5, o1, o3, o4, deepseek-reasoner)
     useMaxCompletionTokens?: boolean;
+
+    // Cơ chế điều khiển / tắt suy luận trung gian tương ứng của từng họ model
+    thinkingControl?: ThinkingControlMode;
     
     // Các tham số extra tuỳ chỉnh (vd: { "search": true } cho doubao)
     extraParams?: Record<string, any>;
@@ -204,32 +214,109 @@ export const TEXT_MODEL_CONFIGS: Record<string, TextModelConfig> = {
         apiFormat: 'anthropic',
         // Tương đối so với gốc có phiên bản => .../v1/messages. Proxy không có /messages sẽ tự lùi về /chat/completions
         endpointOverride: '/messages',
+        thinkingControl: 'anthropic_thinking'
     },
     'gemini': {
         apiFormat: 'openai',
+        thinkingControl: 'reasoning_effort'
     },
     'deepseek-reasoner': {
         apiFormat: 'openai',
-        useMaxCompletionTokens: true
+        useMaxCompletionTokens: true,
+        thinkingControl: 'reasoning_effort'
+    },
+    'deepseek-r1': {
+        apiFormat: 'openai',
+        thinkingControl: 'reasoning_effort'
     },
     'deepseek': {
-        apiFormat: 'openai'
+        apiFormat: 'openai',
+        thinkingControl: 'thinking_object'
+    },
+    'gpt-5': {
+        apiFormat: 'openai',
+        useMaxCompletionTokens: true,
+        thinkingControl: 'reasoning_effort'
     },
     'o1': {
         apiFormat: 'openai',
-        useMaxCompletionTokens: true
+        useMaxCompletionTokens: true,
+        thinkingControl: 'reasoning_effort'
     },
     'o3': {
         apiFormat: 'openai',
-        useMaxCompletionTokens: true
+        useMaxCompletionTokens: true,
+        thinkingControl: 'reasoning_effort'
+    },
+    'o4': {
+        apiFormat: 'openai',
+        useMaxCompletionTokens: true,
+        thinkingControl: 'reasoning_effort'
+    },
+    'grok': {
+        apiFormat: 'openai',
+        thinkingControl: 'reasoning_effort'
+    },
+    'glm': {
+        apiFormat: 'openai',
+        thinkingControl: 'thinking_object'
     },
     'doubao': {
-        apiFormat: 'openai'
+        apiFormat: 'openai',
+        thinkingControl: 'thinking_object'
+    },
+    'seed': {
+        apiFormat: 'openai',
+        thinkingControl: 'thinking_object'
+    },
+    'kimi': {
+        apiFormat: 'openai',
+        thinkingControl: 'thinking_object'
+    },
+    'moonshot': {
+        apiFormat: 'openai',
+        thinkingControl: 'thinking_object'
+    },
+    'qwen': {
+        apiFormat: 'openai',
+        thinkingControl: 'enable_thinking'
+    },
+    'qwq': {
+        apiFormat: 'openai',
+        thinkingControl: 'enable_thinking'
+    },
+    'hunyuan': {
+        apiFormat: 'openai',
+        thinkingControl: 'enable_thinking'
+    },
+    'ernie': {
+        apiFormat: 'openai',
+        thinkingControl: 'enable_thinking'
+    },
+    'minimax': {
+        apiFormat: 'openai',
+        thinkingControl: 'enable_thinking'
+    },
+    'magistral': {
+        apiFormat: 'openai',
+        thinkingControl: 'reasoning_effort'
+    },
+    'mistral': {
+        apiFormat: 'openai',
+        thinkingControl: 'reasoning_effort'
+    },
+    'llama': {
+        apiFormat: 'openai',
+        thinkingControl: 'reasoning_effort'
+    },
+    'nemotron': {
+        apiFormat: 'openai',
+        thinkingControl: 'reasoning_effort'
     }
 };
 
 /**
- * Trả về config text cho model name. Nếu không có, mặc định dùng chuẩn OpenAI.
+ * Trả về config text cho model name. Nếu không có, mặc định dùng chuẩn OpenAI kèm chuẩn reasoning_effort phổ quát.
  */
 export function getTextModelConfig(modelName: string): TextModelConfig {
     if (modelName) {
@@ -240,6 +327,6 @@ export function getTextModelConfig(modelName: string): TextModelConfig {
             }
         }
     }
-    // Mặc định luôn là chuẩn OpenAI
-    return { apiFormat: 'openai' };
+    // Mặc định luôn là chuẩn OpenAI với cơ chế điều khiển reasoning_effort chuẩn OpenAI
+    return { apiFormat: 'openai', thinkingControl: 'reasoning_effort' };
 }

@@ -1,46 +1,14 @@
-import { Directive, ElementRef, HostListener, Input, DoCheck } from '@angular/core';
+import { Directive, Input } from '@angular/core';
 
 @Directive({
     selector: 'ngx-datatable[appScrollLock]',
     standalone: false
 })
-export class DatatableScrollLockDirective implements DoCheck {
-    private scrollerElement: HTMLElement;
-    private _isLoading = false;
-
+export class DatatableScrollLockDirective {
+    /**
+     * Giữ input tương thích cho toàn bộ template đang bind [appScrollLock]="isLoading",
+     * nhưng KHÔNG khóa cứng overflow hoặc chặn sự kiện wheel/touchmove để người dùng
+     * luôn có thể cuộn xem và thao tác mượt mà ngay trong lúc dữ liệu đang tải nền.
+     */
     @Input('appScrollLock') appScrollLock: boolean = false;
-
-    constructor(private el: ElementRef) {}
-
-    ngDoCheck() {
-        if (this._isLoading !== this.appScrollLock) {
-            this._isLoading = this.appScrollLock;
-            this.toggleScrollLock(this.appScrollLock);
-        }
-    }
-
-    private toggleScrollLock(lock: boolean) {
-        if (!this.scrollerElement) {
-            this.scrollerElement = this.el.nativeElement.querySelector('datatable-body');
-        }
-
-        if (this.scrollerElement) {
-            if (lock) {
-                this.scrollerElement.style.setProperty('overflow', 'hidden', 'important');
-                this.scrollerElement.style.setProperty('overflow-y', 'hidden', 'important');
-            } else {
-                this.scrollerElement.style.removeProperty('overflow');
-                this.scrollerElement.style.removeProperty('overflow-y');
-            }
-        }
-    }
-
-    @HostListener('wheel', ['$event'])
-    @HostListener('touchmove', ['$event'])
-    onScroll(event: Event) {
-        if (this._isLoading) {
-            event.preventDefault();
-            event.stopPropagation();
-        }
-    }
 }

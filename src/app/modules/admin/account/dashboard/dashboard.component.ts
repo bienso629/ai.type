@@ -677,22 +677,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
                     this.initialLoadCount = 0;
                 }
 
-                // Wait for profile setup
+                // Kích hoạt tải dữ liệu Dashboard ngay lập tức nếu đã có thông tin tài khoản,
+                // tránh vòng lặp setInterval 100ms gây trễ và kích hoạt Change Detection thừa.
                 if (this.profileSyncInterval) {
                     clearInterval(this.profileSyncInterval);
                     this.profileSyncInterval = null;
                 }
-                this.profileSyncInterval = setInterval(() => {
-                    const currentUname = this.user?.name || this.multiAccountService.getItem('user')?.name;
-                    if (currentUname) {
-                        clearInterval(this.profileSyncInterval);
-                        this.profileSyncInterval = null;
-                        this.account();
-                        this.fetchDomains();
-                        this.collection();
-                        this.statistic();
-                    }
-                }, 100);
+                const runProfileDataLoad = () => {
+                    this.account();
+                    this.fetchDomains();
+                    this.collection();
+                    this.statistic();
+                };
+                const immediateUname = this.user?.name || this.multiAccountService.getItem('user')?.name;
+                if (immediateUname) {
+                    runProfileDataLoad();
+                } else {
+                    this.profileSyncInterval = setInterval(() => {
+                        const currentUname = this.user?.name || this.multiAccountService.getItem('user')?.name;
+                        if (currentUname) {
+                            clearInterval(this.profileSyncInterval);
+                            this.profileSyncInterval = null;
+                            runProfileDataLoad();
+                        }
+                    }, 100);
+                }
 
                 // Get video projects being built (nguồn sự thật: đĩa qua project-store)
                 setTimeout(() => {
@@ -712,9 +721,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
                         .catch((e) =>
                             console.error('[dashboard] Lỗi load video projects:', e),
                         );
-                }, 500); // wait a bit to ensure user profile đã sẵn sàng
+                }, 150);
             });
     }
+
+    private _chartUpdateRaf: number | null = null;
 
     ngOnInit(): void {
         const rawTargets = this.domainTargets;
@@ -731,6 +742,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         if (this.profileSyncInterval) {
             clearInterval(this.profileSyncInterval);
             this.profileSyncInterval = null;
+        }
+        if (this._chartUpdateRaf !== null && typeof cancelAnimationFrame === 'function') {
+            cancelAnimationFrame(this._chartUpdateRaf);
+            this._chartUpdateRaf = null;
         }
         // Unsubscribe from all subscriptions
         this._unsubscribeAll.next(null);
@@ -826,6 +841,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     updateChart() {
+        if (typeof requestAnimationFrame === 'function') {
+            if (this._chartUpdateRaf !== null) {
+                cancelAnimationFrame(this._chartUpdateRaf);
+            }
+            this._chartUpdateRaf = requestAnimationFrame(() => {
+                this._chartUpdateRaf = null;
+                this._renderChartsNow();
+                this._changeDetectorRef.markForCheck();
+            });
+            return;
+        }
+        this._renderChartsNow();
+    }
+
+    private _renderChartsNow() {
         let domainStatsData =
             this.statistics && this.statistics.domainStats
                 ? this.statistics.domainStats

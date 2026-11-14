@@ -82,15 +82,18 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
     ngOnInit(): void {
         this.loadTools();
-        this.checkZaloStatus();
-
-        // Định kỳ kiểm tra trạng thái Zalo để cập nhật hiệu ứng nhấp nháy
-        this._intervalId = setInterval(() => {
+        this._ngZone.runOutsideAngular(() => {
             this.checkZaloStatus();
-        }, 5000);
+
+            // Định kỳ kiểm tra trạng thái Zalo ở ngoài NgZone để tránh kích hoạt Change Detection toàn cục liên tục
+            this._intervalId = setInterval(() => {
+                this.checkZaloStatus();
+            }, 15000);
+        });
     }
 
     async checkZaloStatus() {
+        let nextStatus = this.isZaloRunningBackground;
         if (
             (window as any).electronAPI &&
             (window as any).electronAPI.getPluginsStatus
@@ -100,17 +103,22 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                     window as any
                 ).electronAPI.getPluginsStatus();
                 const zalo = list.find((p: any) => p.id === 'zalo_reply');
-                this.isZaloRunningBackground = zalo
-                    ? zalo.installed && zalo.enabled
+                nextStatus = zalo
+                    ? !!(zalo.installed && zalo.enabled)
                     : false;
             } catch (e) {
-                this.isZaloRunningBackground = false;
+                nextStatus = false;
             }
         } else {
             // Chạy trên browser dev mode thì hiển thị mặc định
-            this.isZaloRunningBackground = true;
+            nextStatus = true;
         }
-        this.cd.detectChanges();
+        if (nextStatus !== this.isZaloRunningBackground) {
+            this._ngZone.run(() => {
+                this.isZaloRunningBackground = nextStatus;
+                this.cd.detectChanges();
+            });
+        }
     }
 
     isZaloTool(tool: ToolItem): boolean {

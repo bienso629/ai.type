@@ -90,10 +90,8 @@
             [appScrollLock]="isLoading"
             [virtualization]="true"
             #table
-            class="material fullscreen transition-opacity duration-300"
+            class="material fullscreen"
             [columnMode]="ColumnMode.force"
-            [class.pointer-events-none]="isLoading"
-            [class.opacity-50]="isLoading"
             [selected]="selected"
             [selectionType]="SelectionType.checkbox"
             [selectAllRowsOnPage]="false"

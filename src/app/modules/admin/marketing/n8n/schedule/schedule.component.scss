@@ -62,6 +62,14 @@ amxh-schedule {
         background-color: #ffffff !important;
         border-bottom: 1px solid #e9eef4 !important;
         font-weight: 600;
+        gap: 8px;
+    }
+
+    .domain-autowrite-checkbox,
+    .panel-master-checkbox {
+        pointer-events: auto !important;
+        cursor: pointer !important;
+        accent-color: #4f46e5;
     }
 
     .panel {
@@ -143,6 +151,10 @@ amxh-schedule {
         }
     }
 
+    .schedule-item-loading {
+        animation: scheduleItemLoadingFade 1.6s ease-in-out infinite;
+    }
+
     timeline-date-marker {
         .date-marker {
             width: 1px !important;
@@ -150,6 +162,15 @@ amxh-schedule {
             background-color: #facc15 !important;
             opacity: 1 !important;
         }
+    }
+}
+
+@keyframes scheduleItemLoadingFade {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.78;
     }
 }
 

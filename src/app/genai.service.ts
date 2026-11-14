@@ -38,6 +38,14 @@ export class GenaiService {
     private static readonly VOLCE_ASSET_CACHE_KEY = 'ai_type_volce_asset_cache_v1';
     private static _volceAssetGroupCache: Record<string, string> = {};
     private static _volceAssetUrlCache: Record<string, string> | null = null;
+    private static _volceGroupInFlight = new Map<string, Promise<string>>();
+    private static _volceAssetInFlight = new Map<string, Promise<string>>();
+    private static _cdnUploadCache = new Map<string, string>();
+    private static _cdnUploadInFlight = new Map<string, Promise<string | null>>();
+    private static _lastCdnUploadStartMs = 0;
+    private static _modelsListCache = new Map<string, { ids: string[]; expiresAt: number }>();
+    private static _modelsListInFlight = new Map<string, Promise<string[]>>();
+    private static _lastVideoTaskSubmitMs = 0;
 
     private localAgentAbortController?: AbortController;
 
@@ -74,75 +82,108 @@ export class GenaiService {
      * Dùng cho Kling API vì UModelverse proxy không hỗ trợ ConvertImageRequest.
      */
     public async uploadBase64ToCdn(base64Data: string, filename?: string, folder?: string): Promise<string | null> {
-        try {
-            // Chuyển base64 thành Blob
-            let mimeType = 'image/jpeg';
-            let rawBase64 = base64Data;
-            if (base64Data.startsWith('data:')) {
-                const match = base64Data.match(/^data:([a-zA-Z0-9]+\/[^;]+);base64,/);
-                if (match) mimeType = match[1];
-                rawBase64 = base64Data.split(',')[1];
-            }
+        let mimeType = 'image/jpeg';
+        let rawBase64 = base64Data || '';
+        if (rawBase64.startsWith('data:')) {
+            const match = rawBase64.match(/^data:([a-zA-Z0-9]+\/[^;]+);base64,/);
+            if (match) mimeType = match[1];
+            rawBase64 = rawBase64.split(',')[1] || '';
+        }
+        if (!rawBase64) return null;
 
-            const dataUri = `data:${mimeType};base64,${rawBase64}`;
-            const fileResp = await fetch(dataUri);
-            const blob = await fileResp.blob();
+        const cacheKey = `${folder || ''}|${mimeType}|${rawBase64.length}|${GenaiService.computeVolceSourceHash(rawBase64)}`;
+        const cachedCdnUrl = GenaiService._cdnUploadCache.get(cacheKey);
+        if (cachedCdnUrl) {
+            return cachedCdnUrl;
+        }
+        const inFlightUpload = GenaiService._cdnUploadInFlight.get(cacheKey);
+        if (inFlightUpload) {
+            return inFlightUpload;
+        }
 
-            // Tạo File + FormData
-            let ext = 'jpg';
-            if (mimeType.includes('png')) ext = 'png';
-            else if (mimeType.includes('mp4')) ext = 'mp4';
-            else if (mimeType.includes('webm')) ext = 'webm';
-            else if (mimeType.includes('quicktime')) ext = 'mov';
+        const uploadPromise = (async (): Promise<string | null> => {
+            try {
+                const dataUri = `data:${mimeType};base64,${rawBase64}`;
+                const fileResp = await fetch(dataUri);
+                const blob = await fileResp.blob();
 
-            const fname = filename || `kling_upload_${Date.now()}.${ext}`;
-            const file = new File([blob], fname, { type: mimeType });
+                // Tạo File + FormData
+                let ext = 'jpg';
+                if (mimeType.includes('png')) ext = 'png';
+                else if (mimeType.includes('mp4')) ext = 'mp4';
+                else if (mimeType.includes('webm')) ext = 'webm';
+                else if (mimeType.includes('quicktime')) ext = 'mov';
 
-            const formData = new FormData();
-            formData.append('files', file); // CDN server dùng multer.array('files')
-            if (folder) {
-                formData.append('folder', folder);
-            }
+                // Giãn tối thiểu 35ms giữa hai lượt upload song song để tránh trùng timestamp Date.now() phía CDN server
+                const nowMs = Date.now();
+                const scheduledMs = Math.max(nowMs, GenaiService._lastCdnUploadStartMs + 35);
+                GenaiService._lastCdnUploadStartMs = scheduledMs;
+                const delayMs = scheduledMs - nowMs;
+                if (delayMs > 0) {
+                    await new Promise((r) => setTimeout(r, delayMs));
+                }
 
-            // Upload lên CDN server (cdn1.type.vn)
-            const uploadUrl = 'https://cdn1.type.vn/upload';
-            console.log(`[CDN Upload] Uploading ${fname} (${Math.round(rawBase64.length / 1024)}KB) to ${uploadUrl}...`);
+                const randSuffix = Math.random().toString(36).slice(2, 7);
+                const fname = filename || `kling_upload_${Date.now()}_${randSuffix}.${ext}`;
+                const file = new File([blob], fname, { type: mimeType });
 
-            const response = await fetch(uploadUrl, {
-                method: 'POST',
-                headers: {
-                    'x-api-key': 'type-vn-secret-key-2026-yenai-dep-trai'
-                },
-                body: formData
-            });
+                const formData = new FormData();
+                formData.append('files', file); // CDN server dùng multer.array('files')
+                if (folder) {
+                    formData.append('folder', folder);
+                }
 
-            if (!response.ok) {
-                console.error(`[CDN Upload] HTTP ${response.status}: ${await response.text()}`);
+                // Upload lên CDN server (cdn1.type.vn)
+                const uploadUrl = 'https://cdn1.type.vn/upload';
+                console.log(`[CDN Upload] Uploading ${fname} (${Math.round(rawBase64.length / 1024)}KB) to ${uploadUrl}...`);
+
+                const response = await fetch(uploadUrl, {
+                    method: 'POST',
+                    headers: {
+                        'x-api-key': 'type-vn-secret-key-2026-yenai-dep-trai'
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    console.error(`[CDN Upload] HTTP ${response.status}: ${await response.text()}`);
+                    return null;
+                }
+
+                const result = await response.json();
+
+                let resolvedUrl: string | null = null;
+                // Server trả về { url: "origin/public/filename", filename: "timestamp.ext" }
+                if (result?.filename) {
+                    resolvedUrl = `https://cdn1.type.vn/public/${result.filename}`;
+                    console.log(`[CDN Upload] Thành công! URL: ${resolvedUrl}`);
+                } else if (result?.url) {
+                    // Fallback: nếu server trả url trực tiếp, thay origin bằng domain CDN thật
+                    resolvedUrl = result.url.replace(/^https?:\/\/[^\/]+/, 'https://cdn1.type.vn');
+                    console.log(`[CDN Upload] Thành công (fallback)! URL: ${resolvedUrl}`);
+                } else {
+                    console.warn('[CDN Upload] Không tìm thấy filename/url trong response:', result);
+                }
+
+                if (resolvedUrl) {
+                    if (GenaiService._cdnUploadCache.size >= 250) {
+                        const oldestKey = GenaiService._cdnUploadCache.keys().next().value;
+                        if (oldestKey) GenaiService._cdnUploadCache.delete(oldestKey);
+                    }
+                    GenaiService._cdnUploadCache.set(cacheKey, resolvedUrl);
+                }
+                return resolvedUrl;
+            } catch (err) {
+                console.error('[CDN Upload] Lỗi upload:', err);
                 return null;
             }
+        })();
 
-            const result = await response.json();
-
-            // Server trả về { url: "origin/public/filename", filename: "timestamp.ext" }
-            if (result?.filename) {
-                const cdnUrl = `https://cdn1.type.vn/public/${result.filename}`;
-                console.log(`[CDN Upload] Thành công! URL: ${cdnUrl}`);
-                return cdnUrl;
-            }
-
-            // Fallback: nếu server trả url trực tiếp
-            if (result?.url) {
-                // Thay origin bằng domain CDN thật
-                const cdnUrl = result.url.replace(/^https?:\/\/[^\/]+/, 'https://cdn1.type.vn');
-                console.log(`[CDN Upload] Thành công (fallback)! URL: ${cdnUrl}`);
-                return cdnUrl;
-            }
-
-            console.warn('[CDN Upload] Không tìm thấy filename/url trong response:', result);
-            return null;
-        } catch (err) {
-            console.error('[CDN Upload] Lỗi upload:', err);
-            return null;
+        GenaiService._cdnUploadInFlight.set(cacheKey, uploadPromise);
+        try {
+            return await uploadPromise;
+        } finally {
+            GenaiService._cdnUploadInFlight.delete(cacheKey);
         }
     }
 
@@ -343,53 +384,66 @@ export class GenaiService {
         if (GenaiService._volceAssetGroupCache[groupCacheKey]) {
             return GenaiService._volceAssetGroupCache[groupCacheKey];
         }
+        const existingInFlight = GenaiService._volceGroupInFlight.get(groupCacheKey);
+        if (existingInFlight) {
+            return existingInFlight;
+        }
 
-        try {
-            const listRes = await fetch(`${baseWithV1}/volce-asset/groups/list`, {
+        const groupPromise = (async (): Promise<string> => {
+            try {
+                const listRes = await fetch(`${baseWithV1}/volce-asset/groups/list`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        asset_region: assetRegion,
+                        page_number: 1,
+                        page_size: 50
+                    })
+                });
+                const listText = await listRes.text();
+                let listData: any = {};
+                try { listData = JSON.parse(listText); } catch { listData = {}; }
+                const items: any[] = listData?.output?.data?.items || listData?.data?.items || listData?.items || [];
+                if (Array.isArray(items)) {
+                    const matched = items.find(
+                        (g: any) => g && g.id && g.group_type === 'AIGC' && (g.asset_region || 'cn') === assetRegion
+                    );
+                    if (matched?.id) {
+                        GenaiService._volceAssetGroupCache[groupCacheKey] = matched.id;
+                        return matched.id;
+                    }
+                }
+            } catch (err) {
+                console.warn('[VolceAsset] Lỗi truy vấn danh sách group, tiến hành tạo mới:', err);
+            }
+
+            const createRes = await fetch(`${baseWithV1}/volce-asset/groups/create`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
-                    asset_region: assetRegion,
-                    page_number: 1,
-                    page_size: 50
+                    name: `ai-type-aigc-${assetRegion}`,
+                    description: 'AI.Type AIGC media assets for ByteDance Seedance',
+                    group_type: 'AIGC',
+                    asset_region: assetRegion
                 })
             });
-            const listText = await listRes.text();
-            let listData: any = {};
-            try { listData = JSON.parse(listText); } catch { listData = {}; }
-            const items: any[] = listData?.output?.data?.items || listData?.data?.items || listData?.items || [];
-            if (Array.isArray(items)) {
-                const matched = items.find(
-                    (g: any) => g && g.id && g.group_type === 'AIGC' && (g.asset_region || 'cn') === assetRegion
-                );
-                if (matched?.id) {
-                    GenaiService._volceAssetGroupCache[groupCacheKey] = matched.id;
-                    return matched.id;
-                }
+            const createText = await createRes.text();
+            let createData: any = {};
+            try { createData = JSON.parse(createText); } catch { createData = {}; }
+            const groupId = createData?.output?.data?.id || createData?.data?.id || createData?.id || '';
+            if (!groupId) {
+                throw new Error(`Không thể khởi tạo nhóm Volcengine AIGC Asset (${assetRegion}): ${createText.substring(0, 240)}`);
             }
-        } catch (err) {
-            console.warn('[VolceAsset] Lỗi truy vấn danh sách group, tiến hành tạo mới:', err);
-        }
+            GenaiService._volceAssetGroupCache[groupCacheKey] = groupId;
+            return groupId;
+        })();
 
-        const createRes = await fetch(`${baseWithV1}/volce-asset/groups/create`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-                name: `ai-type-aigc-${assetRegion}`,
-                description: 'AI.Type AIGC media assets for ByteDance Seedance',
-                group_type: 'AIGC',
-                asset_region: assetRegion
-            })
-        });
-        const createText = await createRes.text();
-        let createData: any = {};
-        try { createData = JSON.parse(createText); } catch { createData = {}; }
-        const groupId = createData?.output?.data?.id || createData?.data?.id || createData?.id || '';
-        if (!groupId) {
-            throw new Error(`Không thể khởi tạo nhóm Volcengine AIGC Asset (${assetRegion}): ${createText.substring(0, 240)}`);
+        GenaiService._volceGroupInFlight.set(groupCacheKey, groupPromise);
+        try {
+            return await groupPromise;
+        } finally {
+            GenaiService._volceGroupInFlight.delete(groupCacheKey);
         }
-        GenaiService._volceAssetGroupCache[groupCacheKey] = groupId;
-        return groupId;
     }
 
     /**
@@ -419,146 +473,161 @@ export class GenaiService {
         if (!forceRefresh && urlCache[cacheKey] && urlCache[cacheKey].startsWith('asset://')) {
             return urlCache[cacheKey];
         }
+        if (!forceRefresh) {
+            const pendingAsset = GenaiService._volceAssetInFlight.get(cacheKey);
+            if (pendingAsset) {
+                return pendingAsset;
+            }
+        }
         if (forceRefresh && urlCache[cacheKey]) {
             delete urlCache[cacheKey];
             GenaiService.saveVolceAssetUrlCache();
         }
 
-        const groupId = await this.getOrCreateVolceAigcGroup(baseWithV1, headers, keyFp, assetRegion);
-        const assetName = `aigc-${assetRegion}-${hash}`;
+        const registerPromise = (async (): Promise<string> => {
+            const groupId = await this.getOrCreateVolceAigcGroup(baseWithV1, headers, keyFp, assetRegion);
+            const assetName = `aigc-${assetRegion}-${hash}`;
 
-        const lookupExistingByName = async (): Promise<{ id: string; status: string } | null> => {
-            try {
-                const listRes = await fetch(`${baseWithV1}/volce-asset/assets/list`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        asset_region: assetRegion,
-                        filter: {
-                            group_ids: [groupId],
-                            group_type: 'AIGC',
-                            name: assetName
-                        },
-                        page_number: 1,
-                        page_size: 10
-                    })
-                });
-                const listText = await listRes.text();
-                let listData: any = {};
-                try { listData = JSON.parse(listText); } catch { listData = {}; }
-                const items: any[] = listData?.output?.data?.items || listData?.data?.items || listData?.items || [];
-                if (!Array.isArray(items) || items.length === 0) return null;
-                const exact = items.filter((it: any) => it && it.id && it.name === assetName);
-                const pool = exact.length > 0 ? exact : items.filter((it: any) => it && it.id);
-                const activeItem = pool.find((it: any) => it.status === 'Active');
-                if (activeItem) return { id: activeItem.id, status: 'Active' };
-                const procItem = pool.find((it: any) => it.status === 'Processing');
-                if (procItem) return { id: procItem.id, status: 'Processing' };
-                return null;
-            } catch {
-                return null;
-            }
-        };
+            const lookupExistingByName = async (): Promise<{ id: string; status: string } | null> => {
+                try {
+                    const listRes = await fetch(`${baseWithV1}/volce-asset/assets/list`, {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({
+                            asset_region: assetRegion,
+                            filter: {
+                                group_ids: [groupId],
+                                group_type: 'AIGC',
+                                name: assetName
+                            },
+                            page_number: 1,
+                            page_size: 10
+                        })
+                    });
+                    const listText = await listRes.text();
+                    let listData: any = {};
+                    try { listData = JSON.parse(listText); } catch { listData = {}; }
+                    const items: any[] = listData?.output?.data?.items || listData?.data?.items || listData?.items || [];
+                    if (!Array.isArray(items) || items.length === 0) return null;
+                    const exact = items.filter((it: any) => it && it.id && it.name === assetName);
+                    const pool = exact.length > 0 ? exact : items.filter((it: any) => it && it.id);
+                    const activeItem = pool.find((it: any) => it.status === 'Active');
+                    if (activeItem) return { id: activeItem.id, status: 'Active' };
+                    const procItem = pool.find((it: any) => it.status === 'Processing');
+                    if (procItem) return { id: procItem.id, status: 'Processing' };
+                    return null;
+                } catch {
+                    return null;
+                }
+            };
 
-        let assetId = '';
-        if (!forceRefresh) {
-            const existing = await lookupExistingByName();
-            if (existing?.status === 'Active') {
-                const uri = `asset://${existing.id}`;
-                urlCache[cacheKey] = uri;
-                GenaiService.saveVolceAssetUrlCache();
-                console.log(`[VolceAsset] Tái sử dụng asset có sẵn (${assetRegion}): ${uri}`);
-                return uri;
-            }
-            if (existing?.status === 'Processing') {
-                assetId = existing.id;
-                console.log(`[VolceAsset] Asset đang xử lý sẵn (${assetRegion}): ${assetId}, chuyển sang chờ Active...`);
-            }
-        }
-
-        if (!assetId) {
-            const publicUrl = assetType === 'Image'
-                ? await this.ensureVolceCompatibleImageUrl(mediaSource, hash)
-                : mediaSource;
-
-            console.log(`[VolceAsset] Đang đăng ký ${assetType} vào group ${groupId} (${assetRegion}): ${publicUrl}`);
-            let createRawText = '';
-            try {
-                const createRes = await fetch(`${baseWithV1}/volce-asset/assets/create`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        group_id: groupId,
-                        url: publicUrl,
-                        name: assetName,
-                        asset_type: assetType,
-                        asset_region: assetRegion
-                    })
-                });
-                createRawText = await createRes.text();
-                let createData: any = {};
-                try { createData = JSON.parse(createRawText); } catch { createData = {}; }
-                assetId = createData?.output?.data?.id || createData?.data?.id || createData?.id || '';
-            } catch (createErr: any) {
-                createRawText = String(createErr?.message || createErr || '');
-                console.warn('[VolceAsset] Ngoại lệ khi gọi assets/create, thử truy vấn lại qua assets/list:', createRawText);
-            }
-
-            // Phục hồi khi cổng proxy (Cloudflare 524) timeout nhưng Volcengine backend vẫn tạo asset thành công
-            if (!assetId) {
-                const recovered = await lookupExistingByName();
-                if (recovered?.status === 'Active') {
-                    const uri = `asset://${recovered.id}`;
+            let assetId = '';
+            if (!forceRefresh) {
+                const existing = await lookupExistingByName();
+                if (existing?.status === 'Active') {
+                    const uri = `asset://${existing.id}`;
                     urlCache[cacheKey] = uri;
                     GenaiService.saveVolceAssetUrlCache();
-                    console.log(`[VolceAsset] Phục hồi thành công asset Active sau gateway timeout (${assetRegion}): ${uri}`);
+                    console.log(`[VolceAsset] Tái sử dụng asset có sẵn (${assetRegion}): ${uri}`);
                     return uri;
                 }
-                if (recovered?.id) {
-                    assetId = recovered.id;
-                    console.log(`[VolceAsset] Phục hồi ID asset đang xử lý (${assetRegion}): ${assetId}`);
+                if (existing?.status === 'Processing') {
+                    assetId = existing.id;
+                    console.log(`[VolceAsset] Asset đang xử lý sẵn (${assetRegion}): ${assetId}, chuyển sang chờ Active...`);
                 }
             }
 
             if (!assetId) {
-                throw new Error(`Đăng ký ảnh nhân vật lên Volcengine Asset thất bại: ${createRawText.substring(0, 240)}`);
-            }
-        }
+                const publicUrl = assetType === 'Image'
+                    ? await this.ensureVolceCompatibleImageUrl(mediaSource, hash)
+                    : mediaSource;
 
-        for (let attempt = 1; attempt <= 48; attempt++) {
-            try {
-                const getRes = await fetch(`${baseWithV1}/volce-asset/assets/get`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        id: assetId,
-                        asset_region: assetRegion
-                    })
-                });
-                const getText = await getRes.text();
-                let getData: any = {};
-                try { getData = JSON.parse(getText); } catch { getData = {}; }
-                const status = getData?.output?.data?.status || getData?.data?.status || getData?.status || '';
-                if (status === 'Active') {
-                    const uri = `asset://${assetId}`;
-                    urlCache[cacheKey] = uri;
-                    GenaiService.saveVolceAssetUrlCache();
-                    console.log(`[VolceAsset] Asset đã Active (${assetRegion}): ${uri}`);
-                    return uri;
+                console.log(`[VolceAsset] Đang đăng ký ${assetType} vào group ${groupId} (${assetRegion}): ${publicUrl}`);
+                let createRawText = '';
+                try {
+                    const createRes = await fetch(`${baseWithV1}/volce-asset/assets/create`, {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({
+                            group_id: groupId,
+                            url: publicUrl,
+                            name: assetName,
+                            asset_type: assetType,
+                            asset_region: assetRegion
+                        })
+                    });
+                    createRawText = await createRes.text();
+                    let createData: any = {};
+                    try { createData = JSON.parse(createRawText); } catch { createData = {}; }
+                    assetId = createData?.output?.data?.id || createData?.data?.id || createData?.id || '';
+                } catch (createErr: any) {
+                    createRawText = String(createErr?.message || createErr || '');
+                    console.warn('[VolceAsset] Ngoại lệ khi gọi assets/create, thử truy vấn lại qua assets/list:', createRawText);
                 }
-                if (status === 'Failed') {
-                    const failReason = getData?.output?.data?.error?.message || getData?.error?.message || getData?.message || 'Volcengine từ chối xử lý ảnh';
-                    throw new Error(`Volcengine Asset báo trạng thái Failed: ${failReason}`);
+
+                // Phục hồi khi cổng proxy (Cloudflare 524) timeout nhưng Volcengine backend vẫn tạo asset thành công
+                if (!assetId) {
+                    const recovered = await lookupExistingByName();
+                    if (recovered?.status === 'Active') {
+                        const uri = `asset://${recovered.id}`;
+                        urlCache[cacheKey] = uri;
+                        GenaiService.saveVolceAssetUrlCache();
+                        console.log(`[VolceAsset] Phục hồi thành công asset Active sau gateway timeout (${assetRegion}): ${uri}`);
+                        return uri;
+                    }
+                    if (recovered?.id) {
+                        assetId = recovered.id;
+                        console.log(`[VolceAsset] Phục hồi ID asset đang xử lý (${assetRegion}): ${assetId}`);
+                    }
                 }
-            } catch (pollErr: any) {
-                if (pollErr?.message && pollErr.message.includes('Volcengine Asset báo trạng thái Failed')) {
-                    throw pollErr;
+
+                if (!assetId) {
+                    throw new Error(`Đăng ký ảnh nhân vật lên Volcengine Asset thất bại: ${createRawText.substring(0, 240)}`);
                 }
             }
-            await new Promise(resolve => setTimeout(resolve, 2500));
-        }
 
-        throw new Error(`Quá thời gian chờ Volcengine kích hoạt Asset (${assetId}). Vui lòng bấm tạo lại cảnh này sau ít giây.`);
+            for (let attempt = 1; attempt <= 48; attempt++) {
+                try {
+                    const getRes = await fetch(`${baseWithV1}/volce-asset/assets/get`, {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({
+                            id: assetId,
+                            asset_region: assetRegion
+                        })
+                    });
+                    const getText = await getRes.text();
+                    let getData: any = {};
+                    try { getData = JSON.parse(getText); } catch { getData = {}; }
+                    const status = getData?.output?.data?.status || getData?.data?.status || getData?.status || '';
+                    if (status === 'Active') {
+                        const uri = `asset://${assetId}`;
+                        urlCache[cacheKey] = uri;
+                        GenaiService.saveVolceAssetUrlCache();
+                        console.log(`[VolceAsset] Asset đã Active (${assetRegion}): ${uri}`);
+                        return uri;
+                    }
+                    if (status === 'Failed') {
+                        const failReason = getData?.output?.data?.error?.message || getData?.error?.message || getData?.message || 'Volcengine từ chối xử lý ảnh';
+                        throw new Error(`Volcengine Asset báo trạng thái Failed: ${failReason}`);
+                    }
+                } catch (pollErr: any) {
+                    if (pollErr?.message && pollErr.message.includes('Volcengine Asset báo trạng thái Failed')) {
+                        throw pollErr;
+                    }
+                }
+                await new Promise(resolve => setTimeout(resolve, 2500));
+            }
+
+            throw new Error(`Quá thời gian chờ Volcengine kích hoạt Asset (${assetId}). Vui lòng bấm tạo lại cảnh này sau ít giây.`);
+        })();
+
+        GenaiService._volceAssetInFlight.set(cacheKey, registerPromise);
+        try {
+            return await registerPromise;
+        } finally {
+            GenaiService._volceAssetInFlight.delete(cacheKey);
+        }
     }
 
     public get googleAi(): GoogleGenAI | null {
@@ -740,6 +809,10 @@ export class GenaiService {
 
     /** Các Base URL mà model Claude phải đi theo chuẩn OpenAI (/chat/completions) vì proxy không có /messages. */
     private static _claudeOpenAiFallbackBases = new Set<string>();
+    /** Ghi nhớ các cặp base|model mà proxy từ chối tham số điều khiển suy luận (thinking / enable_thinking / reasoning_effort). */
+    private static _unsupportedThinkingParamKeys = new Set<string>();
+    /** Ghi nhớ các cặp base|model từng cạn max_tokens khi suy luận để tự động tắt deep-thinking ngay từ lượt gọi đầu. */
+    private static _forceDisableThinkingModels = new Set<string>();
 
     /**
      * Chuẩn hoá Base URL cho mọi dịch vụ tương thích OpenAI.
@@ -975,10 +1048,13 @@ export class GenaiService {
                             'gemini-3.7-flash'
                         ].filter((v, idx, arr) => arr.indexOf(v) === idx && v && (v.startsWith('gemini-') || v.startsWith('tunedModels/')));
 
-                        // Lọc sạch config chuẩn cho Google GenAI SDK
+                        // Lọc sạch config chuẩn cho Google GenAI SDK (không ép maxOutputTokens=8192 làm nghẽn suy luận trên Gemini 2.5/3.x)
                         const cleanConfig: any = {};
+                        const googleDisableThinking = !isImageRequest && !isImageEdit && (params.config as any)?.disableThinking === true;
                         if (params.config) {
-                            if (params.config.maxOutputTokens) cleanConfig.maxOutputTokens = params.config.maxOutputTokens;
+                            if (params.config.maxOutputTokens && params.config.maxOutputTokens !== 8192) {
+                                cleanConfig.maxOutputTokens = params.config.maxOutputTokens;
+                            }
                             if (params.config.temperature !== undefined) cleanConfig.temperature = params.config.temperature;
                             if (params.config.topP !== undefined) cleanConfig.topP = params.config.topP;
                             if (params.config.topK !== undefined) cleanConfig.topK = params.config.topK;
@@ -986,6 +1062,9 @@ export class GenaiService {
                             if (params.config.responseMimeType) cleanConfig.responseMimeType = params.config.responseMimeType;
                             if (params.config.responseSchema) cleanConfig.responseSchema = params.config.responseSchema;
                             if (params.config.responseModalities) cleanConfig.responseModalities = params.config.responseModalities;
+                            if ((params.config as any).thinkingConfig) {
+                                cleanConfig.thinkingConfig = (params.config as any).thinkingConfig;
+                            }
                             // [PATCH 2026-10-17] Giữ nguyên imageConfig do editor gửi lên, chuẩn hóa imageSize dạng pixel (1920x1080) sang chuẩn Google (1K/2K/4K) để tránh lỗi HTTP 400
                             if ((params.config as any).imageConfig) {
                                 const rawCfg = { ...(params.config as any).imageConfig };
@@ -1003,17 +1082,55 @@ export class GenaiService {
                         let googleErr: any = null;
                         for (const m of candidateGoogleModels) {
                             let attempt = 0;
+                            let stripThinkingForModel = false;
                             while (true) {
                                 try {
+                                    const perModelConfig: any = { ...cleanConfig };
+                                    if (googleDisableThinking && !stripThinkingForModel && !perModelConfig.thinkingConfig) {
+                                        perModelConfig.thinkingConfig = {
+                                            thinkingBudget: m.toLowerCase().includes('pro') ? 1024 : 0
+                                        };
+                                    }
                                     result = await aiInstance.models.generateContent({
                                         ...params,
                                         model: m,
-                                        config: Object.keys(cleanConfig).length > 0 ? cleanConfig : undefined
+                                        config: Object.keys(perModelConfig).length > 0 ? perModelConfig : undefined
                                     });
+
+                                    // Nếu Gemini chạm MAX_TOKENS trong quá trình suy luận mà chưa sinh ra text, tự động thử lại ngay với thinkingBudget tối thiểu
+                                    const cand = result?.candidates?.[0];
+                                    const nonThoughtText = (cand?.content?.parts || [])
+                                        .filter((p: any) => p?.text && !p?.thought)
+                                        .map((p: any) => p.text)
+                                        .join('');
+                                    const hasMediaOrFn = (cand?.content?.parts || []).some(
+                                        (p: any) => Boolean(p?.inlineData || p?.functionCall)
+                                    );
+                                    if (cand?.finishReason === 'MAX_TOKENS' && !nonThoughtText && !hasMediaOrFn) {
+                                        console.warn(`[GenaiService] Model ${m} chạm MAX_TOKENS khi suy luận trên Google AI, tự động gửi lại ở chế độ trực tiếp...`);
+                                        const retryCfg: any = { ...cleanConfig };
+                                        delete retryCfg.maxOutputTokens;
+                                        if (!stripThinkingForModel) {
+                                            retryCfg.thinkingConfig = {
+                                                thinkingBudget: m.toLowerCase().includes('pro') ? 1024 : 0
+                                            };
+                                        }
+                                        result = await aiInstance.models.generateContent({
+                                            ...params,
+                                            model: m,
+                                            config: Object.keys(retryCfg).length > 0 ? retryCfg : undefined
+                                        });
+                                    }
+
                                     if (result) break;
                                 } catch (mErr: any) {
                                     googleErr = mErr;
                                     const mErrMsg = String(mErr?.message || mErr || '');
+                                    // Model Gemini đời cũ (vd 1.5) không nhận thinkingConfig => tự bỏ thinkingConfig và gửi lại ngay
+                                    if (!stripThinkingForModel && googleDisableThinking && (mErrMsg.includes('thinking') || mErrMsg.includes('thinkingBudget') || mErrMsg.includes('400'))) {
+                                        stripThinkingForModel = true;
+                                        continue;
+                                    }
                                     const isM429 = mErrMsg.includes('429') || mErrMsg.includes('RESOURCE_EXHAUSTED');
                                     const mRetrySec = this.extractRetrySeconds(mErr);
                                     // [PATCH 2026-10-22] 429 Free Tier: Google trả kèm RetryInfo ngắn (vd 8s/38s).
@@ -1230,9 +1347,12 @@ export class GenaiService {
 
         formData.append('system_instructions', sysContent);
 
-        // Bổ sung max_turns cho Agent
+        // Bổ sung max_turns và chế độ tắt suy luận trung gian cho Agent (nếu có)
         const maxTurns = (params.config as any)?.maxTurns || (params.config as any)?.max_turns || settings.aiAgentMaxTurns || 25;
         formData.append('max_turns', String(maxTurns));
+        if ((params.config as any)?.disableThinking === true) {
+            formData.append('disable_thinking', 'true');
+        }
 
         this.localAgentAbortController = new AbortController();
         let isAiAgentActive = false;
@@ -1604,6 +1724,12 @@ export class GenaiService {
                     }
                 }
             }
+            if (replyText) {
+                replyText = replyText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+                if (/<think>(?![\s\S]*<\/think>)/i.test(replyText)) {
+                    replyText = replyText.replace(/<think>[\s\S]*$/i, '').trim();
+                }
+            }
             const parts: any[] = [{ text: replyText }];
             if (imageBase64) {
                 parts.push({
@@ -1729,6 +1855,7 @@ export class GenaiService {
                 ? (params.config as any).duration
                 : 5;
             const configResolution = (params.config as any)?.resolution || undefined;
+            const videoMeta: { url?: string | null } = {};
             const b64 = await this.generateVideoUModelverse(
                 promptText,
                 configRatio,
@@ -1736,13 +1863,14 @@ export class GenaiService {
                 configDuration,
                 undefined,
                 overrideModel,
-                configResolution
+                configResolution,
+                videoMeta
             );
             
             return {
                 video: {
                     base64: b64,
-                    url: this._lastUmodelverseVideoUrl || null
+                    url: videoMeta.url || null
                 }
             };
         } else {
@@ -1792,7 +1920,7 @@ export class GenaiService {
         // Proxy đã xác nhận không có /messages: model Claude đi theo chuẩn OpenAI /chat/completions
         const canFallbackToOpenAi = !isAnthropicDirect && config.apiFormat === 'anthropic';
         if (canFallbackToOpenAi && GenaiService._claudeOpenAiFallbackBases.has(apiBase.versioned)) {
-            config = { apiFormat: 'openai' };
+            config = { apiFormat: 'openai', thinkingControl: 'reasoning_effort' };
         }
 
         const messages: any[] = [];
@@ -1858,9 +1986,8 @@ export class GenaiService {
             endpointPath = endpointPath.replace('{model}', targetModel);
         }
         let body: any = {};
-        let isReasoningModel = false;
 
-        // Xử lý systemInstruction chung cho các format OpenAI / Claude
+        // Xử lý systemInstruction chung cho các format OpenAI / Claude / Gemini
         let sysContent = '';
         if (params.config && params.config.systemInstruction) {
             if (typeof params.config.systemInstruction === 'string') {
@@ -1874,24 +2001,99 @@ export class GenaiService {
             sysContent += `\n\n--- HƯỚNG DẪN DÀNH CHO AI AGENT (CONTEXT TỪ MÀN HÌNH HIỆN TẠI) ---\n${this.aiAgentCustomInstructions}\n--- HẾT HƯỚNG DẪN ---`;
         }
 
+        const lowerTargetModel = targetModel.toLowerCase();
+        const thinkingCacheKey = `${apiBase.versioned}|${lowerTargetModel}`;
+        const directDirective =
+            'QUAN TRỌNG: Không suy luận trung gian dài dòng. Hãy xuất trực tiếp kết quả cuối cùng đúng định dạng yêu cầu ngay lập tức.';
+        const shouldDisableThinking =
+            (params.config as any)?.disableThinking === true ||
+            GenaiService._forceDisableThinkingModels.has(thinkingCacheKey);
+        const canSendThinkingParam = !GenaiService._unsupportedThinkingParamKeys.has(thinkingCacheKey);
+
+        // Chèn hướng dẫn trả lời trực tiếp cho model/proxy đã biết là không nhận tham số điều khiển suy luận nhưng từng cạn token hoặc cần tắt suy luận
+        if (shouldDisableThinking && !canSendThinkingParam) {
+            sysContent = sysContent ? `${directDirective}\n\n${sysContent}` : directDirective;
+        }
+
+        // Hàm gắn cấu hình tắt / giảm suy luận trung gian phổ quát cho TẤT CẢ các dòng model & định dạng API
+        const applyThinkingControlToBody = (reqBody: any, forceForAnyModel: boolean): void => {
+            if (!canSendThinkingParam) return;
+            if (config.apiFormat === 'gemini') {
+                reqBody.generationConfig = reqBody.generationConfig || {};
+                reqBody.generationConfig.thinkingConfig = {
+                    thinkingBudget: lowerTargetModel.includes('pro') ? 1024 : 0
+                };
+                return;
+            }
+            if (config.apiFormat === 'anthropic') {
+                delete reqBody.thinking;
+                if (forceForAnyModel || lowerTargetModel.includes('thinking')) {
+                    reqBody.thinking = { type: 'disabled' };
+                }
+                return;
+            }
+
+            // Chuẩn OpenAI (/chat/completions) - hỗ trợ mọi hệ sinh thái model
+            const controlMode = config.thinkingControl || 'reasoning_effort';
+            if (controlMode === 'thinking_object') {
+                reqBody.thinking = { type: 'disabled' };
+            } else if (controlMode === 'enable_thinking') {
+                reqBody.enable_thinking = false;
+            } else {
+                // Đối với reasoning_effort: gửi ngay cho các model có tư duy (GPT-5, o1/o3/o4, Gemini 2.5/3.x, Grok, DeepSeek-R1, Magistral, Nemotron...)
+                // hoặc gửi phổ quát cho MỌI model (kể cả model tuỳ chỉnh / router alias) khi forceForAnyModel=true hoặc đã học trong _forceDisableThinkingModels
+                const isKnownReasoningEffortModel =
+                    forceForAnyModel ||
+                    GenaiService._forceDisableThinkingModels.has(thinkingCacheKey) ||
+                    Boolean(config.useMaxCompletionTokens) ||
+                    lowerTargetModel.includes('gpt-5') ||
+                    lowerTargetModel.includes('o1') ||
+                    lowerTargetModel.includes('o3') ||
+                    lowerTargetModel.includes('o4') ||
+                    lowerTargetModel.includes('gemini-2.5') ||
+                    lowerTargetModel.includes('gemini-3') ||
+                    lowerTargetModel.includes('grok') ||
+                    lowerTargetModel.includes('r1') ||
+                    lowerTargetModel.includes('reasoner') ||
+                    lowerTargetModel.includes('thinking') ||
+                    lowerTargetModel.includes('magistral') ||
+                    lowerTargetModel.includes('nemotron');
+                if (isKnownReasoningEffortModel) {
+                    reqBody.reasoning_effort = 'low';
+                }
+            }
+        };
+
+        const useMaxCompletionTokens =
+            Boolean(config.useMaxCompletionTokens) ||
+            lowerTargetModel.includes('gpt-5') ||
+            lowerTargetModel.includes('o1') ||
+            lowerTargetModel.includes('o3') ||
+            lowerTargetModel.includes('o4') ||
+            lowerTargetModel.includes('deepseek-reasoner');
+        const isLegacyDoubao4k = lowerTargetModel.includes('doubao') && lowerTargetModel.includes('4k');
+        const explicitMaxTokens =
+            params.config?.maxOutputTokens && params.config.maxOutputTokens !== 8192
+                ? params.config.maxOutputTokens
+                : undefined;
+
         if (config.apiFormat === 'gemini') {
             body = {
                 contents: params.contents,
                 generationConfig: {
                     temperature: params.config?.temperature,
                     topP: params.config?.topP,
-                    maxOutputTokens: params.config?.maxOutputTokens
+                    ...(explicitMaxTokens ? { maxOutputTokens: explicitMaxTokens } : {})
                 }
             };
             if (sysContent) {
                 body.systemInstruction = { parts: [{ text: sysContent }] };
             }
-            // Tạm thời tắt để tránh lỗi regex trên UModelverse proxy
-            // if (params.config?.responseMimeType === 'application/json') {
-            //     body.generationConfig.responseMimeType = 'application/json';
-            // }
             if ((params as any).tools) {
                 body.tools = (params as any).tools;
+            }
+            if (shouldDisableThinking) {
+                applyThinkingControlToBody(body, false);
             }
             if (config.extraParams) {
                 Object.assign(body, config.extraParams);
@@ -1899,8 +2101,9 @@ export class GenaiService {
         } else if (config.apiFormat === 'anthropic') {
             body = {
                 model: targetModel,
-                messages: messages, // Các message user/assistant đã gom ở trên
-                max_tokens: params.config?.maxOutputTokens || 8192,
+                messages: messages,
+                // Không khóa cứng ở 8192 để các model Claude có extended thinking đủ hạn mức sinh câu trả lời; nếu model cũ giới hạn 8192 sẽ tự lùi trong executePostRequest
+                max_tokens: explicitMaxTokens || 16384,
                 temperature: params.config?.temperature,
                 // Các model Claude mới không cho gửi đồng thời temperature và top_p
                 top_p: params.config?.temperature !== undefined ? undefined : params.config?.topP
@@ -1908,11 +2111,14 @@ export class GenaiService {
             if (sysContent) {
                 body.system = sysContent;
             }
+            if (shouldDisableThinking) {
+                applyThinkingControlToBody(body, false);
+            }
             if (config.extraParams) {
                 Object.assign(body, config.extraParams);
             }
         } else {
-            // Chuẩn OpenAI mặc định
+            // Chuẩn OpenAI mặc định: KHÔNG áp cứng max_tokens=8192 lên bất kỳ model nào để tránh nghẽn suy luận (reasoning + content) trên mọi dòng model
             if (sysContent) {
                 messages.unshift({ role: 'system', content: sysContent });
             }
@@ -1923,79 +2129,249 @@ export class GenaiService {
                 top_p: params.config?.topP,
             };
 
-            isReasoningModel = config.useMaxCompletionTokens || targetModel.includes('gpt-5') || targetModel.includes('o1') || targetModel.includes('o3') || targetModel.includes('deepseek-reasoner') || targetModel.includes('kimi') || targetModel.includes('qwq') || targetModel.includes('r1');
-
-            if (params.config?.maxOutputTokens) {
-                if (isReasoningModel) {
-                    if (params.config.maxOutputTokens !== 8192) {
-                        body.max_completion_tokens = params.config.maxOutputTokens;
-                    }
+            if (explicitMaxTokens) {
+                if (useMaxCompletionTokens) {
+                    body.max_completion_tokens = explicitMaxTokens;
                 } else {
-                    body.max_tokens = targetModel.includes('doubao') ? Math.min(params.config.maxOutputTokens, 4096) : params.config.maxOutputTokens;
+                    body.max_tokens = isLegacyDoubao4k ? Math.min(explicitMaxTokens, 4096) : explicitMaxTokens;
                 }
-            } else if (!isReasoningModel) {
-                body.max_tokens = targetModel.includes('doubao') ? 4096 : 8192;
+            } else if (isLegacyDoubao4k) {
+                body.max_tokens = 4096;
             }
 
-            // Tạm thời tắt để tránh lỗi regex trên UModelverse proxy
-            // if (params.config?.responseMimeType === 'application/json' && !isReasoningModel) {
-            //     body.response_format = { type: 'json_object' };
-            // }
+            if (shouldDisableThinking) {
+                applyThinkingControlToBody(body, false);
+            }
 
             if (config.extraParams) {
                 Object.assign(body, config.extraParams);
             }
         }
 
-        const response = await fetch(`${apiBase.versioned}${endpointPath}`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(body, null, 2)
-        });
+        const executePostRequest = async (
+            requestBody: any
+        ): Promise<{ response: Response; data: any; redirected?: any }> => {
+            let res = await fetch(`${apiBase.versioned}${endpointPath}`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(requestBody, null, 2)
+            });
 
-        // Proxy không có /messages cho Claude => ghi nhớ và gửi lại theo chuẩn OpenAI /chat/completions
-        if (canFallbackToOpenAi && config.apiFormat === 'anthropic' && (response.status === 404 || response.status === 405)) {
-            console.warn(`[UModelverse Chat] ${apiBase.versioned}${endpointPath} trả về ${response.status}, chuyển model ${targetModel} sang chuẩn OpenAI /chat/completions.`);
-            GenaiService._claudeOpenAiFallbackBases.add(apiBase.versioned);
-            return await this.generateChatUModelverse(url, headers, params);
+            // Proxy không có /messages cho Claude => ghi nhớ và gửi lại theo chuẩn OpenAI /chat/completions
+            if (canFallbackToOpenAi && config.apiFormat === 'anthropic' && (res.status === 404 || res.status === 405)) {
+                console.warn(`[UModelverse Chat] ${apiBase.versioned}${endpointPath} trả về ${res.status}, chuyển model ${targetModel} sang chuẩn OpenAI /chat/completions.`);
+                GenaiService._claudeOpenAiFallbackBases.add(apiBase.versioned);
+                const redirected = await this.generateChatUModelverse(url, headers, params);
+                return { response: res, data: {}, redirected };
+            }
+
+            let txt = await res.text();
+            let parsedData: any = {};
+            try {
+                parsedData = txt ? JSON.parse(txt) : {};
+            } catch {
+                parsedData = {};
+            }
+
+            // Nếu proxy báo HTTP 400/422 khi gửi kèm tham số điều khiển suy luận hoặc max_tokens cao (> 8192), tự động hạ/lược bỏ và gửi lại ngay
+            const hasThinkingControlParam =
+                requestBody.thinking !== undefined ||
+                requestBody.enable_thinking !== undefined ||
+                requestBody.reasoning_effort !== undefined ||
+                Boolean(requestBody.generationConfig?.thinkingConfig);
+            const hasElevatedTokenLimit =
+                (typeof requestBody.max_tokens === 'number' && requestBody.max_tokens > 8192) ||
+                (typeof requestBody.max_completion_tokens === 'number' && requestBody.max_completion_tokens > 8192) ||
+                (typeof requestBody.generationConfig?.maxOutputTokens === 'number' && requestBody.generationConfig.maxOutputTokens > 8192);
+
+            if ((res.status === 400 || res.status === 422) && (hasThinkingControlParam || hasElevatedTokenLimit)) {
+                const fallbackBody = JSON.parse(JSON.stringify(requestBody));
+                if (hasThinkingControlParam) {
+                    GenaiService._unsupportedThinkingParamKeys.add(thinkingCacheKey);
+                    delete fallbackBody.thinking;
+                    delete fallbackBody.enable_thinking;
+                    delete fallbackBody.reasoning_effort;
+                    if (fallbackBody.generationConfig) {
+                        delete fallbackBody.generationConfig.thinkingConfig;
+                    }
+                }
+                if (hasElevatedTokenLimit) {
+                    if (config.apiFormat === 'anthropic') {
+                        fallbackBody.max_tokens = 8192;
+                    } else {
+                        delete fallbackBody.max_tokens;
+                        delete fallbackBody.max_completion_tokens;
+                        if (fallbackBody.generationConfig) {
+                            delete fallbackBody.generationConfig.maxOutputTokens;
+                        }
+                    }
+                }
+                res = await fetch(`${apiBase.versioned}${endpointPath}`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(fallbackBody, null, 2)
+                });
+                txt = await res.text();
+                try {
+                    parsedData = txt ? JSON.parse(txt) : {};
+                } catch {
+                    parsedData = {};
+                }
+            }
+
+            return { response: res, data: parsedData };
+        };
+
+        // Lọc sạch thẻ <think>...</think> (DeepSeek-R1, QwQ, Qwen3, MiniMax, Hunyuan, vLLM/Ollama...) và phát hiện trường hợp đứt gãy ngay trong thẻ <think>
+        const sanitizeReplyContent = (
+            rawContent: string
+        ): { cleanedText: string; truncatedInsideThinkTag: boolean } => {
+            if (!rawContent) {
+                return { cleanedText: '', truncatedInsideThinkTag: false };
+            }
+            const withoutClosedThink = rawContent.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+            if (/<think>(?![\s\S]*<\/think>)/i.test(withoutClosedThink)) {
+                const beforeOpenThink = withoutClosedThink.replace(/<think>[\s\S]*$/i, '').trim();
+                return {
+                    cleanedText: beforeOpenThink,
+                    truncatedInsideThinkTag: !beforeOpenThink
+                };
+            }
+            return { cleanedText: withoutClosedThink, truncatedInsideThinkTag: false };
+        };
+
+        const extractReplyFromData = (
+            payload: any
+        ): {
+            replyText: string;
+            finishReason: string;
+            hasToolCalls: boolean;
+            truncatedInsideThinkTag: boolean;
+        } => {
+            if (config.apiFormat === 'gemini') {
+                const candidate = payload.candidates?.[0];
+                const parts = candidate?.content?.parts || [];
+                const rawJoined = parts
+                    .filter((p: any) => p?.text && !p?.thought)
+                    .map((p: any) => p.text)
+                    .join('');
+                const sanitized = sanitizeReplyContent(rawJoined);
+                return {
+                    replyText: sanitized.cleanedText,
+                    finishReason: candidate?.finishReason || '',
+                    hasToolCalls: parts.some((p: any) => Boolean(p?.functionCall)),
+                    truncatedInsideThinkTag: sanitized.truncatedInsideThinkTag
+                };
+            }
+            if (config.apiFormat === 'anthropic') {
+                const blocks = Array.isArray(payload.content) ? payload.content : [];
+                const rawJoined = blocks
+                    .filter((c: any) => c?.type === 'text')
+                    .map((c: any) => c.text || '')
+                    .join('');
+                const sanitized = sanitizeReplyContent(rawJoined);
+                return {
+                    replyText: sanitized.cleanedText,
+                    finishReason: payload.stop_reason || '',
+                    hasToolCalls: blocks.some((c: any) => c?.type === 'tool_use'),
+                    truncatedInsideThinkTag: sanitized.truncatedInsideThinkTag
+                };
+            }
+            const choice = payload.choices?.[0];
+            const rawContent =
+                typeof choice?.message?.content === 'string'
+                    ? choice.message.content
+                    : Array.isArray(choice?.message?.content)
+                    ? choice.message.content
+                          .filter((c: any) => c?.type === 'text' || typeof c?.text === 'string')
+                          .map((c: any) => c.text || '')
+                          .join('')
+                    : '';
+            const sanitized = sanitizeReplyContent(rawContent);
+            return {
+                replyText: sanitized.cleanedText,
+                finishReason: choice?.finish_reason || '',
+                hasToolCalls: Boolean(choice?.message?.tool_calls?.length),
+                truncatedInsideThinkTag: sanitized.truncatedInsideThinkTag
+            };
+        };
+
+        let { response, data, redirected } = await executePostRequest(body);
+        if (redirected) {
+            return redirected;
         }
 
-        const rawText = await response.text();
-        let data: any = {};
-        try {
-            data = rawText ? JSON.parse(rawText) : {};
-        } catch {
-            data = {};
-        }
         if (!response.ok) {
             const errMsg = (data?.error && (data.error.message || (typeof data.error === 'string' ? data.error : ''))) || data?.message;
             throw new Error(errMsg || `HTTP Error: ${response.status} (${apiBase.versioned}${endpointPath})`);
         }
 
-        let replyText = '';
-        let finishReason = '';
+        let { replyText, finishReason, hasToolCalls, truncatedInsideThinkTag } = extractReplyFromData(data);
+        const isLengthFinish = (reason: string) =>
+            reason === 'length' || reason === 'max_tokens' || reason === 'MAX_TOKENS';
 
-        if (config.apiFormat === 'gemini') {
-            const candidate = data.candidates?.[0];
-            replyText = candidate?.content?.parts?.[0]?.text || '';
-            finishReason = candidate?.finishReason || '';
-        } else if (config.apiFormat === 'anthropic') {
-            replyText = Array.isArray(data.content)
-                ? data.content.filter((c: any) => c?.type === 'text').map((c: any) => c.text || '').join('')
-                : '';
-            finishReason = data.stop_reason || '';
-        } else {
-            // OpenAI format
-            const choice = data.choices?.[0];
-            replyText = choice?.message?.content || '';
-            finishReason = choice?.finish_reason || '';
+        // Cơ chế tự phục hồi phổ quát cho TẤT CẢ các model khi cạn token lúc suy luận (content rỗng hoặc bị cắt ngang giữa thẻ <think>)
+        if (((isLengthFinish(finishReason) && !replyText) || truncatedInsideThinkTag) && !hasToolCalls) {
+            console.warn(`[UModelverse Chat] Model ${targetModel} cạn token khi suy luận (finish_reason=${finishReason}). Tự động gửi lại ở chế độ trả lời trực tiếp...`);
+            const retryBody = JSON.parse(JSON.stringify(body));
+
+            if (config.apiFormat === 'gemini') {
+                const prevSys = retryBody.systemInstruction?.parts?.map((p: any) => p.text).join('\n') || '';
+                retryBody.systemInstruction = {
+                    parts: [{ text: prevSys ? `${directDirective}\n\n${prevSys}` : directDirective }]
+                };
+                retryBody.generationConfig = retryBody.generationConfig || {};
+                delete retryBody.generationConfig.maxOutputTokens;
+                applyThinkingControlToBody(retryBody, true);
+            } else if (config.apiFormat === 'anthropic') {
+                retryBody.system = retryBody.system ? `${directDirective}\n\n${retryBody.system}` : directDirective;
+                retryBody.max_tokens = Math.max(retryBody.max_tokens || 8192, 16384);
+                applyThinkingControlToBody(retryBody, true);
+            } else {
+                if (Array.isArray(retryBody.messages)) {
+                    const sysMsg = retryBody.messages.find((m: any) => m.role === 'system');
+                    if (sysMsg && typeof sysMsg.content === 'string') {
+                        if (!sysMsg.content.includes(directDirective)) {
+                            sysMsg.content = `${directDirective}\n\n${sysMsg.content}`;
+                        }
+                    } else {
+                        retryBody.messages.unshift({ role: 'system', content: directDirective });
+                    }
+                }
+                delete retryBody.max_tokens;
+                delete retryBody.max_completion_tokens;
+
+                applyThinkingControlToBody(retryBody, true);
+
+                if (useMaxCompletionTokens) {
+                    retryBody.max_completion_tokens = 16384;
+                } else if (!isLegacyDoubao4k) {
+                    retryBody.max_tokens = 16384;
+                }
+            }
+
+            const retryResult = await executePostRequest(retryBody);
+            if (retryResult.response.ok) {
+                data = retryResult.data;
+                const extractedRetry = extractReplyFromData(data);
+                replyText = extractedRetry.replyText;
+                finishReason = extractedRetry.finishReason;
+                hasToolCalls = extractedRetry.hasToolCalls;
+                truncatedInsideThinkTag = extractedRetry.truncatedInsideThinkTag;
+
+                // Ghi nhớ cho MỌI model (không giới hạn riêng họ model nào) để các lượt kế tiếp tự động tắt suy luận dài dòng ngay từ đầu
+                if (replyText) {
+                    GenaiService._forceDisableThinkingModels.add(thinkingCacheKey);
+                }
+            }
+        }
+
+        if (((isLengthFinish(finishReason) && !replyText) || truncatedInsideThinkTag) && !hasToolCalls) {
+            throw new Error(`Model ${targetModel} đã đạt giới hạn độ dài (max tokens) trong quá trình suy luận và bị ngắt giữa chừng. Vui lòng tăng giới hạn token trên proxy hoặc chọn model khác.`);
         }
 
         return {
             get text() {
-                if ((finishReason === 'length' || finishReason === 'max_tokens') && !replyText) {
-                    throw new Error(`Model ${targetModel} đã đạt giới hạn độ dài (max tokens) trong quá trình suy luận và bị ngắt giữa chừng. Hãy dùng một model khác (VD: gpt-4o, claude-3-5-sonnet) cho kịch bản dài này.`);
-                }
                 return replyText;
             },
             candidates: [
@@ -2585,7 +2961,10 @@ export class GenaiService {
 
             const candidate = res.candidates?.[0];
             if (candidate?.content?.parts) {
-                const textParts = candidate.content.parts.filter((p: any) => p.text).map((p: any) => p.text);
+                const textParts = candidate.content.parts
+                    .filter((p: any) => p.text && !p.thought)
+                    .map((p: any) => String(p.text).replace(/<think>[\s\S]*?<\/think>/gi, '').trim())
+                    .filter((t: string) => t.length > 0);
                 if (textParts.length > 0) {
                     return textParts.join('\n\n');
                 }
@@ -2736,7 +3115,8 @@ export class GenaiService {
         duration?: number,
         seed?: number,
         overrideModel?: string,
-        resolution?: string
+        resolution?: string,
+        outMeta?: { url?: string | null }
     ): Promise<string> {
         this.syncConfigFromStorage();
 
@@ -2765,41 +3145,65 @@ export class GenaiService {
         const headers = GenaiService.buildUModelverseHeaders(url, key);
         const videoApiBase = GenaiService.resolveApiBase(url);
 
-        // --- KIỂM TRA MODEL CÓ ĐƯỢC HỖ TRỢ TRÊN PROXY KHÔNG ---
+        // --- KIỂM TRA MODEL CÓ ĐƯỢC HỖ TRỢ TRÊN PROXY KHÔNG (CÓ CACHE + DEDUPLICATE KHI CHẠY SONG SONG) ---
         try {
             const modelsEndpoint = `${videoApiBase.versioned}/models`;
-            console.log(`[UModelverse] Đang kiểm tra danh sách model được hỗ trợ từ: ${modelsEndpoint} ...`);
-            const modelsRes = await fetch(modelsEndpoint, {
-                method: 'GET',
-                headers: GenaiService.buildUModelverseHeaders(url, key, false)
-            });
-            if (modelsRes.ok) {
-                const modelsData = await modelsRes.json();
-                if (modelsData && Array.isArray(modelsData.data)) {
-                    const modelIds = modelsData.data.map((m: any) => m.id);
-                    console.log("[UModelverse] Danh sách model được hỗ trợ trên API proxy:", modelIds);
-
-                    const isSupported = modelIds.includes(model);
-                    if (!isSupported) {
-                        const videoModels = modelIds.filter((id: string) =>
-                            id.toLowerCase().includes('video') ||
-                            id.toLowerCase().includes('seedance') ||
-                            id.toLowerCase().includes('veo') ||
-                            id.toLowerCase().includes('cog') ||
-                            id.toLowerCase().includes('kling') ||
-                            id.toLowerCase().includes('luma') ||
-                            id.toLowerCase().includes('vidu') ||
-                            id.toLowerCase().includes('wan') ||
-                            id.toLowerCase().includes('sora') ||
-                            id.toLowerCase().includes('mimo') ||
-                            id.toLowerCase().includes('runway')
-                        );
-                        console.warn(`[UModelverse Warning] Model [${model}] không có mặt trong danh sách công khai của /models. Phần mềm vẫn sẽ thử gửi request, nhưng có thể sẽ bị proxy từ chối nếu bạn chưa mua gói hoặc API key không hỗ trợ. Danh sách các model video đang hiển thị: ${videoModels.join(', ')}`);
-                        // Xoá dòng throw Error để cho phép thử nghiệm các model ẩn
-                    }
-                }
+            const modelsCacheKey = `${modelsEndpoint}|${GenaiService.computeKeyFingerprint(key)}`;
+            let modelIds: string[] | null = null;
+            const cachedModels = GenaiService._modelsListCache.get(modelsCacheKey);
+            if (cachedModels && cachedModels.expiresAt > Date.now()) {
+                modelIds = cachedModels.ids;
             } else {
-                console.warn(`[UModelverse] Không thể tải danh sách model, HTTP status: ${modelsRes.status}`);
+                let inFlightModels = GenaiService._modelsListInFlight.get(modelsCacheKey);
+                if (!inFlightModels) {
+                    inFlightModels = (async (): Promise<string[]> => {
+                        console.log(`[UModelverse] Đang kiểm tra danh sách model được hỗ trợ từ: ${modelsEndpoint} ...`);
+                        const modelsRes = await fetch(modelsEndpoint, {
+                            method: 'GET',
+                            headers: GenaiService.buildUModelverseHeaders(url, key, false)
+                        });
+                        if (!modelsRes.ok) {
+                            console.warn(`[UModelverse] Không thể tải danh sách model, HTTP status: ${modelsRes.status}`);
+                            return [];
+                        }
+                        const modelsData = await modelsRes.json();
+                        if (modelsData && Array.isArray(modelsData.data)) {
+                            const ids = modelsData.data.map((m: any) => m.id);
+                            GenaiService._modelsListCache.set(modelsCacheKey, {
+                                ids,
+                                expiresAt: Date.now() + 60000
+                            });
+                            return ids;
+                        }
+                        return [];
+                    })();
+                    GenaiService._modelsListInFlight.set(modelsCacheKey, inFlightModels);
+                }
+                try {
+                    modelIds = await inFlightModels;
+                } finally {
+                    GenaiService._modelsListInFlight.delete(modelsCacheKey);
+                }
+            }
+
+            if (modelIds && modelIds.length > 0) {
+                const isSupported = modelIds.includes(model);
+                if (!isSupported) {
+                    const videoModels = modelIds.filter((id: string) =>
+                        id.toLowerCase().includes('video') ||
+                        id.toLowerCase().includes('seedance') ||
+                        id.toLowerCase().includes('veo') ||
+                        id.toLowerCase().includes('cog') ||
+                        id.toLowerCase().includes('kling') ||
+                        id.toLowerCase().includes('luma') ||
+                        id.toLowerCase().includes('vidu') ||
+                        id.toLowerCase().includes('wan') ||
+                        id.toLowerCase().includes('sora') ||
+                        id.toLowerCase().includes('mimo') ||
+                        id.toLowerCase().includes('runway')
+                    );
+                    console.warn(`[UModelverse Warning] Model [${model}] không có mặt trong danh sách công khai của /models. Phần mềm vẫn sẽ thử gửi request, nhưng có thể sẽ bị proxy từ chối nếu bạn chưa mua gói hoặc API key không hỗ trợ. Danh sách các model video đang hiển thị: ${videoModels.join(', ')}`);
+                }
             }
         } catch (e: any) {
             console.error("[UModelverse Model Check Exception]", e);
@@ -3672,13 +4076,31 @@ export class GenaiService {
 
                 console.log(`[Task Attempt] endpoint: ${endpoint}, payload Option ${i}:`, JSON.stringify(currentBody));
                 try {
-                    let response = await fetch(endpoint, {
-                        method: 'POST',
-                        headers,
-                        body: JSON.stringify(currentBody)
-                    });
+                    const submitTaskOnce = async (bodyObj: any) => {
+                        const nowMs = Date.now();
+                        const scheduledMs = Math.max(nowMs, GenaiService._lastVideoTaskSubmitMs + 120);
+                        GenaiService._lastVideoTaskSubmitMs = scheduledMs;
+                        const waitMs = scheduledMs - nowMs;
+                        if (waitMs > 0) {
+                            await new Promise((r) => setTimeout(r, waitMs));
+                        }
+                        return fetch(endpoint, {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify(bodyObj)
+                        });
+                    };
 
+                    let response = await submitTaskOnce(currentBody);
                     let responseText = await response.text();
+
+                    // Tự động retry ngắn nếu cổng proxy giới hạn burst QPS (HTTP 429) khi tạo đồng loạt nhiều scene
+                    for (let retry429 = 1; response.status === 429 && retry429 <= 2; retry429++) {
+                        console.warn(`[Task Attempt] Endpoint ${endpoint} báo HTTP 429 (Rate Limit), thử lại sau ${retry429 * 1500}ms (${retry429}/2)...`);
+                        await new Promise((r) => setTimeout(r, retry429 * 1500));
+                        response = await submitTaskOnce(currentBody);
+                        responseText = await response.text();
+                    }
 
                     // [VOLCE-ASSET AUTO-REGISTRATION] Nếu ByteDance Seedance chặn ảnh có mặt người thật / chân thực
                     // (InputImageSensitiveContentDetected.PrivacyInformation) hoặc asset:// cũ không còn hiệu lực,
@@ -3758,11 +4180,7 @@ export class GenaiService {
 
                             if (convertedCount > 0) {
                                 console.log(`[VolceAsset] Đã chuyển đổi ${convertedCount} media sang asset://, gửi lại yêu cầu tạo video tới ${endpoint}...`);
-                                response = await fetch(endpoint, {
-                                    method: 'POST',
-                                    headers,
-                                    body: JSON.stringify(currentBody)
-                                });
+                                response = await submitTaskOnce(currentBody);
                                 responseText = await response.text();
                             }
                         }
@@ -3901,6 +4319,9 @@ export class GenaiService {
                                 data.data?.content?.video_url ||
                                 data.content?.video_url;
                             if (videoUrl) {
+                                if (outMeta) {
+                                    outMeta.url = videoUrl;
+                                }
                                 this._lastUmodelverseVideoUrl = videoUrl;
                                 console.log(`[Poll Success] Video đã tạo xong! Tiến hành download: ${videoUrl}`);
                                 return await this.downloadVideoAsBase64(videoUrl);
@@ -4080,6 +4501,9 @@ export class GenaiService {
                     }
 
                     if (videoUrl) {
+                        if (outMeta) {
+                            outMeta.url = videoUrl;
+                        }
                         this._lastUmodelverseVideoUrl = videoUrl;
                         return await this.downloadVideoAsBase64(videoUrl);
                     }

@@ -8,9 +8,11 @@ on:
 jobs:
   build-macos:
     runs-on: macos-latest
+    timeout-minutes: 45
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      NODE_OPTIONS: --max-old-space-size=8192
+      # macos-latest (M1 arm64) chi co 7GB RAM -> gioi han V8 heap o 4096MB de tranh OOM lam mat ket noi runner
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -88,13 +90,25 @@ jobs:
       - name: Build macOS installer (.zip, .dmg)
         working-directory: electron
         run: |
+          # Tach rieng buoc tao .dmg truoc va nen .zip sau (dung --prepackaged tro toi .app)
+          # de khong chay song song hdiutil + 7za gay tran 7GB RAM tren macos-latest va giu latest-mac.yml tro ve .zip
           for i in 1 2 3; do
-            npx electron-builder --mac zip dmg -c.mac.identity=null --publish never && break || {
+            npx electron-builder --mac dmg -c.mac.identity=null --publish never && break || {
               if [ $i -eq 3 ]; then exit 1; fi
-              echo "::warning::electron-builder failed (attempt $i), retrying in 15s..."
+              echo "::warning::electron-builder dmg failed (attempt $i), retrying in 15s..."
               sleep 15
             }
           done
+          APP_PATH=$(find dist -maxdepth 2 -type d -name "*.app" | head -n 1)
+          echo "Using prepackaged .app bundle for ZIP: $APP_PATH"
+          for i in 1 2 3; do
+            npx electron-builder --mac zip --prepackaged "$APP_PATH" -c.mac.identity=null --publish never && break || {
+              if [ $i -eq 3 ]; then exit 1; fi
+              echo "::warning::electron-builder zip failed (attempt $i), retrying in 15s..."
+              sleep 15
+            }
+          done
+          ls -lh dist/*.zip dist/*.dmg dist/latest-mac.yml
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4

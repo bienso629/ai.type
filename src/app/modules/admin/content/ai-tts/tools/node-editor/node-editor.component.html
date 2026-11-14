@@ -787,17 +787,17 @@
                                                     | transloco
                                             "
                                             [class.opacity-50]="
-                                                isGeneratingPrompt
+                                                !!node.data?.isGenerating
                                             "
-                                            [disabled]="isGeneratingPrompt"
+                                            [disabled]="!!node.data?.isGenerating"
                                         >
-                                            @if (!isGeneratingPrompt) {
+                                            @if (!node.data?.isGenerating) {
                                                 <mat-icon
                                                     class="icon-size-4 text-white"
                                                     >image</mat-icon
                                                 >
                                             }
-                                            @if (isGeneratingPrompt) {
+                                            @if (node.data?.isGenerating) {
                                                 <mat-icon
                                                     class="icon-size-4 text-white animate-spin"
                                                     >autorenew</mat-icon
@@ -817,17 +817,17 @@
                                                     | transloco
                                             "
                                             [class.opacity-50]="
-                                                isGeneratingPrompt
+                                                !!node.data?.isGenerating
                                             "
-                                            [disabled]="isGeneratingPrompt"
+                                            [disabled]="!!node.data?.isGenerating"
                                         >
-                                            @if (!isGeneratingPrompt) {
+                                            @if (!node.data?.isGenerating) {
                                                 <mat-icon
                                                     class="icon-size-4 text-white"
                                                     >movie</mat-icon
                                                 >
                                             }
-                                            @if (isGeneratingPrompt) {
+                                            @if (node.data?.isGenerating) {
                                                 <mat-icon
                                                     class="icon-size-4 text-white animate-spin"
                                                     >autorenew</mat-icon
@@ -1676,7 +1676,7 @@
 
     <mat-menu
         #contextMenu="matMenu"
-        class="rounded-xl py-1.5 w-60"
+        class="rounded-xl py-1.5 w-72 !max-w-none"
         panelClass="faint-shadow-menu"
     >
         <button

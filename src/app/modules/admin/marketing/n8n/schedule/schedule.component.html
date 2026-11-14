@@ -1,56 +1,27 @@
 <div class="relative flex flex-col sm:flex-row flex-auto w-full h-full bg-white overflow-hidden">
+    <!-- Chỉ báo nạp dữ liệu KHÔNG chặn thao tác: thanh tiến trình mảnh + nhãn nhỏ, pointer-events-none -->
     @if (isLoadingSchedule) {
-        <div class="absolute inset-0 bg-white z-[100] flex flex-col items-center justify-center gap-4 select-none">
-            <div class="relative flex items-center justify-center">
-                <mat-spinner [diameter]="48" color="primary"></mat-spinner>
-            </div>
-            <div class="flex flex-col items-center gap-1.5 text-center">
-                <div class="text-base font-semibold text-gray-800 tracking-wide">
-                    Đang nạp dữ liệu lịch làm việc...
-                </div>
-                <div class="text-xs text-gray-400">
-                    Vui lòng chờ trong giây lát để hệ thống đồng bộ kế hoạch
+        <div class="absolute top-0 left-0 right-0 z-[60] pointer-events-none select-none">
+            <div class="h-0.5 w-full bg-indigo-500/70 animate-pulse"></div>
+            <div class="flex justify-center mt-2">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/95 border border-gray-200 shadow-sm text-xs font-medium text-gray-600">
+                    <mat-spinner [diameter]="14" color="primary"></mat-spinner>
+                    <span>Đang đồng bộ dữ liệu lịch làm việc...</span>
                 </div>
             </div>
         </div>
     }
 
-    <div class="flex-1 min-w-0 relative h-full">
-        <!-- Zoom Controls -->
-        @if (!isLoadingSchedule) {
-            <div
-                class="absolute top-2 right-4 z-20 flex gap-2 bg-white rounded-md shadow p-1"
-            >
-                <button mat-icon-button (click)="zoomOut()" matTooltip="Thu nhỏ">
-                    <mat-icon [svgIcon]="'heroicons_outline:minus'"></mat-icon>
-                </button>
-                <button
-                    mat-icon-button
-                    (click)="scrollToToday()"
-                    matTooltip="Về hôm nay"
-                >
-                    <mat-icon [svgIcon]="'heroicons_outline:calendar'"></mat-icon>
-                </button>
-                <button mat-icon-button (click)="zoomIn()" matTooltip="Phóng to">
-                    <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
-                </button>
-            </div>
-        }
-
-        <div class="flex-auto h-full overflow-y-auto" cdkScrollable>
-            <div
-                class="timeline-container fullscreen transition-opacity duration-300"
-                [class.opacity-0]="isLoadingSchedule"
-                [class.invisible]="isLoadingSchedule"
-                [class.opacity-100]="!isLoadingSchedule"
-            >
+    <div class="flex-1 min-w-0 relative h-full flex flex-col overflow-hidden">
+        <div class="flex-1 min-h-0 relative overflow-y-auto" cdkScrollable>
+            <div class="timeline-container fullscreen">
                 <timeline-calendar
                     #timeline
                     locale="vi"
-                    [showDateMarket]="true"
+                    [showDateMarket]="isViewingCurrentMonth"
                     [isPanelResizable]="false"
-                    [panelWidth]="150"
-                    [maxPanelWidth]="200"
+                    [panelWidth]="215"
+                    [maxPanelWidth]="260"
                     [headerHeight]="70"
                     [items]="items"
                     [zooms]="customZooms"
@@ -65,29 +36,32 @@
                 <ng-template #customItemTemplate let-item let-locale="locale">
                     <div
                         (click)="!item.isLoading && changeEvent(item)"
-                        class="flex flex-row cursor-pointer items-center justify-center transition-all shadow-2xs hover:brightness-105 rounded-md px-2 py-1"
+                        class="flex flex-row cursor-pointer items-center justify-center transition-all shadow-2xs hover:brightness-105 rounded-md"
                         [style.background-color]="
                             item.isMonthlyTotalBar || item.isGroup
                                 ? '#4f46e5'
                                 : null
                         "
                         [ngClass]="{
+                            'px-1.5 py-0 schedule-item-loading cursor-wait':
+                                item.isLoading,
+                            'px-2 py-0.5':
+                                !item.isLoading,
                             'text-white font-bold w-full h-full rounded-md':
                                 item.isMonthlyTotalBar,
                             'text-white font-semibold w-full h-full':
                                 item.isGroup && !item.isMonthlyTotalBar,
-                            'animate-pulse opacity-75 cursor-wait':
-                                item.isLoading,
                             'bg-emerald-600 text-white w-full h-full':
-                                !item.isGroup && item.done,
+                                !item.isGroup && !item.isLoading && item.done,
                             'bg-red-500 text-white w-full h-full':
                                 !item.isGroup &&
+                                !item.isLoading &&
                                 !item.done &&
                                 item.priority === 'high',
                             'bg-amber-400 text-slate-900 w-full h-full':
                                 !item.isGroup &&
-                                !item.done &&
-                                item.priority !== 'high',
+                                (item.isLoading ||
+                                    (!item.done && item.priority !== 'high')),
                         }"
                         [matTooltip]="
                             item.isMonthlyTotalBar
@@ -128,13 +102,13 @@
                             <!-- Trường hợp đang tạo: chỉ hiển thị icon xoay và chữ Đang tạo -->
                             @if (item.isLoading) {
                                 <div
-                                    class="flex-1 text-base font-medium flex items-center justify-center min-w-0 text-slate-800"
+                                    class="flex-1 h-full text-sm font-semibold flex items-center justify-center min-w-0 leading-normal text-slate-900"
                                 >
                                     <mat-icon
-                                        class="icon-size-4 mr-1.5 animate-spin shrink-0 text-indigo-600"
+                                        class="icon-size-4 mr-1 animate-spin shrink-0 text-indigo-700"
                                         [svgIcon]="'heroicons_outline:refresh'"
                                     ></mat-icon>
-                                    <span class="font-medium text-sm"
+                                    <span class="truncate block font-semibold text-sm leading-normal"
                                         >Đang tạo</span
                                     >
                                 </div>
@@ -211,37 +185,63 @@
                                 ? item?._streamLevels?.length || 1
                                 : 1)
                         "
+                        [attr.data-domain-key]="
+                            !item.isTotalRow
+                                ? normalizeDomainKey(item.name)
+                                : null
+                        "
                         class="panel-item group transition-colors hover:bg-gray-50"
                         style="
                             width: 100%;
                             display: flex;
                             align-items: center;
                             border-bottom: 1px solid #e9eef4;
-                            padding: 0 16px;
+                            padding: 0 12px;
                         "
                     >
                         <div
-                            class="item-content flex items-center justify-between w-full min-w-0"
+                            class="item-content flex items-center justify-between w-full min-w-0 gap-2"
                         >
-                            <span
-                                class="item-name font-medium text-gray-800 truncate"
-                                [title]="cleanDomain(item.name)"
-                                >{{ cleanDomain(item.name) }}</span
-                            >
+                            <div class="flex items-center min-w-0 flex-1">
+                                @if (!item.isTotalRow) {
+                                    <input
+                                        type="checkbox"
+                                        class="domain-autowrite-checkbox w-4 h-4 mr-2 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0 accent-indigo-600"
+                                        [attr.data-domain-key]="
+                                            normalizeDomainKey(
+                                                item?.domainData?.domain ||
+                                                    item?.name
+                                            )
+                                        "
+                                        [checked]="
+                                            isDomainAutoWriteEnabled(item)
+                                        "
+                                        title="Chọn để viết bài tự động cho tên miền này"
+                                    />
+                                }
+                                <span
+                                    class="item-name font-medium truncate transition-colors"
+                                    [ngClass]="
+                                        !item.isTotalRow &&
+                                        !isDomainAutoWriteEnabled(item)
+                                            ? 'text-gray-400'
+                                            : 'text-gray-800'
+                                    "
+                                    [title]="cleanDomain(item.name)"
+                                    >{{ cleanDomain(item.name) }}</span
+                                >
+                            </div>
                             @if (!item.isTotalRow) {
                                 <span
-                                    class="ml-2 px-2 py-0.5 text-base font-semibold rounded bg-indigo-50 text-indigo-700 shrink-0"
+                                    class="domain-target-badge px-2 py-0.5 text-sm font-semibold rounded shrink-0 transition-colors"
+                                    [ngClass]="
+                                        isDomainAutoWriteEnabled(item)
+                                            ? 'bg-indigo-50 text-indigo-700'
+                                            : 'bg-gray-100 text-gray-400'
+                                    "
                                     title="Chỉ tiêu tháng"
                                 >
-                                    {{
-                                        item.domainData?.monthlyTarget ||
-                                        getResolvedTarget(item.name)
-                                            ? (item.domainData?.monthlyTarget ||
-                                                  getResolvedTarget(
-                                                      item.name
-                                                  )) + " bài"
-                                            : "0 bài"
-                                    }}
+                                    {{ getDomainTargetLabel(item) }}
                                 </span>
                             }
                         </div>
@@ -249,6 +249,82 @@
                 </ng-template>
             </div>
         </div>
+
+        <!-- Thanh công cụ cố định bên dưới (Điều hướng Tháng Prev / Next & Thu phóng Timeline) - luôn dùng được kể cả khi đang nạp -->
+        <ng-container>
+            <div
+                class="shrink-0 h-12 border-t border-gray-200 bg-gray-50/90 px-4 flex items-center justify-center z-20 select-none transition-all duration-200"
+                [ngClass]="isChatOpened ? 'sm:pr-[500px]' : ''"
+            >
+                <div class="inline-flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg shadow-sm px-2 py-1">
+                    <!-- Điều hướng Tháng Prev / Next -->
+                    <div class="flex items-center gap-0.5 pr-2 border-r border-gray-200">
+                        <button
+                            type="button"
+                            mat-icon-button
+                            class="!w-8 !h-8 !p-0 flex items-center justify-center text-gray-700 hover:text-indigo-600"
+                            (click)="prevMonth()"
+                            matTooltip="Tháng trước"
+                        >
+                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:chevron-left'"></mat-icon>
+                        </button>
+
+                        <button
+                            type="button"
+                            (click)="goToCurrentMonth()"
+                            class="px-2.5 h-8 rounded-md text-xs sm:text-sm font-semibold text-gray-800 hover:bg-indigo-50 hover:text-indigo-700 transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                            matTooltip="Bấm để quay về tháng hiện tại"
+                        >
+                            @if (isLoadingMonth || isLoadingSchedule) {
+                                <mat-spinner [diameter]="14" color="primary"></mat-spinner>
+                            }
+                            <span>Tháng {{ month < 10 ? '0' + month : month }}/{{ year }}</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            mat-icon-button
+                            class="!w-8 !h-8 !p-0 flex items-center justify-center text-gray-700 hover:text-indigo-600"
+                            (click)="nextMonth()"
+                            matTooltip="Tháng sau"
+                        >
+                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:chevron-right'"></mat-icon>
+                        </button>
+                    </div>
+
+                    <!-- Thu phóng & Về hôm nay -->
+                    <div class="flex items-center gap-0.5">
+                        <button
+                            type="button"
+                            mat-icon-button
+                            class="!w-8 !h-8 !p-0 flex items-center justify-center text-gray-700 hover:text-indigo-600"
+                            (click)="zoomOut()"
+                            matTooltip="Thu nhỏ"
+                        >
+                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:minus'"></mat-icon>
+                        </button>
+                        <button
+                            type="button"
+                            mat-icon-button
+                            class="!w-8 !h-8 !p-0 flex items-center justify-center text-gray-700 hover:text-indigo-600"
+                            (click)="scrollToToday()"
+                            matTooltip="Về hôm nay"
+                        >
+                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:calendar'"></mat-icon>
+                        </button>
+                        <button
+                            type="button"
+                            mat-icon-button
+                            class="!w-8 !h-8 !p-0 flex items-center justify-center text-gray-700 hover:text-indigo-600"
+                            (click)="zoomIn()"
+                            matTooltip="Phóng to"
+                        >
+                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:plus'"></mat-icon>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </ng-container>
     </div>
 
     <!-- Nút Ẩn/Hiện Trợ lý AI Chat xoay dọc sát mép khi đang ẩn -->
@@ -1436,8 +1512,6 @@
                     class="flex flex-col shrink-0 rounded border border-gray-200 bg-white overflow-hidden transition-all duration-150"
                     [class.border-primary]="isTaskSelected(task)"
                     [class.bg-blue-50]="isTaskSelected(task)"
-                    [class.border-purple-400]="!isTaskSelected(task) && isTaskSticky(task)"
-                    [class.bg-purple-50/40]="!isTaskSelected(task) && isTaskSticky(task)"
                 >
                     <!-- Accordion Header -->
                     <div
@@ -1494,17 +1568,6 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2.5 shrink-0">
-                            @if (isTaskSticky(task)) {
-                                <span
-                                    class="px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-700 flex items-center gap-1"
-                                >
-                                    <mat-icon
-                                        class="icon-size-3"
-                                        [svgIcon]="'feather:bookmark'"
-                                    ></mat-icon>
-                                    Sticky
-                                </span>
-                            }
                             <span
                                 class="px-2 py-0.5 rounded text-xs font-semibold"
                                 [ngClass]="
@@ -1614,29 +1677,6 @@
                                         </button>
                                         <button
                                             mat-icon-button
-                                            [matTooltip]="
-                                                isTaskSticky(task)
-                                                    ? 'Bỏ ghim'
-                                                    : 'Ghim công việc quan trọng lên đầu'
-                                            "
-                                            (click)="toggleTaskSticky(task, $event)"
-                                        >
-                                            <mat-icon
-                                                class="icon-size-4"
-                                                [ngClass]="
-                                                    isTaskSticky(task)
-                                                        ? 'text-purple-600'
-                                                        : 'text-gray-400'
-                                                "
-                                                [svgIcon]="
-                                                    isTaskSticky(task)
-                                                        ? 'feather:bookmark'
-                                                        : 'feather:bookmark'
-                                                "
-                                            ></mat-icon>
-                                        </button>
-                                        <button
-                                            mat-icon-button
                                             color="primary"
                                             [matTooltip]="'Chỉnh sửa / AI Edit'"
                                             (click)="openSingleTaskDetail(task)"
@@ -1659,29 +1699,6 @@
         <div
             class="flex items-center justify-end gap-2 p-4 bg-gray-50 border-t border-gray-200 shrink-0"
         >
-            <button
-                mat-flat-button
-                class="!bg-purple-600 hover:!bg-purple-700 !text-white"
-                (click)="markSelectedTasksSticky(true)"
-                [matTooltip]="'Ghim các công việc quan trọng đã chọn lên đầu danh sách'"
-            >
-                <mat-icon
-                    class="icon-size-4 text-white"
-                    [svgIcon]="'feather:bookmark'"
-                ></mat-icon>
-                <span class="ml-2">Sticky</span>
-            </button>
-            <button
-                mat-icon-button
-                class="text-purple-600 hover:text-purple-800"
-                [matTooltip]="'Bỏ ghim các mục đã chọn'"
-                (click)="markSelectedTasksSticky(false)"
-            >
-                <mat-icon
-                    class="icon-size-4"
-                    [svgIcon]="'feather:bookmark'"
-                ></mat-icon>
-            </button>
             <button
                 mat-flat-button
                 class="!bg-amber-500 hover:!bg-amber-600 !text-white"
