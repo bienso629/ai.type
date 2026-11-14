@@ -90,7 +90,7 @@
     border-radius: 50%;
     border: 2px solid #10b981;
     opacity: 0;
-    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    animation: dashboard-pulse-ring 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     z-index: 1;
 }
 
@@ -106,7 +106,7 @@
     animation-delay: 1.5s;
 }
 
-@keyframes pulse {
+@keyframes dashboard-pulse-ring {
     0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.3; }
     100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
 }

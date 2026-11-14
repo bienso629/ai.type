@@ -1873,6 +1873,7 @@ export class AIScriptComponent implements OnInit, OnDestroy {
                     username: username,
                     uuids: uuids,
                     page: { size: Math.max(uuids.length, 2000) },
+                    includeContent: true,
                 }),
             ).catch(() => null);
 
@@ -1893,6 +1894,7 @@ export class AIScriptComponent implements OnInit, OnDestroy {
                             uuids: uuids,
                             page: { size: Math.max(uuids.length, 2000) },
                             forceLocal: true,
+                            includeContent: true,
                         }),
                     ).catch(() => null);
                     docsList = parseBulkRes(bulkRes);

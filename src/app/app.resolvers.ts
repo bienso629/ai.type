@@ -22,9 +22,11 @@ import { appConfig } from 'app/core/config/app.config';
 export class InitialDataResolver 
 {
     private static _cachedResult: any = null;
+    private static _backgroundSyncKey: string | null = null;
 
     public static resetCache(): void {
         InitialDataResolver._cachedResult = null;
+        InitialDataResolver._backgroundSyncKey = null;
     }
 
     /**
@@ -219,12 +221,16 @@ export class InitialDataResolver
                         catchError(() => of(null))
                     );
 
-                return forkJoin([
-                    baseResolvers,
-                    profile$,
-                    collections$,
-                    statistics$
-                ]).pipe(
+                // Chạy đồng bộ nền (non-blocking) cho profile / collections / statistics
+                // để Router kích hoạt màn hình ngay lập tức, KHÔNG bao giờ treo giao diện chờ mạng/SQLite.
+                if (InitialDataResolver._backgroundSyncKey !== user.name) {
+                    InitialDataResolver._backgroundSyncKey = user.name;
+                    forkJoin([profile$, collections$, statistics$]).pipe(
+                        catchError(() => of(null))
+                    ).subscribe();
+                }
+
+                return baseResolvers.pipe(
                     tap(res => {
                         InitialDataResolver._cachedResult = res;
                     })

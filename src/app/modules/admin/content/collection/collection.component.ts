@@ -344,13 +344,17 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
             (window as any).electron.listLocalArticles
         ) {
             (window as any).electron
-                .listLocalArticles({ username: this.user?.name || 'admin' })
+                .listLocalArticles({
+                    username: this.user?.name || 'admin',
+                    uuids: uuids.length > 0 ? uuids : undefined,
+                })
                 .then((localRes: any) => {
                     if (localRes && localRes.success && localRes.articles) {
                         let matchingArticles = localRes.articles;
                         if (uuids.length > 0) {
+                            const uuidSet = new Set(uuids);
                             matchingArticles = matchingArticles.filter(
-                                (art: any) => uuids.includes(art.uuid),
+                                (art: any) => art && uuidSet.has(art.uuid),
                             );
                         }
                         matchingArticles.forEach((doc: any) => {
@@ -384,15 +388,13 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
                         this.rows = [...matchingArticles];
                         this.totalElements = this.rows.length;
                         this.isLoading = false;
-                        this.cd.detectChanges();
-                        setTimeout(() => {
+                        this.cd.markForCheck();
+                        requestAnimationFrame(() => {
                             if (this.table) {
                                 this.table.recalculatePages();
                                 this.table.recalculate();
                             }
-                            window.dispatchEvent(new Event('resize'));
-                        }, 50);
-                        this.cd.markForCheck();
+                        });
                         return;
                     }
                     this.fetchServerArticlesForCollection(
@@ -1254,6 +1256,7 @@ export class CollectionComponent implements OnInit, AfterViewInit, OnDestroy {
                     username: username,
                     uuids: uuids,
                     page: { size: Math.max(uuids.length, 2000) },
+                    includeContent: true,
                 }),
             ).catch(() => null);
 

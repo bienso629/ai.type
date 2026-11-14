@@ -67,6 +67,18 @@ export interface AudioClip {
     localFilePath?: string | null;
     isEditing?: boolean;
     tempDescription?: string;
+    // Mô tả hình ảnh của nhịp/phân cảnh (khi nguồn là kịch bản có phân cảnh), không đưa vào giọng đọc
+    visualNote?: string;
+    // Thời lượng tường minh lấy từ mốc thời gian trong kịch bản (giây)
+    scriptDuration?: number;
+}
+
+/** Một nhịp lời thoại / phân cảnh sau khi chuẩn hóa kịch bản. */
+interface ScreenplayClipSeed {
+    name: string;
+    description: string;
+    visualNote: string;
+    scriptDuration: number;
 }
 
 import { getSettings } from 'app/_services/user-settings.service';
@@ -1166,6 +1178,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 username: clip.username,
                 prompt: clip.prompt,
                 localFilePath: clip['localFilePath'] || null,
+                visualNote: clip.visualNote || '',
+                scriptDuration: clip.scriptDuration || 0,
             })),
         };
 
@@ -1294,6 +1308,42 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     restoreClips(clips: any[]) {
+        // Dự án cũ được tạo từ kịch bản phân cảnh nhưng bị tách thô theo từng đoạn văn (Caption, tiêu đề CẢNH,
+        // nhãn VOICEOVER...) và CHƯA tạo giọng đọc: tự động chuẩn hóa lại thành đúng các nhịp lời thoại của kịch bản.
+        const alreadyNormalized = clips.some(
+            (c: any) => !!c?.visualNote || Number(c?.scriptDuration) > 0,
+        );
+        const hasAnyAudio = clips.some(
+            (c: any) => !!c?.audioFileName || !!c?.localFilePath,
+        );
+        if (!alreadyNormalized && !hasAnyAudio && clips.length > 1) {
+            const rawTexts = clips.map((c: any) => {
+                const raw = String(c?.description || c?.name || '');
+                const doc = new DOMParser().parseFromString(raw, 'text/html');
+                return doc.documentElement.textContent || raw;
+            });
+            const seeds = this.normalizeScreenplayParagraphs(rawTexts);
+            if (seeds && seeds.length > 0 && seeds.length < clips.length) {
+                const template = clips[0] || {};
+                clips = seeds.map((seed) => ({
+                    id: this.generateId(),
+                    name: seed.name,
+                    description: seed.description,
+                    visualNote: seed.visualNote,
+                    scriptDuration: seed.scriptDuration,
+                    duration: 0,
+                    voice: template.voice || 'vi-VN-NamMinhNeural',
+                    rate: template.rate || 1.0,
+                    pitch: template.pitch || 0,
+                    prompt: template.prompt || '',
+                    username: template.username,
+                }));
+                setTimeout(() => {
+                    this.saveToLocal();
+                }, 0);
+            }
+        }
+
         this.audioList = clips.map((item: any) => {
             if (item.description) {
                 const doc = new DOMParser().parseFromString(
@@ -1787,6 +1837,296 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         return this.extractExplicitScriptDuration(head) !== null;
     }
 
+    /**
+     * Chuẩn hóa kịch bản phân cảnh (dạng "CẢNH 1 ... / [00:00-00:03 | HOOK] mô tả hình / VOICEOVER / lời thoại")
+     * thành đúng các nhịp lời thoại theo mốc thời gian của kịch bản.
+     * - Bỏ các đoạn không phải phân cảnh: Caption / Thông điệp, tiêu đề CẢNH, nhãn nhân vật (VOICEOVER), ghi chú giọng.
+     * - Mỗi nhịp thời gian ([00:00-00:03], [00:03-00:12]...) thành 1 clip: lời đọc = đúng câu thoại của nhịp đó,
+     *   mô tả hình ảnh lưu riêng ở visualNote, thời lượng = đúng mốc thời gian.
+     * Trả về null nếu văn bản không phải kịch bản phân cảnh để giữ nguyên cách tách theo đoạn văn như cũ.
+     */
+    private normalizeScreenplayParagraphs(
+        texts: string[],
+    ): ScreenplayClipSeed[] | null {
+        const paragraphs = (texts || [])
+            .map((t) => String(t || '').replace(/\s+/g, ' ').trim())
+            .filter((t) => t.length > 0);
+        if (paragraphs.length < 2) return null;
+
+        const timeSrc =
+            '(\\d{1,2}:\\d{2}(?::\\d{2})?(?:\\.\\d+)?)\\s*(?:[-–—~]|đến|to)\\s*(\\d{1,2}:\\d{2}(?::\\d{2})?(?:\\.\\d+)?)';
+        const sceneHeadingRe =
+            /^(?:[#*\-\s]*)(?:phân\s*cảnh|cảnh|scene|shot)\s*\d+\b/i;
+        const bracketBeatRe = new RegExp(
+            `^[\\[(]\\s*${timeSrc}\\s*(?:[|:\\-–—]\\s*([^\\])]*))?[\\])]\\s*[:\\-–—|]?\\s*([\\s\\S]*)$`,
+            'i',
+        );
+        const plainBeatRe = new RegExp(
+            `^${timeSrc}\\s*(?:\\|\\s*([^:\\-–—]{0,40}))?\\s*[:\\-–—|]\\s*([\\s\\S]+)$`,
+            'i',
+        );
+        const inlineRangeRe = new RegExp(
+            `[\\[(]?\\s*${timeSrc}\\s*[\\])]?\\s*[:\\-–—]?\\s*`,
+            'gi',
+        );
+        const captionRe =
+            /^(?:caption|thông\s*điệp|mô\s*tả\s*video|hashtags?|tags?|cta\s*caption)(?:\s*\/\s*[^:]{0,30})?\s*:/i;
+        const inlineSpeakerRe =
+            /^([A-ZÀ-Ỹ][A-ZÀ-Ỹ0-9 ._\-]{1,30})\s*(?:\([^)]*\))?\s*:\s*(.+)$/;
+
+        const toSec = (token: string): number | null =>
+            this.parseTimeTokenToSeconds(token);
+        const isSpeakerLabel = (p: string): boolean =>
+            p.length <= 45 &&
+            /[A-ZÀ-Ỹ]/.test(p) &&
+            p === p.toUpperCase() &&
+            !new RegExp(timeSrc).test(p) &&
+            !sceneHeadingRe.test(p);
+        const stripQuotes = (s: string): string =>
+            s
+                .trim()
+                .replace(/^[\s'"“”‘’«»]+/, '')
+                .replace(/[\s'"“”‘’«»]+$/, '')
+                .trim();
+
+        type Beat = { start: number; end: number; label: string; visual: string };
+        type Dialogue = { start: number | null; end: number | null; text: string; group?: number };
+
+        const splitDialogue = (text: string): Dialogue[] => {
+            const result: Dialogue[] = [];
+            const matches = Array.from(text.matchAll(inlineRangeRe));
+            if (matches.length === 0) {
+                const clean = stripQuotes(text);
+                if (clean) result.push({ start: null, end: null, text: clean });
+                return result;
+            }
+            const firstIdx = matches[0].index || 0;
+            const lead = stripQuotes(text.substring(0, firstIdx));
+            if (lead) result.push({ start: null, end: null, text: lead });
+            matches.forEach((m, i) => {
+                const segStart = (m.index || 0) + m[0].length;
+                const segEnd =
+                    i + 1 < matches.length
+                        ? matches[i + 1].index || text.length
+                        : text.length;
+                const segText = stripQuotes(text.substring(segStart, segEnd));
+                const s = toSec(m[1]);
+                const e = toSec(m[2]);
+                if (segText) {
+                    result.push({
+                        start: s !== null && e !== null && e > s ? s : null,
+                        end: s !== null && e !== null && e > s ? e : null,
+                        text: segText,
+                    });
+                }
+            });
+            return result;
+        };
+
+        const beats: Beat[] = [];
+        const headingBeats: Beat[] = [];
+        const dialogues: Dialogue[] = [];
+        const looseVisuals: string[] = [];
+        let headingRange: { start: number; end: number } | null = null;
+        let pendingSpeaker = false;
+        let sawHeading = false;
+        let sawSpeaker = false;
+        const pushDialogues = (items: Dialogue[]) => {
+            items.forEach((d) => {
+                d.group = headingBeats.length - 1;
+                dialogues.push(d);
+            });
+        };
+
+        for (const p of paragraphs) {
+            if (captionRe.test(p)) {
+                pendingSpeaker = false;
+                continue;
+            }
+            if (sceneHeadingRe.test(p)) {
+                sawHeading = true;
+                pendingSpeaker = false;
+                const hm = p.match(new RegExp(timeSrc, 'i'));
+                if (hm) {
+                    const s = toSec(hm[1]);
+                    const e = toSec(hm[2]);
+                    if (s !== null && e !== null && e > s) {
+                        headingRange = { start: s, end: e };
+                        headingBeats.push({ start: s, end: e, label: '', visual: '' });
+                    }
+                }
+                continue;
+            }
+            const beatMatch = p.match(bracketBeatRe) || p.match(plainBeatRe);
+            if (beatMatch && !pendingSpeaker) {
+                const s = toSec(beatMatch[1]);
+                const e = toSec(beatMatch[2]);
+                if (s !== null && e !== null && e > s) {
+                    beats.push({
+                        start: s,
+                        end: e,
+                        label: (beatMatch[3] || '').trim(),
+                        visual: (beatMatch[4] || '').trim(),
+                    });
+                    continue;
+                }
+            }
+            if (isSpeakerLabel(p)) {
+                sawSpeaker = true;
+                pendingSpeaker = true;
+                continue;
+            }
+            if (pendingSpeaker && /^\([^)]*\)$/.test(p) && !new RegExp(timeSrc).test(p)) {
+                // Ghi chú giọng đọc, ví dụ "(cuốn hút, dứt khoát)"
+                continue;
+            }
+            const inlineSpeaker = p.match(inlineSpeakerRe);
+            if (inlineSpeaker && inlineSpeaker[1] === inlineSpeaker[1].toUpperCase()) {
+                sawSpeaker = true;
+                pendingSpeaker = false;
+                pushDialogues(splitDialogue(inlineSpeaker[2]));
+                continue;
+            }
+            if (pendingSpeaker) {
+                pendingSpeaker = false;
+                pushDialogues(splitDialogue(p));
+                continue;
+            }
+            if (beats.length > 0) {
+                beats[beats.length - 1].visual = `${beats[beats.length - 1].visual} ${p}`.trim();
+            } else {
+                looseVisuals.push(p);
+                if (headingBeats.length > 0) {
+                    const hb = headingBeats[headingBeats.length - 1];
+                    hb.visual = `${hb.visual} ${p}`.trim();
+                }
+            }
+        }
+
+        if (!sawHeading && beats.length < 2) return null;
+        if (dialogues.length === 0) return null;
+        if (beats.length === 0 && !sawSpeaker) return null;
+
+        // Không có nhịp [mm:ss] chi tiết nhưng các tiêu đề CẢNH có mốc thời gian: dùng chính các cảnh làm nhịp
+        const useHeadingBeats = beats.length === 0 && headingBeats.length > 0;
+        if (useHeadingBeats) {
+            beats.push(...headingBeats);
+        }
+
+        const fmt = (sec: number): string => {
+            const m = Math.floor(sec / 60);
+            const s = Math.round(sec % 60);
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        };
+        const shorten = (s: string, n = 50): string =>
+            s.length > n ? s.substring(0, n) + '...' : s;
+
+        // Không có nhịp hình ảnh: mỗi câu thoại (có hoặc không có mốc thời gian) là một clip
+        if (beats.length === 0) {
+            const visualJoined = looseVisuals.join(' ').trim();
+            const timedAll = dialogues.every((d) => d.start !== null);
+            return dialogues.map((d, idx) => {
+                let dur =
+                    d.start !== null && d.end !== null ? d.end - d.start : 0;
+                if (!timedAll && dialogues.length === 1 && headingRange) {
+                    dur = headingRange.end - headingRange.start;
+                }
+                return {
+                    name:
+                        d.start !== null && d.end !== null
+                            ? `[${fmt(d.start)}-${fmt(d.end)}] ${shorten(d.text, 40)}`
+                            : shorten(d.text),
+                    description: d.text,
+                    visualNote: idx === 0 ? visualJoined : '',
+                    scriptDuration: Math.round(dur * 10) / 10,
+                };
+            });
+        }
+
+        // Gán câu thoại có mốc thời gian vào đúng nhịp hình ảnh trùng thời gian nhiều nhất
+        const beatSpoken: string[][] = beats.map(() => []);
+        const timed = dialogues.filter((d) => d.start !== null && d.end !== null);
+        const untimed = dialogues.filter((d) => d.start === null || d.end === null);
+        timed.forEach((d) => {
+            let bestIdx = -1;
+            let bestOverlap = 0;
+            beats.forEach((b, bi) => {
+                const overlap =
+                    Math.min(b.end, d.end as number) -
+                    Math.max(b.start, d.start as number);
+                if (overlap > bestOverlap) {
+                    bestOverlap = overlap;
+                    bestIdx = bi;
+                }
+            });
+            if (bestIdx === -1) {
+                // Không trùng nhịp nào: gán vào nhịp có điểm bắt đầu gần nhất
+                let bestDist = Number.POSITIVE_INFINITY;
+                beats.forEach((b, bi) => {
+                    const dist = Math.abs(b.start - (d.start as number));
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        bestIdx = bi;
+                    }
+                });
+            }
+            beatSpoken[bestIdx].push(d.text);
+        });
+        untimed.forEach((d, k) => {
+            const bi =
+                useHeadingBeats &&
+                typeof d.group === 'number' &&
+                d.group >= 0 &&
+                d.group < beats.length
+                    ? d.group
+                    : untimed.length === beats.length
+                      ? k
+                      : Math.min(
+                            beats.length - 1,
+                            Math.floor((k * beats.length) / untimed.length),
+                        );
+            beatSpoken[bi].push(d.text);
+        });
+
+        // Gộp nhịp không lời vào nhịp kề bên để không phát sinh clip rỗng, giữ nguyên tổng thời lượng
+        const seeds: ScreenplayClipSeed[] = [];
+        let carry: { visual: string; dur: number; start: number } | null = null;
+        beats.forEach((b, bi) => {
+            const spoken = beatSpoken[bi].join(' ').trim();
+            const dur = b.end - b.start;
+            const visual = `${b.label ? `[${b.label}] ` : ''}${b.visual}`.trim();
+            if (!spoken) {
+                if (seeds.length > 0) {
+                    const prev = seeds[seeds.length - 1];
+                    prev.visualNote = `${prev.visualNote} ${visual}`.trim();
+                    prev.scriptDuration = Math.round((prev.scriptDuration + dur) * 10) / 10;
+                } else {
+                    carry = carry
+                        ? { visual: `${carry.visual} ${visual}`.trim(), dur: carry.dur + dur, start: carry.start }
+                        : { visual, dur, start: b.start };
+                }
+                return;
+            }
+            let start = b.start;
+            let totalDur = dur;
+            let visualNote = visual;
+            if (carry) {
+                start = carry.start;
+                totalDur += carry.dur;
+                visualNote = `${carry.visual} ${visual}`.trim();
+                carry = null;
+            }
+            seeds.push({
+                name: `[${fmt(start)}-${fmt(start + totalDur)}]${b.label ? ` ${b.label}` : ''} - ${shorten(spoken, 40)}`,
+                description: spoken,
+                visualNote,
+                scriptDuration: Math.round(totalDur * 10) / 10,
+            });
+        });
+
+        return seeds.length > 0 ? seeds : null;
+    }
+
     private analyzeSceneMappingMode(
         allClips: any[],
         extraPrompt: string,
@@ -1816,8 +2156,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             (requestedSceneCount !== null &&
                 requestedSceneCount === allClips.length);
 
-        const preSegmentedCount = allClips.filter((c: any) =>
-            this.isClipPreSegmentedScene(c?.description || c?.name || ''),
+        const preSegmentedCount = allClips.filter(
+            (c: any) =>
+                Number(c?.scriptDuration) > 0 ||
+                this.isClipPreSegmentedScene(c?.description || c?.name || ''),
         ).length;
         const isPreSegmentedScript =
             allClips.length > 0 &&
@@ -1869,6 +2211,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     username: clip.username,
                     prompt: clip.prompt,
                     localFilePath: clip['localFilePath'] || null,
+                    visualNote: clip.visualNote || '',
+                    scriptDuration: clip.scriptDuration || 0,
                 })),
             };
             this.multiAccountService.setItem(storageKey, data);
@@ -1927,9 +2271,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         const clipScriptDurationMap = new Map<string, number>();
         for (const clip of allClips) {
-            const parsedScriptDur = this.extractExplicitScriptDuration(
-                clip.description || clip.name || '',
-            );
+            const storedScriptDur = Number(clip.scriptDuration);
+            const parsedScriptDur =
+                Number.isFinite(storedScriptDur) && storedScriptDur > 0
+                    ? storedScriptDur
+                    : this.extractExplicitScriptDuration(
+                          clip.description || clip.name || '',
+                      );
             if (parsedScriptDur !== null && parsedScriptDur > 0) {
                 clipScriptDurationMap.set(String(clip.id), parsedScriptDur);
             }
@@ -1984,7 +2332,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     : scriptDur
                       ? `SCRIPT_DURATION: ${scriptDur}s`
                       : 'NO_AUDIO_YET';
-                return `[${c.id} | ${metaTag}] ${c.description}`;
+                const visualTag = c.visualNote
+                    ? ` || VISUAL (mô tả hình ảnh của phân cảnh trong kịch bản): ${c.visualNote}`
+                    : '';
+                return `[${c.id} | ${metaTag}] ${c.description}${visualTag}`;
             })
             .join('\n');
 
@@ -2396,18 +2747,21 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     // Cố định exactSceneDuration = tổng thời lượng các audio của scene này
                     // Không lấy estimatedDuration từ AI để đảm bảo khớp tổng thời gian
                 } else if (!hasAnyAudio) {
+                    // maxDuration là GIỚI HẠN TỐI ĐA mỗi cảnh, không phải thời lượng mặc định: không tự kéo cảnh lên 30s
                     exactSceneDuration =
                         scene.estimatedDuration && scene.estimatedDuration > 0
-                            ? scene.estimatedDuration
+                            ? this.maxDuration > 0
+                                ? Math.min(scene.estimatedDuration, this.maxDuration)
+                                : scene.estimatedDuration
                             : this.maxDuration > 0
-                              ? this.maxDuration
+                              ? Math.min(5, this.maxDuration)
                               : 5;
                 }
 
                 let roundedDuration =
                     Math.round(exactSceneDuration * 10) / 10;
                 if (isVideo && roundedDuration <= 0) {
-                    roundedDuration = this.maxDuration > 0 ? this.maxDuration : 5;
+                    roundedDuration = this.maxDuration > 0 ? Math.min(5, this.maxDuration) : 5;
                 }
 
                 // KHÔNG TỰ ĐỘNG DÁN MASTER PROMPT VÀO ĐÂY vì ở VideoTimelineDialogComponent (khi bấm Copy) đã có logic tự dán masterPrompt rồi!
@@ -3391,7 +3745,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
               };
 
         // Ghi đè các trường quan trọng
-        data.done = this.audioList.map((clip) => `<p>${clip.description}</p>`);
+        // Clip đã được chuẩn hóa từ kịch bản phân cảnh chỉ còn lời thoại: giữ nguyên nội dung kịch bản gốc
+        // (mô tả hình ảnh, tiêu đề cảnh) thay vì ghi đè làm mất phần mô tả phân cảnh của bài viết.
+        const isScreenplayProject = this.audioList.some(
+            (clip) => !!clip.visualNote || Number(clip.scriptDuration) > 0,
+        );
+        if (!isScreenplayProject || !Array.isArray(data.done)) {
+            data.done = this.audioList.map((clip) => `<p>${clip.description}</p>`);
+        }
         data.confirm = confirm;
         data.username = this.user?.name;
 
@@ -3605,8 +3966,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     JSON.stringify(result.data),
                 );
 
-                this.audioList = result.data.done.map(
-                    (htmlItem: any, index: number) => {
+                const cleanTexts: string[] = result.data.done.map(
+                    (htmlItem: any) => {
                         let cleanText = this.removeHTML.transform(htmlItem);
                         if (cleanText) {
                             const doc = new DOMParser().parseFromString(
@@ -3616,11 +3977,35 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             cleanText =
                                 doc.documentElement.textContent || cleanText;
                         }
+                        return cleanText || '';
+                    },
+                );
 
+                // Kịch bản có phân cảnh / mốc thời gian: gom đúng theo nhịp lời thoại thay vì mỗi đoạn văn một clip
+                // (tránh Caption, tiêu đề CẢNH, nhãn VOICEOVER... bị biến thành phân cảnh video thừa).
+                const screenplaySeeds =
+                    this.normalizeScreenplayParagraphs(cleanTexts);
+                const sourceItems: Array<{
+                    description: string;
+                    name?: string;
+                    visualNote?: string;
+                    scriptDuration?: number;
+                }> = screenplaySeeds
+                    ? screenplaySeeds
+                    : cleanTexts.map((t) => ({ description: t }));
+
+                this.audioList = sourceItems.map(
+                    (item, index: number) => {
+                        const cleanText = item.description || '';
                         const shortName =
-                            cleanText.length > 50
+                            item.name ||
+                            (cleanText.length > 50
                                 ? cleanText.substring(0, 50) + '...'
-                                : cleanText;
+                                : cleanText);
+                        const extraFields = {
+                            visualNote: item.visualNote || '',
+                            scriptDuration: item.scriptDuration || 0,
+                        };
 
                         // Nếu đang Reload VÀ vị trí này đã có clip cũ -> Giữ nguyên file, đắp text mới
                         if (isReload && index < oldAudioList.length) {
@@ -3629,6 +4014,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                                 ...oldClip, // Giữ nguyên url, audioFileName, duration, ID, voice...
                                 description: cleanText, // Ghi đè text thoại mới
                                 name: shortName, // Ghi đè tiêu đề mới
+                                ...extraFields,
                             };
                         }
 
@@ -3643,6 +4029,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             rate: 1.0,
                             pitch: 0,
                             prompt: '',
+                            ...extraFields,
                         };
                     },
                 );

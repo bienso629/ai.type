@@ -105,13 +105,59 @@ export class MultiAccountService {
     // ==========================================
 
     private saveTimeout: any;
+    private idleSaveHandle: any;
+    private webCryptoKeyPromise: Promise<CryptoKey | null> | null = null;
+
+    private isSameSessionValue(prev: any, next: any): boolean {
+        if (prev === next) return true;
+        if (prev == null || next == null) return false;
+        const tPrev = typeof prev;
+        const tNext = typeof next;
+        if (tPrev !== tNext) return false;
+        if (tPrev !== 'object') return false;
+        // Với object/mảng nhỏ (ví dụ settings/tools_urls/registry), so sánh nhanh tránh ghi DB thừa
+        try {
+            if (Array.isArray(prev) && Array.isArray(next)) {
+                if (prev.length !== next.length) return false;
+                if (prev.length > 200) return false;
+            }
+            const sPrev = JSON.stringify(prev);
+            if (sPrev && sPrev.length > 65536) return false;
+            return sPrev === JSON.stringify(next);
+        } catch {
+            return false;
+        }
+    }
+
+    private scheduleBackgroundSave(): void {
+        if (this.saveTimeout) {
+            clearTimeout(this.saveTimeout);
+            this.saveTimeout = null;
+        }
+        if (this.idleSaveHandle && typeof (window as any).cancelIdleCallback === 'function') {
+            (window as any).cancelIdleCallback(this.idleSaveHandle);
+            this.idleSaveHandle = null;
+        }
+        this.saveTimeout = setTimeout(() => {
+            this.saveTimeout = null;
+            const runSave = () => {
+                this.idleSaveHandle = null;
+                this.saveToBackground();
+            };
+            if (typeof (window as any).requestIdleCallback === 'function') {
+                this.idleSaveHandle = (window as any).requestIdleCallback(runSave, { timeout: 3000 });
+            } else {
+                runSave();
+            }
+        }, 1200);
+    }
 
     /**
      * Thay thế cho localStorage.setItem(key, value)
      */
     async setItem(key: string, value: any): Promise<void> {
+        const unchanged = this.isSameSessionValue(this.currentSessionData[key], value);
         this.currentSessionData[key] = value;
-        this.activeAccountSubject.next(this.currentSessionData);
 
         // Đảm bảo luôn lưu xuống Storage ngay cả khi chưa gán currentAccountId
         if (!this.currentAccountId) {
@@ -127,13 +173,12 @@ export class MultiAccountService {
             } catch (e) {}
         }
 
-        // Debounce ghi DB và mã hóa AES (Rất nặng CPU) để tránh lag khi gọi setItem liên tục
-        if (this.saveTimeout) {
-            clearTimeout(this.saveTimeout);
+        if (unchanged) {
+            return;
         }
-        this.saveTimeout = setTimeout(() => {
-            this.saveToBackground();
-        }, 500);
+
+        this.activeAccountSubject.next(this.currentSessionData);
+        this.scheduleBackgroundSave();
     }
 
     /**
@@ -157,9 +202,13 @@ export class MultiAccountService {
      * Thay thế cho localStorage.removeItem(key)
      */
     async removeItem(key: string): Promise<void> {
+        const existed = Object.prototype.hasOwnProperty.call(this.currentSessionData, key);
         delete this.currentSessionData[key];
         if (key === 'active_info' && this.currentAccountId) {
             localStorage.removeItem(`ai_type_active_info_${this.currentAccountId}`);
+        }
+        if (!existed) {
+            return;
         }
         this.activeAccountSubject.next(this.currentSessionData);
         
@@ -169,12 +218,7 @@ export class MultiAccountService {
             localStorage.setItem('ai_type_active_account_id', this.currentAccountId);
         }
 
-        if (this.saveTimeout) {
-            clearTimeout(this.saveTimeout);
-        }
-        this.saveTimeout = setTimeout(() => {
-            this.saveToBackground();
-        }, 500);
+        this.scheduleBackgroundSave();
     }
 
     /**
@@ -223,12 +267,17 @@ export class MultiAccountService {
     public async forceSave(): Promise<void> {
         if (this.saveTimeout) {
             clearTimeout(this.saveTimeout);
+            this.saveTimeout = null;
+        }
+        if (this.idleSaveHandle && typeof (window as any).cancelIdleCallback === 'function') {
+            (window as any).cancelIdleCallback(this.idleSaveHandle);
+            this.idleSaveHandle = null;
         }
         await this.saveToBackground();
     }
 
     /**
-     * Lưu ngầm dữ liệu từ Cache xuống IndexedDB
+     * Lưu ngầm dữ liệu từ Cache xuống IndexedDB (dùng WebCrypto bất đồng bộ C++ để không chặn luồng UI)
      */
     private async saveToBackground(): Promise<void> {
         if (!this.currentAccountId) {
@@ -236,17 +285,18 @@ export class MultiAccountService {
             this.currentAccountId = userObj?.email || userObj?.username || userObj?.name || 'default_user';
             localStorage.setItem('ai_type_active_account_id', this.currentAccountId);
         }
-        
+
+        const targetAccountId = this.currentAccountId!;
+        const snapshot = this.currentSessionData;
+
         await this.safeDbCall(async () => {
-            if (this.currentAccountId) {
-                localStorage.setItem('ai_type_active_account_id', this.currentAccountId);
-                await db.sessions.where('id').notEqual(this.currentAccountId).modify({ isActive: 0 });
-            }
-            const encrypted = this.encryptData(this.currentSessionData);
+            localStorage.setItem('ai_type_active_account_id', targetAccountId);
+            await db.sessions.where('id').notEqual(targetAccountId).modify({ isActive: 0 });
+            const recordPayload = await this.encryptSessionRecord(snapshot);
             await db.sessions.put({
-                id: this.currentAccountId!,
+                id: targetAccountId,
                 isActive: 1,
-                encryptedData: encrypted,
+                ...recordPayload,
                 savedAt: Date.now()
             } as any);
         }, undefined);
@@ -282,7 +332,7 @@ export class MultiAccountService {
             if (activeRecord && activeRecord.encryptedData) {
                 this.currentAccountId = activeRecord.id;
                 localStorage.setItem('ai_type_active_account_id', activeRecord.id);
-                this.currentSessionData = this.decryptData(activeRecord.encryptedData, activeRecord.id) || {};
+                this.currentSessionData = (await this.decryptSessionRecord(activeRecord, activeRecord.id)) || {};
 
                 const userObj = this.currentSessionData?.user || this.currentSessionData?.profile;
                 const uname = userObj?.name || userObj?.username || this.currentAccountId;
@@ -307,6 +357,11 @@ export class MultiAccountService {
     async clearActiveSession(): Promise<void> {
         if (this.saveTimeout) {
             clearTimeout(this.saveTimeout);
+            this.saveTimeout = null;
+        }
+        if (this.idleSaveHandle && typeof (window as any).cancelIdleCallback === 'function') {
+            (window as any).cancelIdleCallback(this.idleSaveHandle);
+            this.idleSaveHandle = null;
         }
         localStorage.removeItem('ai_type_active_account_id');
         await this.safeDbCall(async () => {
@@ -328,7 +383,7 @@ export class MultiAccountService {
         let existingData = await this.safeDbCall(async () => {
             const existingRecord = await db.sessions.get(accountId);
             if (existingRecord && existingRecord.encryptedData) {
-                return this.decryptData(existingRecord.encryptedData, accountId) || {};
+                return (await this.decryptSessionRecord(existingRecord, accountId)) || {};
             }
             return {};
         }, {});
@@ -358,16 +413,17 @@ export class MultiAccountService {
     async getAllAccounts(): Promise<any[]> {
         return this.safeDbCall(async () => {
             const allRecords = await db.sessions.toArray();
-            return allRecords
-                .filter(record => record != null)
-                .map(record => {
-                    const data = this.decryptData(record?.encryptedData || '', record?.id);
+            const validRecords = allRecords.filter(record => record != null);
+            return Promise.all(
+                validRecords.map(async record => {
+                    const data = await this.decryptSessionRecord(record, record?.id);
                     return {
                         id: record?.id,
                         isActive: record?.isActive === 1,
                         profile: data?.profile || data?.user || null
                     };
-                });
+                })
+            );
         }, []);
     }
 
@@ -378,14 +434,13 @@ export class MultiAccountService {
         return this.safeDbCall(async () => {
             let targetAccount = await db.sessions.get(accountId);
             if (!targetAccount || !targetAccount.encryptedData) return false;
-            if (!targetAccount || !targetAccount.encryptedData) return false;
 
             await db.sessions.toCollection().modify({ isActive: 0 });
             await db.sessions.update(accountId, { isActive: 1 });
             
             this.currentAccountId = accountId;
             localStorage.setItem('ai_type_active_account_id', accountId);
-            this.currentSessionData = this.decryptData(targetAccount.encryptedData, accountId) || {};
+            this.currentSessionData = (await this.decryptSessionRecord(targetAccount, accountId)) || {};
             const userObj = this.currentSessionData?.user || this.currentSessionData?.profile;
             const uname = userObj?.name || userObj?.username || this.currentAccountId;
             this.syncActiveUserWithElectron(uname);
@@ -464,6 +519,74 @@ export class MultiAccountService {
             }
         }
         return data;
+    }
+
+    private getWebCryptoKey(): Promise<CryptoKey | null> {
+        if (this.webCryptoKeyPromise) {
+            return this.webCryptoKeyPromise;
+        }
+        const subtle = (typeof window !== 'undefined' && window.crypto) ? window.crypto.subtle : null;
+        if (!subtle) {
+            this.webCryptoKeyPromise = Promise.resolve(null);
+            return this.webCryptoKeyPromise;
+        }
+        this.webCryptoKeyPromise = (async () => {
+            try {
+                const rawSecret = new TextEncoder().encode(SECRET_KEY);
+                const digest = await subtle.digest('SHA-256', rawSecret);
+                return await subtle.importKey('raw', digest, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+            } catch {
+                return null;
+            }
+        })();
+        return this.webCryptoKeyPromise;
+    }
+
+    private async encryptSessionRecord(data: any): Promise<{ encryptedData: string; iv?: Uint8Array; cipherBuffer?: ArrayBuffer }> {
+        try {
+            const jsonStr = JSON.stringify(data);
+            const key = await this.getWebCryptoKey();
+            if (key && typeof window !== 'undefined' && window.crypto?.subtle) {
+                const iv = window.crypto.getRandomValues(new Uint8Array(12));
+                const encoded = new TextEncoder().encode(jsonStr);
+                const cipherBuffer = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+                return {
+                    encryptedData: '__WCGCM1__',
+                    iv,
+                    cipherBuffer
+                };
+            }
+            return { encryptedData: CryptoJS.AES.encrypt(jsonStr, SECRET_KEY).toString() };
+        } catch (error) {
+            console.error('Lỗi mã hóa dữ liệu!', error);
+            return { encryptedData: this.encryptData(data) };
+        }
+    }
+
+    private async decryptSessionRecord(record: any, accountId?: string): Promise<any> {
+        if (!record || !record.encryptedData) return null;
+        if (record.encryptedData === '__WCGCM1__' && record.cipherBuffer && record.iv) {
+            try {
+                const key = await this.getWebCryptoKey();
+                if (key && typeof window !== 'undefined' && window.crypto?.subtle) {
+                    const plainBuffer = await window.crypto.subtle.decrypt(
+                        { name: 'AES-GCM', iv: record.iv },
+                        key,
+                        record.cipherBuffer
+                    );
+                    const decryptedStr = new TextDecoder().decode(plainBuffer);
+                    let parsed = JSON.parse(decryptedStr);
+                    if (accountId) {
+                        parsed = this.sanitizeAccountData(accountId, parsed);
+                    }
+                    return parsed;
+                }
+            } catch (error) {
+                console.error('Lỗi giải mã dữ liệu WebCrypto!', error);
+                return null;
+            }
+        }
+        return this.decryptData(record.encryptedData, accountId);
     }
 
     private encryptData(data: any): string {

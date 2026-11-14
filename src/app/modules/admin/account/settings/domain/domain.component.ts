@@ -793,6 +793,7 @@ Trả về ĐÚNG định dạng JSON mảng các object:
                 domains: this.selected,
                 statsData: this.domainStatsData,
                 month: this.selectedMonthNum,
+                year: this.selectedYear,
                 forceGenerate: true
             }
         });

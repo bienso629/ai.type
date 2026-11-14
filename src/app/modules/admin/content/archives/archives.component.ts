@@ -53,6 +53,8 @@ import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
     standalone: false,
 })
 export class AIArchiveComponent implements OnInit, OnDestroy {
+    private static _sessionRowsCache: Record<string, { masterRows: any[]; actualTotal: number }> = {};
+
     user: User;
     config: AppConfig;
 
@@ -1137,57 +1139,14 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                 (window as any).electron &&
                 (window as any).electron.listLocalArticles
             ) {
-                (window as any).electron
-                    .listLocalArticles({ username: username })
-                    .then((localRes: any) => {
-                        let count = 0;
-                        if (localRes && localRes.success && localRes.articles) {
-                            let filteredArticles = localRes.articles;
-                            if (
-                                this.keyword &&
-                                this.keyword.toString().trim().length > 0
-                            ) {
-                                const kw = this.keyword
-                                    .toString()
-                                    .toLowerCase()
-                                    .trim();
-                                filteredArticles = filteredArticles.filter(
-                                    (a: any) =>
-                                        (a.title &&
-                                            a.title
-                                                .toLowerCase()
-                                                .includes(kw)) ||
-                                        (a.description &&
-                                            a.description
-                                                .toLowerCase()
-                                                .includes(kw)),
-                                );
-                            }
-                            count = filteredArticles.length;
-                        }
-                        this.actualTotalElements = count;
-                        this.totalElements = count;
-                        this.setPage({
-                            offset: 0,
-                            pageSize: this.page.size,
-                            limit: this.page.size,
-                            count: this.actualTotalElements,
-                        });
-                        if (this.table) this.table.recalculatePages();
-                        this.cd.markForCheck();
-                    })
-                    .catch(() => {
-                        this.actualTotalElements = 0;
-                        this.totalElements = 0;
-                        this.setPage({
-                            offset: 0,
-                            pageSize: this.page.size,
-                            limit: this.page.size,
-                            count: 0,
-                        });
-                        if (this.table) this.table.recalculatePages();
-                        this.cd.markForCheck();
-                    });
+                this.masterLoadedRows = [];
+                this.cache = {};
+                this.setPage({
+                    offset: 0,
+                    pageSize: this.page.size,
+                    limit: this.page.size,
+                    count: 0,
+                });
                 return;
             }
 
@@ -1315,50 +1274,27 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             (window as any).electron.listLocalArticles
         ) {
             (window as any).electron
-                .listLocalArticles({ username: username })
+                .listLocalArticles({
+                    username: username,
+                    uuids: this.uuids && this.uuids.length > 0 ? this.uuids : undefined,
+                    keyword: this.keyword ? this.keyword.toString().trim() : undefined,
+                })
                 .then((localRes: any) => {
                     if (
                         localRes &&
                         localRes.success &&
-                        localRes.articles &&
-                        localRes.articles.length > 0
+                        Array.isArray(localRes.articles)
                     ) {
-                        let filteredArticles = localRes.articles;
-
-                        // Nếu có lọc theo collection UUIDs
-                        if (this.uuids && this.uuids.length > 0) {
-                            filteredArticles = filteredArticles.filter(
-                                (a: any) => this.uuids.includes(a.uuid),
-                            );
-                        }
-
-                        if (
-                            this.keyword &&
-                            this.keyword.toString().trim().length > 0
-                        ) {
-                            const kw = this.keyword
-                                .toString()
-                                .toLowerCase()
-                                .trim();
-                            filteredArticles = filteredArticles.filter(
-                                (a: any) =>
-                                    (a.title &&
-                                        a.title.toLowerCase().includes(kw)) ||
-                                    (a.description &&
-                                        a.description
-                                            .toLowerCase()
-                                            .includes(kw)),
-                            );
-                        }
-
-                        const localDocs = filteredArticles.map((art: any) => ({
+                        const localDocs = localRes.articles.map((art: any) => ({
                             uuid: art.uuid,
                             title: art.title || 'Bài viết cục bộ',
                             domain: art.domain || 'local.ai.type',
+                            source: art.source || null,
                             used: 0,
                             is_local: true,
                             is_encrypted: !!(art.is_encrypted || art.encrypted_payload || art.cipher),
                             encrypted_payload: art.encrypted_payload,
+                            has_script: !!art.has_script,
                             created_at:
                                 art.created_at ||
                                 art.updated_at ||
@@ -1370,16 +1306,29 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                             dateGroup: this.getDateGroup(art),
                         }));
 
-                        if (!this.masterLoadedRows) this.masterLoadedRows = [];
-                        localDocs.forEach((doc: any) => {
-                            if (
-                                !this.masterLoadedRows.some(
-                                    (m: any) => m.uuid === doc.uuid,
-                                )
-                            ) {
-                                this.masterLoadedRows.push(doc);
-                            }
-                        });
+                        const nonLocalExisting = (this.masterLoadedRows || []).filter(
+                            (m: any) => m && m.uuid && !m.is_local,
+                        );
+                        if (nonLocalExisting.length > 0) {
+                            const localUuidSet = new Set(
+                                localDocs.map((d: any) => d.uuid),
+                            );
+                            this.masterLoadedRows = [
+                                ...localDocs,
+                                ...nonLocalExisting.filter(
+                                    (m: any) => !localUuidSet.has(m.uuid),
+                                ),
+                            ];
+                        } else {
+                            this.masterLoadedRows = [...localDocs];
+                        }
+
+                        if (!this.keyword && (!this.uuids || this.uuids.length === 0)) {
+                            AIArchiveComponent._sessionRowsCache[username] = {
+                                masterRows: [...this.masterLoadedRows],
+                                actualTotal: localDocs.length,
+                            };
+                        }
 
                         if (
                             this.selectedDateGroup &&
@@ -1440,17 +1389,18 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                             dateGroup: this.getDateGroup(doc),
                         }));
                         if (!this.masterLoadedRows) this.masterLoadedRows = [];
-                        docsWithGroup.forEach((doc: any) => {
-                            if (
-                                doc &&
-                                doc.uuid &&
-                                !this.masterLoadedRows.some(
-                                    (m: any) => m.uuid === doc.uuid,
-                                )
-                            ) {
+                        const existingUuids = new Set(
+                            this.masterLoadedRows
+                                .map((m: any) => m && m.uuid)
+                                .filter(Boolean),
+                        );
+                        for (let i = 0; i < docsWithGroup.length; i++) {
+                            const doc = docsWithGroup[i];
+                            if (doc && doc.uuid && !existingUuids.has(doc.uuid)) {
+                                existingUuids.add(doc.uuid);
                                 this.masterLoadedRows.push(doc);
                             }
-                        });
+                        }
                         this.verifyLoadedRowsEncryption();
 
                         if (
@@ -1847,6 +1797,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         uuid: art.uuid,
                         title: art.title || 'Bài viết cục bộ',
                         domain: art.domain || 'local.ai.type',
+                        source: art.source || null,
                         used: 0,
                         is_local: true,
                         // [FIX] Bai luu cuc bo: dung co is_encrypted tu SQLite lam nguon that
@@ -1871,6 +1822,10 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                     });
 
                     this.masterLoadedRows = [...localDocs];
+                    AIArchiveComponent._sessionRowsCache[username] = {
+                        masterRows: [...localDocs],
+                        actualTotal: localDocs.length,
+                    };
                     this.rows = this.groupRowsWithHeaders(
                         this.masterLoadedRows,
                     );
@@ -2216,14 +2171,23 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     ngOnInit(): void {
         // Nạp trạng thái ghim (sticky) đã lưu từ lần chạy trước
         this.loadStickyState();
+        const username = this.getCurrentUsername();
+        const cached = AIArchiveComponent._sessionRowsCache[username];
+        if (cached && cached.masterRows && cached.masterRows.length > 0 && (!this.uuids || this.uuids.length === 0)) {
+            this.masterLoadedRows = [...cached.masterRows];
+            this.rows = this.groupRowsWithHeaders(this.masterLoadedRows);
+            this.actualTotalElements = cached.actualTotal || cached.masterRows.length;
+            this.totalElements = this.rows.length;
+        }
+
         const isAutoSaveLocal = isAutoSaveLocalEnabled();
         if (isAutoSaveLocal) {
-            this.loadLocalArticles();
+            // Chỉ gọi duy nhất 1 luồng setPage thay vì gọi song song loadLocalArticles() + setPage() gây nhân đôi IPC
             this.setPage({
                 offset: 0,
                 pageSize: this.page.size,
                 limit: this.page.size,
-                count: 0,
+                count: this.actualTotalElements || 0,
             });
         }
         let temp = localStorage.getItem('statistics');
@@ -2623,7 +2587,11 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             try {
                 const localRes = await (
                     window as any
-                ).electron.listLocalArticles({ username: username });
+                ).electron.listLocalArticles({
+                    username: username,
+                    uuids: uuids,
+                    includeContent: true,
+                });
                 if (localRes && localRes.success && localRes.articles) {
                     localRes.articles.forEach((doc: any) => {
                         if (doc && uuids.includes(doc.uuid)) {

@@ -830,7 +830,8 @@ export class CrawlService {
                 page: dataForm?.page,
                 keyword: dataForm?.keyword || '',
                 domain: dataForm?.domain,
-                uuids: dataForm?.uuids
+                uuids: dataForm?.uuids,
+                includeContent: !!dataForm?.includeContent
             })).pipe(
                 map((result: any) => {
                     if (result && result.articles && !result.data) {
