@@ -552,6 +552,9 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     inputElement.dispatchEvent(new Event('input'));
                 }
                 
+                if (e?.target) {
+                    e.target.value = '';
+                }
                 this.toastr.success(`Đã đính kèm tệp: ${file.name}`);
                 this.cdref.detectChanges();
             };
@@ -985,26 +988,39 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     systemContext = ``;
                 }
 
+                const effectiveQuestion =
+                    (question || '').trim() ||
+                    (this.attachedFileMain ? `Hãy đọc kỹ và phân tích chi tiết nội dung tệp đính kèm "${this.attachedFileMain.name}".` : '');
+                const hasStructuredScreenAction = Boolean(agentContext?.action && agentContext?.prompt);
+
                 let prompt = '';
-                if (agentContext?.action) {
-                    prompt = `${systemContext}Yêu cầu của người dùng: "${question}". Hãy thực hiện chính xác theo HƯỚNG DẪN ĐẶC BIỆT.`;
+                if (hasStructuredScreenAction) {
+                    prompt = `${systemContext}Yêu cầu của người dùng: "${effectiveQuestion}". Hãy thực hiện chính xác theo HƯỚNG DẪN ĐẶC BIỆT.`;
                 } else {
-                    prompt = `${systemContext}Trả lời câu hỏi: "${question}" một cách ngắn gọn và chính xác. Kết quả trả lời là text thuần, không phải định dạng html hoặc markdown.`;
+                    prompt = `${systemContext}Trả lời câu hỏi: "${effectiveQuestion}" một cách ngắn gọn và chính xác${this.attachedFileMain ? ` dựa trên tệp đính kèm "${this.attachedFileMain.name}"` : ''}. Kết quả trả lời là text thuần, không phải định dạng html hoặc markdown.`;
                 }
                 const parts: any[] = [{ text: prompt }];
                 const currentTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const userMsg: any = { role: 'user', text: question, time: currentTimeStr, timestamp: Date.now() };
+                const userMsg: any = {
+                    role: 'user',
+                    text: question || (this.attachedFileMain ? `[Đính kèm: ${this.attachedFileMain.name}]` : ''),
+                    time: currentTimeStr,
+                    timestamp: Date.now()
+                };
 
                 if (this.attachedFileMain) {
                     parts.push({
+                        fileName: this.attachedFileMain.name,
                         inlineData: {
                             mimeType: this.attachedFileMain.type,
-                            data: this.attachedFileMain.base64
+                            data: this.attachedFileMain.base64,
+                            fileName: this.attachedFileMain.name
                         }
                     });
                     userMsg.inlineData = {
                         mimeType: this.attachedFileMain.type,
-                        data: this.attachedFileMain.base64
+                        data: this.attachedFileMain.base64,
+                        fileName: this.attachedFileMain.name
                     };
                     userMsg.path = this.attachedFileMain.path;
 
@@ -1016,7 +1032,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 // 1. Khởi tạo dòng chat mới và chuyển sang giao diện chat ngay lập tức
                 const newRow: any = {
                     conversation_id: '',
-                    question: question || (this.attachedFileMain ? 'File đính kèm' : 'AI Agent Chat'),
+                    question: question || (this.attachedFileMain ? `Phân tích tệp: ${this.attachedFileMain.name}` : 'AI Agent Chat'),
                     answer: '',
                     updatedAt: new Date(),
                     chatLoading: true,
@@ -1037,8 +1053,10 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 this.scrollToBottom();
 
                 try {
-                    const genConfig: any = { bypassUModelverse: agentContext?.action ? true : false };
-                    if (agentContext?.action) {
+                    const genConfig: any = {
+                        bypassUModelverse: Boolean(hasStructuredScreenAction && isAiAgentEnabled)
+                    };
+                    if (hasStructuredScreenAction) {
                         genConfig.responseMimeType = 'application/json';
                     }
 
@@ -1530,8 +1548,9 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     }
 
     async sendFollowUp(row: any, newQuestion: string) {
-        if (!newQuestion || !newQuestion.trim()) return;
-        newQuestion = newQuestion.trim();
+        if ((!newQuestion || !newQuestion.trim()) && !this.attachedFileFollow) return;
+        const trimmedQ = (newQuestion || '').trim();
+        newQuestion = trimmedQ || (this.attachedFileFollow ? `Hãy đọc kỹ và phân tích nội dung tệp đính kèm "${this.attachedFileFollow.name}".` : '');
         
         this.getMessages(row);
         
@@ -1543,7 +1562,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         if (this.attachedFileFollow) {
             userMsg.inlineData = {
                 mimeType: this.attachedFileFollow.type,
-                data: this.attachedFileFollow.base64
+                data: this.attachedFileFollow.base64,
+                fileName: this.attachedFileFollow.name
             };
             userMsg.path = this.attachedFileFollow.path;
         }
@@ -1561,9 +1581,11 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 const parts: any[] = [{ text: m.text }];
                 if (m.inlineData) {
                     parts.push({
+                        fileName: m.inlineData.fileName,
                         inlineData: {
                             mimeType: m.inlineData.mimeType,
-                            data: m.inlineData.data
+                            data: m.inlineData.data,
+                            fileName: m.inlineData.fileName
                         }
                     });
                     if (isAiAgentEnabled && m.path) {
@@ -1574,13 +1596,16 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             });
             // Inject context into the last user message
             const agentContext = this.globalAgentService.getContext();
+            const hasStructuredScreenAction = Boolean(agentContext?.action && agentContext?.prompt);
             if (agentContext && agentContext.prompt && contents.length > 0 && contents[contents.length - 1].role === 'user') {
                 const systemContext = `HƯỚNG DẪN ĐẶC BIỆT: ${agentContext.prompt}\n\n`;
                 contents[contents.length - 1].parts[0].text = systemContext + contents[contents.length - 1].parts[0].text;
             }
             
-            const genConfig: any = { bypassUModelverse: agentContext?.action ? true : false };
-            if (agentContext?.action) {
+            const genConfig: any = {
+                bypassUModelverse: Boolean(hasStructuredScreenAction && isAiAgentEnabled)
+            };
+            if (hasStructuredScreenAction) {
                 genConfig.responseMimeType = 'application/json';
             }
 

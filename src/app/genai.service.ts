@@ -852,6 +852,11 @@ export class GenaiService {
         }
         try {
             const modelsEndpoint = `${GenaiService.resolveApiBase(this._umodelverseUrl).versioned}/models`;
+            const modelsCacheKey = `${modelsEndpoint}|${GenaiService.computeKeyFingerprint(this._umodelverseKey)}`;
+            const cached = GenaiService._modelsListCache.get(modelsCacheKey);
+            if (cached && cached.expiresAt > Date.now()) {
+                return cached.ids;
+            }
             const modelsRes = await fetch(modelsEndpoint, {
                 method: 'GET',
                 headers: GenaiService.buildUModelverseHeaders(this._umodelverseUrl, this._umodelverseKey, false)
@@ -859,7 +864,12 @@ export class GenaiService {
             if (modelsRes.ok) {
                 const modelsData = await modelsRes.json();
                 if (modelsData && Array.isArray(modelsData.data)) {
-                    return modelsData.data.map((m: any) => m.id);
+                    const ids = modelsData.data.map((m: any) => m.id).filter(Boolean);
+                    GenaiService._modelsListCache.set(modelsCacheKey, {
+                        ids,
+                        expiresAt: Date.now() + 60000
+                    });
+                    return ids;
                 }
             }
         } catch (e) {
@@ -900,13 +910,16 @@ export class GenaiService {
     ): Promise<GenerateContentResponse> {
         this.syncConfigFromStorage();
 
-        // [PATCH PDF] Luoi an toan: neu request chua inlineData PDF thi trich xuat van ban
-        // ngay phia client. Cac tang proxy dinh dang OpenAI-style khong ho tro inlineData
-        // PDF (bi bo qua yen lang), khien AI "khong thay" file dinh kem.
+        // Chuẩn hóa toàn bộ tệp đính kèm (PDF văn bản, PDF scan/ảnh, DOCX, TXT/MD/CSV/JSON, ảnh thiếu MIME)
+        // ngay phía client để cả Mì Tôm AI (OpenAI/Anthropic/Gemini proxy) lẫn Gemini API Key đều đọc đầy đủ.
+        const isMediaGenOnly =
+            Boolean(params.config?.responseModalities?.includes('VIDEO')) ||
+            Boolean(params.config?.responseModalities?.includes('IMAGE')) ||
+            (params.config as any)?.isImageEdit === true;
         try {
-            await this._convertPdfAttachmentsToText(params);
+            await this._convertPdfAttachmentsToText(params, isMediaGenOnly);
         } catch (e) {
-            console.warn('[GenaiService] Khong the trich xuat van ban tu file PDF dinh kem:', e);
+            console.warn('[GenaiService] Lỗi tiền xử lý tệp đính kèm trước khi gửi AI:', e);
         }
 
         // [PATCH] Luoi an toan: cac model Gemini da bi Google khai tu (404 NOT_FOUND) se tu dong nang len model hien hanh
@@ -1078,6 +1091,7 @@ export class GenaiService {
                             }
                         }
 
+                        const sanitizedGoogleContents = this._sanitizeContentsForGoogleSdk(params.contents);
                         let result;
                         let googleErr: any = null;
                         for (const m of candidateGoogleModels) {
@@ -1093,6 +1107,7 @@ export class GenaiService {
                                     }
                                     result = await aiInstance.models.generateContent({
                                         ...params,
+                                        contents: sanitizedGoogleContents,
                                         model: m,
                                         config: Object.keys(perModelConfig).length > 0 ? perModelConfig : undefined
                                     });
@@ -1117,6 +1132,7 @@ export class GenaiService {
                                         }
                                         result = await aiInstance.models.generateContent({
                                             ...params,
+                                            contents: sanitizedGoogleContents,
                                             model: m,
                                             config: Object.keys(retryCfg).length > 0 ? retryCfg : undefined
                                         });
@@ -1269,13 +1285,21 @@ export class GenaiService {
                                     const blob = await fileResp.blob();
                                     
                                     let ext = 'jpg';
-                                    if (mimeType.includes('png')) ext = 'png';
+                                    if (mimeType.includes('pdf')) ext = 'pdf';
+                                    else if (mimeType.includes('png')) ext = 'png';
+                                    else if (mimeType.includes('webp')) ext = 'webp';
+                                    else if (mimeType.includes('gif')) ext = 'gif';
                                     else if (mimeType.includes('mp4')) ext = 'mp4';
                                     else if (mimeType.includes('wav')) ext = 'wav';
-                                    else if (mimeType.includes('mp3')) ext = 'mp3';
+                                    else if (mimeType.includes('mp3') || mimeType.includes('mpeg')) ext = 'mp3';
+                                    else if (mimeType.includes('wordprocessingml')) ext = 'docx';
+                                    else if (mimeType.includes('csv')) ext = 'csv';
+                                    else if (mimeType.includes('json')) ext = 'json';
                                     else if (mimeType.includes('markdown') || mimeType.includes('md')) ext = 'md';
-                                    else if (mimeType.includes('plain')) ext = 'txt';
-                                    const file = new File([blob], `media_${Date.now()}_${i}.${ext}`, { type: mimeType });
+                                    else if (mimeType.includes('plain') || mimeType.startsWith('text/')) ext = 'txt';
+                                    const origName = (p as any).fileName || p.inlineData.fileName;
+                                    const safeFileName = origName || `media_${Date.now()}_${i}.${ext}`;
+                                    const file = new File([blob], safeFileName, { type: mimeType });
                                     formData.append('files', file);
                                 }
                             }
@@ -1924,8 +1948,7 @@ export class GenaiService {
         }
 
         const messages: any[] = [];
-
-
+        let hasImageAttachment = false;
 
         // Xử lý contents
         if (params.contents) {
@@ -1936,44 +1959,94 @@ export class GenaiService {
                     const role = (content as any).role === 'model' ? 'assistant' : 'user';
                     const parts = (content as any).parts;
 
-                    if (parts && parts.length === 1 && parts[0].text && !parts[0].inlineData) {
+                    const hasInlineMedia =
+                        Array.isArray(parts) &&
+                        parts.some((p: any) => Boolean(p?.inlineData && p.inlineData.data));
+
+                    if (parts && parts.length > 0 && !hasInlineMedia && config.apiFormat !== 'anthropic') {
+                        // Gộp toàn bộ các part văn bản thuần (bao gồm cả nội dung file PDF/DOCX/TXT vừa trích xuất)
+                        // thành một chuỗi string duy nhất để tương thích 100% với mọi proxy OpenAI và model text-only.
+                        const joinedText = parts
+                            .map((p: any) => (typeof p === 'string' ? p : (p?.text || '')))
+                            .filter((t: string) => t.length > 0)
+                            .join('\n\n');
+                        messages.push({ role, content: joinedText });
+                    } else if (parts && parts.length === 1 && parts[0].text && !parts[0].inlineData) {
                         messages.push({ role, content: parts[0].text });
                     } else if (parts && parts.length > 0) {
-                        const mappedParts = parts.map((p: any) => {
-                            if (p.inlineData) {
-                                const mimeType = p.inlineData.mimeType || '';
+                        const mappedParts: any[] = [];
+                        for (const p of parts) {
+                            if (p.inlineData && p.inlineData.data) {
+                                const mimeType = this._pdfTextService.inferMimeType(
+                                    (p as any).fileName || p.inlineData.fileName,
+                                    p.inlineData.mimeType,
+                                    p.inlineData.data
+                                );
                                 if (mimeType.startsWith('audio/')) {
                                     let format = 'mp3';
                                     if (mimeType.includes('wav')) format = 'wav';
-                                    return {
+                                    mappedParts.push({
                                         type: 'input_audio',
                                         input_audio: {
                                             data: p.inlineData.data,
                                             format: format
                                         }
-                                    };
+                                    });
                                 } else if (config.apiFormat === 'anthropic') {
                                     // Chuẩn Anthropic: PDF dùng block "document", ảnh dùng block "image" (base64)
                                     if (mimeType === 'application/pdf') {
-                                        return {
+                                        mappedParts.push({
                                             type: 'document',
                                             source: { type: 'base64', media_type: mimeType, data: p.inlineData.data }
-                                        };
+                                        });
+                                    } else if (mimeType.startsWith('image/')) {
+                                        hasImageAttachment = true;
+                                        mappedParts.push({
+                                            type: 'image',
+                                            source: { type: 'base64', media_type: mimeType, data: p.inlineData.data }
+                                        });
+                                    } else {
+                                        const decoded = this._pdfTextService.decodeUtf8FromBase64(p.inlineData.data);
+                                        if (decoded) {
+                                            mappedParts.push({ type: 'text', text: decoded });
+                                        }
                                     }
-                                    return {
-                                        type: 'image',
-                                        source: { type: 'base64', media_type: mimeType || 'image/png', data: p.inlineData.data }
-                                    };
-                                } else {
-                                    return {
+                                } else if (mimeType.startsWith('image/')) {
+                                    hasImageAttachment = true;
+                                    mappedParts.push({
                                         type: 'image_url',
                                         image_url: { url: `data:${mimeType};base64,${p.inlineData.data}` }
-                                    };
+                                    });
+                                } else {
+                                    // Không gửi MIME không phải ảnh vào image_url của OpenAI vì proxy sẽ lặng lẽ bỏ qua
+                                    const decoded = this._pdfTextService.decodeUtf8FromBase64(p.inlineData.data);
+                                    if (decoded) {
+                                        mappedParts.push({ type: 'text', text: decoded });
+                                    }
+                                }
+                            } else {
+                                const txtVal = typeof p === 'string' ? p : (p?.text || '');
+                                if (txtVal || config.apiFormat !== 'anthropic') {
+                                    mappedParts.push({ type: 'text', text: txtVal });
                                 }
                             }
-                            return { type: 'text', text: p.text || '' };
-                        });
-                        messages.push({ role, content: mappedParts });
+                        }
+                        if (config.apiFormat === 'anthropic') {
+                            const nonEmpty = mappedParts.filter(
+                                (mp: any) => mp.type !== 'text' || (mp.text && mp.text.trim().length > 0)
+                            );
+                            if (nonEmpty.length === 0) {
+                                nonEmpty.push({ type: 'text', text: 'Hãy phân tích tệp đính kèm.' });
+                            }
+                            messages.push({ role, content: nonEmpty });
+                        } else if (mappedParts.every((mp: any) => mp.type === 'text')) {
+                            messages.push({
+                                role,
+                                content: mappedParts.map((mp: any) => mp.text).filter(Boolean).join('\n\n')
+                            });
+                        } else {
+                            messages.push({ role, content: mappedParts });
+                        }
                     }
                 }
             }
@@ -2079,7 +2152,7 @@ export class GenaiService {
 
         if (config.apiFormat === 'gemini') {
             body = {
-                contents: params.contents,
+                contents: this._sanitizeContentsForGoogleSdk(params.contents),
                 generationConfig: {
                     temperature: params.config?.temperature,
                     topP: params.config?.topP,
@@ -2301,8 +2374,55 @@ export class GenaiService {
             return redirected;
         }
 
+        // Nếu request có đính kèm ảnh / PDF scan nhưng model chat hiện tại trên Mì Tôm AI là model chỉ hỗ trợ text
+        // (trả về HTTP 400/404/415/422 từ chối image_url / multimodal), tự động tìm model Vision khả dụng trên Mì Tôm AI để xử lý.
+        if (
+            !response.ok &&
+            hasImageAttachment &&
+            !(params.config as any)?._retriedWithVisionModel &&
+            (response.status === 400 || response.status === 404 || response.status === 415 || response.status === 422)
+        ) {
+            const rawErrStr = String(
+                (data?.error && (data.error.message || (typeof data.error === 'string' ? data.error : ''))) ||
+                data?.message ||
+                ''
+            ).toLowerCase();
+            const looksLikeVisionUnsupported =
+                !rawErrStr ||
+                rawErrStr.includes('image') ||
+                rawErrStr.includes('vision') ||
+                rawErrStr.includes('multimodal') ||
+                rawErrStr.includes('content') ||
+                rawErrStr.includes('string') ||
+                rawErrStr.includes('array') ||
+                rawErrStr.includes('unmarshal') ||
+                rawErrStr.includes('media');
+
+            if (looksLikeVisionUnsupported && !isAnthropicDirect) {
+                const visionCandidate = await this._pickUModelverseVisionFallbackModel(targetModel);
+                if (visionCandidate && visionCandidate !== targetModel) {
+                    console.warn(
+                        `[UModelverse Chat] Model "${targetModel}" từ chối đầu vào hình ảnh/PDF scan (${response.status}). Tự động chuyển sang model hỗ trợ thị giác "${visionCandidate}"...`
+                    );
+                    return await this.generateChatUModelverse(url, headers, {
+                        ...params,
+                        model: visionCandidate,
+                        config: {
+                            ...(params.config || {}),
+                            _retriedWithVisionModel: true,
+                        } as any,
+                    });
+                }
+            }
+        }
+
         if (!response.ok) {
             const errMsg = (data?.error && (data.error.message || (typeof data.error === 'string' ? data.error : ''))) || data?.message;
+            if (hasImageAttachment && (response.status === 400 || response.status === 415 || response.status === 422)) {
+                throw new Error(
+                    `Model chat "${targetModel}" trên Mì Tôm AI không hỗ trợ đọc hình ảnh hoặc PDF scan (${errMsg || 'HTTP ' + response.status}). Vui lòng chọn model có hỗ trợ thị giác (như gpt-4o, gemini, claude, qwen-vl, glm-4v) trong Cài đặt Mì Tôm AI.`
+                );
+            }
             throw new Error(errMsg || `HTTP Error: ${response.status} (${apiBase.versioned}${endpointPath})`);
         }
 
@@ -4649,38 +4769,225 @@ Trả về JSON duy nhất (không bọc code block markdown):
     }
 
     /**
-     * [PATCH PDF] Chuyen doi moi inlineData application/pdf trong contents
-     * thanh phan text da trich xuat bang pdfjs (theo tung trang).
-     * Cac tang proxy dinh dang OpenAI-style khong ho tro inlineData PDF,
-     * neu khong chuyen doi thi AI se khong thay noi dung file dinh kem.
+     * Loại bỏ các thuộc tính mở rộng nội bộ (như fileName, referenceType, characterName)
+     * khỏi các Part trong contents trước khi gửi sang Google GenAI SDK / Gemini REST API
+     * để tránh lỗi Protobuf HTTP 400 "Unknown name".
      */
-    private async _convertPdfAttachmentsToText(params: GenerateContentParameters): Promise<boolean> {
+    private _sanitizeContentsForGoogleSdk(contents: any): any {
+        if (!contents || !Array.isArray(contents)) {
+            return contents;
+        }
+        return contents.map((content: any) => {
+            if (!content || typeof content !== 'object' || !Array.isArray(content.parts)) {
+                return content;
+            }
+            const cleanParts = content.parts.map((part: any) => {
+                if (!part || typeof part !== 'object') {
+                    return part;
+                }
+                const cleanPart: any = {};
+                if (part.text !== undefined) cleanPart.text = part.text;
+                if (part.inlineData && typeof part.inlineData === 'object') {
+                    cleanPart.inlineData = {
+                        mimeType: part.inlineData.mimeType || 'image/jpeg',
+                        data: part.inlineData.data,
+                    };
+                }
+                if (part.fileData) cleanPart.fileData = part.fileData;
+                if (part.functionCall) cleanPart.functionCall = part.functionCall;
+                if (part.functionResponse) cleanPart.functionResponse = part.functionResponse;
+                if (part.executableCode) cleanPart.executableCode = part.executableCode;
+                if (part.codeExecutionResult) cleanPart.codeExecutionResult = part.codeExecutionResult;
+                if (part.thought !== undefined) cleanPart.thought = part.thought;
+                return Object.keys(cleanPart).length > 0 ? cleanPart : { text: '' };
+            });
+            return {
+                ...content,
+                parts: cleanParts,
+            };
+        });
+    }
+
+    /**
+     * Chọn tự động một model có khả năng đọc ảnh / PDF scan trên Mì Tôm AI
+     * khi model chat mặc định của người dùng là model chỉ hỗ trợ văn bản.
+     */
+    private async _pickUModelverseVisionFallbackModel(currentModel: string): Promise<string | null> {
+        try {
+            const available = await this.getUModelverseModels();
+            if (!available || available.length === 0) {
+                return null;
+            }
+            const currentLower = String(currentModel || '').toLowerCase();
+            const nonChatRegex = /(embedding|rerank|tts|whisper|asr|audio|dall-e|imagen|flux|midjourney|kling|sora|veo|vidu|wan|luma|hailuo|seedance|seedream|pixverse|cogvideo|moderation)/i;
+            const preferredPatterns: RegExp[] = [
+                /^gemini-3\.8-flash$/i,
+                /^gemini-3\.7-flash$/i,
+                /^gemini-2\.5-flash$/i,
+                /gemini-.*flash/i,
+                /^gpt-4o$/i,
+                /^gpt-4\.1$/i,
+                /gpt-4o/i,
+                /claude-.*sonnet/i,
+                /claude-3/i,
+                /qwen.*vl/i,
+                /glm-.*v\b/i,
+                /(vision|pixtral|omni)/i,
+            ];
+            for (const pattern of preferredPatterns) {
+                const found = available.find(
+                    (id) =>
+                        id &&
+                        id.toLowerCase() !== currentLower &&
+                        !nonChatRegex.test(id) &&
+                        pattern.test(id)
+                );
+                if (found) {
+                    return found;
+                }
+            }
+        } catch {
+            // Bỏ qua lỗi dò model dự phòng
+        }
+        return null;
+    }
+
+    /**
+     * Tiền xử lý đồng nhất mọi tệp đính kèm trong params.contents trước khi định tuyến tới
+     * Mì Tôm AI, AI Agent hoặc Gemini API Key:
+     * - Nhận diện đúng MIME type qua tên file và chữ ký byte đầu (kể cả khi trình duyệt trả file.type rỗng).
+     * - PDF có lớp văn bản: trích xuất toàn bộ nội dung theo trang thành văn bản thuần.
+     * - PDF scan / sách ảnh (hoặc PDF chỉ có watermark ngắn): tự động render các trang ra ảnh JPEG sắc nét
+     *   để cả Mì Tôm AI (OpenAI image_url / Anthropic image) lẫn Gemini API Key đọc được bằng Vision OCR.
+     * - Tệp Word (.docx) và tệp văn bản (.txt, .md, .csv, .json, .html, .xml, .srt): giải mã trực tiếp thành text.
+     */
+    private async _convertPdfAttachmentsToText(
+        params: GenerateContentParameters,
+        mediaNormalizeOnly = false
+    ): Promise<boolean> {
         if (!params.contents || !Array.isArray(params.contents)) {
             return false;
         }
 
         let changed = false;
+        const isMitomActive = this.isUModelverseEnabled();
+
         for (const content of params.contents as any[]) {
             const parts = content?.parts;
             if (!Array.isArray(parts)) {
                 continue;
             }
             for (let idx = 0; idx < parts.length; idx++) {
-                const inline = parts[idx]?.inlineData;
-                const mime = String(inline?.mimeType || '').toLowerCase();
-                if (mime === 'application/pdf' && inline?.data) {
-                    const pdfText = await this._pdfTextService.extractTextFromBase64(inline.data);
-                    if (pdfText && pdfText.trim().length > 0) {
+                const part = parts[idx];
+                const inline = part?.inlineData;
+                if (!inline || !inline.data) {
+                    continue;
+                }
+
+                const fileNameHint: string = String(part?.fileName || inline?.fileName || '').trim();
+                const detectedMime = this._pdfTextService.inferMimeType(
+                    fileNameHint,
+                    inline.mimeType,
+                    inline.data
+                );
+
+                // Cập nhật lại MIME chuẩn xác nếu trình duyệt gửi rỗng hoặc octet-stream
+                if (detectedMime && detectedMime !== 'application/octet-stream' && inline.mimeType !== detectedMime) {
+                    inline.mimeType = detectedMime;
+                    changed = true;
+                }
+
+                if (mediaNormalizeOnly) {
+                    continue;
+                }
+
+                const label = fileNameHint ? `: "${fileNameHint}"` : '';
+
+                // 1. Xử lý tệp PDF (văn bản & bản scan/ảnh)
+                if (detectedMime === 'application/pdf') {
+                    const pdfRes = await this._pdfTextService.extractPdfFromBase64(inline.data, {
+                        maxPages: 80,
+                        renderScannedPages: true,
+                        maxImagePages: 10,
+                    });
+
+                    if (!pdfRes.isScannedOrImagePdf && pdfRes.text.trim().length > 0) {
                         parts.splice(idx, 1, {
-                            text: `\n--- Nội dung file PDF đính kèm ---\n${pdfText}\n--- Hết file PDF ---`
+                            text: `\n\n=== TÀI LIỆU PDF ĐÍNH KÈM${label} (${pdfRes.numPages} trang) ===\n${pdfRes.text}\n=== HẾT TÀI LIỆU PDF ===\n`,
                         });
                         changed = true;
+                        continue;
+                    }
+
+                    if (pdfRes.renderedPages.length > 0) {
+                        const extraText = pdfRes.text.trim()
+                            ? `\nVăn bản phụ trích xuất được: "${pdfRes.text.trim()}"\n`
+                            : '';
+                        const replacementParts: any[] = [
+                            {
+                                text: `\n\n=== TÀI LIỆU PDF ĐÍNH KÈM (DẠNG TRANG ẢNH / SCAN)${label} ===\nTệp PDF gồm ${pdfRes.numPages} trang; đã chuyển ${pdfRes.renderedPages.length} trang đầu thành hình ảnh đính kèm ngay bên dưới.${extraText}Hãy quan sát và đọc kỹ toàn bộ chữ viết, tiêu đề và chi tiết trên các trang ảnh đính kèm để trả lời chính xác yêu cầu.\n=== HẾT THÔNG TIN TỆP PDF ===\n`,
+                            },
+                            ...pdfRes.renderedPages.map((pg) => ({
+                                inlineData: {
+                                    mimeType: pg.mimeType,
+                                    data: pg.data,
+                                },
+                            })),
+                        ];
+                        parts.splice(idx, 1, ...replacementParts);
+                        idx += replacementParts.length - 1;
+                        changed = true;
+                        continue;
+                    }
+
+                    if (pdfRes.text.trim().length > 0) {
+                        parts.splice(idx, 1, {
+                            text: `\n\n=== TÀI LIỆU PDF ĐÍNH KÈM${label} (${pdfRes.numPages} trang) ===\n${pdfRes.text}\n=== HẾT TÀI LIỆU PDF ===\n`,
+                        });
+                        changed = true;
+                        continue;
+                    }
+
+                    // Nếu không trích xuất được text và cũng không render được canvas:
+                    // Gemini API Key và Anthropic đọc được trực tiếp inlineData application/pdf, giữ nguyên inline.mimeType = 'application/pdf'
+                    if (isMitomActive && !GenaiService.isAnthropicDirectUrl(this._umodelverseUrl)) {
+                        console.warn('[GenaiService] Tệp PDF không có lớp văn bản và không thể render trang ảnh trên thiết bị hiện tại.');
+                    }
+                    continue;
+                }
+
+                // 2. Xử lý tệp Word (.docx)
+                if (detectedMime.includes('wordprocessingml')) {
+                    try {
+                        const docxText = await this._pdfTextService.extractDocxFromBase64(inline.data);
+                        if (docxText && docxText.trim().length > 0) {
+                            parts.splice(idx, 1, {
+                                text: `\n\n=== TÀI LIỆU WORD ĐÍNH KÈM${label} ===\n${docxText}\n=== HẾT TÀI LIỆU WORD ===\n`,
+                            });
+                            changed = true;
+                            continue;
+                        }
+                    } catch (docxErr) {
+                        console.warn('[GenaiService] Không thể đọc tệp DOCX đính kèm:', docxErr);
+                    }
+                }
+
+                // 3. Xử lý các tệp văn bản / dữ liệu cấu trúc (.txt, .md, .csv, .json, .html, .xml, .srt...)
+                if (this._pdfTextService.isTextLikeMime(detectedMime, fileNameHint)) {
+                    const decodedText = this._pdfTextService.decodeUtf8FromBase64(inline.data);
+                    if (decodedText && decodedText.trim().length > 0) {
+                        parts.splice(idx, 1, {
+                            text: `\n\n=== TỆP VĂN BẢN ĐÍNH KÈM${label} ===\n${decodedText}\n=== HẾT TỆP VĂN BẢN ===\n`,
+                        });
+                        changed = true;
+                        continue;
                     }
                 }
             }
         }
+
         if (changed) {
-            console.info('[GenaiService] Đã trích xuất văn bản từ file PDF đính kèm trước khi gửi AI.');
+            console.info('[GenaiService] Đã chuẩn hóa và trích xuất nội dung tệp đính kèm trước khi gửi AI.');
         }
         return changed;
     }
