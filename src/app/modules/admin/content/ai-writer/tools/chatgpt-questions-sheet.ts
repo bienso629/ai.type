@@ -94,7 +94,7 @@ import { getSettings } from 'app/_services/user-settings.service';
                             chatgpt(chatgptForm.get('chatgpt').value, $event)
                         "
                         [disabled]="
-                            loading || !chatgptForm.get('chatgpt').value
+                            loading || (!chatgptForm.get('chatgpt').value && !selectedFileName)
                         "
                     >
                         @if (!loading) {
@@ -212,10 +212,13 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     upload = (e: any) => {
-        const fileList: FileList = e.target.files;
+        const fileList: FileList = e?.target?.files;
         if (fileList && fileList.length > 0) {
             this.files = fileList[0];
             this.selectedFileName = this.files.name;
+        }
+        if (e?.target) {
+            e.target.value = '';
         }
     };
 
@@ -238,7 +241,11 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
             event.stopPropagation();
         }
 
-        if (!question) {
+        const effectiveQuestion =
+            (question || '').trim() ||
+            (this.files ? `Hãy đọc kỹ và phân tích chi tiết nội dung tệp đính kèm "${this.files.name}".` : '');
+
+        if (!effectiveQuestion) {
             this.toastr.warning('Xin lỗi! Bạn chưa có prompt.');
             return;
         }
@@ -246,10 +253,12 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
         try {
             this.loading = true;
             this.chatgptForm.get('chatgpt').disable();
-            let parts: any[] = [question];
+            let parts: any[] = [effectiveQuestion];
 
             if (this.files) {
                 this.toastr.info('Đang xử lý file...');
+                const fileName = this.files.name;
+                const fileMime = this.files.type;
                 const base64Data = await new Promise<string>(
                     (resolve, reject) => {
                         const reader = new FileReader();
@@ -260,9 +269,11 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
                     },
                 );
                 parts.push({
+                    fileName: fileName,
                     inlineData: {
                         data: base64Data,
-                        mimeType: this.files.type,
+                        mimeType: fileMime,
+                        fileName: fileName,
                     },
                 });
             }
@@ -281,7 +292,8 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
             });
 
             if (result.text) {
-                this.openchatgpt({ question, answer: result.text });
+                this.removeFile();
+                this.openchatgpt({ question: effectiveQuestion, answer: result.text });
             }
         } catch (error) {
             console.error('Lỗi Gemini:', error);

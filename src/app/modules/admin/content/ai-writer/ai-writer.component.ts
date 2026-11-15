@@ -1014,7 +1014,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 your_prompt += '. ';
             }
 
-            const prompt = `${your_prompt}Hãy viết dựa vào nội dung mẫu sau: "${result.textContent}", và tiêu đề mẫu: "${result.title}".
+            const attachedPayload = await this.collectAttachedFilesPayload();
+            const prompt = `${your_prompt}${attachedPayload.textContext ? attachedPayload.textContext + '\n' : ''}Hãy viết dựa vào nội dung mẫu sau: "${result.textContent}", và tiêu đề mẫu: "${result.title}".
             Yêu cầu: Trả kết quả về định dạng JSON với key đầu tiên là title có value đúng định dạng viết hoa đầu câu và chứa một từ khoá chính.
             Key thứ hai là content với value là nội dung của blog trả về dạng HTML, đoạn văn đầu tiên chứa một từ khoá chính, không gắn link vào bài viết. Lưu ý khi nội dung trong đoạn văn mà có chứa table thì phải bê nguyên xi cái table đó vào content.
             Key thứ ba là long_keywords với value là liệt kê các từ khoá chính trong blog theo dạng array, các khoá chính phải trên 3 từ trở lên.
@@ -1036,12 +1037,17 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3.8-flash',
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                contents: [{ role: 'user', parts: [{ text: prompt }, ...attachedPayload.inlineParts] }],
             });
 
             const jsonText = response.text;
             if (jsonText) {
-                const data = JSON.parse(jsonText);
+                const match = jsonText.match(/\{[\s\S]*\}/);
+                const cleanedJson = match ? match[0] : jsonText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                const data = JSON.parse(cleanedJson);
+                if (attachedPayload.fileNames.length > 0) {
+                    this.attachedFiles = [];
+                }
 
                 if (data) {
                     this.seo.description.text = data.description;
@@ -2141,13 +2147,115 @@ ${content}`;
     attachedFiles: File[] = [];
 
     uploadFilesToPrompt(e: any) {
-        const files: FileList = e.target.files;
+        const files: FileList = e?.target?.files;
         if (files && files.length > 0) {
             Array.from(files).forEach((file: File) => {
-                this.attachedFiles.push(file);
+                const isDup = this.attachedFiles.some(
+                    (f) => f.name === file.name && f.size === file.size && f.lastModified === file.lastModified
+                );
+                if (!isDup) {
+                    this.attachedFiles.push(file);
+                }
             });
             this.toastr.success('Đã đính kèm tệp thành công. Bạn có thể yêu cầu AI làm việc ngay.');
+            this.cd.markForCheck();
         }
+        // Reset giá trị input để người dùng có thể chọn lại cùng một tệp nếu cần
+        if (e?.target) {
+            e.target.value = '';
+        }
+    }
+
+    /**
+     * Đọc và chuẩn hóa toàn bộ tệp đang đính kèm trong Prompt công việc
+     * (hỗ trợ PDF văn bản, PDF scan/sách ảnh, DOCX, TXT/MD/CSV/JSON/HTML/XML/SRT và hình ảnh)
+     * để cả Mì Tôm AI lẫn Gemini API Key đều nhận đủ nội dung tệp.
+     */
+    private async collectAttachedFilesPayload(): Promise<{
+        textContext: string;
+        inlineParts: any[];
+        fileNames: string[];
+    }> {
+        if (!this.attachedFiles || this.attachedFiles.length === 0) {
+            return { textContext: '', inlineParts: [], fileNames: [] };
+        }
+
+        const results = await Promise.all(
+            this.attachedFiles.map((file: File) => this._pdfTextService.processFileAttachment(file))
+        );
+
+        let textContext = '';
+        const inlineParts: any[] = [];
+        const fileNames: string[] = [];
+
+        for (const res of results) {
+            fileNames.push(res.fileName);
+            if (res.textSection) {
+                textContext += res.textSection;
+            }
+            if (res.inlineParts && res.inlineParts.length > 0) {
+                for (const p of res.inlineParts) {
+                    inlineParts.push({
+                        fileName: res.fileName,
+                        inlineData: {
+                            mimeType: p.mimeType,
+                            data: p.data,
+                        },
+                    });
+                }
+            }
+        }
+
+        return { textContext, inlineParts, fileNames };
+    }
+
+    private parseAiContentsResponse(rawText: string): string[] {
+        if (!rawText) return [];
+        const cleaned = rawText
+            .replace(/<think>[\s\S]*?<\/think>/gi, '')
+            .trim();
+        const withoutFences = cleaned
+            .replace(/^```(?:json)?\s*/i, '')
+            .replace(/\s*```$/i, '')
+            .trim();
+
+        const candidates: string[] = [withoutFences];
+        const firstBrace = withoutFences.indexOf('{');
+        const lastBrace = withoutFences.lastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+            candidates.push(withoutFences.slice(firstBrace, lastBrace + 1));
+        }
+
+        for (const cand of candidates) {
+            try {
+                const parsed = JSON.parse(cand);
+                if (parsed && Array.isArray(parsed.contents)) {
+                    const list = parsed.contents
+                        .map((item: any) => (typeof item === 'string' ? item.trim() : String(item ?? '').trim()))
+                        .filter((item: string) => item.length > 0);
+                    if (list.length > 0) {
+                        return list;
+                    }
+                }
+                if (Array.isArray(parsed)) {
+                    const list = parsed
+                        .map((item: any) => (typeof item === 'string' ? item.trim() : String(item ?? '').trim()))
+                        .filter((item: string) => item.length > 0);
+                    if (list.length > 0) {
+                        return list;
+                    }
+                }
+            } catch {
+                // Thử candidate tiếp theo hoặc tách đoạn văn bản thuần
+            }
+        }
+
+        // Nếu AI trả về văn bản thuần nhiều đoạn thay vì JSON, tự động tách theo đoạn xuống dòng kép
+        const paragraphs = withoutFences
+            .split(/\n{2,}/)
+            .map((p) => p.trim())
+            .filter((p) => p.length > 0);
+        return paragraphs.length > 0 ? paragraphs : [withoutFences];
     }
 
     async processPromptWithFiles(event?: any) {
@@ -2158,11 +2266,21 @@ ${content}`;
 
         let promptText = '';
         if (this.source.prompt && this.source.prompt.length > 0) {
-            promptText = this.source.prompt.join('. ');
+            promptText = this.source.prompt.join('\n');
             if (this.removeHTML) promptText = this.removeHTML.transform(promptText) || '';
         }
+        promptText = promptText.trim();
 
-        if (!(promptText || '').trim() && (!this.attachedFiles || this.attachedFiles.length === 0)) {
+        const taskTitle = String(
+            this.detectForm?.get('step1')?.get('title')?.value || this.details?.title || ''
+        ).trim();
+        const taskDesc = String(
+            this.detectForm?.get('step1')?.get('description')?.value || ''
+        ).trim();
+
+        const hasAttachments = Boolean(this.attachedFiles && this.attachedFiles.length > 0);
+
+        if (!promptText && !taskDesc && !hasAttachments) {
             this.toastr.warning('Bạn cần nhập prompt hoặc đính kèm tệp để AI làm việc.');
             return;
         }
@@ -2172,103 +2290,65 @@ ${content}`;
         }
 
         this.loading = true;
-        this.toastr.info('AI đang xử lý yêu cầu của bạn...', 'Đợi chút nhé');
+        this.toastr.info('AI đang đọc dữ liệu và xử lý yêu cầu của bạn...', 'Đợi chút nhé');
+        this.cd.markForCheck();
 
-        const styleGuide = this.style ? ` Blog mang phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}).` : '';
+        const styleGuide = this.style
+            ? `\nPhong cách viết bắt buộc: ${this.style.name}${this.style.desc ? ` (${this.style.desc})` : ''}.`
+            : '';
+
         try {
-            let promptTextAccumulator = (promptText || '') + styleGuide + `\nTrình bày câu trả lời của bạn dưới định dạng JSON với key là "contents", value là một mảng các đoạn văn. Không dùng markdown.`;
-            let parts: any[] = [];
-            
-            if (this.attachedFiles.length > 0) {
-                const uploadPromises = this.attachedFiles.map(
-                    (file: File) => new Promise<any>((resolve, reject) => {
-                        const isText = file.name.endsWith('.txt') || file.name.endsWith('.md') || file.name.endsWith('.csv') || file.name.endsWith('.json');
-                        const isPdf = file.name.toLowerCase().endsWith('.pdf');
+            const { textContext, inlineParts, fileNames } = await this.collectAttachedFilesPayload();
 
-                        const reader = new FileReader();
-                        if (isText) {
-                            reader.onload = (e: any) => {
-                                resolve({ type: 'text', content: `\n--- Nội dung file ${file.name} ---\n${e.target.result}\n--- Hết file ---` });
-                            };
-                            reader.onerror = reject;
-                            reader.readAsText(file);
-                        } else if (isPdf) {
-                            // Trích xuất văn bản PDF ngay phía client để AI đọc được nội dung đính kèm
-                            // (các tầng proxy OpenAI-style không hỗ trợ inlineData PDF, gửi đi sẽ bị bỏ qua)
-                            this._pdfTextService.extractText(file).then((pdfText) => {
-                                if (pdfText && pdfText.trim().length > 0) {
-                                    resolve({ type: 'text', content: `\n--- Nội dung file PDF ${file.name} ---\n${pdfText}\n--- Hết file PDF ---` });
-                                } else {
-                                    reject(new Error(`File PDF "${file.name}" là bản scan (ảnh) hoặc không có lớp văn bản để trích xuất. Vui lòng dùng bản PDF có văn bản hoặc dán nội dung vào ô prompt.`));
-                                }
-                            }).catch((pdfErr: any) => {
-                                reject(new Error(`Không đọc được file PDF "${file.name}": ${pdfErr?.message || 'lỗi không xác định'}`));
-                            });
-                        } else {
-                            reader.onload = (e: any) => {
-                                const base64Data = e.target.result.split(',')[1];
-                                let mimeType = file.type;
-                                if (!mimeType) {
-                                    if (file.name.toLowerCase().endsWith('.png')) mimeType = 'image/png';
-                                    else if (isPdf) mimeType = 'application/pdf';
-                                    else mimeType = 'image/jpeg';
-                                }
-                                resolve({
-                                    type: 'image',
-                                    inlineData: {
-                                        mimeType: mimeType,
-                                        data: base64Data
-                                    }
-                                });
-                            };
-                            reader.onerror = reject;
-                            reader.readAsDataURL(file);
-                        }
-                    })
-                );
-                
-                const fileResults = await Promise.all(uploadPromises);
-                for (const res of fileResults) {
-                    if (res.type === 'text') {
-                        promptTextAccumulator += res.content;
-                    } else if (res.type === 'image') {
-                        parts.push({ inlineData: res.inlineData });
-                    }
-                }
+            const effectiveInstruction =
+                promptText ||
+                taskDesc ||
+                'Hãy phân tích kỹ tài liệu đính kèm và viết bài nội dung chi tiết, chuyên sâu.';
+
+            const contextLines: string[] = [];
+            if (taskTitle) {
+                contextLines.push(`- Tên tác vụ / Chủ đề / Tên tác phẩm: "${taskTitle}"`);
             }
-            
-            // Add the combined text as the first part
-            parts.unshift({ text: promptTextAccumulator });
+            if (taskDesc && taskDesc !== effectiveInstruction) {
+                contextLines.push(`- Mô tả tác vụ: "${taskDesc}"`);
+            }
+            if (fileNames.length > 0) {
+                contextLines.push(
+                    `- Tệp đính kèm người dùng đã gửi kèm (${fileNames.length} tệp): ${fileNames.map((n) => `"${n}"`).join(', ')}`
+                );
+            }
+
+            let finalPrompt = '';
+            if (contextLines.length > 0) {
+                finalPrompt += `THÔNG TIN NGỮ CẢNH TÁC VỤ:\n${contextLines.join('\n')}\n`;
+            }
+            if (textContext) {
+                finalPrompt += `${textContext}\n`;
+            }
+            finalPrompt += `\nYÊU CẦU CỦA NGƯỜI DÙNG:\n${effectiveInstruction}${styleGuide}\n`;
+            if (fileNames.length > 0) {
+                finalPrompt += `\nLƯU Ý QUAN TRỌNG: Người dùng ĐÃ ĐÍNH KÈM đầy đủ tệp tài liệu (${fileNames.join(', ')}) ở ngay phần dữ liệu/hình ảnh phía trên. Hãy đọc và khai thác trực tiếp nội dung từ tệp đính kèm cùng tên tác vụ để thực hiện yêu cầu; tuyệt đối không báo là người dùng chưa gửi tệp hay chưa gửi thông tin.\n`;
+            }
+            finalPrompt += `\nĐỊNH DẠNG ĐẦU RA BẮT BUỘC: Trả về duy nhất một đối tượng JSON hợp lệ với key là "contents" và value là mảng các đoạn văn hoàn chỉnh (ví dụ: {"contents": ["Đoạn 1...", "Đoạn 2..."]}). Không bọc trong markdown code block, không giải thích ngoài JSON.`;
+
+            const parts: any[] = [{ text: finalPrompt }, ...inlineParts];
 
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3.8-flash',
                 contents: [{ role: 'user', parts: parts }],
             });
 
-            const jsonText = response.text;
-            if (jsonText) {
-                try {
-                    const data = JSON.parse(jsonText);
-                    if (data.contents && Array.isArray(data.contents)) {
-                        data.contents.forEach((text: string) => {
-                            this.source.text.push(`<p id="source-p-${uuid.v4()}">${this.sanitizeAIText(text)}</p>`);
-                        });
-                        this.toastr.success('AI đã hoàn thành công việc!');
-                        this.attachedFiles = [];
-                        this.cd.markForCheck();
-                    } else {
-                        // Fallback if no contents array
-                        this.source.text.push(`<p id="source-p-${uuid.v4()}">${this.sanitizeAIText(jsonText)}</p>`);
-                        this.toastr.success('AI đã hoàn thành công việc!');
-                        this.attachedFiles = [];
-                        this.cd.markForCheck();
-                    }
-                } catch(e) {
-                    this.source.text.push(`<p id="source-p-${uuid.v4()}">${this.sanitizeAIText(jsonText)}</p>`);
-                    this.toastr.success('AI đã hoàn thành công việc!');
-                    this.attachedFiles = [];
-                    this.cd.markForCheck();
-                }
+            const rawReply = response?.text || '';
+            if (rawReply.trim()) {
+                const paragraphs = this.parseAiContentsResponse(rawReply);
+                paragraphs.forEach((text: string) => {
+                    this.source.text.push(`<p id="source-p-${uuid.v4()}">${this.sanitizeAIText(text)}</p>`);
+                });
+                this.toastr.success('AI đã hoàn thành công việc!');
+                this.attachedFiles = [];
+                this.cd.markForCheck();
+            } else {
+                this.toastr.warning('AI chưa trả về nội dung. Vui lòng thử lại.');
             }
         } catch (error: any) {
             console.error('Lỗi khi gửi AI: ', error);
@@ -2281,6 +2361,7 @@ ${content}`;
 
     removeAttachedFile(index: number) {
         this.attachedFiles.splice(index, 1);
+        this.cd.markForCheck();
     }
 
     /**
