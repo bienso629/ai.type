@@ -1,4 +1,4 @@
-export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max_videos: number}> = {
+export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max_videos: number, max_audios?: number}> = {
   "IndexTeam-IndexTTS-extend": {
     "text": true,
     "max_images": 0,
@@ -417,31 +417,37 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   "doubao-seedance-2-0-260128": {
     "text": true,
     "max_images": 4,
-    "max_videos": 1
+    "max_videos": 1,
+    "max_audios": 3
   },
   "doubao-seedance-2-0-fast-260128": {
     "text": true,
     "max_images": 4,
-    "max_videos": 1
+    "max_videos": 1,
+    "max_audios": 3
   },
   "doubao-seedance-2-0-mini-260615": {
     "text": true,
     "max_images": 4,
-    "max_videos": 1
+    "max_videos": 1,
+    "max_audios": 3
   },
   "seedance-2-0-filter-off": {
     "text": true,
     "max_images": 4,
-    "max_videos": 1
+    "max_videos": 1,
+    "max_audios": 3
   },
   "doubao-seedance-2-5-260628": {
     "text": true,
     "max_images": 4,
-    "max_videos": 1
+    "max_videos": 1,
+    "max_audios": 10
   },
   "doubao-seedance-2-5-260628-global": {
     "text": true,
     "max_images": 4,
-    "max_videos": 1
+    "max_videos": 1,
+    "max_audios": 10
   }
 };

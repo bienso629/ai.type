@@ -3002,6 +3002,10 @@ ipcMain.handle("read-file-base64", async (event, args) => {
         else if (ext === '.svg') mime = "image/svg+xml";
         else if (ext === '.webp') mime = "image/webp";
         else if (ext === '.mp4') mime = "video/mp4";
+        else if (ext === '.mp3') mime = "audio/mpeg";
+        else if (ext === '.wav') mime = "audio/wav";
+        else if (ext === '.m4a') mime = "audio/mp4";
+        else if (ext === '.ogg') mime = "audio/ogg";
 
         return { success: true, base64: base64, dataUrl: `data:${mime};base64,${base64}` };
     } catch (e) {
@@ -6489,39 +6493,43 @@ app.whenReady().then(async () => {
 
     // ===== SAVE BASE64 IPC =====
     ipcMain.handle("save-base64", async (_event, payload) => {
-        return new Promise((resolve) => {
-            try {
-                let { base64, fileName, folder, username } = payload || {};
-                if (!base64) return resolve({ success: false, error: "Empty base64 data" });
+        try {
+            let { base64, fileName, folder, username } = payload || {};
+            if (!base64) return { success: false, error: "Empty base64 data" };
 
-                // Strip data URI prefix if present
-                if (base64.startsWith('data:')) {
-                    base64 = base64.split(',')[1];
-                }
-
-                const docDir = documentsDir || path.join(os.homedir(), "Documents");
-                let targetDir = path.join(docDir, "ai.type", "data", "uploads");
-                if (folder && username) {
-                    targetDir = path.join(targetDir, folder, username);
-                } else if (username) {
-                    targetDir = path.join(targetDir, username);
-                } else if (folder) {
-                    targetDir = path.join(targetDir, folder);
-                }
-
-                fs.mkdirSync(targetDir, { recursive: true });
-
-                const fname = fileName || `image_${Date.now()}.png`;
-                const filePath = path.join(targetDir, fname);
-                const buffer = Buffer.from(base64, "base64");
-                fs.writeFileSync(filePath, buffer);
-
-                resolve({ success: true, path: filePath, fileName: fname });
-            } catch (err) {
-                console.error("save-base64 error:", err);
-                resolve({ success: false, error: err.message });
+            // Strip data URI prefix if present
+            if (base64.startsWith('data:')) {
+                base64 = base64.split(',')[1];
             }
-        });
+
+            const docDir = documentsDir || path.join(os.homedir(), "Documents");
+            let targetDir = path.join(docDir, "ai.type", "data", "uploads");
+            if (folder && username) {
+                targetDir = path.join(targetDir, folder, username);
+            } else if (username) {
+                targetDir = path.join(targetDir, username);
+            } else if (folder) {
+                targetDir = path.join(targetDir, folder);
+            }
+
+            fs.mkdirSync(targetDir, { recursive: true });
+
+            const fname = fileName || `image_${Date.now()}.png`;
+            const filePath = path.join(targetDir, fname);
+            const buffer = Buffer.from(base64, "base64");
+            fs.writeFileSync(filePath, buffer);
+
+            // Tự động chuyển đổi các video HEVC (H.265) / AV1 / 10-bit từ Seedance/Kling sang H.264 8-bit yuv420p
+            // để Chromium / Electron giải mã hiển thị hình ảnh đầy đủ trên mọi hệ điều hành
+            if (fname.toLowerCase().endsWith('.mp4')) {
+                await ensureFileIsPlayableH264Mp4(filePath);
+            }
+
+            return { success: true, path: filePath, fileName: fname };
+        } catch (err) {
+            console.error("save-base64 error:", err);
+            return { success: false, error: err.message };
+        }
     });
 
     // ===== OVERWRITE FILE BASE64 IPC =====
@@ -9611,6 +9619,438 @@ ipcMain.handle('extract-last-frame', async (event, videoPath) => {
         });
     } catch (e) {
         return { success: false, error: e.message };
+    }
+});
+
+function runAvatarFFmpeg(args, cwd) {
+    return new Promise((resolve, reject) => {
+        const ffmpegPath = binaries.ffmpeg || 'ffmpeg';
+        const child = spawn(ffmpegPath, args, { cwd });
+        let stderr = '';
+        child.stderr.on('data', (d) => { stderr += d.toString(); });
+        child.on('error', (err) => reject(err));
+        child.on('close', (code) => {
+            if (code === 0) resolve(stderr);
+            else reject(new Error(`FFmpeg exited ${code}: ${stderr.slice(-600)}`));
+        });
+    });
+}
+
+function probeMediaInfoFFmpeg(targetPath) {
+    return new Promise((resolve) => {
+        const ffmpegPath = binaries.ffmpeg || 'ffmpeg';
+        try {
+            const child = spawn(ffmpegPath, ['-i', targetPath]);
+            let stderr = '';
+            child.stderr.on('data', (d) => { stderr += d.toString(); });
+            child.on('error', () => resolve({ duration: 0, width: 0, height: 0, rawStderr: '' }));
+            child.on('close', () => {
+                let duration = 0;
+                const durMatch = stderr.match(/Duration:\s*(\d+):(\d+):([\d.]+)/);
+                if (durMatch) {
+                    duration = parseInt(durMatch[1], 10) * 3600 + parseInt(durMatch[2], 10) * 60 + parseFloat(durMatch[3]);
+                }
+                let width = 0, height = 0;
+                const dimMatch = stderr.match(/Stream #[^\n]*Video:[^\n]*?\b(\d{2,5})x(\d{2,5})\b/);
+                if (dimMatch) {
+                    width = parseInt(dimMatch[1], 10);
+                    height = parseInt(dimMatch[2], 10);
+                }
+                resolve({ duration, width, height, rawStderr: stderr });
+            });
+        } catch (_err) {
+            resolve({ duration: 0, width: 0, height: 0, rawStderr: '' });
+        }
+    });
+}
+
+async function ensureFileIsPlayableH264Mp4(mp4FilePath) {
+    try {
+        if (!mp4FilePath || !fs.existsSync(mp4FilePath)) {
+            return { success: false, converted: false, error: 'File not found' };
+        }
+        const meta = await probeMediaInfoFFmpeg(mp4FilePath);
+        const stderr = meta.rawStderr || '';
+        const hasVideoStream = /Stream #[^\n]*Video:/i.test(stderr);
+        if (!hasVideoStream) {
+            return { success: true, converted: false, path: mp4FilePath };
+        }
+        const isCompatibleH264 =
+            /Stream #[^\n]*Video:\s*h264\b/i.test(stderr) &&
+            /\byuv420p\b/i.test(stderr) &&
+            !/\byuv420p10/i.test(stderr);
+        if (isCompatibleH264) {
+            return { success: true, converted: false, path: mp4FilePath };
+        }
+
+        const hasAudioStream = /Stream #[^\n]*Audio:/i.test(stderr);
+        const dir = path.dirname(mp4FilePath);
+        const tmpOut = path.join(dir, `.transcode_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.mp4`);
+        const args = [
+            '-y',
+            '-i', mp4FilePath,
+            '-c:v', 'libx264',
+            '-profile:v', 'high',
+            '-preset', 'fast',
+            '-crf', '20',
+            '-pix_fmt', 'yuv420p',
+            ...(hasAudioStream ? ['-c:a', 'aac', '-b:a', '192k'] : ['-an']),
+            '-movflags', '+faststart',
+            tmpOut
+        ];
+        await runAvatarFFmpeg(args, dir);
+        if (fs.existsSync(tmpOut) && fs.statSync(tmpOut).size > 0) {
+            fs.renameSync(tmpOut, mp4FilePath);
+            console.log(`[VideoCodecFix] Đã tự động chuyển đổi video HEVC/10-bit sang H.264 yuv420p: ${mp4FilePath}`);
+            return { success: true, converted: true, path: mp4FilePath };
+        }
+        return { success: false, converted: false, error: 'Transcode output empty' };
+    } catch (err) {
+        console.warn('[VideoCodecFix] Không thể chuyển đổi H.264:', err.message);
+        return { success: false, converted: false, error: err.message };
+    }
+}
+
+ipcMain.handle('ensure-playable-video', async (_event, rawVideoPath) => {
+    try {
+        if (!rawVideoPath) return { success: false, converted: false };
+        let clean = String(rawVideoPath)
+            .trim()
+            .replace(/^unsafe:/i, '')
+            .replace(/^media:\/{2,3}/i, '/')
+            .replace(/^mediacors:\/{2,3}/i, '/')
+            .replace(/^file:\/{2,3}/i, '/');
+        try {
+            clean = decodeURIComponent(clean.split('?')[0].split('#')[0]);
+        } catch (_e) {
+            clean = clean.split('?')[0].split('#')[0];
+        }
+        if (clean.startsWith('//')) clean = clean.replace(/^\/+/, '/');
+        if (process.platform === 'win32' && clean.startsWith('/') && /^\/[a-zA-Z]:/.test(clean)) {
+            clean = clean.slice(1);
+        }
+        return await ensureFileIsPlayableH264Mp4(clean);
+    } catch (err) {
+        return { success: false, converted: false, error: err.message };
+    }
+});
+
+// Tải tạm tệp âm thanh / video tham chiếu lên kho lưu trữ HTTPS tự hủy (dành cho audio_url / video_url khi cdn1.type.vn chỉ nhận ảnh)
+ipcMain.handle('upload-temp-media', async (_event, payload) => {
+    try {
+        const { base64, mimeType, filename } = payload || {};
+        if (!base64) return { success: false, error: 'Empty base64' };
+        const cleanB64 = String(base64).replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '');
+        const buf = Buffer.from(cleanB64, 'base64');
+        const mimeStr = String(mimeType || 'audio/wav');
+        const safeName = String(filename || `media_${Date.now()}.wav`);
+
+        // Ưu tiên 1: uguu.se (trả thẳng link HTTPS tĩnh, tốc độ cao, tự xóa sau 3h)
+        try {
+            const fd1 = new FormData();
+            fd1.append('files[]', new Blob([buf], { type: mimeStr }), safeName);
+            const r1 = await fetch('https://uguu.se/upload', { method: 'POST', body: fd1 });
+            if (r1.ok) {
+                const j1 = await r1.json();
+                const u1 = j1?.files?.[0]?.url;
+                if (u1 && String(u1).startsWith('https://')) {
+                    return { success: true, url: String(u1) };
+                }
+            }
+        } catch (_e1) {
+            // Chuyển sang máy chủ dự phòng
+        }
+
+        // Ưu tiên 2: litterbox.catbox.moe (trả thẳng link HTTPS tĩnh, tự xóa sau 1h)
+        try {
+            const fd2 = new FormData();
+            fd2.append('reqtype', 'fileupload');
+            fd2.append('time', '1h');
+            fd2.append('fileToUpload', new Blob([buf], { type: mimeStr }), safeName);
+            const r2 = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', {
+                method: 'POST',
+                body: fd2
+            });
+            if (r2.ok) {
+                const txt2 = (await r2.text()).trim();
+                if (txt2.startsWith('https://')) {
+                    return { success: true, url: txt2 };
+                }
+            }
+        } catch (_e2) {
+            // Bỏ qua
+        }
+
+        return { success: false, error: 'All temporary HTTPS upload mirrors unreachable' };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+async function materializeAvatarMediaToFile(source, destPath) {
+    if (!source) throw new Error('Empty media source');
+    const s = String(source).trim();
+    if (!s) throw new Error('Empty media source');
+
+    if (s.startsWith('data:')) {
+        const commaIdx = s.indexOf(',');
+        const pure = commaIdx >= 0 ? s.slice(commaIdx + 1) : s;
+        fs.writeFileSync(destPath, Buffer.from(pure.replace(/\s+/g, ''), 'base64'));
+        return destPath;
+    }
+
+    if (s.startsWith('http://') || s.startsWith('https://')) {
+        const resp = await fetch(s);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status} downloading ${s}`);
+        const buf = Buffer.from(await resp.arrayBuffer());
+        fs.writeFileSync(destPath, buf);
+        return destPath;
+    }
+
+    const looksLocal =
+        s.startsWith('file://') ||
+        s.startsWith('media://') ||
+        s.startsWith('mediacors://') ||
+        s.startsWith('unsafe:') ||
+        /^[a-zA-Z]:[\\/]/.test(s) ||
+        (s.startsWith('/') && s.length < 1024 && !s.includes(' ' + ' ') && /\.[a-zA-Z0-9]{2,5}(\?.*)?$/.test(s));
+
+    if (looksLocal) {
+        let clean = s
+            .replace(/^unsafe:/i, '')
+            .replace(/^media:\/{2,3}/i, '/')
+            .replace(/^mediacors:\/{2,3}/i, '/')
+            .replace(/^file:\/{2,3}/i, '/');
+        try {
+            clean = decodeURIComponent(clean.split('?')[0].split('#')[0]);
+        } catch (_e) {
+            clean = clean.split('?')[0].split('#')[0];
+        }
+        if (clean.startsWith('//')) clean = clean.replace(/^\/+/, '/');
+        if (process.platform === 'win32' && clean.startsWith('/') && /^\/[a-zA-Z]:/.test(clean)) {
+            clean = clean.slice(1);
+        }
+        if (fs.existsSync(clean)) {
+            fs.copyFileSync(clean, destPath);
+            return destPath;
+        }
+        throw new Error(`Local media file not found: ${clean}`);
+    }
+
+    // Raw base64 without data: prefix
+    fs.writeFileSync(destPath, Buffer.from(s.replace(/\s+/g, ''), 'base64'));
+    return destPath;
+}
+
+ipcMain.handle('probe-and-extract-frame', async (_event, payload) => {
+    const tempDir = path.join(app.getPath('temp'), `aitype_probe_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
+    try {
+        fs.mkdirSync(tempDir, { recursive: true });
+        const { videoSource, timeSec } = payload || {};
+        const tmpVid = path.join(tempDir, 'segment.mp4');
+        await materializeAvatarMediaToFile(videoSource, tmpVid);
+
+        const meta = await probeMediaInfoFFmpeg(tmpVid);
+        const dur = meta.duration || 0;
+        const seekSec =
+            typeof timeSec === 'number' && timeSec > 0 && dur > 0
+                ? Math.max(0, Math.min(Math.max(0, dur - 0.04), timeSec))
+                : Math.max(0, dur - 0.05);
+
+        const outPng = path.join(tempDir, 'frame.png');
+        try {
+            await runAvatarFFmpeg(['-y', '-ss', seekSec.toFixed(3), '-i', tmpVid, '-frames:v', '1', '-q:v', '2', outPng], tempDir);
+        } catch (_e1) {
+            // Fallback below
+        }
+
+        if (!fs.existsSync(outPng)) {
+            try {
+                await runAvatarFFmpeg(['-y', '-sseof', '-0.1', '-i', tmpVid, '-update', '1', '-q:v', '2', outPng], tempDir);
+            } catch (_e2) {
+                await runAvatarFFmpeg(['-y', '-i', tmpVid, '-frames:v', '1', '-q:v', '2', outPng], tempDir);
+            }
+        }
+
+        if (!fs.existsSync(outPng)) {
+            return { success: false, duration: dur, error: 'Failed to extract frame PNG' };
+        }
+
+        const frameB64 = fs.readFileSync(outPng, 'base64');
+        return {
+            success: true,
+            duration: dur,
+            width: meta.width,
+            height: meta.height,
+            frameDataUri: `data:image/png;base64,${frameB64}`
+        };
+    } catch (err) {
+        return { success: false, error: err.message };
+    } finally {
+        try {
+            if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
+        } catch (_cleanupErr) {}
+    }
+});
+
+ipcMain.handle('compose-avatar-video', async (_event, payload) => {
+    const workspaceDir = path.join(app.getPath('temp'), `aitype_avatar_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
+    try {
+        fs.mkdirSync(workspaceDir, { recursive: true });
+        const { segments, audioSources, targetDurationSec } = payload || {};
+        if (!Array.isArray(segments) || segments.length === 0) {
+            return { success: false, error: 'Empty video segments for compose-avatar-video' };
+        }
+
+        // 1. Chuẩn bị tệp âm thanh gốc (master_audio.wav) giữ nguyên 100% nội dung và chất lượng thoại của người dùng
+        let hasMasterAudio = false;
+        let exactAudioDur = Number(targetDurationSec) || 0;
+        if (Array.isArray(audioSources) && audioSources.length > 0) {
+            const normAudList = [];
+            for (let aIdx = 0; aIdx < audioSources.length; aIdx++) {
+                const rawSrc = audioSources[aIdx];
+                if (!rawSrc) continue;
+                const guessExt = String(rawSrc).toLowerCase().includes('wav') ? '.wav' : '.mp3';
+                const rawAudFile = `raw_aud_${aIdx}${guessExt}`;
+                const normAudFile = `norm_aud_${aIdx}.wav`;
+                try {
+                    await materializeAvatarMediaToFile(rawSrc, path.join(workspaceDir, rawAudFile));
+                    await runAvatarFFmpeg(['-y', '-i', rawAudFile, '-ar', '44100', '-ac', '2', normAudFile], workspaceDir);
+                    if (fs.existsSync(path.join(workspaceDir, normAudFile))) {
+                        normAudList.push(normAudFile);
+                    }
+                } catch (audErr) {
+                    console.warn('[compose-avatar-video] Skip invalid audio source:', audErr.message);
+                }
+            }
+
+            if (normAudList.length === 1) {
+                fs.copyFileSync(path.join(workspaceDir, normAudList[0]), path.join(workspaceDir, 'master_audio.wav'));
+                hasMasterAudio = true;
+            } else if (normAudList.length > 1) {
+                const audConcatTxt = 'ffconcat version 1.0\n' + normAudList.map((f) => `file '${f}'`).join('\n') + '\n';
+                fs.writeFileSync(path.join(workspaceDir, 'audios.txt'), audConcatTxt, 'utf-8');
+                await runAvatarFFmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', 'audios.txt', '-ar', '44100', '-ac', '2', 'master_audio.wav'], workspaceDir);
+                hasMasterAudio = fs.existsSync(path.join(workspaceDir, 'master_audio.wav'));
+            }
+
+            if (hasMasterAudio) {
+                const audMeta = await probeMediaInfoFFmpeg(path.join(workspaceDir, 'master_audio.wav'));
+                if (audMeta.duration > 0) {
+                    exactAudioDur = audMeta.duration;
+                }
+            }
+        }
+
+        // 2. Tải & chuẩn hóa toàn bộ các phân đoạn video về cùng kích thước, FPS (24fps) và cắt chính xác theo nhịp nghỉ
+        const rawSegMetas = [];
+        for (let k = 0; k < segments.length; k++) {
+            const seg = segments[k];
+            const src = seg?.videoSource || seg?.videoBase64 || seg?.videoUrl || seg;
+            const rawName = `raw_seg_${k}.mp4`;
+            await materializeAvatarMediaToFile(src, path.join(workspaceDir, rawName));
+            const meta = await probeMediaInfoFFmpeg(path.join(workspaceDir, rawName));
+            rawSegMetas.push({
+                rawName,
+                duration: meta.duration || 0,
+                width: meta.width || 0,
+                height: meta.height || 0,
+                trimDuration: Number(seg?.trimDuration) || 0
+            });
+        }
+
+        let targetW = rawSegMetas[0].width || 720;
+        let targetH = rawSegMetas[0].height || 1280;
+        targetW = Math.max(2, Math.floor(targetW / 2) * 2);
+        targetH = Math.max(2, Math.floor(targetH / 2) * 2);
+
+        const normSegNames = [];
+        let accumulatedDur = 0;
+
+        for (let k = 0; k < rawSegMetas.length; k++) {
+            const info = rawSegMetas[k];
+            const isLast = k === rawSegMetas.length - 1;
+            const normName = `norm_seg_${k}.mp4`;
+            let clipDur = info.duration > 0 ? info.duration : (info.trimDuration > 0 ? info.trimDuration : 5);
+
+            if (!isLast && info.trimDuration > 0) {
+                clipDur = Math.min(clipDur, info.trimDuration);
+            } else if (isLast && exactAudioDur > 0) {
+                const neededLast = Math.max(0.2, exactAudioDur - accumulatedDur);
+                clipDur = neededLast;
+            }
+
+            let vf = `scale=${targetW}:${targetH}:force_original_aspect_ratio=decrease,pad=${targetW}:${targetH}:(ow-iw)/2:(oh-ih)/2,setsar=1`;
+            if (info.duration > 0 && clipDur > info.duration + 0.04) {
+                const padExtra = (clipDur - info.duration + 0.15).toFixed(3);
+                vf += `,tpad=stop_mode=clone:stop_duration=${padExtra}`;
+            }
+
+            const normArgs = [
+                '-y',
+                '-i', info.rawName,
+                '-t', clipDur.toFixed(3),
+                '-r', '24',
+                '-vf', vf,
+                ...(hasMasterAudio ? ['-an'] : ['-c:a', 'aac', '-b:a', '192k']),
+                '-c:v', 'libx264',
+                '-profile:v', 'high',
+                '-preset', 'fast',
+                '-crf', '20',
+                '-pix_fmt', 'yuv420p',
+                normName
+            ];
+            await runAvatarFFmpeg(normArgs, workspaceDir);
+            normSegNames.push(normName);
+            accumulatedDur += clipDur;
+        }
+
+        // 3. Ghép liền mạch luồng hình ảnh
+        let visualMergedName = normSegNames[0];
+        if (normSegNames.length > 1) {
+            visualMergedName = 'concat_visual.mp4';
+            const concatTxt = 'ffconcat version 1.0\n' + normSegNames.map((f) => `file '${f}'`).join('\n') + '\n';
+            fs.writeFileSync(path.join(workspaceDir, 'videos.txt'), concatTxt, 'utf-8');
+            await runAvatarFFmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', 'videos.txt', '-c', 'copy', visualMergedName], workspaceDir);
+        }
+
+        // 4. Lồng 100% âm thanh gốc (.wav / .mp3) và chốt đúng độ dài khớp tệp thoại (vd: 22.060s)
+        let finalFileName = visualMergedName;
+        if (hasMasterAudio) {
+            finalFileName = 'final_avatar.mp4';
+            const muxArgs = [
+                '-y',
+                '-i', visualMergedName,
+                '-i', 'master_audio.wav',
+                '-map', '0:v:0',
+                '-map', '1:a:0',
+                ...(exactAudioDur > 0 ? ['-t', exactAudioDur.toFixed(3)] : ['-shortest']),
+                '-c:v', 'copy',
+                '-c:a', 'aac',
+                '-b:a', '192k',
+                '-movflags', '+faststart',
+                finalFileName
+            ];
+            await runAvatarFFmpeg(muxArgs, workspaceDir);
+        }
+
+        const finalAbsPath = path.join(workspaceDir, finalFileName);
+        const finalMeta = await probeMediaInfoFFmpeg(finalAbsPath);
+        const finalDuration = finalMeta.duration > 0 ? finalMeta.duration : (exactAudioDur || accumulatedDur);
+        const finalBase64 = fs.readFileSync(finalAbsPath, 'base64');
+
+        return {
+            success: true,
+            base64: finalBase64,
+            duration: finalDuration
+        };
+    } catch (err) {
+        console.error('[compose-avatar-video] Error:', err);
+        return { success: false, error: err.message };
+    } finally {
+        try {
+            if (fs.existsSync(workspaceDir)) fs.rmSync(workspaceDir, { recursive: true, force: true });
+        } catch (_cleanupErr) {}
     }
 });
 

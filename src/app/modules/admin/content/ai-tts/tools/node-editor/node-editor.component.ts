@@ -407,6 +407,8 @@ export class NodeEditorComponent
                 supports.push(`tối đa ${info.max_images} hình ảnh`);
             if (info.max_videos > 0)
                 supports.push(`tối đa ${info.max_videos} video`);
+            if (info.max_audios && info.max_audios > 0)
+                supports.push('giọng đọc AI Avatar (.mp3/.wav)');
 
             const limitsText =
                 supports.length > 0
@@ -2096,6 +2098,13 @@ export class NodeEditorComponent
     }
 
     selectNode(node: NodeItem) {
+        if (this.selectedNode && this.selectedNode.id !== node?.id) {
+            this.attachedFiles = this.attachedFiles.filter(
+                (f) =>
+                    f.referenceType !== 'REFERENCE_AUDIO' &&
+                    !String(f.mimeType || '').startsWith('audio/'),
+            );
+        }
         this.selectedNode = node;
         this.editingType = 'scene';
         this.editingCharacter = null;
@@ -2482,6 +2491,16 @@ export class NodeEditorComponent
             const nodesMapping: any[] = [];
             const refImagesUrls: string[][] = [];
             const refImagesNames: (string | undefined)[][] = [];
+            const hasSceneBaseFrameAtZero: boolean[] = [];
+            const userHasAttachedStartOrImage =
+                !generateAll &&
+                Array.isArray(this.attachedFiles) &&
+                this.attachedFiles.some(
+                    (f: any) =>
+                        String(f?.mimeType || '').startsWith('image/') &&
+                        f.referenceType !== 'END_FRAME' &&
+                        f.referenceType !== 'CHARACTER',
+                );
             const master = this.projectData?.masterPrompt
                 ? this.projectData.masterPrompt.trim()
                 : '';
@@ -2524,19 +2543,30 @@ export class NodeEditorComponent
                     }
                 }
 
-                if (targetModality === 'VIDEO') {
+                let pushedBaseFrame = false;
+                if (
+                    targetModality === 'VIDEO' &&
+                    !(userHasAttachedStartOrImage && n === sceneNodes[0])
+                ) {
                     const sceneImg =
-                        n.data?.imageUrl ||
+                        n.data?.startFrameUrl ||
+                        n.data?.originalSceneImageUrl ||
+                        (!n.data?.isVideo
+                            ? n.data?.imageUrl
+                            : n.data?.sceneData?.originalImageUrl ||
+                              n.data?.imageUrl) ||
                         n.data?.sceneData?.imageUrl ||
                         n.data?.thumbnailUrl;
                     if (sceneImg) {
                         sceneAvatars.unshift(sceneImg);
                         sceneAvatarNames.unshift(undefined);
+                        pushedBaseFrame = true;
                     }
                 }
 
                 refImagesUrls.push(sceneAvatars);
                 refImagesNames.push(sceneAvatarNames);
+                hasSceneBaseFrameAtZero.push(pushedBaseFrame);
 
                 let promptText =
                     n.data?.prompt ||
@@ -2649,18 +2679,10 @@ export class NodeEditorComponent
                                         let rType = 'CHARACTER_REFERENCE';
                                         if (
                                             targetModality === 'VIDEO' &&
-                                            imgIdx === 0
+                                            imgIdx === 0 &&
+                                            hasSceneBaseFrameAtZero[i]
                                         ) {
-                                            const sceneImg =
-                                                nodesMapping[i].data
-                                                    ?.imageUrl ||
-                                                nodesMapping[i].data?.sceneData
-                                                    ?.imageUrl ||
-                                                nodesMapping[i].data
-                                                    ?.thumbnailUrl;
-                                            if (sceneImg) {
-                                                rType = 'STORYBOARD';
-                                            }
+                                            rType = 'START_FRAME';
                                         }
                                         requestParts.push({
                                             inlineData: {
@@ -2770,42 +2792,178 @@ export class NodeEditorComponent
                                 }
                             }
 
+                            let attachedAudioFileName = '';
+                            let attachedAudioDurationSec = 0;
                             if (
                                 !generateAll &&
                                 i === 0 &&
                                 this.attachedFiles &&
                                 this.attachedFiles.length > 0
                             ) {
+                                let hasPromotedStartFrame = requestParts.some(
+                                    (p: any) =>
+                                        p?.referenceType === 'START_FRAME',
+                                );
                                 for (const attachedFile of this.attachedFiles) {
                                     if (
                                         attachedFile.base64 &&
                                         attachedFile.mimeType
                                     ) {
+                                        const isAudioAtt =
+                                            attachedFile.referenceType ===
+                                                'REFERENCE_AUDIO' ||
+                                            attachedFile.mimeType.startsWith(
+                                                'audio/',
+                                            );
+                                        const isVideoAtt =
+                                            attachedFile.mimeType.startsWith(
+                                                'video/',
+                                            );
+                                        const isImageAtt =
+                                            attachedFile.mimeType.startsWith(
+                                                'image/',
+                                            );
+
+                                        if (isAudioAtt) {
+                                            attachedAudioFileName =
+                                                attachedFile.file?.name || '';
+                                            attachedAudioDurationSec =
+                                                Number(
+                                                    attachedFile.durationSec,
+                                                ) || 0;
+                                        }
+
+                                        let resolvedAttRefType =
+                                            attachedFile.referenceType;
+                                        if (isAudioAtt) {
+                                            resolvedAttRefType =
+                                                'REFERENCE_AUDIO';
+                                        } else if (isVideoAtt) {
+                                            resolvedAttRefType =
+                                                resolvedAttRefType ||
+                                                'REFERENCE_VIDEO';
+                                        } else if (
+                                            isImageAtt &&
+                                            targetModality === 'VIDEO' &&
+                                            (resolvedAttRefType ===
+                                                'START_FRAME' ||
+                                                ((!resolvedAttRefType ||
+                                                    resolvedAttRefType ===
+                                                        'image') &&
+                                                    !hasPromotedStartFrame))
+                                        ) {
+                                            resolvedAttRefType = 'START_FRAME';
+                                            hasPromotedStartFrame = true;
+                                            // Lưu luôn ảnh Frame đầu vào node để lần tạo lại kế tiếp vẫn giữ đúng Frame 0
+                                            await this.persistStartFrameForScene(
+                                                nodesMapping[i],
+                                                attachedFile.url,
+                                                attachedFile.base64,
+                                                attachedFile.mimeType,
+                                            );
+                                        }
+
                                         requestParts.push({
                                             inlineData: {
                                                 data: attachedFile.base64,
                                                 mimeType: attachedFile.mimeType,
                                             },
-                                            referenceType:
-                                                attachedFile.referenceType ||
-                                                (attachedFile.mimeType.startsWith(
-                                                    'video/',
-                                                )
-                                                    ? 'REFERENCE_VIDEO'
-                                                    : undefined),
+                                            referenceType: resolvedAttRefType,
                                         } as any);
                                     }
                                 }
                             }
 
+                            const hasInlineAudioPart = requestParts.some(
+                                (p: any) =>
+                                    p?.referenceType === 'REFERENCE_AUDIO' ||
+                                    String(p?.inlineData?.mimeType || '')
+                                        .toLowerCase()
+                                        .startsWith('audio/'),
+                            );
+                            const isSceneAvatarActive =
+                                targetModality === 'VIDEO' &&
+                                (this.isAiAvatarEnabled(nodesMapping[i]) ||
+                                    hasInlineAudioPart);
+                            const sceneAudioInfo = isSceneAvatarActive
+                                ? this.getConnectedSceneAudioSources(
+                                      nodesMapping[i],
+                                  )
+                                : {
+                                      urls: [],
+                                      label: '',
+                                      durationSec: 0,
+                                      fromSceneSubtitles: false,
+                                  };
+
+                            const effectiveAvatarAudioDur =
+                                attachedAudioDurationSec > 0
+                                    ? attachedAudioDurationSec
+                                    : sceneAudioInfo.durationSec;
+                            const avatarDialogueText = isSceneAvatarActive
+                                ? this.resolveAvatarDialogueText(
+                                      nodesMapping[i],
+                                      attachedAudioFileName ||
+                                          nodesMapping[i]?.data
+                                              ?.avatarAudioName ||
+                                          '',
+                                  )
+                                : '';
+
+                            if (isSceneAvatarActive) {
+                                if (
+                                    !hasInlineAudioPart &&
+                                    sceneAudioInfo.urls.length > 0
+                                ) {
+                                    for (const aUrl of sceneAudioInfo.urls) {
+                                        requestParts.push({
+                                            audioUrl: aUrl,
+                                            referenceType: 'REFERENCE_AUDIO',
+                                        } as any);
+                                    }
+                                }
+
+                                const hasAnyAudioForAvatar =
+                                    hasInlineAudioPart ||
+                                    sceneAudioInfo.urls.length > 0;
+                                if (!hasAnyAudioForAvatar) {
+                                    throw new Error(
+                                        'Chưa có tệp giọng đọc (.mp3 / .wav) hoặc node thoại nối vào cảnh để chạy chế độ AI Avatar.',
+                                    );
+                                }
+
+                                const hasAnyCharacterOrFrameImg =
+                                    requestParts.some(
+                                        (p: any) =>
+                                            p?.inlineData?.data &&
+                                            !String(
+                                                p.inlineData.mimeType || '',
+                                            )
+                                                .toLowerCase()
+                                                .startsWith('audio/') &&
+                                            !String(
+                                                p.inlineData.mimeType || '',
+                                            )
+                                                .toLowerCase()
+                                                .startsWith('video/'),
+                                    );
+                                if (!hasAnyCharacterOrFrameImg) {
+                                    throw new Error(
+                                        'Cần có ít nhất 1 hình ảnh nhân vật (chọn Nhân vật hoặc gắn Frame đầu / Hình ảnh) để tạo AI Avatar.',
+                                    );
+                                }
+                            }
+
                             if (requestParts.length > 1) {
                                 const textPart = requestParts[0];
-                                const imageParts = requestParts.slice(1);
-                                imageParts.sort((a, b) => {
+                                const mediaParts = requestParts.slice(1);
+                                mediaParts.sort((a, b) => {
                                     const rank = (type: string) => {
                                         if (type === 'START_FRAME') return 1;
                                         if (type === 'END_FRAME') return 2;
                                         if (type === 'STORYBOARD') return 3;
+                                        if (type === 'REFERENCE_AUDIO')
+                                            return 5;
                                         return 4; // CHARACTER and others
                                     };
                                     return (
@@ -2813,18 +2971,34 @@ export class NodeEditorComponent
                                         rank(b.referenceType)
                                     );
                                 });
-                                requestParts = [textPart, ...imageParts];
+                                requestParts = [textPart, ...mediaParts];
                             }
 
                             nodesMapping[i].data.isGenerating = true;
                             this.cdr.detectChanges();
 
-                            const nodeDuration =
+                            let nodeDuration =
                                 nodesMapping[i].data?.sceneData?.videos?.[0]
                                     ?.duration ||
                                 nodesMapping[i].data?.sceneData
                                     ?.forcedDuration ||
                                 5;
+                            if (
+                                isSceneAvatarActive &&
+                                effectiveAvatarAudioDur > 0
+                            ) {
+                                nodeDuration = Math.max(
+                                    4,
+                                    Math.ceil(effectiveAvatarAudioDur),
+                                );
+                            }
+                            const effectiveSceneModel =
+                                isSceneAvatarActive &&
+                                !currentModel
+                                    .toLowerCase()
+                                    .includes('seedance-2')
+                                    ? 'doubao-seedance-2-5-260628-global'
+                                    : currentModel;
                             const nodeRatio =
                                 nodesMapping[i]?.data?.aspectRatio ||
                                 nodesMapping[i]?.data?.sceneData?.aspectRatio ||
@@ -2841,7 +3015,7 @@ export class NodeEditorComponent
 
                             const response =
                                 await this.genaiService.generateContent({
-                                    model: currentModel,
+                                    model: effectiveSceneModel,
                                     contents: [
                                         { role: 'user', parts: requestParts },
                                     ],
@@ -2849,6 +3023,8 @@ export class NodeEditorComponent
                                         aspectRatio: nodeRatio,
                                         duration: nodeDuration,
                                         resolution: nodeResolution,
+                                        avatarDialogueText:
+                                            avatarDialogueText || undefined,
                                         responseModalities: [targetModality],
                                         bypassModelOverride: true,
                                     } as any,
@@ -2921,6 +3097,12 @@ export class NodeEditorComponent
                                     if (localPath) {
                                         nodesMapping[i].data.imageUrl =
                                             localPath;
+                                        nodesMapping[
+                                            i
+                                        ].data.originalSceneImageUrl =
+                                            localPath;
+                                        nodesMapping[i].data.startFrameUrl =
+                                            localPath;
                                         nodesMapping[i].data.isVideo = false;
                                         nodesMapping[i].data.videoUrl = null;
 
@@ -2928,6 +3110,10 @@ export class NodeEditorComponent
                                             nodesMapping[
                                                 i
                                             ].data.sceneData.imageUrl =
+                                                localPath;
+                                            nodesMapping[
+                                                i
+                                            ].data.sceneData.originalImageUrl =
                                                 localPath;
                                             if (
                                                 nodesMapping[i].data.sceneData
@@ -3082,9 +3268,40 @@ export class NodeEditorComponent
                                 }
 
                                 if (finalVideoUrl) {
+                                    // Bảo lưu ảnh gốc của phân cảnh trước khi ghi đè thumbnail trích từ video
+                                    if (
+                                        !nodesMapping[i].data
+                                            .originalSceneImageUrl &&
+                                        nodesMapping[i].data.imageUrl &&
+                                        !nodesMapping[i].data.isVideo
+                                    ) {
+                                        nodesMapping[
+                                            i
+                                        ].data.originalSceneImageUrl =
+                                            nodesMapping[i].data.imageUrl;
+                                    }
+
+                                    const generatedVideoDur = Number(
+                                        (response as any)?.video?.duration || 0,
+                                    );
                                     nodesMapping[i].data.videoUrl =
                                         finalVideoUrl;
                                     nodesMapping[i].data.isVideo = true;
+                                    nodesMapping[i].data.videoStart = 0;
+                                    nodesMapping[i].data.videoEnd =
+                                        generatedVideoDur > 0
+                                            ? generatedVideoDur
+                                            : undefined;
+                                    nodesMapping[i].data._lastLoadedVideoUrl =
+                                        finalVideoUrl;
+                                    if (generatedVideoDur > 0) {
+                                        nodesMapping[i].data.totalDuration =
+                                            generatedVideoDur;
+                                        nodesMapping[i].subtitle =
+                                            Number.isInteger(generatedVideoDur)
+                                                ? `${generatedVideoDur}s`
+                                                : `${generatedVideoDur.toFixed(1)}s`;
+                                    }
 
                                     if (electron && electron.extractLastFrame) {
                                         const thumbPath = finalVideoUrl.replace(
@@ -3135,6 +3352,39 @@ export class NodeEditorComponent
                                             i
                                         ].data.sceneData.videos[0].imageUrl =
                                             nodesMapping[i].data.imageUrl;
+                                        if (generatedVideoDur > 0) {
+                                            nodesMapping[
+                                                i
+                                            ].data.sceneData.forcedDuration =
+                                                parseFloat(
+                                                    generatedVideoDur.toFixed(
+                                                        2,
+                                                    ),
+                                                );
+                                            nodesMapping[
+                                                i
+                                            ].data.sceneData.videos[0].duration =
+                                                parseFloat(
+                                                    generatedVideoDur.toFixed(
+                                                        2,
+                                                    ),
+                                                );
+                                        }
+                                        if (isSceneAvatarActive) {
+                                            nodesMapping[
+                                                i
+                                            ].data.sceneData.videos[0].aiAvatarMode =
+                                                true;
+                                            if (
+                                                sceneAudioInfo.fromSceneSubtitles
+                                            ) {
+                                                // Tắt tiếng trên track video khi xuất Timeline vì track thoại đã phát cùng tệp gốc
+                                                nodesMapping[
+                                                    i
+                                                ].data.sceneData.videos[0].muted =
+                                                    true;
+                                            }
+                                        }
                                     }
 
                                     const sIdx = nodesMapping[i].data?.sceneIndex;
@@ -3144,6 +3394,24 @@ export class NodeEditorComponent
                                         }
                                         this.projectData.scenes[sIdx].videos[0].videoUrl = finalVideoUrl;
                                         this.projectData.scenes[sIdx].videos[0].imageUrl = nodesMapping[i].data.imageUrl;
+                                        if (generatedVideoDur > 0) {
+                                            this.projectData.scenes[
+                                                sIdx
+                                            ].forcedDuration = parseFloat(
+                                                generatedVideoDur.toFixed(2),
+                                            );
+                                            this.projectData.scenes[
+                                                sIdx
+                                            ].videos[0].duration = parseFloat(
+                                                generatedVideoDur.toFixed(2),
+                                            );
+                                        }
+                                        if (isSceneAvatarActive) {
+                                            this.projectData.scenes[sIdx].videos[0].aiAvatarMode = true;
+                                            if (sceneAudioInfo.fromSceneSubtitles) {
+                                                this.projectData.scenes[sIdx].videos[0].muted = true;
+                                            }
+                                        }
                                     }
                                 }
                             } else if (targetModality === 'AUDIO') {
@@ -3376,6 +3644,12 @@ export class NodeEditorComponent
                                     if (localPath) {
                                         nodesMapping[i].data.imageUrl =
                                             localPath;
+                                        nodesMapping[
+                                            i
+                                        ].data.originalSceneImageUrl =
+                                            localPath;
+                                        nodesMapping[i].data.startFrameUrl =
+                                            localPath;
                                         nodesMapping[i].data.isVideo = false;
                                         nodesMapping[i].data.videoUrl = null;
 
@@ -3383,6 +3657,10 @@ export class NodeEditorComponent
                                             nodesMapping[
                                                 i
                                             ].data.sceneData.imageUrl =
+                                                localPath;
+                                            nodesMapping[
+                                                i
+                                            ].data.sceneData.originalImageUrl =
                                                 localPath;
                                             if (
                                                 nodesMapping[i].data.sceneData
@@ -4073,6 +4351,7 @@ export class NodeEditorComponent
         mimeType: string;
         url: string;
         referenceType?: string;
+        durationSec?: number;
     }[] = [];
     pendingFileType: string = 'image';
 
@@ -4080,28 +4359,160 @@ export class NodeEditorComponent
 
     triggerFileInput(type: string) {
         this.pendingFileType = type;
-        if (this.hiddenFileInput) {
+        if (this.hiddenFileInput?.nativeElement) {
+            this.hiddenFileInput.nativeElement.accept =
+                type === 'REFERENCE_AUDIO'
+                    ? 'audio/mpeg,audio/wav,audio/mp3,audio/x-wav,.mp3,.wav,audio/*'
+                    : 'image/*,video/*,audio/*,.mp3,.wav';
             this.hiddenFileInput.nativeElement.click();
+        }
+    }
+
+    private inferSelectedFileMime(file: File, requestedType: string): string {
+        const rawType = String(file?.type || '').trim().toLowerCase();
+        if (rawType && rawType !== 'application/octet-stream') {
+            return rawType;
+        }
+        const nameLower = String(file?.name || '').trim().toLowerCase();
+        if (nameLower.endsWith('.wav')) return 'audio/wav';
+        if (nameLower.endsWith('.mp3')) return 'audio/mpeg';
+        if (nameLower.endsWith('.m4a')) return 'audio/mp4';
+        if (nameLower.endsWith('.ogg')) return 'audio/ogg';
+        if (nameLower.endsWith('.aac')) return 'audio/aac';
+        if (nameLower.endsWith('.png')) return 'image/png';
+        if (nameLower.endsWith('.webp')) return 'image/webp';
+        if (nameLower.endsWith('.gif')) return 'image/gif';
+        if (nameLower.endsWith('.mp4')) return 'video/mp4';
+        if (nameLower.endsWith('.mov')) return 'video/quicktime';
+        if (nameLower.endsWith('.webm')) return 'video/webm';
+        if (requestedType === 'REFERENCE_AUDIO') return 'audio/mpeg';
+        return 'image/jpeg';
+    }
+
+    private async measureDataUrlAudioDurationSec(dataUrl: string): Promise<number> {
+        if (!dataUrl || typeof document === 'undefined') return 0;
+        return new Promise<number>((resolve) => {
+            try {
+                const audio = document.createElement('audio');
+                audio.preload = 'metadata';
+                const timer = setTimeout(() => resolve(0), 4000);
+                audio.onloadedmetadata = () => {
+                    clearTimeout(timer);
+                    resolve(
+                        isFinite(audio.duration) && audio.duration > 0
+                            ? audio.duration
+                            : 0,
+                    );
+                };
+                audio.onerror = () => {
+                    clearTimeout(timer);
+                    resolve(0);
+                };
+                audio.src = dataUrl;
+            } catch {
+                resolve(0);
+            }
+        });
+    }
+
+    private async persistStartFrameForScene(
+        node: NodeItem,
+        dataUrl: string,
+        base64Raw: string,
+        mimeType: string,
+    ) {
+        if (!node) return;
+        let savedUrl = '';
+        const ext = String(mimeType || '').includes('png') ? 'png' : 'jpg';
+        const safeFileName = `start_frame_${node.id}_${Date.now()}.${ext}`;
+        const electronWin =
+            typeof window !== 'undefined' ? (window as any).electron : null;
+        const username = this.projectData?.username || 'anonymous';
+        const projectUuid = this.uuid || this.projectData?.uuid || 'default';
+
+        if (electronWin && electronWin.saveBase64 && base64Raw) {
+            try {
+                const res = await electronWin.saveBase64({
+                    base64: base64Raw,
+                    fileName: safeFileName,
+                    folder: 'images',
+                    username: username,
+                    customDir: `tts/${username}/${projectUuid}`,
+                });
+                if (res && res.success && res.path) {
+                    savedUrl = `file://${res.path.replace(/\\/g, '/')}`;
+                }
+            } catch {
+                // fallback
+            }
+        }
+        if (!savedUrl) {
+            savedUrl = dataUrl;
+        }
+        if (!node.data) node.data = {};
+        node.data.startFrameUrl = savedUrl;
+        node.data.originalSceneImageUrl = savedUrl;
+        if (node.data.sceneData) {
+            node.data.sceneData.originalImageUrl = savedUrl;
         }
     }
 
     onFileSelected(event: any) {
         const files = event.target.files;
+        const requestedType = this.pendingFileType;
         if (files && files.length > 0) {
             for (let i = 0; i < files.length; i++) {
-                const file = files[i];
+                const file: File = files[i];
+                const resolvedMime = this.inferSelectedFileMime(
+                    file,
+                    requestedType,
+                );
+                const isAudio =
+                    requestedType === 'REFERENCE_AUDIO' ||
+                    resolvedMime.startsWith('audio/');
+                const effectiveRefType = isAudio
+                    ? 'REFERENCE_AUDIO'
+                    : requestedType;
                 const reader = new FileReader();
-                reader.onload = () => {
-                    const base64String = (reader.result as string).split(
-                        ',',
-                    )[1];
+                reader.onload = async () => {
+                    const dataUrl = reader.result as string;
+                    const base64String = dataUrl.split(',')[1] || '';
+
+                    let detectedAudioDur = 0;
+                    if (isAudio) {
+                        detectedAudioDur =
+                            await this.measureDataUrlAudioDurationSec(dataUrl);
+                        // Xóa tệp giọng đọc cũ trong hàng đợi nếu chọn tệp mới
+                        this.attachedFiles = this.attachedFiles.filter(
+                            (f) =>
+                                f.referenceType !== 'REFERENCE_AUDIO' &&
+                                !String(f.mimeType || '').startsWith('audio/'),
+                        );
+                    }
+
                     this.attachedFiles.push({
                         file: file,
                         base64: base64String,
-                        mimeType: file.type,
-                        url: reader.result as string,
-                        referenceType: this.pendingFileType,
+                        mimeType: resolvedMime,
+                        url: dataUrl,
+                        referenceType: effectiveRefType,
+                        durationSec: detectedAudioDur || undefined,
                     });
+
+                    if (isAudio && this.selectedNode?.type === 'video') {
+                        await this.persistCustomAvatarAudioForScene(
+                            this.selectedNode,
+                            dataUrl,
+                            base64String,
+                            resolvedMime,
+                            file.name,
+                            detectedAudioDur,
+                        );
+                        this.setSceneAiAvatarFlag(this.selectedNode, true);
+                        this.ensureSeedanceAvatarModelSelected();
+                    }
+
+                    this.cdr.detectChanges();
                 };
                 reader.readAsDataURL(file);
             }
@@ -4110,6 +4521,450 @@ export class NodeEditorComponent
         if (this.hiddenFileInput) {
             this.hiddenFileInput.nativeElement.value = '';
         }
+    }
+
+    isAiAvatarEnabled(node?: NodeItem | null): boolean {
+        const target = node || this.selectedNode;
+        if (!target || target.type !== 'video') return false;
+        return Boolean(
+            target.data?.aiAvatarMode ??
+                target.data?.sceneData?.videos?.[0]?.aiAvatarMode,
+        );
+    }
+
+    hasAttachedAudioInQueue(): boolean {
+        return this.attachedFiles.some(
+            (f) =>
+                f.referenceType === 'REFERENCE_AUDIO' ||
+                String(f.mimeType || '').startsWith('audio/'),
+        );
+    }
+
+    getPersistedAvatarAudioName(node?: NodeItem | null): string {
+        const target = node || this.selectedNode;
+        if (!target || target.type !== 'video') return '';
+        return (
+            target.data?.avatarAudioName ||
+            target.data?.sceneData?.videos?.[0]?.avatarAudioName ||
+            ''
+        );
+    }
+
+    clearPersistedAvatarAudio(event?: Event) {
+        if (event) {
+            event.stopPropagation();
+        }
+        this.attachedFiles = this.attachedFiles.filter(
+            (f) =>
+                f.referenceType !== 'REFERENCE_AUDIO' &&
+                !String(f.mimeType || '').startsWith('audio/'),
+        );
+        if (!this.selectedNode || this.selectedNode.type !== 'video') {
+            this.cdr.detectChanges();
+            return;
+        }
+        if (this.selectedNode.data) {
+            this.selectedNode.data.avatarAudioUrl = null;
+            this.selectedNode.data.avatarAudioName = null;
+            this.selectedNode.data.avatarAudioDuration = null;
+            if (this.selectedNode.data.sceneData?.videos?.[0]) {
+                this.selectedNode.data.sceneData.videos[0].avatarAudioUrl =
+                    null;
+                this.selectedNode.data.sceneData.videos[0].avatarAudioName =
+                    null;
+                this.selectedNode.data.sceneData.videos[0].avatarAudioDuration =
+                    null;
+            }
+            const sIdx = this.selectedNode.data.sceneIndex;
+            if (
+                sIdx !== undefined &&
+                sIdx !== null &&
+                this.projectData?.scenes?.[sIdx]?.videos?.[0]
+            ) {
+                this.projectData.scenes[sIdx].videos[0].avatarAudioUrl = null;
+                this.projectData.scenes[sIdx].videos[0].avatarAudioName = null;
+                this.projectData.scenes[sIdx].videos[0].avatarAudioDuration =
+                    null;
+            }
+        }
+        this.saveEditorState();
+        this.saveProject(true);
+        this.cdr.detectChanges();
+    }
+
+    private setSceneAiAvatarFlag(node: NodeItem, enabled: boolean) {
+        if (!node.data) node.data = {};
+        node.data.aiAvatarMode = enabled;
+        if (node.data.sceneData) {
+            if (
+                !node.data.sceneData.videos ||
+                node.data.sceneData.videos.length === 0
+            ) {
+                node.data.sceneData.videos = [{}];
+            }
+            node.data.sceneData.videos[0].aiAvatarMode = enabled;
+        }
+        const sIdx = node.data.sceneIndex;
+        if (
+            sIdx !== undefined &&
+            sIdx !== null &&
+            this.projectData?.scenes?.[sIdx]
+        ) {
+            if (
+                !this.projectData.scenes[sIdx].videos ||
+                this.projectData.scenes[sIdx].videos.length === 0
+            ) {
+                this.projectData.scenes[sIdx].videos = [{}];
+            }
+            this.projectData.scenes[sIdx].videos[0].aiAvatarMode = enabled;
+        }
+    }
+
+    private ensureSeedanceAvatarModelSelected() {
+        const cur = String(this.selectedVideoModel || '').toLowerCase();
+        if (!cur.includes('seedance-2')) {
+            const preferred =
+                this.availableModels.find(
+                    (m) => m.toLowerCase() === 'doubao-seedance-2-5-260628-global',
+                ) ||
+                this.availableModels.find((m) =>
+                    m.toLowerCase().includes('seedance-2-5'),
+                ) ||
+                'doubao-seedance-2-5-260628-global';
+            this.selectedVideoModel = preferred;
+            this.toastr.info(
+                `Đã chọn model ${preferred} để đồng bộ khẩu hình AI Avatar.`,
+                'AI Avatar',
+            );
+        }
+    }
+
+    private async persistCustomAvatarAudioForScene(
+        node: NodeItem,
+        dataUrl: string,
+        base64Raw: string,
+        mimeType: string,
+        originalName: string,
+        durationSec = 0,
+    ) {
+        let savedUrl = '';
+        const ext = mimeType.includes('wav') ? 'wav' : 'mp3';
+        const safeFileName = `avatar_voice_${node.id}_${Date.now()}.${ext}`;
+        const electronWin =
+            typeof window !== 'undefined' ? (window as any).electron : null;
+        const username = this.projectData?.username || 'anonymous';
+        const projectUuid = this.uuid || this.projectData?.uuid || 'default';
+
+        if (electronWin && electronWin.saveBase64) {
+            try {
+                const res = await electronWin.saveBase64({
+                    base64: base64Raw,
+                    fileName: safeFileName,
+                    folder: 'audio',
+                    username: username,
+                    customDir: `tts/${username}/${projectUuid}`,
+                });
+                if (res && res.success && res.path) {
+                    savedUrl = `file://${res.path.replace(/\\/g, '/')}`;
+                }
+            } catch (e) {
+                console.warn('[AI Avatar] Lỗi lưu audio cục bộ:', e);
+            }
+        }
+
+        if (!savedUrl) {
+            savedUrl = dataUrl;
+        }
+
+        if (!node.data) node.data = {};
+        node.data.avatarAudioUrl = savedUrl;
+        node.data.avatarAudioName = originalName;
+        if (durationSec > 0) {
+            node.data.avatarAudioDuration = durationSec;
+        }
+        if (node.data.sceneData) {
+            if (
+                !node.data.sceneData.videos ||
+                node.data.sceneData.videos.length === 0
+            ) {
+                node.data.sceneData.videos = [{}];
+            }
+            node.data.sceneData.videos[0].avatarAudioUrl = savedUrl;
+            node.data.sceneData.videos[0].avatarAudioName = originalName;
+            if (durationSec > 0) {
+                node.data.sceneData.videos[0].avatarAudioDuration = durationSec;
+            }
+        }
+        const sIdx = node.data.sceneIndex;
+        if (
+            sIdx !== undefined &&
+            sIdx !== null &&
+            this.projectData?.scenes?.[sIdx]
+        ) {
+            if (
+                !this.projectData.scenes[sIdx].videos ||
+                this.projectData.scenes[sIdx].videos.length === 0
+            ) {
+                this.projectData.scenes[sIdx].videos = [{}];
+            }
+            this.projectData.scenes[sIdx].videos[0].avatarAudioUrl = savedUrl;
+            this.projectData.scenes[sIdx].videos[0].avatarAudioName =
+                originalName;
+            if (durationSec > 0) {
+                this.projectData.scenes[sIdx].videos[0].avatarAudioDuration =
+                    durationSec;
+            }
+        }
+        this.saveEditorState();
+        this.saveProject(true);
+    }
+
+    private resolveAvatarDialogueText(
+        node: NodeItem,
+        attachedAudioName?: string,
+    ): string {
+        if (!node) return '';
+
+        // 1. Nếu tên file .wav/.mp3 trùng với một đoạn thoại trong kịch bản dự án -> lấy chính xác 100% lời thoại của file đó
+        const cleanAttName = String(attachedAudioName || '')
+            .trim()
+            .toLowerCase();
+        if (cleanAttName && Array.isArray(this.projectData?.scenes)) {
+            for (const sc of this.projectData.scenes) {
+                for (const sub of sc?.subtitles || []) {
+                    const subAud = String(sub?.audioUrl || '').toLowerCase();
+                    if (
+                        subAud &&
+                        (subAud.endsWith('/' + cleanAttName) ||
+                            subAud.endsWith('\\' + cleanAttName) ||
+                            subAud === cleanAttName)
+                    ) {
+                        const matchedTxt = String(sub?.text || '').trim();
+                        if (matchedTxt) return matchedTxt;
+                    }
+                }
+            }
+        }
+
+        // 2. Lấy lời thoại từ các node TTS nối trực tiếp vào cảnh trên Canvas
+        const connectedTts = this.connections
+            .filter((c) => c.toNode === node.id)
+            .map((c) => this.nodes.find((n) => n.id === c.fromNode))
+            .filter((n): n is NodeItem => Boolean(n && n.type === 'tts'))
+            .sort((a, b) => (a.y || 0) - (b.y || 0));
+        if (connectedTts.length > 0) {
+            const ttsJoined = connectedTts
+                .map((n) => String(n.data?.text || '').trim())
+                .filter(Boolean)
+                .join(' ');
+            if (ttsJoined) return ttsJoined;
+        }
+
+        // 3. Lấy từ subtitles của sceneData hoặc projectData.scenes[sIdx]
+        const sceneSubs =
+            node.data?.sceneData?.subtitles ||
+            (node.data?.sceneIndex !== undefined &&
+            node.data?.sceneIndex !== null
+                ? this.projectData?.scenes?.[node.data.sceneIndex]?.subtitles
+                : null);
+        if (Array.isArray(sceneSubs) && sceneSubs.length > 0) {
+            const subJoined = sceneSubs
+                .map((s: any) => String(s?.text || '').trim())
+                .filter(Boolean)
+                .join(' ');
+            if (subJoined) return subJoined;
+        }
+
+        // 4. Lấy từ script của cảnh
+        const scriptTxt = String(
+            node.data?.text ||
+                node.data?.sceneData?.script ||
+                (node.data?.sceneIndex !== undefined &&
+                node.data?.sceneIndex !== null
+                    ? this.projectData?.scenes?.[node.data.sceneIndex]?.script
+                    : '') ||
+                '',
+        ).trim();
+        return scriptTxt;
+    }
+
+    private parseAudioNodeDurationSeconds(rawDur: any): number {
+        if (typeof rawDur === 'number' && !isNaN(rawDur) && rawDur > 0) {
+            return rawDur;
+        }
+        const s = String(rawDur || '').trim();
+        if (!s) return 0;
+        const mmss = s.match(/^(\d+):(\d+(?:\.\d+)?)$/);
+        if (mmss) {
+            return parseInt(mmss[1], 10) * 60 + parseFloat(mmss[2]);
+        }
+        const secMatch = s.match(/(\d+(?:\.\d+)?)\s*s/i);
+        if (secMatch) {
+            return parseFloat(secMatch[1]);
+        }
+        const num = parseFloat(s);
+        return !isNaN(num) && num > 0 ? num : 0;
+    }
+
+    getConnectedSceneAudioSources(node?: NodeItem | null): {
+        urls: string[];
+        label: string;
+        durationSec: number;
+        fromSceneSubtitles: boolean;
+    } {
+        const target = node || this.selectedNode;
+        if (!target || target.type !== 'video') {
+            return {
+                urls: [],
+                label: '',
+                durationSec: 0,
+                fromSceneSubtitles: false,
+            };
+        }
+
+        // 1. Ưu tiên tệp .mp3 / .wav người dùng tải riêng cho cảnh
+        const customUrl =
+            target.data?.avatarAudioUrl ||
+            target.data?.sceneData?.videos?.[0]?.avatarAudioUrl;
+        if (customUrl) {
+            const customName =
+                target.data?.avatarAudioName ||
+                target.data?.sceneData?.videos?.[0]?.avatarAudioName ||
+                'Audio riêng';
+            const customDur = Number(
+                target.data?.avatarAudioDuration ||
+                    target.data?.sceneData?.videos?.[0]?.avatarAudioDuration ||
+                    0,
+            );
+            const cleanLower = String(customName || '').toLowerCase();
+            const sameAsSceneSub = Boolean(
+                cleanLower &&
+                    target.data?.sceneData?.subtitles?.some((s: any) =>
+                        String(s?.audioUrl || '')
+                            .toLowerCase()
+                            .endsWith(cleanLower),
+                    ),
+            );
+            return {
+                urls: [customUrl],
+                label:
+                    customDur > 0
+                        ? `${customName} (${customDur.toFixed(1)}s)`
+                        : customName,
+                durationSec: customDur,
+                fromSceneSubtitles: sameAsSceneSub,
+            };
+        }
+
+        // 2. Node âm thanh (type === 'tts') nối trực tiếp vào cảnh trên Canvas
+        const connectedTtsNodes = this.connections
+            .filter((c) => c.toNode === target.id)
+            .map((c) => this.nodes.find((n) => n.id === c.fromNode))
+            .filter(
+                (n): n is NodeItem =>
+                    Boolean(n && n.type === 'tts' && n.data?.audioUrl),
+            )
+            .sort((a, b) => (a.y || 0) - (b.y || 0));
+
+        if (connectedTtsNodes.length > 0) {
+            const urls = connectedTtsNodes
+                .map((n) => String(n.data.audioUrl))
+                .filter(Boolean);
+            const totalDur = connectedTtsNodes.reduce(
+                (sum, n) =>
+                    sum +
+                    (this.parseAudioNodeDurationSeconds(n.data?.duration) ||
+                        this.parseAudioNodeDurationSeconds(n.subtitle)),
+                0,
+            );
+            const hasSubLink = Boolean(
+                target.data?.sceneData?.subtitles?.some((s: any) => s?.audioUrl),
+            );
+            return {
+                urls,
+                label:
+                    connectedTtsNodes.length === 1
+                        ? connectedTtsNodes[0].data?.duration ||
+                          connectedTtsNodes[0].subtitle ||
+                          'Audio nối sẵn'
+                        : `${connectedTtsNodes.length} đoạn thoại`,
+                durationSec: totalDur,
+                fromSceneSubtitles: hasSubLink,
+            };
+        }
+
+        // 3. Dự phòng từ mảng subtitles trong sceneData
+        const subs = (target.data?.sceneData?.subtitles || []).filter(
+            (s: any) => Boolean(s?.audioUrl),
+        );
+        if (subs.length > 0) {
+            const urls = subs.map((s: any) => String(s.audioUrl));
+            const subDur = subs.reduce(
+                (sum: number, s: any) =>
+                    sum + this.parseAudioNodeDurationSeconds(s.duration),
+                0,
+            );
+            return {
+                urls,
+                label:
+                    subDur > 0 ? `${Math.round(subDur)}s` : `${subs.length} thoại`,
+                durationSec: subDur,
+                fromSceneSubtitles: true,
+            };
+        }
+
+        return {
+            urls: [],
+            label: '',
+            durationSec: 0,
+            fromSceneSubtitles: false,
+        };
+    }
+
+    getSceneAvatarAudioBadge(node?: NodeItem | null): string {
+        const target = node || this.selectedNode;
+        if (!target || target.type !== 'video') return '';
+        const queuedAudio = this.attachedFiles.find(
+            (f) =>
+                f.referenceType === 'REFERENCE_AUDIO' ||
+                String(f.mimeType || '').startsWith('audio/'),
+        );
+        if (queuedAudio) {
+            return queuedAudio.file?.name || 'Audio đính kèm';
+        }
+        const info = this.getConnectedSceneAudioSources(target);
+        return info.label || '';
+    }
+
+    toggleAiAvatarMode() {
+        if (!this.selectedNode || this.selectedNode.type !== 'video') return;
+        const nextVal = !this.isAiAvatarEnabled(this.selectedNode);
+        this.setSceneAiAvatarFlag(this.selectedNode, nextVal);
+
+        if (nextVal) {
+            this.ensureSeedanceAvatarModelSelected();
+            const hasQueuedAudio = this.hasAttachedAudioInQueue();
+            const connectedInfo = this.getConnectedSceneAudioSources(
+                this.selectedNode,
+            );
+            if (!hasQueuedAudio && connectedInfo.urls.length === 0) {
+                this.toastr.info(
+                    'Chọn tệp giọng đọc (.mp3 hoặc .wav) hoặc nối node thoại vào cảnh để nhân vật nhép miệng.',
+                    'AI Avatar',
+                );
+                this.triggerFileInput('REFERENCE_AUDIO');
+            } else {
+                this.toastr.success(
+                    'Đã bật chế độ AI Avatar (khớp khẩu hình theo giọng đọc) cho phân cảnh này.',
+                );
+            }
+        } else {
+            this.toastr.info('Đã tắt chế độ AI Avatar cho phân cảnh này.');
+        }
+
+        this.saveEditorState();
+        this.saveProject(true);
+        this.cdr.detectChanges();
     }
 
     removeAttachedFile(index: number) {
@@ -4130,7 +4985,9 @@ export class NodeEditorComponent
         return this.attachedFiles.filter(
             (f) =>
                 f.referenceType !== 'START_FRAME' &&
-                f.referenceType !== 'END_FRAME',
+                f.referenceType !== 'END_FRAME' &&
+                f.referenceType !== 'REFERENCE_AUDIO' &&
+                !String(f.mimeType || '').startsWith('audio/'),
         );
     }
 
@@ -4720,35 +5577,83 @@ export class NodeEditorComponent
         }
     }
 
+    private isCompositionOutputNode(node: any): boolean {
+        return Boolean(
+            node &&
+                (node.type === 'composition' ||
+                    node.id === 'comp1' ||
+                    node.id === 'comp_final' ||
+                    node.subtitle === 'Final Output'),
+        );
+    }
+
     onVideoLoaded(node: any, videoEl: HTMLVideoElement) {
         if (videoEl && videoEl.duration) {
+            // Tự phục hồi các tệp video cũ mã hóa HEVC (H.265) / 10-bit chỉ có tiếng mà không lên hình trên Chromium
+            const electronApi =
+                typeof window !== 'undefined' ? (window as any).electron : null;
+            if (
+                videoEl.videoWidth === 0 &&
+                node?.data?.videoUrl &&
+                node.data._repairedCodecForUrl !== node.data.videoUrl &&
+                electronApi?.ensurePlayableVideo
+            ) {
+                const rawUrl = String(node.data.videoUrl);
+                node.data._repairedCodecForUrl = rawUrl;
+                electronApi
+                    .ensurePlayableVideo(rawUrl)
+                    .then((fixRes: any) => {
+                        if (fixRes?.success && fixRes?.converted) {
+                            this.safeVideoUrlCache = {};
+                            const cleanBase = rawUrl.split('?')[0];
+                            const bustedUrl = `${cleanBase}?v=${Date.now()}`;
+                            node.data.videoUrl = bustedUrl;
+                            node.data._repairedCodecForUrl = bustedUrl;
+                            node.data._lastLoadedVideoUrl = bustedUrl;
+                            if (node.data.sceneData?.videos?.[0]) {
+                                node.data.sceneData.videos[0].videoUrl =
+                                    cleanBase;
+                            }
+                            this.cdr.detectChanges();
+                        }
+                    })
+                    .catch(() => {});
+            }
+
             node.data.totalDuration = videoEl.duration;
 
-            if (
-                node.type === 'composition' ||
-                node.id === 'comp1' ||
-                node.id === 'comp_final' ||
-                node.subtitle === 'Final Output' ||
-                videoEl.duration > 20
-            ) {
+            if (this.isCompositionOutputNode(node)) {
                 node.data.videoStart = 0;
                 node.data.videoEnd = videoEl.duration;
                 node.data.sceneData = { forcedDuration: videoEl.duration };
                 node.subtitle = `${Math.round(videoEl.duration)}s`;
                 this.saveEditorState();
             } else {
-                // Initialize start and end if not defined
+                const isNewVideoSource =
+                    Boolean(node.data.videoUrl) &&
+                    node.data._lastLoadedVideoUrl !== node.data.videoUrl;
                 if (
+                    isNewVideoSource ||
                     node.data.videoStart === undefined ||
-                    node.data.videoStart === null
+                    node.data.videoStart === null ||
+                    node.data.videoStart >= videoEl.duration
                 ) {
                     node.data.videoStart = 0;
                 }
                 if (
+                    isNewVideoSource ||
                     node.data.videoEnd === undefined ||
                     node.data.videoEnd === null
                 ) {
                     node.data.videoEnd = videoEl.duration;
+                }
+                if (node.data.videoUrl) {
+                    node.data._lastLoadedVideoUrl = node.data.videoUrl;
+                }
+                if (node.data.sceneData?.videos?.[0]) {
+                    node.data.sceneData.videos[0].duration = parseFloat(
+                        videoEl.duration.toFixed(2),
+                    );
                 }
             }
 
@@ -4966,13 +5871,7 @@ export class NodeEditorComponent
     }
 
     onVideoTimeUpdate(node: any, videoEl: HTMLVideoElement) {
-        if (
-            node.type === 'composition' ||
-            node.id === 'comp1' ||
-            node.id === 'comp_final' ||
-            node.subtitle === 'Final Output' ||
-            (videoEl && videoEl.duration > 20)
-        ) {
+        if (this.isCompositionOutputNode(node)) {
             if (videoEl && videoEl.duration && !isNaN(videoEl.duration)) {
                 if (
                     node.data.totalDuration !== videoEl.duration ||
@@ -5016,13 +5915,7 @@ export class NodeEditorComponent
                 ? node.data.videoEnd
                 : node.data.totalDuration || videoEl.duration || 5;
 
-        if (
-            node.type === 'composition' ||
-            node.id === 'comp1' ||
-            node.id === 'comp_final' ||
-            node.subtitle === 'Final Output' ||
-            (videoEl && videoEl.duration > 20)
-        ) {
+        if (this.isCompositionOutputNode(node)) {
             end = videoEl.duration || node.data.totalDuration || 5;
         }
 
@@ -5047,13 +5940,7 @@ export class NodeEditorComponent
                 ? node.data.videoEnd
                 : node.data.totalDuration || videoEl.duration || 5;
 
-        if (
-            node.type === 'composition' ||
-            node.id === 'comp1' ||
-            node.id === 'comp_final' ||
-            node.subtitle === 'Final Output' ||
-            (videoEl && videoEl.duration > 20)
-        ) {
+        if (this.isCompositionOutputNode(node)) {
             end = videoEl.duration || node.data.totalDuration || 5;
         }
 

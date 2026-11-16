@@ -110,6 +110,10 @@ export class GenaiService {
                 // Tạo File + FormData
                 let ext = 'jpg';
                 if (mimeType.includes('png')) ext = 'png';
+                else if (mimeType.includes('wav')) ext = 'wav';
+                else if (mimeType.includes('mpeg') || mimeType.includes('mp3')) ext = 'mp3';
+                else if (mimeType.includes('ogg')) ext = 'ogg';
+                else if (mimeType.includes('m4a') || mimeType.includes('aac') || mimeType.startsWith('audio/mp4')) ext = 'm4a';
                 else if (mimeType.includes('mp4')) ext = 'mp4';
                 else if (mimeType.includes('webm')) ext = 'webm';
                 else if (mimeType.includes('quicktime')) ext = 'mov';
@@ -125,44 +129,89 @@ export class GenaiService {
 
                 const randSuffix = Math.random().toString(36).slice(2, 7);
                 const fname = filename || `kling_upload_${Date.now()}_${randSuffix}.${ext}`;
-                const file = new File([blob], fname, { type: mimeType });
-
-                const formData = new FormData();
-                formData.append('files', file); // CDN server dùng multer.array('files')
-                if (folder) {
-                    formData.append('folder', folder);
-                }
-
-                // Upload lên CDN server (cdn1.type.vn)
-                const uploadUrl = 'https://cdn1.type.vn/upload';
-                console.log(`[CDN Upload] Uploading ${fname} (${Math.round(rawBase64.length / 1024)}KB) to ${uploadUrl}...`);
-
-                const response = await fetch(uploadUrl, {
-                    method: 'POST',
-                    headers: {
-                        'x-api-key': 'type-vn-secret-key-2026-yenai-dep-trai'
-                    },
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    console.error(`[CDN Upload] HTTP ${response.status}: ${await response.text()}`);
-                    return null;
-                }
-
-                const result = await response.json();
+                const isImageMime = mimeType.startsWith('image/');
 
                 let resolvedUrl: string | null = null;
-                // Server trả về { url: "origin/public/filename", filename: "timestamp.ext" }
-                if (result?.filename) {
-                    resolvedUrl = `https://cdn1.type.vn/public/${result.filename}`;
-                    console.log(`[CDN Upload] Thành công! URL: ${resolvedUrl}`);
-                } else if (result?.url) {
-                    // Fallback: nếu server trả url trực tiếp, thay origin bằng domain CDN thật
-                    resolvedUrl = result.url.replace(/^https?:\/\/[^\/]+/, 'https://cdn1.type.vn');
-                    console.log(`[CDN Upload] Thành công (fallback)! URL: ${resolvedUrl}`);
+
+                // Máy chủ cdn1.type.vn/upload chỉ chấp nhận định dạng ảnh (image/*).
+                // Với tệp âm thanh (.wav / .mp3) hoặc video (.mp4), định tuyến thẳng sang kênh HTTPS tạm thời để không gây lỗi HTTP 500.
+                if (!isImageMime) {
+                    const electronWin = typeof window !== 'undefined' ? (window as any) : null;
+                    if (electronWin?.electron?.uploadTempMedia) {
+                        try {
+                            const ipcUp = await electronWin.electron.uploadTempMedia({
+                                base64: rawBase64,
+                                mimeType,
+                                filename: fname
+                            });
+                            if (ipcUp?.success && ipcUp.url) {
+                                resolvedUrl = String(ipcUp.url);
+                                console.log(`[TempMedia Upload] Thành công qua Electron IPC! URL: ${resolvedUrl}`);
+                            }
+                        } catch (ipcUpErr) {
+                            console.warn('[TempMedia Upload] Lỗi qua Electron IPC:', ipcUpErr);
+                        }
+                    }
+
+                    // Dự phòng cho trình duyệt Web không qua Electron
+                    if (!resolvedUrl) {
+                        try {
+                            const webFd = new FormData();
+                            webFd.append('files[]', new File([blob], fname, { type: mimeType }));
+                            const webResp = await fetch('https://uguu.se/upload', {
+                                method: 'POST',
+                                body: webFd
+                            });
+                            if (webResp.ok) {
+                                const webJson = await webResp.json();
+                                const webUrl = webJson?.files?.[0]?.url;
+                                if (webUrl && String(webUrl).startsWith('https://')) {
+                                    resolvedUrl = String(webUrl);
+                                    console.log(`[TempMedia Upload] Thành công qua Web! URL: ${resolvedUrl}`);
+                                }
+                            }
+                        } catch (webUpErr) {
+                            console.warn('[TempMedia Upload] Không thể tải media qua Web:', webUpErr);
+                        }
+                    }
                 } else {
-                    console.warn('[CDN Upload] Không tìm thấy filename/url trong response:', result);
+                    const file = new File([blob], fname, { type: mimeType });
+                    const formData = new FormData();
+                    formData.append('files', file); // CDN server dùng multer.array('files')
+                    if (folder) {
+                        formData.append('folder', folder);
+                    }
+
+                    // Upload ảnh lên CDN server (cdn1.type.vn)
+                    const uploadUrl = 'https://cdn1.type.vn/upload';
+                    console.log(`[CDN Upload] Uploading ${fname} (${Math.round(rawBase64.length / 1024)}KB) to ${uploadUrl}...`);
+
+                    const response = await fetch(uploadUrl, {
+                        method: 'POST',
+                        headers: {
+                            'x-api-key': 'type-vn-secret-key-2026-yenai-dep-trai'
+                        },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        console.error(`[CDN Upload] HTTP ${response.status}: ${await response.text()}`);
+                        return null;
+                    }
+
+                    const result = await response.json();
+
+                    // Server trả về { url: "origin/public/filename", filename: "timestamp.ext" }
+                    if (result?.filename) {
+                        resolvedUrl = `https://cdn1.type.vn/public/${result.filename}`;
+                        console.log(`[CDN Upload] Thành công! URL: ${resolvedUrl}`);
+                    } else if (result?.url) {
+                        // Fallback: nếu server trả url trực tiếp, thay origin bằng domain CDN thật
+                        resolvedUrl = result.url.replace(/^https?:\/\/[^\/]+/, 'https://cdn1.type.vn');
+                        console.log(`[CDN Upload] Thành công (fallback)! URL: ${resolvedUrl}`);
+                    } else {
+                        console.warn('[CDN Upload] Không tìm thấy filename/url trong response:', result);
+                    }
                 }
 
                 if (resolvedUrl) {
@@ -447,8 +496,8 @@ export class GenaiService {
     }
 
     /**
-     * Đăng ký ảnh/video vào Volcengine Asset Library (group_type: AIGC) để nhận định danh asset://<id>,
-     * cho phép Seedance 2.0/2.5 tạo video với ảnh nhân vật có khuôn mặt người/chân thực mà không bị chặn PrivacyInformation.
+     * Đăng ký ảnh/video/âm thanh vào Volcengine Asset Library (group_type: AIGC) để nhận định danh asset://<id>,
+     * cho phép Seedance 2.0/2.5 tạo video và AI Avatar với khuôn mặt người thật / giọng đọc mà không bị chặn PrivacyInformation.
      */
     private async registerVolceMediaAsset(
         baseWithV1: string,
@@ -456,7 +505,7 @@ export class GenaiService {
         keyFp: string,
         mediaSource: string,
         assetRegion: 'cn' | 'overseas',
-        assetType: 'Image' | 'Video' = 'Image',
+        assetType: 'Image' | 'Video' | 'Audio' = 'Image',
         forceRefresh: boolean = false
     ): Promise<string> {
         if (!mediaSource) {
@@ -538,9 +587,19 @@ export class GenaiService {
             }
 
             if (!assetId) {
-                const publicUrl = assetType === 'Image'
-                    ? await this.ensureVolceCompatibleImageUrl(mediaSource, hash)
-                    : mediaSource;
+                let publicUrl = mediaSource;
+                if (assetType === 'Image') {
+                    publicUrl = await this.ensureVolceCompatibleImageUrl(mediaSource, hash);
+                } else if (mediaSource.startsWith('data:')) {
+                    const ext = assetType === 'Audio'
+                        ? (mediaSource.includes('audio/wav') ? 'wav' : 'mp3')
+                        : 'mp4';
+                    const folder = assetType === 'Audio' ? 'audios' : 'videos';
+                    const uploaded = await this.uploadBase64ToCdn(mediaSource, `volce_${assetType.toLowerCase()}_${hash}.${ext}`, folder);
+                    if (uploaded) {
+                        publicUrl = uploaded;
+                    }
+                }
 
                 console.log(`[VolceAsset] Đang đăng ký ${assetType} vào group ${groupId} (${assetRegion}): ${publicUrl}`);
                 let createRawText = '';
@@ -628,6 +687,1004 @@ export class GenaiService {
         } finally {
             GenaiService._volceAssetInFlight.delete(cacheKey);
         }
+    }
+
+    private _base64ToArrayBuffer(b64: string): ArrayBuffer {
+        const clean = String(b64 || '').replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '');
+        const binary = atob(clean);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+
+    private async _loadRawAudioBuffer(source: string): Promise<ArrayBuffer | null> {
+        if (!source) return null;
+        const trimmed = String(source).trim();
+        if (!trimmed) return null;
+
+        if (trimmed.startsWith('data:')) {
+            try {
+                return this._base64ToArrayBuffer(trimmed);
+            } catch {
+                return null;
+            }
+        }
+
+        const isHttpOrBlob =
+            trimmed.startsWith('http://') ||
+            trimmed.startsWith('https://') ||
+            trimmed.startsWith('blob:') ||
+            trimmed.startsWith('media://') ||
+            trimmed.startsWith('capacitor://');
+
+        if (isHttpOrBlob) {
+            try {
+                const resp = await fetch(trimmed);
+                if (resp.ok) {
+                    return await resp.arrayBuffer();
+                }
+            } catch (e) {
+                console.warn('[SeedanceAudio] Không thể tải audio qua fetch:', trimmed, e);
+            }
+        }
+
+        const looksLikeLocalPath =
+            trimmed.startsWith('file://') ||
+            trimmed.startsWith('unsafe:') ||
+            /^[a-zA-Z]:[\\/]/.test(trimmed) ||
+            (trimmed.startsWith('/') && /\.(mp3|wav|m4a|ogg|aac|flac|webm)(\?.*)?$/i.test(trimmed));
+
+        if (looksLikeLocalPath) {
+            let cleanPath = trimmed.replace(/^unsafe:/i, '').split('?')[0].replace(/^file:\/\//i, '');
+            try {
+                cleanPath = decodeURIComponent(cleanPath);
+            } catch {
+                // Giữ nguyên nếu đường dẫn đã giải mã
+            }
+
+            try {
+                const electronWin = typeof window !== 'undefined' ? (window as any) : null;
+                if (electronWin?.electron?.readFileBase64) {
+                    const res = await electronWin.electron.readFileBase64(cleanPath);
+                    const b64 = typeof res === 'string' ? res : res?.base64;
+                    if (b64) {
+                        return this._base64ToArrayBuffer(b64);
+                    }
+                } else if (electronWin?.electronAPI?.readFileBase64) {
+                    const res = await electronWin.electronAPI.readFileBase64(cleanPath);
+                    const b64 = typeof res === 'string' ? res : res?.base64;
+                    if (b64) {
+                        return this._base64ToArrayBuffer(b64);
+                    }
+                }
+            } catch (ipcErr) {
+                console.warn('[SeedanceAudio] Lỗi đọc file audio qua Electron IPC:', ipcErr);
+            }
+
+            try {
+                const smartUrl = `media://SMART_FIND/?path=${encodeURIComponent(cleanPath)}&dir=&uuid=default`;
+                const resp = await fetch(smartUrl);
+                if (resp.ok) {
+                    return await resp.arrayBuffer();
+                }
+            } catch {
+                // Bỏ qua nếu không chạy trong Electron
+            }
+            return null;
+        }
+
+        // Trường hợp còn lại: chuỗi base64 thuần không có tiền tố data:
+        try {
+            return this._base64ToArrayBuffer(trimmed);
+        } catch {
+            return null;
+        }
+    }
+
+    private _encodeMonoPcm16WavDataUri(samples: Float32Array, sampleRate: number): string {
+        const numSamples = samples.length;
+        const dataByteLen = numSamples * 2;
+        const buffer = new ArrayBuffer(44 + dataByteLen);
+        const view = new DataView(buffer);
+
+        const writeAscii = (offset: number, text: string) => {
+            for (let i = 0; i < text.length; i++) {
+                view.setUint8(offset + i, text.charCodeAt(i));
+            }
+        };
+
+        writeAscii(0, 'RIFF');
+        view.setUint32(4, 36 + dataByteLen, true);
+        writeAscii(8, 'WAVE');
+        writeAscii(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true); // PCM
+        view.setUint16(22, 1, true); // Mono
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeAscii(36, 'data');
+        view.setUint32(40, dataByteLen, true);
+
+        let byteOffset = 44;
+        for (let i = 0; i < numSamples; i++) {
+            const clamped = Math.max(-1, Math.min(1, samples[i] || 0));
+            const int16 = clamped < 0 ? Math.round(clamped * 0x8000) : Math.round(clamped * 0x7fff);
+            view.setInt16(byteOffset, int16, true);
+            byteOffset += 2;
+        }
+
+        const bytes = new Uint8Array(buffer);
+        const chunkSize = 0x8000;
+        const chunks: string[] = [];
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            const sub = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+            chunks.push(String.fromCharCode.apply(null, Array.from(sub)));
+        }
+        return `data:audio/wav;base64,${btoa(chunks.join(''))}`;
+    }
+
+    private async _measureMediaDurationFallback(rawSrc: string, mimeHint: string): Promise<number> {
+        if (!rawSrc) return 0;
+        const electronWin = typeof window !== 'undefined' ? (window as any) : null;
+        const looksLocal =
+            rawSrc.startsWith('file://') ||
+            rawSrc.startsWith('media://') ||
+            /^[a-zA-Z]:[\\/]/.test(rawSrc) ||
+            (rawSrc.startsWith('/') && /\.(mp3|wav|m4a|ogg|aac|flac|webm)(\?.*)?$/i.test(rawSrc));
+
+        if (looksLocal && electronWin?.electron?.getMediaDuration) {
+            try {
+                const dRes = await electronWin.electron.getMediaDuration(rawSrc);
+                const dNum = typeof dRes === 'number' ? dRes : Number(dRes?.duration || 0);
+                if (dNum > 0 && isFinite(dNum)) return dNum;
+            } catch {
+                // ignore
+            }
+        }
+
+        if (typeof document !== 'undefined') {
+            try {
+                const audioSrc = rawSrc.startsWith('data:') || rawSrc.startsWith('http') || rawSrc.startsWith('blob:')
+                    ? rawSrc
+                    : (!looksLocal ? `data:${mimeHint || 'audio/wav'};base64,${rawSrc}` : '');
+                if (audioSrc) {
+                    const dur = await new Promise<number>((resolve) => {
+                        const aud = document.createElement('audio');
+                        aud.preload = 'metadata';
+                        const timer = setTimeout(() => resolve(0), 4000);
+                        aud.onloadedmetadata = () => {
+                            clearTimeout(timer);
+                            resolve(isFinite(aud.duration) && aud.duration > 0 ? aud.duration : 0);
+                        };
+                        aud.onerror = () => {
+                            clearTimeout(timer);
+                            resolve(0);
+                        };
+                        aud.src = audioSrc;
+                    });
+                    if (dur > 0) return dur;
+                }
+            } catch {
+                // ignore
+            }
+        }
+        return 0;
+    }
+
+    private async _decodeAudioItemsToPcm16k(audioItems: any[]): Promise<{
+        mergedSamples: Float32Array | null;
+        sampleRate: number;
+        exactDurationSec: number;
+        originalAudioSources: string[];
+    }> {
+        const sampleRate = 16000;
+        const decodedSegments: Float32Array[] = [];
+        const originalAudioSources: string[] = [];
+        let fallbackDurationSum = 0;
+
+        const AudioCtx =
+            typeof window !== 'undefined'
+                ? ((window as any).AudioContext || (window as any).webkitAudioContext)
+                : null;
+        const audioCtx: AudioContext | null = AudioCtx ? new AudioCtx() : null;
+
+        try {
+            for (const item of audioItems || []) {
+                const rawSrc: string =
+                    item?.audioUrl ||
+                    item?.image?.imageBytes ||
+                    (typeof item === 'string' ? item : '');
+                if (!rawSrc) continue;
+
+                const mimeHint = String(
+                    item?.mimeType ||
+                    (rawSrc.toLowerCase().endsWith('.wav') ? 'audio/wav' : 'audio/mpeg')
+                );
+
+                // Lưu nguồn âm thanh nguyên bản để FFmpeg lồng lại 100% giọng gốc
+                if (
+                    rawSrc.startsWith('data:') ||
+                    rawSrc.startsWith('http://') ||
+                    rawSrc.startsWith('https://') ||
+                    rawSrc.startsWith('file://') ||
+                    rawSrc.startsWith('media://') ||
+                    /^[a-zA-Z]:[\\/]/.test(rawSrc) ||
+                    (rawSrc.startsWith('/') && /\.(mp3|wav|m4a|ogg|aac|flac|webm)(\?.*)?$/i.test(rawSrc))
+                ) {
+                    originalAudioSources.push(rawSrc);
+                } else if (!rawSrc.startsWith('asset://')) {
+                    const cleanMime = mimeHint.includes('wav') ? 'audio/wav' : 'audio/mpeg';
+                    originalAudioSources.push(`data:${cleanMime};base64,${rawSrc}`);
+                }
+
+                if (rawSrc.startsWith('asset://')) continue;
+
+                const arrBuf = await this._loadRawAudioBuffer(rawSrc);
+                if (arrBuf && arrBuf.byteLength > 0 && audioCtx) {
+                    try {
+                        const decoded = await audioCtx.decodeAudioData(arrBuf.slice(0));
+                        const srcRate = decoded.sampleRate || 44100;
+                        const numCh = decoded.numberOfChannels || 1;
+                        const srcLen = decoded.length;
+                        const outLen = Math.max(1, Math.round((srcLen * sampleRate) / srcRate));
+                        const mono = new Float32Array(outLen);
+
+                        const chData: Float32Array[] = [];
+                        for (let c = 0; c < numCh; c++) {
+                            chData.push(decoded.getChannelData(c));
+                        }
+
+                        const ratio = srcRate / sampleRate;
+                        for (let i = 0; i < outLen; i++) {
+                            const srcPos = i * ratio;
+                            const idx0 = Math.min(srcLen - 1, Math.floor(srcPos));
+                            const idx1 = Math.min(srcLen - 1, idx0 + 1);
+                            const frac = srcPos - idx0;
+                            let sum = 0;
+                            for (let c = 0; c < numCh; c++) {
+                                const v0 = chData[c][idx0] || 0;
+                                const v1 = chData[c][idx1] || 0;
+                                sum += v0 + (v1 - v0) * frac;
+                            }
+                            mono[i] = sum / numCh;
+                        }
+                        decodedSegments.push(mono);
+                        continue;
+                    } catch (decodeErr) {
+                        console.warn('[SeedanceAudio] Không giải mã được PCM qua AudioContext:', decodeErr);
+                    }
+                }
+
+                const fbDur = await this._measureMediaDurationFallback(rawSrc, mimeHint);
+                if (fbDur > 0) fallbackDurationSum += fbDur;
+            }
+        } finally {
+            if (audioCtx && typeof audioCtx.close === 'function') {
+                try {
+                    await audioCtx.close();
+                } catch {
+                    // ignore
+                }
+            }
+        }
+
+        if (decodedSegments.length === 0) {
+            return {
+                mergedSamples: null,
+                sampleRate,
+                exactDurationSec: fallbackDurationSum,
+                originalAudioSources
+            };
+        }
+
+        const totalSamples = decodedSegments.reduce((acc, s) => acc + s.length, 0);
+        const merged = new Float32Array(totalSamples);
+        let offset = 0;
+        for (const seg of decodedSegments) {
+            merged.set(seg, offset);
+            offset += seg.length;
+        }
+
+        return {
+            mergedSamples: merged,
+            sampleRate,
+            exactDurationSec: totalSamples / sampleRate,
+            originalAudioSources
+        };
+    }
+
+    /**
+     * Tìm điểm ngắt hơi / khoảng lặng tự nhiên gần vị trí lý tưởng nhất để cắt phân đoạn AI Avatar
+     * mà không cắt ngang âm tiết đang phát âm.
+     */
+    private _findBreathPauseSample(
+        samples: Float32Array,
+        sampleRate: number,
+        minSample: number,
+        maxSample: number,
+        idealSample: number
+    ): number {
+        const total = samples.length;
+        const lo = Math.max(0, Math.min(total - 1, minSample));
+        const hi = Math.max(lo, Math.min(total - 1, maxSample));
+        if (hi - lo < Math.floor(0.15 * sampleRate)) {
+            return Math.max(lo, Math.min(hi, idealSample));
+        }
+
+        const winHalf = Math.floor(0.04 * sampleRate); // Cửa sổ 80ms
+        const step = Math.max(1, Math.floor(0.02 * sampleRate)); // Bước nhảy 20ms
+        let bestPos = Math.max(lo, Math.min(hi, idealSample));
+        let bestScore = Number.POSITIVE_INFINITY;
+
+        for (let pos = lo; pos <= hi; pos += step) {
+            const wStart = Math.max(0, pos - winHalf);
+            const wEnd = Math.min(total, pos + winHalf);
+            let sqSum = 0;
+            const count = Math.max(1, wEnd - wStart);
+            for (let k = wStart; k < wEnd; k++) {
+                const v = samples[k] || 0;
+                sqSum += v * v;
+            }
+            const rms = Math.sqrt(sqSum / count);
+            const distPenalty = (Math.abs(pos - idealSample) / sampleRate) * 0.004;
+            const score = rms + distPenalty;
+            if (score < bestScore) {
+                bestScore = score;
+                bestPos = pos;
+            }
+        }
+        return bestPos;
+    }
+
+    private _sliceDialogueForWindow(
+        fullDialogue: string,
+        startSec: number,
+        endSec: number,
+        totalSec: number
+    ): string {
+        const clean = String(fullDialogue || '').replace(/\s+/g, ' ').trim();
+        if (!clean || totalSec <= 0) return clean;
+        const words = clean.split(' ').filter(Boolean);
+        if (words.length <= 4 || (startSec <= 0.05 && endSec >= totalSec - 0.15)) {
+            return clean;
+        }
+        const startIdx = Math.max(0, Math.min(words.length - 1, Math.floor((startSec / totalSec) * words.length)));
+        const endIdx = Math.max(startIdx + 1, Math.min(words.length, Math.ceil((endSec / totalSec) * words.length)));
+        return words.slice(startIdx, endIdx).join(' ');
+    }
+
+    private _buildSeedanceAvatarSegmentPrompt(
+        basePrompt: string,
+        segmentDialogue: string,
+        segIndex: number,
+        totalSegments: number,
+        hasLockedFirstFrame: boolean,
+        audioChunkCount = 1
+    ): string {
+        let cleanBase = String(basePrompt || '').trim();
+        // Xóa hậu tố ép thời lượng cũ nếu kịch bản trước đó lỡ gắn "(10s)" hoặc "exact duration of ..."
+        cleanBase = cleanBase
+            .replace(/\[MANDATORY:\s*Generate video with exact duration of[^\]]*\]/gi, '')
+            .replace(/\[AI Avatar Lip-Sync[^\]]*\]/gi, '')
+            .trim();
+
+        const safeDialogue = String(segmentDialogue || '')
+            .replace(/["“”]/g, "'")
+            .replace(/\s+/g, ' ')
+            .trim()
+            .substring(0, 500);
+
+        const audioTags =
+            audioChunkCount > 1
+                ? Array.from({ length: audioChunkCount }, (_, k) => `@Audio ${k + 1}`).join(' followed seamlessly by ')
+                : '@Audio 1';
+
+        const frameAnchorRule = hasLockedFirstFrame
+            ? 'Reproduce the exact opening scene, camera framing, studio background, lighting, outfit, and hand-held props of @Image 1 with ZERO camera cuts and ZERO scene transitions.'
+            : 'Maintain a steady single-take framing with consistent studio lighting and ZERO scene cuts.';
+
+        const partTag = totalSegments > 1 ? ` (Part ${segIndex + 1}/${totalSegments})` : '';
+        const lipSyncDirective = safeDialogue
+            ? `[AI Avatar Lip-Sync${partTag}: ${frameAnchorRule} The speaker in @Image 1 talks naturally to the camera in Vietnamese with accurate mouth lip-sync, facial expressions, and subtle hand gestures strictly synchronized to ${audioTags}, speaking: "${safeDialogue}"]`
+            : `[AI Avatar Lip-Sync${partTag}: ${frameAnchorRule} The speaker in @Image 1 talks naturally to the camera with accurate mouth lip-sync, facial expressions, and subtle hand gestures strictly synchronized to the speech rhythm and syllables in ${audioTags}.]`;
+
+        const maxBaseChars = Math.max(180, 2440 - lipSyncDirective.length - 2);
+        if (cleanBase.length > maxBaseChars) {
+            cleanBase = cleanBase.substring(0, maxBaseChars).trim();
+        }
+        return cleanBase ? `${cleanBase}\n${lipSyncDirective}` : lipSyncDirective;
+    }
+
+    private async _probeSegmentAndExtractFrame(
+        videoBase64: string,
+        seekTimeSec?: number
+    ): Promise<{ durationSec: number; frameCdnUrl: string }> {
+        if (!videoBase64) return { durationSec: 0, frameCdnUrl: '' };
+        const electronWin = typeof window !== 'undefined' ? (window as any) : null;
+
+        // 1. Ưu tiên trích xuất chính xác bằng FFmpeg qua Electron IPC
+        if (electronWin?.electron?.probeAndExtractFrame) {
+            try {
+                const probeRes = await electronWin.electron.probeAndExtractFrame({
+                    videoSource: videoBase64,
+                    timeSec: seekTimeSec
+                });
+                if (probeRes?.success) {
+                    let frameUrl = '';
+                    if (probeRes.frameDataUri) {
+                        const h = GenaiService.computeVolceSourceHash(probeRes.frameDataUri);
+                        frameUrl = (await this.uploadBase64ToCdn(
+                            probeRes.frameDataUri,
+                            `avatar_chain_frame_${h}.png`
+                        )) || probeRes.frameDataUri;
+                    }
+                    return {
+                        durationSec: Number(probeRes.duration) || 0,
+                        frameCdnUrl: frameUrl
+                    };
+                }
+            } catch (ipcErr) {
+                console.warn('[SeedanceAvatar] probeAndExtractFrame IPC fallback sang HTML5 video:', ipcErr);
+            }
+        }
+
+        // 2. Dự phòng trên trình duyệt Web qua HTML5 Video + Canvas
+        if (typeof document !== 'undefined') {
+            let blobUrl = '';
+            try {
+                const arrBuf = this._base64ToArrayBuffer(videoBase64);
+                const blob = new Blob([arrBuf], { type: 'video/mp4' });
+                blobUrl = URL.createObjectURL(blob);
+
+                const extracted = await new Promise<{ dur: number; dataUri: string }>((resolve) => {
+                    const vid = document.createElement('video');
+                    vid.muted = true;
+                    vid.playsInline = true;
+                    vid.preload = 'auto';
+                    let finished = false;
+                    const finish = (dur: number, dataUri: string) => {
+                        if (finished) return;
+                        finished = true;
+                        clearTimeout(timer);
+                        try {
+                            vid.removeAttribute('src');
+                            vid.load();
+                        } catch { /* ignore */ }
+                        resolve({ dur, dataUri });
+                    };
+                    const timer = setTimeout(() => finish(vid.duration || 0, ''), 12000);
+
+                    vid.onloadedmetadata = () => {
+                        const dur = isFinite(vid.duration) && vid.duration > 0 ? vid.duration : 0;
+                        const targetT =
+                            typeof seekTimeSec === 'number' && seekTimeSec > 0 && dur > 0
+                                ? Math.max(0, Math.min(Math.max(0, dur - 0.05), seekTimeSec))
+                                : Math.max(0, dur - 0.05);
+                        vid.currentTime = targetT;
+                    };
+                    vid.onseeked = () => {
+                        try {
+                            const w = vid.videoWidth || 720;
+                            const h = vid.videoHeight || 1280;
+                            const canvas = document.createElement('canvas');
+                            canvas.width = w;
+                            canvas.height = h;
+                            const ctx = canvas.getContext('2d');
+                            if (ctx) {
+                                ctx.drawImage(vid, 0, 0, w, h);
+                                finish(vid.duration || 0, canvas.toDataURL('image/png'));
+                                return;
+                            }
+                        } catch { /* ignore */ }
+                        finish(vid.duration || 0, '');
+                    };
+                    vid.onerror = () => finish(0, '');
+                    vid.src = blobUrl;
+                });
+
+                let cdnFrame = extracted.dataUri;
+                if (extracted.dataUri) {
+                    const h = GenaiService.computeVolceSourceHash(extracted.dataUri);
+                    cdnFrame = (await this.uploadBase64ToCdn(
+                        extracted.dataUri,
+                        `avatar_chain_web_${h}.png`
+                    )) || extracted.dataUri;
+                }
+                return { durationSec: extracted.dur, frameCdnUrl: cdnFrame };
+            } catch (webErr) {
+                console.warn('[SeedanceAvatar] Không thể trích frame qua HTML5 video:', webErr);
+            } finally {
+                if (blobUrl) {
+                    try { URL.revokeObjectURL(blobUrl); } catch { /* ignore */ }
+                }
+            }
+        }
+
+        return { durationSec: 0, frameCdnUrl: '' };
+    }
+
+    private async _ensureAvatarImageUploaded(imgItem: any): Promise<string> {
+        const raw: string = imgItem?.image?.imageBytes || (typeof imgItem === 'string' ? imgItem : '');
+        if (!raw) return '';
+        if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('asset://')) {
+            return raw;
+        }
+        const dataUri = raw.startsWith('data:') ? raw : `data:image/png;base64,${raw}`;
+        try {
+            const h = GenaiService.computeVolceSourceHash(dataUri);
+            const uploaded = await this.uploadBase64ToCdn(dataUri, `avatar_ref_${h}.png`);
+            return uploaded || dataUri;
+        } catch {
+            return dataUri;
+        }
+    }
+
+    /**
+     * Điều phối tạo AI Avatar đa phân đoạn liền mạch khớp 100% độ dài tệp thoại (.mp3 / .wav bất kỳ: 5s, 22.06s, 45s...)
+     * kết hợp khóa cứng Frame 0 (first_frame) và lồng tiếng gốc nguyên bản qua FFmpeg.
+     */
+    private async _generateSeedanceAvatarMultiSegment(opts: {
+        prompt: string;
+        aspectRatio?: string;
+        referenceImages: any[];
+        refAudioItems: any[];
+        seed?: number;
+        model: string;
+        resolution?: string;
+        outMeta?: { url?: string | null; duration?: number; avatarDialogueText?: string; _isInternalAvatarSegment?: boolean };
+    }): Promise<string> {
+        const { prompt, aspectRatio, referenceImages, refAudioItems, seed, model, resolution, outMeta } = opts;
+        const avatarDialogueText = String(outMeta?.avatarDialogueText || '').trim();
+
+        // 1. Xác định ảnh khóa khung hình đầu tiên (START_FRAME / STORYBOARD / image) và ảnh nhân vật phụ trợ
+        const isAudioOrVideoItem = (it: any) =>
+            !it ||
+            it.referenceType === 'REFERENCE_AUDIO' ||
+            it.referenceType === 'reference_audio' ||
+            it.referenceType === 'REFERENCE_VIDEO' ||
+            it.referenceType === 'END_FRAME' ||
+            String(it.mimeType || '').toLowerCase().startsWith('audio/') ||
+            String(it.mimeType || '').toLowerCase().startsWith('video/') ||
+            Boolean(it.audioUrl);
+
+        const explicitStartItem = (referenceImages || []).find(
+            (it: any) =>
+                !isAudioOrVideoItem(it) &&
+                (it.referenceType === 'START_FRAME' ||
+                    it.referenceType === 'STORYBOARD' ||
+                    it.referenceType === 'CONTROL_IMAGE' ||
+                    it.referenceType === 'image' ||
+                    it.referenceType === 'IMAGE')
+        );
+
+        const charRefItems = (referenceImages || []).filter(
+            (it: any) => !isAudioOrVideoItem(it) && it !== explicitStartItem
+        );
+
+        let currentFirstFrameUrl = explicitStartItem
+            ? await this._ensureAvatarImageUploaded(explicitStartItem)
+            : '';
+
+        const uploadedCharRefs: any[] = [];
+        for (const cIt of charRefItems.slice(0, 4)) {
+            const cUrl = await this._ensureAvatarImageUploaded(cIt);
+            if (cUrl) {
+                uploadedCharRefs.push({
+                    referenceType: 'CHARACTER_REFERENCE',
+                    characterName: cIt.characterName,
+                    image: { imageBytes: cUrl }
+                });
+            }
+        }
+
+        // 2. Giải mã tệp giọng đọc sang PCM 16kHz để đo chính xác độ dài (vd: 22.06s) và tách theo nhịp thở
+        const decodedAudio = await this._decodeAudioItemsToPcm16k(refAudioItems);
+        const { mergedSamples, sampleRate, exactDurationSec, originalAudioSources } = decodedAudio;
+
+        // Dự phòng nếu môi trường không hỗ trợ giải mã WebAudio PCM
+        if (!mergedSamples || mergedSamples.length === 0) {
+            const fallbackDuration = exactDurationSec > 0 ? Math.min(30, Math.max(4, Math.ceil(exactDurationSec))) : 8;
+            const singlePrompt = this._buildSeedanceAvatarSegmentPrompt(
+                prompt,
+                avatarDialogueText,
+                0,
+                1,
+                Boolean(currentFirstFrameUrl)
+            );
+            const singleMeta: any = { ...(outMeta || {}), _isInternalAvatarSegment: true };
+            const singleB64 = await this.generateVideoUModelverse(
+                singlePrompt,
+                aspectRatio,
+                referenceImages,
+                fallbackDuration,
+                seed,
+                model,
+                resolution,
+                singleMeta
+            );
+            const electronWin = typeof window !== 'undefined' ? (window as any) : null;
+            if (electronWin?.electron?.composeAvatarVideo && originalAudioSources.length > 0) {
+                const comp = await electronWin.electron.composeAvatarVideo({
+                    segments: [{ videoSource: singleB64, trimDuration: exactDurationSec || 0 }],
+                    audioSources: originalAudioSources,
+                    targetDurationSec: exactDurationSec || 0
+                });
+                if (comp?.success && comp.base64) {
+                    if (outMeta) {
+                        outMeta.duration = comp.duration || exactDurationSec;
+                        outMeta.url = null;
+                    }
+                    return comp.base64;
+                }
+            }
+            if (outMeta && exactDurationSec > 0) {
+                outMeta.duration = exactDurationSec;
+            }
+            return singleB64;
+        }
+
+        // 3. Seedance 2.5 hỗ trợ tối đa 30s liền mạch trong 1 lượt (kèm tối đa 10 tệp reference_audio mỗi tệp <= 15s);
+        //    Seedance 2.0 hỗ trợ tối đa 15s/lượt. Với audio <= 29s (vd: 22.06s), tạo trọn 1 cảnh đơn liền mạch không cắt cảnh,
+        //    và tự động nối tiếp phân đoạn nếu audio dài > 29s hoặc nếu máy chủ trả về clip ngắn hơn yêu cầu.
+        const isSeedance25 = model.toLowerCase().includes('2-5') || model.toLowerCase().includes('2.5');
+        const MAX_SEG_SPEECH_SEC = isSeedance25 ? 29.0 : 14.2;
+        const MAX_MODEL_DUR_INT = isSeedance25 ? 30 : 15;
+        const MAX_SINGLE_AUDIO_FILE_SEC = 14.2; // Giới hạn Volcengine mỗi tệp reference_audio là [2s, 15s]
+
+        const totalSamples = mergedSamples.length;
+        const minTailSamples = Math.floor(0.15 * sampleRate);
+        const estimatedTotalSegs = Math.max(1, Math.ceil(exactDurationSec / MAX_SEG_SPEECH_SEC));
+
+        let audioCursorSample = 0;
+        let segIndex = 0;
+        const collectedSegments: { videoSource: string; trimDuration: number }[] = [];
+
+        console.log(`[SeedanceAvatar] Khởi chạy tạo AI Avatar khớp giọng đọc ${exactDurationSec.toFixed(2)}s (~${estimatedTotalSegs} lượt, khóa ảnh cảnh đầu: ${Boolean(currentFirstFrameUrl)})`);
+
+        while (audioCursorSample < totalSamples - minTailSamples && segIndex < 20) {
+            const remSamples = totalSamples - audioCursorSample;
+            const remSec = remSamples / sampleRate;
+            const remSegs = Math.max(1, Math.ceil(remSec / MAX_SEG_SPEECH_SEC));
+
+            let segEndSample = totalSamples;
+            if (remSegs > 1) {
+                const idealLenSec = remSec / remSegs;
+                const minCutSec = Math.max(4.0, idealLenSec - 1.5);
+                const maxCutSec = Math.min(MAX_SEG_SPEECH_SEC, idealLenSec + 1.5);
+                const minS = Math.min(totalSamples, audioCursorSample + Math.floor(minCutSec * sampleRate));
+                const maxS = Math.min(totalSamples, audioCursorSample + Math.floor(maxCutSec * sampleRate));
+                const idealS = Math.min(totalSamples, audioCursorSample + Math.floor(idealLenSec * sampleRate));
+                segEndSample = this._findBreathPauseSample(mergedSamples, sampleRate, minS, maxS, idealS);
+            }
+
+            const sliceSampleCount = Math.max(1, segEndSample - audioCursorSample);
+            const segSpeechDurSec = sliceSampleCount / sampleRate;
+            const segRequestDurInt = Math.max(4, Math.min(MAX_MODEL_DUR_INT, Math.ceil(segSpeechDurSec)));
+
+            // Đệm nhẹ khoảng lặng cuối lên đúng số giây nguyên segRequestDurInt (>= 4s) để mốc 0.00s..segSpeechDurSec khớp tuyệt đối 1:1
+            const paddedLen = Math.max(Math.ceil(2.15 * sampleRate), segRequestDurInt * sampleRate);
+            const paddedPcm = new Float32Array(paddedLen);
+            paddedPcm.set(mergedSamples.subarray(audioCursorSample, segEndSample), 0);
+
+            // Chia đều paddedPcm thành các tệp WAV <= 14.2s (>= 2.15s) theo đúng chuẩn Volcengine reference_audio (vd: 23s -> 2 tệp 11.5s)
+            const maxSubSamples = Math.floor(MAX_SINGLE_AUDIO_FILE_SEC * sampleRate);
+            const numAudioChunks = Math.max(1, Math.ceil(paddedLen / maxSubSamples));
+            const evenAudioChunkSamples = Math.ceil(paddedLen / numAudioChunks);
+            const segAudioUrls: string[] = [];
+
+            for (let cIdx = 0; cIdx < numAudioChunks; cIdx++) {
+                const cStart = cIdx * evenAudioChunkSamples;
+                const cEnd = Math.min(paddedLen, cStart + evenAudioChunkSamples);
+                if (cEnd <= cStart) break;
+                let subSlice = paddedPcm.subarray(cStart, cEnd);
+                const minSubSamples = Math.ceil(2.15 * sampleRate);
+                if (subSlice.length < minSubSamples) {
+                    const extSlice = new Float32Array(minSubSamples);
+                    extSlice.set(subSlice, 0);
+                    subSlice = extSlice;
+                }
+                const segWavDataUri = this._encodeMonoPcm16WavDataUri(subSlice, sampleRate);
+                const segHash = GenaiService.computeVolceSourceHash(segWavDataUri);
+                const uploadedSegWavUrl = await this.uploadBase64ToCdn(
+                    segWavDataUri,
+                    `seedance_avatar_${segHash}_s${segIndex + 1}_a${cIdx + 1}.wav`,
+                    'audios'
+                );
+                segAudioUrls.push(uploadedSegWavUrl || segWavDataUri);
+            }
+
+            const startSec = audioCursorSample / sampleRate;
+            const endSec = segEndSample / sampleRate;
+            const totalPlannedDisplay = Math.max(estimatedTotalSegs, segIndex + remSegs);
+            const segDialogue = this._sliceDialogueForWindow(
+                avatarDialogueText,
+                startSec,
+                endSec,
+                exactDurationSec
+            );
+            const segPrompt = this._buildSeedanceAvatarSegmentPrompt(
+                prompt,
+                segDialogue,
+                segIndex,
+                totalPlannedDisplay,
+                Boolean(currentFirstFrameUrl),
+                segAudioUrls.length
+            );
+
+            if (totalPlannedDisplay > 1) {
+                try {
+                    this.toastr?.info(
+                        `Đang tạo AI Avatar phân đoạn ${segIndex + 1}/${totalPlannedDisplay} (${startSec.toFixed(1)}s - ${endSec.toFixed(1)}s / ${exactDurationSec.toFixed(1)}s)...`,
+                        'AI Avatar',
+                        { timeOut: 10000 }
+                    );
+                } catch { /* ignore */ }
+            }
+
+            const segRefs: any[] = [];
+            if (currentFirstFrameUrl) {
+                segRefs.push({
+                    referenceType: 'START_FRAME',
+                    image: { imageBytes: currentFirstFrameUrl }
+                });
+            } else {
+                for (const cRef of uploadedCharRefs) {
+                    segRefs.push(cRef);
+                }
+            }
+            // Đính kèm thêm REFERENCE_VIDEO nếu người dùng có truyền ở phân đoạn đầu
+            if (segIndex === 0) {
+                const refVidItem = (referenceImages || []).find((it: any) => it?.referenceType === 'REFERENCE_VIDEO');
+                if (refVidItem) segRefs.push(refVidItem);
+            }
+            for (const sAudUrl of segAudioUrls) {
+                segRefs.push({
+                    referenceType: 'REFERENCE_AUDIO',
+                    audioUrl: sAudUrl,
+                    _preUploadedSeedanceAudio: true
+                });
+            }
+
+            const segMeta: any = { _isInternalAvatarSegment: true };
+            const segVideoB64 = await this.generateVideoUModelverse(
+                segPrompt,
+                aspectRatio,
+                segRefs,
+                segRequestDurInt,
+                seed !== undefined ? seed + segIndex : undefined,
+                model,
+                resolution,
+                segMeta
+            );
+
+            const hasMorePlanned = segEndSample < totalSamples - minTailSamples;
+            const probeRes = await this._probeSegmentAndExtractFrame(segVideoB64, segSpeechDurSec);
+
+            if (hasMorePlanned || (probeRes.durationSec > 0 && probeRes.durationSec < segSpeechDurSec - 0.35 && segIndex < 19)) {
+                const actualCoveredSec =
+                    probeRes.durationSec > 0
+                        ? Math.min(segSpeechDurSec, probeRes.durationSec)
+                        : segSpeechDurSec;
+                if (probeRes.frameCdnUrl) {
+                    currentFirstFrameUrl = probeRes.frameCdnUrl;
+                }
+                collectedSegments.push({
+                    videoSource: segVideoB64,
+                    trimDuration: actualCoveredSec
+                });
+                audioCursorSample += Math.max(
+                    Math.floor(0.5 * sampleRate),
+                    Math.round(actualCoveredSec * sampleRate)
+                );
+            } else {
+                collectedSegments.push({
+                    videoSource: segVideoB64,
+                    trimDuration: segSpeechDurSec
+                });
+                audioCursorSample = totalSamples;
+            }
+
+            segIndex++;
+        }
+
+        // 4. Hợp nhất tất cả phân đoạn + lồng 100% âm thanh gốc (.wav / .mp3) và cắt chuẩn độ dài (vd: 22.06s)
+        const electronWin = typeof window !== 'undefined' ? (window as any) : null;
+        if (electronWin?.electron?.composeAvatarVideo) {
+            const composed = await electronWin.electron.composeAvatarVideo({
+                segments: collectedSegments,
+                audioSources: originalAudioSources,
+                targetDurationSec: exactDurationSec
+            });
+            if (composed?.success && composed.base64) {
+                if (outMeta) {
+                    outMeta.duration = composed.duration || exactDurationSec;
+                    outMeta.url = null;
+                }
+                console.log(`[SeedanceAvatar] Hoàn tất ghép ${collectedSegments.length} phân đoạn + lồng giọng đọc gốc chuẩn ${Number(composed.duration || exactDurationSec).toFixed(2)}s!`);
+                return composed.base64;
+            }
+            console.warn('[SeedanceAvatar] composeAvatarVideo không thành công, trả về phân đoạn đầu:', composed?.error);
+        }
+
+        if (outMeta) {
+            outMeta.duration = exactDurationSec;
+            outMeta.url = null;
+        }
+        return collectedSegments[0]?.videoSource || '';
+    }
+
+    /**
+     * Chuẩn hóa các nguồn giọng đọc (.mp3 / .wav / local file / base64 / URL) thành danh sách URL HTTPS
+     * chuẩn WAV PCM 16kHz (mỗi đoạn đảm bảo nằm trong [2.15s, 14.5s], < 15MB theo đúng giới hạn Volcengine Seedance)
+     * để điều khiển khẩu hình (lip-sync) cho tính năng AI Avatar.
+     */
+    private async prepareSeedanceReferenceAudioUrls(
+        audioItems: any[],
+        maxTotalDurationSec: number
+    ): Promise<{ urls: string[]; durationSec: number }> {
+        const resultUrls: string[] = [];
+        if (!Array.isArray(audioItems) || audioItems.length === 0) {
+            return { urls: [], durationSec: 0 };
+        }
+
+        // Đường dẫn nhanh khi _generateSeedanceAvatarMultiSegment đã cắt và tải sẵn WAV của từng phân đoạn
+        const preUploaded = audioItems.filter((it: any) => it?._preUploadedSeedanceAudio && it?.audioUrl);
+        if (preUploaded.length === audioItems.length) {
+            return {
+                urls: preUploaded.map((it: any) => String(it.audioUrl)),
+                durationSec: 0
+            };
+        }
+
+        const targetRate = 16000;
+        const decodedSegments: Float32Array[] = [];
+        let fallbackRawUploads: { src: string; mime: string }[] = [];
+
+        const AudioCtx =
+            typeof window !== 'undefined'
+                ? ((window as any).AudioContext || (window as any).webkitAudioContext)
+                : null;
+        const audioCtx: AudioContext | null = AudioCtx ? new AudioCtx() : null;
+
+        try {
+            for (const item of audioItems) {
+                const rawSrc: string =
+                    item?.audioUrl ||
+                    item?.image?.imageBytes ||
+                    (typeof item === 'string' ? item : '');
+                if (!rawSrc) continue;
+                const mimeHint = String(
+                    item?.mimeType ||
+                    (rawSrc.toLowerCase().endsWith('.wav') ? 'audio/wav' : 'audio/mpeg')
+                );
+
+                if (rawSrc.startsWith('asset://')) {
+                    resultUrls.push(rawSrc);
+                    continue;
+                }
+
+                const arrBuf = await this._loadRawAudioBuffer(rawSrc);
+                if (arrBuf && arrBuf.byteLength > 0 && audioCtx) {
+                    try {
+                        const decoded = await audioCtx.decodeAudioData(arrBuf.slice(0));
+                        const srcRate = decoded.sampleRate || 44100;
+                        const numCh = decoded.numberOfChannels || 1;
+                        const srcLen = decoded.length;
+                        const outLen = Math.max(1, Math.round((srcLen * targetRate) / srcRate));
+                        const mono = new Float32Array(outLen);
+
+                        const chData: Float32Array[] = [];
+                        for (let c = 0; c < numCh; c++) {
+                            chData.push(decoded.getChannelData(c));
+                        }
+
+                        const ratio = srcRate / targetRate;
+                        for (let i = 0; i < outLen; i++) {
+                            const srcPos = i * ratio;
+                            const idx0 = Math.min(srcLen - 1, Math.floor(srcPos));
+                            const idx1 = Math.min(srcLen - 1, idx0 + 1);
+                            const frac = srcPos - idx0;
+                            let sum = 0;
+                            for (let c = 0; c < numCh; c++) {
+                                const v0 = chData[c][idx0] || 0;
+                                const v1 = chData[c][idx1] || 0;
+                                sum += v0 + (v1 - v0) * frac;
+                            }
+                            mono[i] = sum / numCh;
+                        }
+                        decodedSegments.push(mono);
+                        continue;
+                    } catch (decodeErr) {
+                        console.warn('[SeedanceAudio] Không giải mã được PCM qua AudioContext, chuyển sang upload nguyên bản:', decodeErr);
+                    }
+                }
+
+                fallbackRawUploads.push({ src: rawSrc, mime: mimeHint });
+            }
+        } finally {
+            if (audioCtx && typeof audioCtx.close === 'function') {
+                try {
+                    await audioCtx.close();
+                } catch {
+                    // ignore close error
+                }
+            }
+        }
+
+        let detectedDurationSec = 0;
+
+        if (decodedSegments.length > 0) {
+            const totalRawSamples = decodedSegments.reduce((acc, s) => acc + s.length, 0);
+            const maxAllowedSamples = Math.floor(Math.max(4, maxTotalDurationSec) * targetRate);
+            const cappedSamples = Math.min(totalRawSamples, maxAllowedSamples);
+            detectedDurationSec = cappedSamples / targetRate;
+
+            // Đệm khoảng lặng cuối tối thiểu 2.15s nếu câu thoại quá ngắn (< 2s) để không bị Volcengine từ chối,
+            // đồng thời bảo toàn mốc t = 0.00s khớp với track thoại gốc.
+            const minValidSamples = Math.ceil(2.15 * targetRate);
+            const finalLen = Math.max(cappedSamples, minValidSamples);
+            const merged = new Float32Array(finalLen);
+            let writePos = 0;
+            for (const seg of decodedSegments) {
+                if (writePos >= cappedSamples) break;
+                const copyLen = Math.min(seg.length, cappedSamples - writePos);
+                merged.set(seg.subarray(0, copyLen), writePos);
+                writePos += copyLen;
+            }
+
+            // Giới hạn mỗi tệp Audio của Volcengine là [2s, 15s] -> chia đều thành các đoạn <= 14.5s
+            const maxChunkSamples = Math.floor(14.5 * targetRate);
+            const numChunks = Math.max(1, Math.ceil(finalLen / maxChunkSamples));
+            const evenChunkSamples = Math.ceil(finalLen / numChunks);
+
+            for (let idx = 0; idx < numChunks; idx++) {
+                const start = idx * evenChunkSamples;
+                const end = Math.min(finalLen, start + evenChunkSamples);
+                if (end <= start) break;
+                const slice = merged.subarray(start, end);
+                const wavDataUri = this._encodeMonoPcm16WavDataUri(slice, targetRate);
+                const sliceHash = GenaiService.computeVolceSourceHash(wavDataUri);
+                const uploadedUrl = await this.uploadBase64ToCdn(
+                    wavDataUri,
+                    `seedance_avatar_${sliceHash}_p${idx + 1}.wav`,
+                    'audios'
+                );
+                resultUrls.push(uploadedUrl || wavDataUri);
+            }
+        }
+
+        // Dự phòng cho các tệp không giải mã được qua WebAudio
+        for (const fb of fallbackRawUploads) {
+            if (fb.src.startsWith('https://')) {
+                resultUrls.push(fb.src);
+                continue;
+            }
+            const arrBuf = await this._loadRawAudioBuffer(fb.src);
+            if (arrBuf && arrBuf.byteLength > 0) {
+                const bytes = new Uint8Array(arrBuf);
+                const chunkSize = 0x8000;
+                const parts: string[] = [];
+                for (let i = 0; i < bytes.length; i += chunkSize) {
+                    const sub = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+                    parts.push(String.fromCharCode.apply(null, Array.from(sub)));
+                }
+                const cleanMime = fb.mime.includes('wav') ? 'audio/wav' : 'audio/mpeg';
+                const ext = cleanMime === 'audio/wav' ? 'wav' : 'mp3';
+                const dataUri = `data:${cleanMime};base64,${btoa(parts.join(''))}`;
+                const h = GenaiService.computeVolceSourceHash(dataUri);
+                const uploaded = await this.uploadBase64ToCdn(dataUri, `seedance_voice_${h}.${ext}`, 'audios');
+                resultUrls.push(uploaded || dataUri);
+            }
+        }
+
+        return {
+            urls: resultUrls,
+            durationSec: detectedDurationSec
+        };
     }
 
     public get googleAi(): GoogleGenAI | null {
@@ -1839,34 +2896,58 @@ export class GenaiService {
                         .map((p: any) => p.text)
                         .join(' ');
                     
-                    const imageParts = firstContent.parts.filter((p: any) => p.inlineData);
-                    if (imageParts && imageParts.length > 0) {
-                        for (let i = 0; i < imageParts.length; i++) {
-                            const p = imageParts[i];
+                    const mediaParts = firstContent.parts.filter((p: any) => p.inlineData || p.audioUrl);
+                    if (mediaParts && mediaParts.length > 0) {
+                        let hasAssignedStartFrame = mediaParts.some(
+                            (mp: any) =>
+                                mp.referenceType === 'START_FRAME' ||
+                                mp.referenceType === 'first_frame' ||
+                                mp.referenceType === 'STORYBOARD'
+                        );
+                        for (let i = 0; i < mediaParts.length; i++) {
+                            const p = mediaParts[i];
                             let refType = p.referenceType;
-                            const partMime = String(p.inlineData?.mimeType || '').toLowerCase();
+                            const partMime = String(p.inlineData?.mimeType || p.mimeType || '').toLowerCase();
                             
                             if (!refType) {
-                                refType = partMime.startsWith('video/')
-                                    ? 'REFERENCE_VIDEO'
-                                    : (i === 0 ? 'START_FRAME' : 'CONTROL_IMAGE');
+                                if (p.audioUrl || partMime.startsWith('audio/')) {
+                                    refType = 'REFERENCE_AUDIO';
+                                } else if (partMime.startsWith('video/')) {
+                                    refType = 'REFERENCE_VIDEO';
+                                } else if (!hasAssignedStartFrame) {
+                                    refType = 'START_FRAME';
+                                    hasAssignedStartFrame = true;
+                                } else {
+                                    refType = 'CONTROL_IMAGE';
+                                }
                             } else if (refType === 'first_frame') {
                                 refType = 'START_FRAME';
+                                hasAssignedStartFrame = true;
+                            } else if (refType === 'image' || refType === 'IMAGE') {
+                                if (!hasAssignedStartFrame) {
+                                    refType = 'START_FRAME';
+                                    hasAssignedStartFrame = true;
+                                } else {
+                                    refType = 'CHARACTER_REFERENCE';
+                                }
                             } else if (refType === 'last_frame') {
                                 refType = 'END_FRAME';
                             } else if (refType === 'CHARACTER' || refType === 'reference_image') {
                                 refType = 'CHARACTER_REFERENCE';
                             } else if (refType === 'reference_video') {
                                 refType = 'REFERENCE_VIDEO';
+                            } else if (refType === 'reference_audio') {
+                                refType = 'REFERENCE_AUDIO';
                             }
 
                             referenceImages.push({
                                 referenceType: refType,
                                 characterName: p.characterName,
-                                mimeType: p.inlineData?.mimeType,
-                                image: {
-                                    imageBytes: p.inlineData.data
-                                }
+                                mimeType: p.inlineData?.mimeType || p.mimeType,
+                                audioUrl: p.audioUrl,
+                                image: p.inlineData?.data
+                                    ? { imageBytes: p.inlineData.data }
+                                    : undefined
                             });
                         }
                     }
@@ -1879,7 +2960,15 @@ export class GenaiService {
                 ? (params.config as any).duration
                 : 5;
             const configResolution = (params.config as any)?.resolution || undefined;
-            const videoMeta: { url?: string | null } = {};
+            const avatarDialogueText = String((params.config as any)?.avatarDialogueText || '').trim();
+            const videoMeta: {
+                url?: string | null;
+                duration?: number;
+                avatarDialogueText?: string;
+                _isInternalAvatarSegment?: boolean;
+            } = {
+                avatarDialogueText
+            };
             const b64 = await this.generateVideoUModelverse(
                 promptText,
                 configRatio,
@@ -1894,7 +2983,8 @@ export class GenaiService {
             return {
                 video: {
                     base64: b64,
-                    url: videoMeta.url || null
+                    url: videoMeta.url || null,
+                    duration: videoMeta.duration
                 }
             };
         } else {
@@ -3236,7 +4326,12 @@ export class GenaiService {
         seed?: number,
         overrideModel?: string,
         resolution?: string,
-        outMeta?: { url?: string | null }
+        outMeta?: {
+            url?: string | null;
+            duration?: number;
+            avatarDialogueText?: string;
+            _isInternalAvatarSegment?: boolean;
+        }
     ): Promise<string> {
         this.syncConfigFromStorage();
 
@@ -3340,7 +4435,9 @@ export class GenaiService {
                 (img: any) =>
                     img.referenceType === 'START_FRAME' ||
                     img.referenceType === 'STORYBOARD' ||
-                    img.referenceType === 'CONTROL_IMAGE'
+                    img.referenceType === 'CONTROL_IMAGE' ||
+                    img.referenceType === 'image' ||
+                    img.referenceType === 'IMAGE'
             )
         );
         const hasExplicitEndFrame = Boolean(
@@ -3349,6 +4446,28 @@ export class GenaiService {
         const hasExplicitRefVideo = Boolean(
             referenceImages?.some((img: any) => img.referenceType === 'REFERENCE_VIDEO')
         );
+        const refAudioItems = (referenceImages || []).filter(
+            (img: any) =>
+                img &&
+                (img.referenceType === 'REFERENCE_AUDIO' ||
+                    img.referenceType === 'reference_audio' ||
+                    String(img.mimeType || '').toLowerCase().startsWith('audio/') ||
+                    Boolean(img.audioUrl))
+        );
+
+        // Điều phối tự động AI Avatar đa phân đoạn khớp 100% độ dài tệp .wav/.mp3 + khóa cứng Frame 0 + lồng giọng gốc
+        if (isSeedanceV2Plus && refAudioItems.length > 0 && !outMeta?._isInternalAvatarSegment) {
+            return await this._generateSeedanceAvatarMultiSegment({
+                prompt: rawCleanPrompt,
+                aspectRatio,
+                referenceImages: referenceImages || [],
+                refAudioItems,
+                seed,
+                model,
+                resolution: normalizedResolution,
+                outMeta
+            });
+        }
 
         // Chuẩn hoá referenceImages sang các định dạng phổ biến cho Video model
         let refBase64Raw = '';
@@ -3357,9 +4476,15 @@ export class GenaiService {
         let refBase64CdnUrl = ''; // URL CDN sau khi upload
         let refMimeType = 'image/png';
         if (referenceImages && referenceImages.length > 0) {
-            // Lấy START_FRAME hoặc STORYBOARD. Nếu không có, lấy CONTROL_IMAGE làm fallback.
+            // Lấy START_FRAME, STORYBOARD hoặc image người dùng đính kèm. Nếu không có, lấy CONTROL_IMAGE làm fallback.
             // Riêng Seedance 2.0/2.5 hỗ trợ native role: "reference_image", nên không gộp CHARACTER_REFERENCE vào first_frame.
-            const startImg = referenceImages.find(img => img.referenceType === 'START_FRAME' || img.referenceType === 'STORYBOARD')
+            const startImg = referenceImages.find(
+                img =>
+                    img.referenceType === 'START_FRAME' ||
+                    img.referenceType === 'STORYBOARD' ||
+                    img.referenceType === 'image' ||
+                    img.referenceType === 'IMAGE'
+            )
                 || referenceImages.find(img => img.referenceType === 'CONTROL_IMAGE')
                 || (!isSeedanceV2Plus
                     ? referenceImages.find(img => img.referenceType === 'CHARACTER_REFERENCE' || img.referenceType === 'ASSET' || img.referenceType === 'STYLE_REFERENCE')
@@ -3771,60 +4896,13 @@ export class GenaiService {
                         : '16:9';
                 let effectiveRatio = normalizedRequestedRatio;
 
-                if (hasExplicitStartFrame || hasExplicitEndFrame) {
-                    // Quy tắc Volcengine Seedance: first_frame / last_frame KHÔNG được trộn với reference_image / reference_video,
-                    // và parameters.ratio bắt buộc phải là "adaptive" (tỷ lệ khung hình tự theo ảnh đầu).
-                    if (hasExplicitStartFrame && (refBase64CdnUrl || refBase64Raw)) {
-                        const firstUrl = refBase64CdnUrl || refBase64Raw;
-                        contentArr.push({
-                            type: 'image_url',
-                            image_url: { url: resolveSeedanceMediaUrl(firstUrl) },
-                            role: 'first_frame'
-                        });
-                    }
-                    if (hasExplicitEndFrame && endRefBase64Raw) {
-                        contentArr.push({
-                            type: 'image_url',
-                            image_url: { url: resolveSeedanceMediaUrl(endRefBase64Raw) },
-                            role: 'last_frame'
-                        });
-                    }
-                    effectiveRatio = 'adaptive';
-                } else if (isSeedanceV2Plus) {
-                    // Chế độ Reference Media (Seedance 2.0 / 2.5): gửi tối đa 4 ảnh role: "reference_image" + tùy chọn role: "reference_video",
-                    // đồng thời giữ nguyên tỷ lệ khung hình người dùng chọn (9:16, 16:9, 1:1...).
-                    const refImgs = characterRefUrls.length > 0
-                        ? characterRefUrls.slice(0, 4)
-                        : ((refBase64CdnUrl || refBase64Raw) ? [refBase64CdnUrl || refBase64Raw] : []);
-                    for (const imgUrl of refImgs) {
-                        contentArr.push({
-                            type: 'image_url',
-                            image_url: { url: resolveSeedanceMediaUrl(imgUrl) },
-                            role: 'reference_image'
-                        });
-                    }
-                    if (hasExplicitRefVideo && endRefBase64Raw) {
-                        contentArr.push({
-                            type: 'video_url',
-                            video_url: { url: resolveSeedanceMediaUrl(endRefBase64Raw) },
-                            role: 'reference_video'
-                        });
-                    }
-                    effectiveRatio = normalizedRequestedRatio;
-                } else {
-                    // Seedance 1.5 Pro chỉ hỗ trợ role: "first_frame" | "last_frame"
-                    const fallbackFrameUrl = refBase64CdnUrl || refBase64Raw || characterRefUrls[0] || '';
-                    if (fallbackFrameUrl) {
-                        contentArr.push({
-                            type: 'image_url',
-                            image_url: { url: resolveSeedanceMediaUrl(fallbackFrameUrl) },
-                            role: 'first_frame'
-                        });
-                        effectiveRatio = 'adaptive';
-                    } else {
-                        effectiveRatio = normalizedRequestedRatio;
-                    }
-                }
+                const maxSeedanceDuration = isSeedance25Model ? 30 : (isSeedance15Model ? 12 : 15);
+                const requestedDur = duration !== undefined && duration !== null ? Number(duration) : (config.defaultDuration || 5);
+                const clampedDuration = requestedDur === -1 || (requestedDur === 0 && isSeedanceV2Plus)
+                    ? -1
+                    : Math.max(4, Math.min(maxSeedanceDuration, Math.round(requestedDur || config.defaultDuration || 5)));
+                const seedanceResolution =
+                    normalizedResolution === '4k' ? '1080p' : normalizedResolution;
 
                 let parsedSeed: number | undefined = undefined;
                 if (seed !== undefined && seed !== null && String(seed).trim() !== '') {
@@ -3834,29 +4912,172 @@ export class GenaiService {
                     }
                 }
 
-                const maxSeedanceDuration = isSeedance25Model ? 30 : (isSeedance15Model ? 12 : 15);
-                const requestedDur = duration !== undefined && duration !== null ? Number(duration) : (config.defaultDuration || 5);
-                const clampedDuration = requestedDur === -1 || (requestedDur === 0 && isSeedanceV2Plus)
-                    ? -1
-                    : Math.max(4, Math.min(maxSeedanceDuration, Math.round(requestedDur || config.defaultDuration || 5)));
-                const seedanceResolution =
-                    normalizedResolution === '4k' ? '1080p' : normalizedResolution;
+                // [AI AVATAR / REFERENCE AUDIO] Đồng bộ khẩu hình nhân vật theo giọng đọc (.mp3 / .wav) trên Seedance 2.0 / 2.5
+                let resolvedAudioUrls: string[] = [];
+                let detectedAudioDurationSec = 0;
+                if (isSeedanceV2Plus && refAudioItems.length > 0) {
+                    const maxAudioSlots = isSeedance25Model ? 10 : 3;
+                    const prepAudio = await this.prepareSeedanceReferenceAudioUrls(
+                        refAudioItems,
+                        maxSeedanceDuration
+                    );
+                    resolvedAudioUrls = prepAudio.urls.slice(0, maxAudioSlots);
+                    detectedAudioDurationSec = prepAudio.durationSec;
+                }
 
-                const seedanceParams: any = {
-                    ratio: effectiveRatio,
-                    resolution: seedanceResolution,
-                    duration: clampedDuration,
-                    ...(parsedSeed !== undefined ? { seed: parsedSeed } : {})
-                };
+                if (isSeedanceV2Plus && resolvedAudioUrls.length > 0) {
+                    let avatarPrompt = (rawCleanPrompt || prompt || '').trim();
+                    const avatarLipSyncHint =
+                        '[AI Avatar Lip-Sync: The character in the reference image speaks naturally to the camera with accurate mouth/lip-sync, facial expressions, head nods, and gestures strictly synchronized to the speech rhythm and dialogue in the reference audio.]';
+                    if (!avatarPrompt.includes('AI Avatar Lip-Sync')) {
+                        const maxBaseLen = Math.max(200, 2480 - avatarLipSyncHint.length - 2);
+                        if (avatarPrompt.length > maxBaseLen) {
+                            avatarPrompt = avatarPrompt.substring(0, maxBaseLen);
+                        }
+                        avatarPrompt = avatarPrompt
+                            ? `${avatarPrompt}\n${avatarLipSyncHint}`
+                            : avatarLipSyncHint;
+                    } else if (avatarPrompt.length > 2480) {
+                        avatarPrompt = avatarPrompt.substring(0, 2480);
+                    }
 
-                // Chuẩn OpenAPI 3.1.0 của ByteDance Seedance (additionalProperties: false trên root, input và parameters)
-                candidateTaskRequests.push({
-                    model: actualModel,
-                    input: {
-                        content: contentArr
-                    },
-                    parameters: seedanceParams
-                });
+                    const avatarDuration =
+                        detectedAudioDurationSec > 0
+                            ? Math.max(4, Math.min(maxSeedanceDuration, Math.ceil(detectedAudioDurationSec)))
+                            : (clampedDuration === -1 ? 5 : clampedDuration);
+
+                    // Quy tắc bắt buộc của Volcengine Seedance 2.0 / 2.5:
+                    // Khi có reference_audio trong content, TUYỆT ĐỐI KHÔNG trộn role: "first_frame" / "last_frame"
+                    // (API sẽ từ chối HTTP 400: "first/last frame content cannot be mixed with reference media content").
+                    // Thay vào đó, gửi ảnh qua role: "reference_image". Nếu người dùng đã chỉ định ảnh cảnh đầu (START_FRAME / Hình ảnh),
+                    // chỉ gửi duy nhất bức ảnh cảnh đó (@Image 1) để mô hình bám sát 100% bố cục, trang phục và đạo cụ trên tay.
+                    const avatarRefImgs: string[] = [];
+                    const primaryFrameImg = refBase64CdnUrl || refBase64Raw;
+                    if (hasExplicitStartFrame && primaryFrameImg) {
+                        avatarRefImgs.push(primaryFrameImg);
+                    } else {
+                        if (primaryFrameImg && !avatarRefImgs.includes(primaryFrameImg)) {
+                            avatarRefImgs.push(primaryFrameImg);
+                        }
+                        for (const cUrl of characterRefUrls) {
+                            if (cUrl && !avatarRefImgs.includes(cUrl) && avatarRefImgs.length < 4) {
+                                avatarRefImgs.push(cUrl);
+                            }
+                        }
+                    }
+
+                    const buildOmniRefAvatarTask = (resOverride?: string) => {
+                        const omniContent: any[] = [{ type: 'text', text: avatarPrompt }];
+                        for (const imgUrl of avatarRefImgs) {
+                            omniContent.push({
+                                type: 'image_url',
+                                image_url: { url: resolveSeedanceMediaUrl(imgUrl) },
+                                role: 'reference_image'
+                            });
+                        }
+                        if (hasExplicitRefVideo && endRefBase64Raw) {
+                            omniContent.push({
+                                type: 'video_url',
+                                video_url: { url: resolveSeedanceMediaUrl(endRefBase64Raw) },
+                                role: 'reference_video'
+                            });
+                        }
+                        for (const aUrl of resolvedAudioUrls) {
+                            omniContent.push({
+                                type: 'audio_url',
+                                audio_url: { url: resolveSeedanceMediaUrl(aUrl) },
+                                role: 'reference_audio'
+                            });
+                        }
+                        return {
+                            model: actualModel,
+                            input: { content: omniContent },
+                            parameters: {
+                                ratio: normalizedRequestedRatio,
+                                resolution: resOverride || seedanceResolution,
+                                duration: avatarDuration,
+                                generate_audio: true,
+                                ...(parsedSeed !== undefined ? { seed: parsedSeed } : {})
+                            }
+                        };
+                    };
+
+                    candidateTaskRequests.push(buildOmniRefAvatarTask(seedanceResolution));
+                    if (seedanceResolution === '1080p') {
+                        candidateTaskRequests.push(buildOmniRefAvatarTask('720p'));
+                    }
+                } else {
+                    if (hasExplicitStartFrame || hasExplicitEndFrame) {
+                        // Quy tắc Volcengine Seedance: first_frame / last_frame KHÔNG được trộn với reference_image / reference_video,
+                        // và parameters.ratio bắt buộc phải là "adaptive" (tỷ lệ khung hình tự theo ảnh đầu).
+                        if (hasExplicitStartFrame && (refBase64CdnUrl || refBase64Raw)) {
+                            const firstUrl = refBase64CdnUrl || refBase64Raw;
+                            contentArr.push({
+                                type: 'image_url',
+                                image_url: { url: resolveSeedanceMediaUrl(firstUrl) },
+                                role: 'first_frame'
+                            });
+                        }
+                        if (hasExplicitEndFrame && endRefBase64Raw) {
+                            contentArr.push({
+                                type: 'image_url',
+                                image_url: { url: resolveSeedanceMediaUrl(endRefBase64Raw) },
+                                role: 'last_frame'
+                            });
+                        }
+                        effectiveRatio = 'adaptive';
+                    } else if (isSeedanceV2Plus) {
+                        // Chế độ Reference Media (Seedance 2.0 / 2.5): gửi tối đa 4 ảnh role: "reference_image" + tùy chọn role: "reference_video",
+                        // đồng thời giữ nguyên tỷ lệ khung hình người dùng chọn (9:16, 16:9, 1:1...).
+                        const refImgs = characterRefUrls.length > 0
+                            ? characterRefUrls.slice(0, 4)
+                            : ((refBase64CdnUrl || refBase64Raw) ? [refBase64CdnUrl || refBase64Raw] : []);
+                        for (const imgUrl of refImgs) {
+                            contentArr.push({
+                                type: 'image_url',
+                                image_url: { url: resolveSeedanceMediaUrl(imgUrl) },
+                                role: 'reference_image'
+                            });
+                        }
+                        if (hasExplicitRefVideo && endRefBase64Raw) {
+                            contentArr.push({
+                                type: 'video_url',
+                                video_url: { url: resolveSeedanceMediaUrl(endRefBase64Raw) },
+                                role: 'reference_video'
+                            });
+                        }
+                        effectiveRatio = normalizedRequestedRatio;
+                    } else {
+                        // Seedance 1.5 Pro chỉ hỗ trợ role: "first_frame" | "last_frame"
+                        const fallbackFrameUrl = refBase64CdnUrl || refBase64Raw || characterRefUrls[0] || '';
+                        if (fallbackFrameUrl) {
+                            contentArr.push({
+                                type: 'image_url',
+                                image_url: { url: resolveSeedanceMediaUrl(fallbackFrameUrl) },
+                                role: 'first_frame'
+                            });
+                            effectiveRatio = 'adaptive';
+                        } else {
+                            effectiveRatio = normalizedRequestedRatio;
+                        }
+                    }
+
+                    const seedanceParams: any = {
+                        ratio: effectiveRatio,
+                        resolution: seedanceResolution,
+                        duration: clampedDuration,
+                        ...(parsedSeed !== undefined ? { seed: parsedSeed } : {})
+                    };
+
+                    // Chuẩn OpenAPI 3.1.0 của ByteDance Seedance (additionalProperties: false trên root, input và parameters)
+                    candidateTaskRequests.push({
+                        model: actualModel,
+                        input: {
+                            content: contentArr
+                        },
+                        parameters: seedanceParams
+                    });
+                }
 
                 payload = null;
             } else if (config.payloadFormat === 'pixverse_sdk') {
@@ -4224,85 +5445,114 @@ export class GenaiService {
 
                     // [VOLCE-ASSET AUTO-REGISTRATION] Nếu ByteDance Seedance chặn ảnh có mặt người thật / chân thực
                     // (InputImageSensitiveContentDetected.PrivacyInformation) hoặc asset:// cũ không còn hiệu lực,
-                    // tự động đăng ký ảnh vào Volcengine Asset Library (group_type: AIGC -> asset://<id>) và gửi lại ngay.
-                    if (!response.ok && config?.payloadFormat === 'doubao_sdk' && Array.isArray(currentBody?.input?.content)) {
+                    // tự động đăng ký ảnh/audio vào Volcengine Asset Library (group_type: AIGC -> asset://<id>) tối đa 2 vòng và gửi lại ngay.
+                    for (
+                        let assetPass = 0;
+                        assetPass < 2 && !response.ok && config?.payloadFormat === 'doubao_sdk' && Array.isArray(currentBody?.input?.content);
+                        assetPass++
+                    ) {
                         const errLower = responseText.toLowerCase();
                         const contentList: any[] = currentBody.input.content;
                         const hasRawMedia = contentList.some(
                             (it: any) =>
                                 (it?.type === 'image_url' && it.image_url?.url && !String(it.image_url.url).startsWith('asset://')) ||
-                                (it?.type === 'video_url' && it.video_url?.url && !String(it.video_url.url).startsWith('asset://'))
+                                (it?.type === 'video_url' && it.video_url?.url && !String(it.video_url.url).startsWith('asset://')) ||
+                                (it?.type === 'audio_url' && it.audio_url?.url && !String(it.audio_url.url).startsWith('asset://'))
                         );
                         const hasAssetUri = contentList.some(
                             (it: any) =>
                                 (it?.type === 'image_url' && String(it.image_url?.url || '').startsWith('asset://')) ||
-                                (it?.type === 'video_url' && String(it.video_url?.url || '').startsWith('asset://'))
+                                (it?.type === 'video_url' && String(it.video_url?.url || '').startsWith('asset://')) ||
+                                (it?.type === 'audio_url' && String(it.audio_url?.url || '').startsWith('asset://'))
                         );
                         const isFacePrivacyBlock =
-                            (errLower.includes('privacyinformation') || errLower.includes('real person')) && hasRawMedia;
+                            (errLower.includes('privacyinformation') || errLower.includes('real person') || errLower.includes('audio_url')) && hasRawMedia;
                         const isStaleAssetError =
                             (errLower.includes('asset not found') || errLower.includes('asset not active')) && hasAssetUri;
 
-                        if (isFacePrivacyBlock || isStaleAssetError) {
-                            const assetRegion: 'cn' | 'overseas' = model.toLowerCase().includes('global') ? 'overseas' : 'cn';
-                            const keyFp = GenaiService.computeKeyFingerprint(key);
-                            console.log(`[VolceAsset] Phát hiện ${isFacePrivacyBlock ? 'chặn khuôn mặt người (PrivacyInformation)' : 'asset:// hết hiệu lực'} trên ${model} (${assetRegion}). Tiến hành đăng ký Volcengine AIGC Asset...`);
-                            try {
-                                this.toastr?.info(
-                                    'Đang đăng ký ảnh nhân vật vào Volcengine Asset Library cho Seedance (chỉ cần thực hiện 1 lần cho mỗi ảnh)...',
-                                    'Seedance AI',
-                                    { timeOut: 10000 }
-                                );
-                            } catch { /* ignore UI toast error */ }
+                        if (!isFacePrivacyBlock && !isStaleAssetError) {
+                            break;
+                        }
 
-                            let convertedCount = 0;
-                            for (const item of contentList) {
-                                if (item?.type === 'image_url' && item.image_url?.url) {
-                                    const curUrl = String(item.image_url.url);
-                                    if (isStaleAssetError || !curUrl.startsWith('asset://')) {
-                                        const origSource = seedanceOriginalMediaMap.get(curUrl) || curUrl;
-                                        if (!origSource.startsWith('asset://')) {
-                                            const newAssetUri = await this.registerVolceMediaAsset(
-                                                baseWithV1,
-                                                headers,
-                                                keyFp,
-                                                origSource,
-                                                assetRegion,
-                                                'Image',
-                                                isStaleAssetError
-                                            );
-                                            seedanceOriginalMediaMap.set(newAssetUri, origSource);
-                                            item.image_url.url = newAssetUri;
-                                            convertedCount++;
-                                        }
+                        const assetRegion: 'cn' | 'overseas' = model.toLowerCase().includes('global') ? 'overseas' : 'cn';
+                        const keyFp = GenaiService.computeKeyFingerprint(key);
+                        console.log(`[VolceAsset] Phát hiện ${isFacePrivacyBlock ? 'chặn khuôn mặt người / media (PrivacyInformation)' : 'asset:// hết hiệu lực'} trên ${model} (${assetRegion}). Tiến hành đăng ký Volcengine AIGC Asset...`);
+                        try {
+                            this.toastr?.info(
+                                'Đang đăng ký dữ liệu nhân vật vào Volcengine Asset Library cho Seedance (chỉ cần thực hiện 1 lần)...',
+                                'Seedance AI',
+                                { timeOut: 10000 }
+                            );
+                        } catch { /* ignore UI toast error */ }
+
+                        let convertedCount = 0;
+                        for (const item of contentList) {
+                            if (item?.type === 'image_url' && item.image_url?.url) {
+                                const curUrl = String(item.image_url.url);
+                                if (isStaleAssetError || !curUrl.startsWith('asset://')) {
+                                    const origSource = seedanceOriginalMediaMap.get(curUrl) || curUrl;
+                                    if (!origSource.startsWith('asset://')) {
+                                        const newAssetUri = await this.registerVolceMediaAsset(
+                                            baseWithV1,
+                                            headers,
+                                            keyFp,
+                                            origSource,
+                                            assetRegion,
+                                            'Image',
+                                            isStaleAssetError
+                                        );
+                                        seedanceOriginalMediaMap.set(newAssetUri, origSource);
+                                        item.image_url.url = newAssetUri;
+                                        convertedCount++;
                                     }
-                                } else if (item?.type === 'video_url' && item.video_url?.url && errLower.includes('video')) {
-                                    const curVidUrl = String(item.video_url.url);
-                                    if (isStaleAssetError || !curVidUrl.startsWith('asset://')) {
-                                        const origVidSource = seedanceOriginalMediaMap.get(curVidUrl) || curVidUrl;
-                                        if (!origVidSource.startsWith('asset://')) {
-                                            const newVidAssetUri = await this.registerVolceMediaAsset(
-                                                baseWithV1,
-                                                headers,
-                                                keyFp,
-                                                origVidSource,
-                                                assetRegion,
-                                                'Video',
-                                                isStaleAssetError
-                                            );
-                                            seedanceOriginalMediaMap.set(newVidAssetUri, origVidSource);
-                                            item.video_url.url = newVidAssetUri;
-                                            convertedCount++;
-                                        }
+                                }
+                            } else if (item?.type === 'video_url' && item.video_url?.url && errLower.includes('video')) {
+                                const curVidUrl = String(item.video_url.url);
+                                if (isStaleAssetError || !curVidUrl.startsWith('asset://')) {
+                                    const origVidSource = seedanceOriginalMediaMap.get(curVidUrl) || curVidUrl;
+                                    if (!origVidSource.startsWith('asset://')) {
+                                        const newVidAssetUri = await this.registerVolceMediaAsset(
+                                            baseWithV1,
+                                            headers,
+                                            keyFp,
+                                            origVidSource,
+                                            assetRegion,
+                                            'Video',
+                                            isStaleAssetError
+                                        );
+                                        seedanceOriginalMediaMap.set(newVidAssetUri, origVidSource);
+                                        item.video_url.url = newVidAssetUri;
+                                        convertedCount++;
+                                    }
+                                }
+                            } else if (item?.type === 'audio_url' && item.audio_url?.url && (isStaleAssetError || errLower.includes('audio'))) {
+                                const curAudUrl = String(item.audio_url.url);
+                                if (isStaleAssetError || !curAudUrl.startsWith('asset://')) {
+                                    const origAudSource = seedanceOriginalMediaMap.get(curAudUrl) || curAudUrl;
+                                    if (!origAudSource.startsWith('asset://')) {
+                                        const newAudAssetUri = await this.registerVolceMediaAsset(
+                                            baseWithV1,
+                                            headers,
+                                            keyFp,
+                                            origAudSource,
+                                            assetRegion,
+                                            'Audio',
+                                            isStaleAssetError
+                                        );
+                                        seedanceOriginalMediaMap.set(newAudAssetUri, origAudSource);
+                                        item.audio_url.url = newAudAssetUri;
+                                        convertedCount++;
                                     }
                                 }
                             }
+                        }
 
-                            if (convertedCount > 0) {
-                                console.log(`[VolceAsset] Đã chuyển đổi ${convertedCount} media sang asset://, gửi lại yêu cầu tạo video tới ${endpoint}...`);
-                                response = await submitTaskOnce(currentBody);
-                                responseText = await response.text();
-                            }
+                        if (convertedCount > 0) {
+                            console.log(`[VolceAsset] Đã chuyển đổi ${convertedCount} media sang asset://, gửi lại yêu cầu tạo video tới ${endpoint}...`);
+                            response = await submitTaskOnce(currentBody);
+                            responseText = await response.text();
+                        } else {
+                            break;
                         }
                     }
 
