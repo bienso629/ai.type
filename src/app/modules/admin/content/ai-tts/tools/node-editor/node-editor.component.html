@@ -914,11 +914,11 @@
 
 <!-- Docked Global Prompt Editor (Fixed at bottom of viewport) -->
 <div
-    class="fixed bottom-12 left-0 right-0 flex flex-col items-center justify-center z-[200] transition-all duration-300 pointer-events-none p-6"
+    class="fixed bottom-12 left-0 right-0 flex flex-col items-center justify-center z-[200] transition-all duration-300 pointer-events-none py-6 px-0"
 >
     <!-- Light Theme Prompt Bar -->
     <div
-        class="w-full max-w-4xl flex flex-col bg-white backdrop-blur-md shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40 rounded-2xl p-2.5 pointer-events-auto transition-all relative overflow-hidden"
+        class="w-[94%] sm:w-4/5 max-w-none flex flex-col bg-white backdrop-blur-md shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40 rounded-2xl p-2.5 pointer-events-auto transition-all relative overflow-hidden"
     >
         <!-- Top Context Chips -->
         @if (selectedNode?.type !== "tts") {
@@ -1190,7 +1190,7 @@
 
         <!-- Regular Attached Files Preview -->
         @if (getRegularFiles().length > 0) {
-            <div class="flex flex-wrap gap-2 px-2 pb-2">
+            <div class="flex flex-wrap items-center gap-2 px-2 pb-2">
                 @for (f of getRegularFiles(); track f) {
                     <div
                         class="relative group w-16 h-16 rounded-lg overflow-hidden bg-gray-50"
@@ -1292,9 +1292,9 @@
         </div>
 
         <!-- Bottom Toolbar -->
-        <div class="flex items-center justify-between mt-2 px-2">
+        <div class="flex flex-wrap items-center justify-between gap-2 mt-2 px-2">
             <!-- Left Actions -->
-            <div class="flex items-center space-x-2">
+            <div class="flex flex-wrap items-center gap-y-1.5 space-x-2">
                 <button
                     [matMenuTriggerFor]="addAttachmentMenu"
                     [matTooltip]="'app.auto_attach_video_image' | transloco"
@@ -1330,7 +1330,7 @@
                     type="file"
                     #hiddenFileInput
                     multiple
-                    accept="image/*,video/*"
+                    accept="image/*,video/*,audio/*,.mp3,.wav"
                     class="hidden"
                     (change)="onFileSelected($event)"
                 />
@@ -1406,6 +1406,84 @@
                         >
                             {{ "app.auto_inherit_the_last_frame" | transloco }}
                         </span>
+                    </div>
+                }
+
+                @if (selectedNode?.type === "video") {
+                    <div
+                        class="flex items-center ml-2 pl-3 border-l border-gray-200 h-8 cursor-pointer group"
+                        (click)="toggleAiAvatarMode()"
+                        matTooltip="Đồng bộ khẩu hình & cử chỉ nhân vật theo giọng đọc (.mp3 / .wav hoặc node thoại nối vào cảnh) bằng Seedance 2.5"
+                    >
+                        <div
+                            class="relative inline-flex flex-shrink-0 items-center justify-center w-[34px] h-[18px]"
+                        >
+                            <div
+                                class="w-full h-full rounded-full transition-colors duration-200 ease-in-out"
+                                [ngClass]="
+                                    isAiAvatarEnabled(selectedNode)
+                                        ? 'bg-[#7fe1d3]'
+                                        : 'bg-gray-200'
+                                "
+                            ></div>
+                            <div
+                                class="absolute left-[-2px] w-[22px] h-[22px] rounded-full transition-transform duration-200 ease-in-out flex items-center justify-center shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
+                                [ngClass]="
+                                    isAiAvatarEnabled(selectedNode)
+                                        ? 'translate-x-[16px] bg-[#1a5f56]'
+                                        : 'translate-x-0 bg-white'
+                                "
+                            >
+                                @if (isAiAvatarEnabled(selectedNode)) {
+                                    <mat-icon
+                                        class="icon-size-4 text-white font-bold"
+                                        style="
+                                            font-size: 16px;
+                                            width: 16px;
+                                            height: 16px;
+                                        "
+                                        >check</mat-icon
+                                    >
+                                }
+                            </div>
+                        </div>
+                        <span
+                            class="text-[14px] ml-2.5 text-gray-700 select-none group-hover:text-gray-900 transition-colors whitespace-nowrap"
+                        >
+                            AI Avatar
+                        </span>
+                        @if (getSceneAvatarAudioBadge(selectedNode); as audioBadge) {
+                            <span
+                                class="ml-1.5 px-1.5 py-0.5 text-[11px] font-medium rounded bg-teal-50 text-teal-700 border border-teal-200 max-w-[140px] inline-flex items-center gap-1"
+                                [matTooltip]="audioBadge"
+                            >
+                                <span class="truncate">{{ audioBadge }}</span>
+                                @if (
+                                    hasAttachedAudioInQueue() ||
+                                    getPersistedAvatarAudioName(selectedNode)
+                                ) {
+                                    <mat-icon
+                                        class="!w-3.5 !h-3.5 !text-[13px] leading-none text-teal-500 hover:text-rose-600 cursor-pointer shrink-0"
+                                        (click)="clearPersistedAvatarAudio($event)"
+                                        matTooltip="Gỡ tệp giọng đọc đã chọn"
+                                        >close</mat-icon
+                                    >
+                                }
+                            </span>
+                        }
+                        @if (isAiAvatarEnabled(selectedNode)) {
+                            <button
+                                type="button"
+                                class="ml-1 w-6 h-6 rounded-full hover:bg-teal-50 text-gray-500 hover:text-teal-700 flex items-center justify-center transition-colors"
+                                (click)="
+                                    $event.stopPropagation();
+                                    triggerFileInput('REFERENCE_AUDIO')
+                                "
+                                matTooltip="Chọn tệp giọng đọc (.mp3 / .wav) từ máy"
+                            >
+                                <mat-icon class="icon-size-4">audio_file</mat-icon>
+                            </button>
+                        }
                     </div>
                 }
             </div>
@@ -1656,7 +1734,7 @@
     <!-- Model Hint -->
     @if (modelHint) {
         <div
-            class="px-4 pt-1.5 mt-1 text-xs text-gray-500 flex items-center space-x-1.5 animate-fade-in w-full max-w-4xl pointer-events-auto"
+            class="px-4 pt-1.5 mt-1 text-xs text-gray-500 flex items-center space-x-1.5 animate-fade-in w-[94%] sm:w-4/5 max-w-none pointer-events-auto"
         >
             <mat-icon class="icon-size-4 text-teal-600/70 flex-shrink-0"
                 >tips_and_updates</mat-icon

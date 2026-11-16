@@ -7804,9 +7804,57 @@ export class VideoTimelineDialogComponent
                 this.projectData?.resolution ||
                 '720p';
             if (isProxy || isMagic) {
-                const modelName = isMagic
+                let modelName = isMagic
                     ? 'kling-v3-motion-control'
                     : this._genaiService.umodelverseVideoModel || undefined;
+                const timelineVideoMeta: {
+                    url?: string | null;
+                    duration?: number;
+                    avatarDialogueText?: string;
+                } = {};
+                let avatarOwnerScene: any = null;
+                if (!isMagic && video?.aiAvatarMode) {
+                    avatarOwnerScene = this.projectData?.scenes?.find(
+                        (s: any) =>
+                            Array.isArray(s?.videos) &&
+                            s.videos.includes(video),
+                    );
+                    const avatarAudios: string[] = [];
+                    if (video.avatarAudioUrl) {
+                        avatarAudios.push(video.avatarAudioUrl);
+                    } else if (avatarOwnerScene?.subtitles?.length) {
+                        for (const sub of avatarOwnerScene.subtitles) {
+                            if (sub?.audioUrl) {
+                                avatarAudios.push(sub.audioUrl);
+                            }
+                        }
+                    }
+                    if (avatarOwnerScene?.subtitles?.length) {
+                        timelineVideoMeta.avatarDialogueText =
+                            avatarOwnerScene.subtitles
+                                .map((sub: any) => String(sub?.text || '').trim())
+                                .filter(Boolean)
+                                .join(' ');
+                    } else if (avatarOwnerScene?.script) {
+                        timelineVideoMeta.avatarDialogueText = String(
+                            avatarOwnerScene.script,
+                        ).trim();
+                    }
+                    for (const aUrl of avatarAudios) {
+                        referenceImages.push({
+                            referenceType: 'REFERENCE_AUDIO',
+                            audioUrl: aUrl,
+                        });
+                    }
+                    if (
+                        avatarAudios.length > 0 &&
+                        !String(modelName || '')
+                            .toLowerCase()
+                            .includes('seedance-2')
+                    ) {
+                        modelName = 'doubao-seedance-2-5-260628-global';
+                    }
+                }
                 base64 = await this._genaiService.generateVideoUModelverse(
                     finalPrompt,
                     effectiveAspectRatio,
@@ -7815,7 +7863,19 @@ export class VideoTimelineDialogComponent
                     undefined,
                     modelName,
                     effectiveResolution,
+                    timelineVideoMeta,
                 );
+                if (
+                    timelineVideoMeta.duration &&
+                    timelineVideoMeta.duration > 0
+                ) {
+                    video.duration = parseFloat(
+                        timelineVideoMeta.duration.toFixed(2),
+                    );
+                    if (avatarOwnerScene) {
+                        avatarOwnerScene.forcedDuration = video.duration;
+                    }
+                }
             } else {
                 const apiKey = this.getGeminiKey();
                 if (!apiKey) {
