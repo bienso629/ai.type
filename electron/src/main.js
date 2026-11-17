@@ -1299,10 +1299,23 @@ function getAuthHtml(title, message, isSuccess) {
     </html>`;
 }
 
+// Cờ trạng thái xác thực Google đã đồng bộ vào session của ứng dụng
+let hasGoogleCookiesCached = false;
+
 // Mở cửa sổ login Google, lấy "code" rồi đổi sang access_token + refresh_token
 async function gscDoLogin() {
     return new Promise((resolve, reject) => {
         const { shell } = require('electron');
+        let gscAuthWindow = null;
+
+        const closeAuthWin = () => {
+            try {
+                if (gscAuthWindow && !gscAuthWindow.isDestroyed()) {
+                    gscAuthWindow.close();
+                }
+            } catch (e) { }
+            gscAuthWindow = null;
+        };
 
         const server = http.createServer(async (req, res) => {
             try {
@@ -1316,6 +1329,7 @@ async function gscDoLogin() {
                         sendToRenderer("tools-log", `[GSC] Lỗi OAuth: ${error}`);
                         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
                         res.end(getAuthHtml('Lỗi xác thực', `Quá trình đăng nhập thất bại: ${error}. Vui lòng thử lại.`, false));
+                        closeAuthWin();
                         server.close();
                         reject(new Error(error));
                         return;
@@ -1324,6 +1338,7 @@ async function gscDoLogin() {
                     if (!code) {
                         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
                         res.end(getAuthHtml('Lỗi hệ thống', `Không tìm thấy mã xác thực từ Google trả về.`, false));
+                        closeAuthWin();
                         server.close();
                         reject(new Error("No code in redirect URL"));
                         return;
@@ -1331,9 +1346,10 @@ async function gscDoLogin() {
 
                     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
                     res.end(getAuthHtml('Thành công', 'Quá trình xác thực hoàn tất! Bạn có thể quay lại app ai.type, cửa sổ này sẽ tự đóng lại.', true));
+                    setTimeout(closeAuthWin, 600);
                     server.close();
 
-                    sendToRenderer("tools-log", "[GSC] Nhận code từ trình duyệt chính, đang đổi sang token...");
+                    sendToRenderer("tools-log", "[GSC] Nhận code xác thực, đang đổi sang token...");
                     const { tokens } = await gscOauth2Client.getToken(code);
                     gscOauth2Client.setCredentials(tokens);
                     gscSaveToken(tokens);
@@ -1347,13 +1363,14 @@ async function gscDoLogin() {
             } catch (err) {
                 res.writeHead(500);
                 res.end(`Loi: ${err.message}`);
+                closeAuthWin();
                 server.close();
                 reject(err);
             }
         });
 
         // Lắng nghe ở port cố định 5455 để dễ cấu hình trên Google Cloud Console
-        server.listen(5455, '127.0.0.1', () => {
+        server.listen(5455, '127.0.0.1', async () => {
             const redirectUri = `http://localhost:5455/google`;
 
             // Cập nhật lại redirectUri để Google OAuth cho phép
@@ -1367,7 +1384,40 @@ async function gscDoLogin() {
                 prompt: "consent",
             });
 
-            sendToRenderer("tools-log", `[GSC] Mở Chrome mặc định: ${authUrl}`);
+            // Kiểm tra xem session persist:gemini-webview đã có cookie Google chưa
+            let hasSyncedGoogle = hasGoogleCookiesCached;
+            try {
+                const wvCookies = await session.fromPartition('persist:gemini-webview').cookies.get({ domain: 'google.com' });
+                if (wvCookies.some(c => (c.name === 'SID' || c.name === '__Secure-1PSID' || c.name === '__Secure-3PSID') && c.value)) {
+                    hasSyncedGoogle = true;
+                    hasGoogleCookiesCached = true;
+                }
+            } catch (e) { }
+
+            if (hasSyncedGoogle) {
+                try {
+                    sendToRenderer("tools-log", `[GSC] Tái sử dụng phiên Google đã đăng nhập trong ứng dụng...`);
+                    gscAuthWindow = new BrowserWindow({
+                        width: 560,
+                        height: 740,
+                        title: 'Xác thực Google Search Console',
+                        parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
+                        autoHideMenuBar: true,
+                        webPreferences: {
+                            partition: 'persist:gemini-webview',
+                            contextIsolation: true,
+                            nodeIntegration: false,
+                            preload: resolvePreload()
+                        }
+                    });
+                    gscAuthWindow.loadURL(authUrl);
+                    return;
+                } catch (winErr) {
+                    sendToRenderer("tools-log", `[GSC] Không thể mở cửa sổ nội bộ, chuyển sang trình duyệt ngoài: ${winErr.message}`);
+                }
+            }
+
+            sendToRenderer("tools-log", `[GSC] Mở trình duyệt mặc định: ${authUrl}`);
             shell.openExternal(authUrl);
         });
 
@@ -5777,27 +5827,54 @@ app.whenReady().then(async () => {
         app.setAppUserModelId("ai.type.vn"); // Thay bằng id app của bạn
     }
 
-    // [ANTI-BOT] Lấy User Agent G�?C 100% của Chromium hiện tại
-    let trueAgent = session.defaultSession.getUserAgent();
-    // Bóc đi 2 cái đuôi báo danh "Tôi là ứng dụng Electron giả lập"
-    trueAgent = trueAgent.replace(/Electron\/[\d.]+ /g, '')
-        .replace(/ai.type\/[\d.]+ /g, '');
+    // [ANTI-BOT] Lấy User-Agent chuẩn khớp với Chrome thật trên hệ thống
+    let trueAgent = session.defaultSession.getUserAgent()
+        .replace(/Electron\/[\d.]+ /g, "")
+        .replace(/ai\.type\/[\d.]+ /g, "")
+        .replace(/typing\/[\d.]+ /g, "");
+
+    const uaPath = path.join(app.getPath("userData"), "chrome_ua.txt");
+    const sharedAuthDataDir = path.join(app.getPath("documents"), "ai.type", "data");
+    const googleAuthMirrorPath = path.join(sharedAuthDataDir, "google_auth_mirror.json");
 
     try {
-        const fs = require('fs');
-        const uaPath = require('path').join(app.getPath('userData'), 'chrome_ua.txt');
         if (fs.existsSync(uaPath)) {
-            const savedUa = fs.readFileSync(uaPath, 'utf-8').trim();
+            const savedUa = fs.readFileSync(uaPath, "utf-8").trim();
             if (savedUa) {
                 trueAgent = savedUa;
+            }
+        } else {
+            const realChromePath = getChromePath();
+            if (realChromePath && process.platform !== "win32") {
+                const verOut = require("child_process").execFileSync(realChromePath, ["--version"], {
+                    encoding: "utf-8",
+                    timeout: 2500
+                }).trim();
+                const verMatch = verOut.match(/(\d+\.\d+\.\d+\.\d+)/);
+                if (verMatch && verMatch[1]) {
+                    const majorVer = verMatch[1].split(".")[0];
+                    const fullVer = `${majorVer}.0.0.0`;
+                    if (process.platform === "darwin") {
+                        trueAgent = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullVer} Safari/537.36`;
+                    } else {
+                        trueAgent = `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullVer} Safari/537.36`;
+                    }
+                    fs.writeFileSync(uaPath, trueAgent, "utf-8");
+                }
             }
         }
     } catch (e) { }
 
-    // Ép toàn bộ Session và ứng dụng dùng Agent trong sạch này
-    app.userAgentFallback = trueAgent;
-    session.defaultSession.setUserAgent(trueAgent);
-    session.fromPartition('persist:gemini-webview').setUserAgent(trueAgent); // Sửa lỗi Cookie cho webview
+    const applyGlobalUserAgent = (newUa) => {
+        if (!newUa || typeof newUa !== "string") return;
+        trueAgent = newUa.trim();
+        app.userAgentFallback = trueAgent;
+        try { session.defaultSession.setUserAgent(trueAgent); } catch (e) { }
+        try { session.fromPartition("persist:gemini-webview").setUserAgent(trueAgent); } catch (e) { }
+        try { fs.writeFileSync(uaPath, trueAgent, "utf-8"); } catch (e) { }
+    };
+
+    applyGlobalUserAgent(trueAgent);
 
     const filter = {
         urls: [
@@ -5807,80 +5884,554 @@ app.whenReady().then(async () => {
             "*://chatgpt.com/*",
             "*://*.messenger.com/*",
             "*://*.google.com/*",
+            "*://*.google.com.vn/*",
+            "*://*.youtube.com/*",
             "*://labs.google/*",
-            "*://*.labs.google/*"
+            "*://*.labs.google/*",
+            "*://*.meshy.ai/*",
+            "*://*.capcut.com/*",
+            "*://*.figma.com/*"
         ]
     };
 
-    // Cài đặt vượt rào bot chung
+    // Cài đặt vượt rào bot và đồng bộ Client Hints khớp với User-Agent của Chrome thật
     const setupHeaders = (details, callback) => {
-        // Xoá dấu vết Electron kh�?i Client Hints để qua mặt Google/Labs
-        const chUa = details.requestHeaders['Sec-CH-UA'] || details.requestHeaders['sec-ch-ua'];
-        if (chUa) {
-            let newChUa = chUa.replace(/,?\s*"Electron";\s*v="[^"]+"/, '').replace(/"Electron";\s*v="[^"]+"\s*,?/, '');
-            newChUa = newChUa.replace(/,?\s*"ai\.type";\s*v="[^"]+"/, '').replace(/"ai\.type";\s*v="[^"]+"\s*,?/, '');
+        const majorMatch = trueAgent.match(/Chrome\/(\d+)/);
+        const chromeMajor = majorMatch ? majorMatch[1] : null;
 
-            if (details.requestHeaders['Sec-CH-UA']) details.requestHeaders['Sec-CH-UA'] = newChUa;
-            if (details.requestHeaders['sec-ch-ua']) details.requestHeaders['sec-ch-ua'] = newChUa;
+        if (chromeMajor) {
+            const alignedChUa = `"Google Chrome";v="${chromeMajor}", "Chromium";v="${chromeMajor}", "Not_A Brand";v="24"`;
+            if (details.requestHeaders["Sec-CH-UA"]) details.requestHeaders["Sec-CH-UA"] = alignedChUa;
+            if (details.requestHeaders["sec-ch-ua"]) details.requestHeaders["sec-ch-ua"] = alignedChUa;
+            delete details.requestHeaders["Sec-CH-UA-Full-Version-List"];
+            delete details.requestHeaders["sec-ch-ua-full-version-list"];
+            delete details.requestHeaders["Sec-CH-UA-Full-Version"];
+            delete details.requestHeaders["sec-ch-ua-full-version"];
+        } else {
+            const chUa = details.requestHeaders["Sec-CH-UA"] || details.requestHeaders["sec-ch-ua"];
+            if (chUa) {
+                let newChUa = chUa.replace(/,?\s*"Electron";\s*v="[^"]+"/, "").replace(/"Electron";\s*v="[^"]+"\s*,?/, "");
+                newChUa = newChUa.replace(/,?\s*"ai\.type";\s*v="[^"]+"/, "").replace(/"ai\.type";\s*v="[^"]+"\s*,?/, "");
+                if (details.requestHeaders["Sec-CH-UA"]) details.requestHeaders["Sec-CH-UA"] = newChUa;
+                if (details.requestHeaders["sec-ch-ua"]) details.requestHeaders["sec-ch-ua"] = newChUa;
+            }
         }
 
-        // Triệt để xoá Electron kh�?i User-Agent ở cấp độ Network Request (Bắt buộc để trị lỗi Cookie Google)
-        const ua = details.requestHeaders['User-Agent'] || details.requestHeaders['user-agent'];
-        if (ua) {
-            let cleanUA = ua.replace(/Electron\/[\d.]+ /g, '').replace(/ai.type\/[\d.]+ /g, '');
-            if (details.requestHeaders['User-Agent']) details.requestHeaders['User-Agent'] = cleanUA;
-            if (details.requestHeaders['user-agent']) details.requestHeaders['user-agent'] = cleanUA;
+        if (details.requestHeaders["User-Agent"]) {
+            details.requestHeaders["User-Agent"] = trueAgent;
+        } else if (details.requestHeaders["user-agent"]) {
+            details.requestHeaders["user-agent"] = trueAgent;
+        } else {
+            details.requestHeaders["User-Agent"] = trueAgent;
         }
 
-        if (details.url.includes('type.vn')) {
-            // Ép Origin để NodeBB cho phép hiển thị ảnh từ localhost:5454
-            details.requestHeaders['Origin'] = 'https://type.vn';
-            details.requestHeaders['Referer'] = 'https://type.vn/';
-            delete details.requestHeaders['Sec-Fetch-Site'];
+        if (details.url.includes("type.vn")) {
+            details.requestHeaders["Origin"] = "https://type.vn";
+            details.requestHeaders["Referer"] = "https://type.vn/";
+            delete details.requestHeaders["Sec-Fetch-Site"];
         }
         callback({ requestHeaders: details.requestHeaders });
     };
 
-    // �?p dụng cho session mặc định
     session.defaultSession.webRequest.onBeforeSendHeaders(filter, setupHeaders);
-    // �?p dụng cho session của webview để Google không block (ERR_ABORTED)
-    session.fromPartition('persist:gemini-webview').webRequest.onBeforeSendHeaders(filter, setupHeaders);
+    session.fromPartition("persist:gemini-webview").webRequest.onBeforeSendHeaders({ urls: ["*://*/*"] }, setupHeaders);
+
+    // =========================================================================
+    // ĐỒNG BỘ & KHÔI PHỤC COOKIE GOOGLE / WEB TOOLS CHÍNH XÁC (HOST-ONLY VS DOMAIN)
+    // =========================================================================
+    const CORRUPTED_DOT_HOST_DOMAINS = new Set([
+        ".accounts.google.com",
+        ".myaccount.google.com",
+        ".gemini.google.com",
+        ".drive.google.com",
+        ".ogs.google.com",
+        ".www.meshy.ai",
+        ".www.capcut.com",
+        ".dreamina.capcut.com",
+        ".www.figma.com",
+        ".marketing.figma.com",
+        ".www.tiktok.com",
+        ".www.clarity.ms",
+        ".sc-static.net",
+        ".type.vn",
+        ".zonecloud.vn"
+    ]);
+
+    const checkHasValidGoogleSessionCookies = async () => {
+        try {
+            const wvSess = session.fromPartition("persist:gemini-webview");
+            const gCookies = await wvSess.cookies.get({});
+            const hasSid = gCookies.some(c =>
+                c.domain && c.domain.includes("google.com") &&
+                (c.name === "SID" || c.name === "__Secure-1PSID" || c.name === "__Secure-3PSID") &&
+                c.value
+            );
+            hasGoogleCookiesCached = hasSid;
+            return hasSid;
+        } catch (e) {
+            return false;
+        }
+    };
+
+    const importCdpCookiesToElectronSessions = async (allCookies, saveMirror = true) => {
+        if (!Array.isArray(allCookies) || allCookies.length === 0) return 0;
+        const wvSess = session.fromPartition("persist:gemini-webview");
+        const defSess = session.defaultSession;
+        let importedCount = 0;
+
+        for (const cookie of allCookies) {
+            try {
+                const rawDomain = String(cookie.domain || "");
+                if (!rawDomain) continue;
+                const isHostOnly = cookie.name.startsWith("__Host-") || !rawDomain.startsWith(".");
+                const cleanHost = rawDomain.replace(/^\./, "");
+                const cookiePath = cookie.path || "/";
+                const url = `http${cookie.secure ? "s" : ""}://${cleanHost}${cookiePath}`;
+
+                const sameSiteVal = cookie.sameSite === "None" || cookie.sameSite === "no_restriction" ? "no_restriction"
+                    : cookie.sameSite === "Lax" || cookie.sameSite === "lax" ? "lax"
+                        : cookie.sameSite === "Strict" || cookie.sameSite === "strict" ? "strict"
+                            : "unspecified";
+
+                const cookieObj = {
+                    url,
+                    name: cookie.name,
+                    value: cookie.value,
+                    path: cookiePath,
+                    secure: Boolean(cookie.secure),
+                    httpOnly: Boolean(cookie.httpOnly),
+                    sameSite: sameSiteVal
+                };
+
+                if (!isHostOnly) {
+                    cookieObj.domain = rawDomain;
+                }
+
+                const exp = cookie.expires || cookie.expirationDate;
+                if (exp && exp > 0) {
+                    cookieObj.expirationDate = exp;
+                } else {
+                    cookieObj.expirationDate = Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 365);
+                }
+
+                if (isHostOnly) {
+                    try { await wvSess.cookies.remove(url, cookie.name); } catch (e) { }
+                    try { await wvSess.cookies.remove(url, cookie.name); } catch (e) { }
+                    try { await defSess.cookies.remove(url, cookie.name); } catch (e) { }
+                    try { await defSess.cookies.remove(url, cookie.name); } catch (e) { }
+                }
+
+                await wvSess.cookies.set(cookieObj);
+                await defSess.cookies.set(cookieObj);
+                importedCount++;
+            } catch (e) { }
+        }
+
+        try { await wvSess.cookies.flushStore(); } catch (e) { }
+        try { await defSess.cookies.flushStore(); } catch (e) { }
+        await checkHasValidGoogleSessionCookies();
+
+        if (saveMirror && importedCount > 0) {
+            try {
+                fs.mkdirSync(sharedAuthDataDir, { recursive: true });
+                fs.writeFileSync(googleAuthMirrorPath, JSON.stringify({
+                    updatedAt: Date.now(),
+                    userAgent: trueAgent,
+                    cookies: allCookies
+                }), "utf-8");
+            } catch (e) { }
+        }
+
+        return importedCount;
+    };
+
+    const repairAndSyncSessionCookies = async () => {
+        try {
+            const wvSess = session.fromPartition("persist:gemini-webview");
+            const defSess = session.defaultSession;
+
+            if (fs.existsSync(googleAuthMirrorPath)) {
+                try {
+                    const mirrorData = JSON.parse(fs.readFileSync(googleAuthMirrorPath, "utf-8"));
+                    if (mirrorData && mirrorData.userAgent) {
+                        applyGlobalUserAgent(mirrorData.userAgent);
+                    }
+                    if (mirrorData && Array.isArray(mirrorData.cookies) && mirrorData.cookies.length > 0) {
+                        await importCdpCookiesToElectronSessions(mirrorData.cookies, false);
+                    }
+                } catch (e) { }
+            }
+
+            for (const sess of [wvSess, defSess]) {
+                const existing = await sess.cookies.get({});
+                for (const c of existing) {
+                    const dom = String(c.domain || "");
+                    if (CORRUPTED_DOT_HOST_DOMAINS.has(dom) && !(dom === ".www.meshy.ai" && c.name === "aws-waf-token")) {
+                        const cleanHost = dom.replace(/^\./, "");
+                        const cPath = c.path || "/";
+                        const url = `http${c.secure ? "s" : ""}://${cleanHost}${cPath}`;
+                        try { await sess.cookies.remove(url, c.name); } catch (e) { }
+                        try { await sess.cookies.remove(url, c.name); } catch (e) { }
+
+                        const isGoogleAuthCookie = cleanHost.includes("google.com");
+                        const fixedCookie = {
+                            url,
+                            name: c.name,
+                            value: c.value,
+                            path: cPath,
+                            secure: Boolean(c.secure),
+                            httpOnly: Boolean(c.httpOnly),
+                            sameSite: isGoogleAuthCookie && c.sameSite === "lax" ? "unspecified" : (c.sameSite || "unspecified"),
+                            expirationDate: c.expirationDate || (Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365)
+                        };
+                        try { await sess.cookies.set(fixedCookie); } catch (e) { }
+                    } else if ((dom === ".google.com" || dom === ".google.com.vn" || dom === ".youtube.com") && c.sameSite === "lax") {
+                        const cleanHost = dom.replace(/^\./, "");
+                        const cPath = c.path || "/";
+                        const url = `http${c.secure ? "s" : ""}://${cleanHost}${cPath}`;
+                        try {
+                            await sess.cookies.set({
+                                url,
+                                name: c.name,
+                                value: c.value,
+                                domain: dom,
+                                path: cPath,
+                                secure: Boolean(c.secure),
+                                httpOnly: Boolean(c.httpOnly),
+                                sameSite: "unspecified",
+                                expirationDate: c.expirationDate || (Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365)
+                            });
+                        } catch (e) { }
+                    }
+                }
+            }
+
+            const repairedWvCookies = await wvSess.cookies.get({});
+            for (const c of repairedWvCookies) {
+                try {
+                    const dom = String(c.domain || "");
+                    const isHostOnly = c.name.startsWith("__Host-") || !dom.startsWith(".");
+                    const cleanHost = dom.replace(/^\./, "");
+                    const cPath = c.path || "/";
+                    const url = `http${c.secure ? "s" : ""}://${cleanHost}${cPath}`;
+                    const cookieObj = {
+                        url,
+                        name: c.name,
+                        value: c.value,
+                        path: cPath,
+                        secure: Boolean(c.secure),
+                        httpOnly: Boolean(c.httpOnly),
+                        sameSite: c.sameSite || "unspecified",
+                        expirationDate: c.expirationDate || (Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365)
+                    };
+                    if (!isHostOnly) cookieObj.domain = dom;
+                    await defSess.cookies.set(cookieObj);
+                } catch (e) { }
+            }
+
+            try { await wvSess.cookies.flushStore(); } catch (e) { }
+            try { await defSess.cookies.flushStore(); } catch (e) { }
+            await checkHasValidGoogleSessionCookies();
+        } catch (err) {
+            console.error("[Google-Auth] Lỗi khôi phục/đồng bộ cookie khi khởi động:", err);
+        }
+    };
+
+    repairAndSyncSessionCookies();
+
+    // ============================================================
+    // PUPPETEER STEALTH LOGIN: Mở Chrome THẬT để đăng nhập Google,
+    // sau đó đồng bộ toàn bộ cookie (cả host-only lẫn domain) về Electron.
+    // ============================================================
+    let isGeminiAuthRunning = false;
+
+    const launchStealthLogin = async (loginUrl, webviewContents) => {
+        if (isGeminiAuthRunning) return { success: false, message: "Đang mở cửa sổ đăng nhập Google." };
+        isGeminiAuthRunning = true;
+        sendToRenderer("tools-log", "[Gemini-Auth] Đang mở Chrome thật để đăng nhập Google...");
+
+        const CHROME_DEBUG_PORT = 9224;
+        let syncInterval = null;
+        let latestCdpCookies = [];
+        let latestChromeUA = null;
+
+        const getTargetWebviewContents = () => {
+            if (webviewContents && !webviewContents.isDestroyed()) return webviewContents;
+            if (targetWindow && targetWindow.webContents && !targetWindow.webContents.isDestroyed()) {
+                return targetWindow.webContents;
+            }
+            return null;
+        };
+
+        try {
+            const realChromePath = getChromePath();
+            if (!realChromePath) {
+                sendToRenderer("tools-log", "[Gemini-Auth] Không tìm thấy Chrome trên máy!");
+                isGeminiAuthRunning = false;
+                return { success: false, error: "Không tìm thấy Chrome trên máy!" };
+            }
+
+            const googleAuthDir = path.join(app.getPath("userData"), "google-auth-profile");
+
+            for (const lockName of ["SingletonLock", "SingletonCookie", "SingletonSocket"]) {
+                try {
+                    const lockPath = path.join(googleAuthDir, lockName);
+                    if (fs.existsSync(lockPath)) fs.rmSync(lockPath, { force: true });
+                } catch (e) { }
+            }
+
+            let targetLoginUrl = loginUrl;
+            if (!targetLoginUrl || targetLoginUrl.includes("trigger-stealth-login")) {
+                const wv = getTargetWebviewContents();
+                const currentWvUrl = wv ? wv.getURL() : "";
+                if (currentWvUrl && currentWvUrl.includes("google.com") && !currentWvUrl.includes("trigger-stealth-login") && !currentWvUrl.includes("accounts.google.com")) {
+                    targetLoginUrl = `https://accounts.google.com/ServiceLogin?hl=vi&continue=${encodeURIComponent(currentWvUrl)}`;
+                } else {
+                    targetLoginUrl = "https://accounts.google.com/ServiceLogin?hl=vi&continue=https%3A%2F%2Fmyaccount.google.com%2F";
+                }
+            }
+
+            const chromeArgs = [
+                `--remote-debugging-port=${CHROME_DEBUG_PORT}`,
+                `--user-data-dir=${googleAuthDir}`,
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--disable-sync",
+                "--disable-features=ChromeSigninInterceptEnabled,DialMediaRouteProvider",
+                "--disable-infobars",
+                "--window-size=560,760",
+                targetLoginUrl
+            ];
+
+            sendToRenderer("tools-log", `[Gemini-Auth] Mở: ${realChromePath}`);
+            const chromeProcess = require("child_process").spawn(realChromePath, chromeArgs, {
+                detached: false,
+                stdio: "ignore"
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 2500));
+            sendToRenderer("tools-log", "[Gemini-Auth] Đang kết nối vào Chrome...");
+
+            let stealthBrowser;
+            try {
+                stealthBrowser = await puppeteer.connect({
+                    browserURL: `http://127.0.0.1:${CHROME_DEBUG_PORT}`,
+                    defaultViewport: null
+                });
+            } catch (connectErr) {
+                await new Promise(resolve => setTimeout(resolve, 2500));
+                stealthBrowser = await puppeteer.connect({
+                    browserURL: `http://127.0.0.1:${CHROME_DEBUG_PORT}`,
+                    defaultViewport: null
+                });
+            }
+
+            try {
+                latestChromeUA = await stealthBrowser.userAgent();
+                if (latestChromeUA) {
+                    applyGlobalUserAgent(latestChromeUA);
+                }
+            } catch (e) { }
+
+            sendToRenderer("tools-log", "[Gemini-Auth] Đã kết nối Chrome! Hãy hoàn tất đăng nhập Google...");
+
+            const startContinuousSync = (browserInstance) => {
+                syncInterval = setInterval(async () => {
+                    try {
+                        const pages = await browserInstance.pages();
+                        const page = pages.find(p => !p.isClosed());
+                        if (!page) return;
+
+                        const client = await page.createCDPSession();
+                        const { cookies: allCookies } = await client.send("Network.getAllCookies");
+                        await client.detach();
+
+                        if (Array.isArray(allCookies) && allCookies.length > 0) {
+                            latestCdpCookies = allCookies;
+                            await importCdpCookiesToElectronSessions(allCookies, false);
+                        }
+                    } catch (e) { }
+                }, 1500);
+            };
+
+            startContinuousSync(stealthBrowser);
+
+            try {
+                const pages = await stealthBrowser.pages();
+                if (pages.length > 0) {
+                    await pages[0].bringToFront();
+                }
+            } catch (e) { }
+
+            let isLoggedIn = false;
+            try {
+                let checkCount = 0;
+                while (!isLoggedIn && checkCount < 300) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    checkCount++;
+                    const pages = await stealthBrowser.pages();
+                    if (pages.length === 0) break;
+
+                    const activePage = pages.find(p => !p.isClosed());
+                    if (activePage) {
+                        try {
+                            const client = await activePage.createCDPSession();
+                            const { cookies: allCookies } = await client.send("Network.getAllCookies");
+                            await client.detach();
+                            if (Array.isArray(allCookies) && allCookies.length > 0) {
+                                latestCdpCookies = allCookies;
+                            }
+                        } catch (e) { }
+                    }
+
+                    const hasSid = latestCdpCookies.some(c =>
+                        String(c.domain || "").includes("google.com") &&
+                        (c.name === "SID" || c.name === "__Secure-1PSID" || c.name === "__Secure-3PSID") &&
+                        c.value
+                    );
+                    const hasLsid = latestCdpCookies.some(c =>
+                        String(c.domain || "").includes("accounts.google.com") &&
+                        (c.name === "LSID" || c.name === "__Host-1PLSID" || c.name === "__Host-3PLSID") &&
+                        c.value
+                    );
+
+                    const pageUrls = [];
+                    for (const p of pages) {
+                        try {
+                            if (!p.isClosed()) pageUrls.push(p.url());
+                        } catch (e) { }
+                    }
+
+                    const isStillOnLoginFlow = pageUrls.some(u =>
+                        !u ||
+                        u === "about:blank" ||
+                        u.includes("ServiceLogin") ||
+                        u.includes("InteractiveLogin") ||
+                        u.includes("/v3/signin") ||
+                        u.includes("/signin/") ||
+                        u.includes("/challenge/") ||
+                        u.includes("CheckCookie") ||
+                        u.includes("/o/oauth2/") ||
+                        u.includes("oauthchooseaccount")
+                    );
+
+                    if (hasSid && hasLsid && !isStillOnLoginFlow && pageUrls.some(u => u.startsWith("http")) && checkCount >= 3) {
+                        isLoggedIn = true;
+                        break;
+                    }
+                }
+            } catch (waitErr) {
+                // Người dùng đóng cửa sổ Chrome sau khi đăng nhập xong
+            }
+
+            if (syncInterval) {
+                clearInterval(syncInterval);
+                syncInterval = null;
+            }
+
+            try {
+                if (isLoggedIn) {
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                }
+                const pages = await stealthBrowser.pages();
+                const activePage = pages.find(p => !p.isClosed()) || pages[0];
+                if (activePage && !activePage.isClosed()) {
+                    try {
+                        latestChromeUA = await stealthBrowser.userAgent();
+                    } catch (e) { }
+                    const client = await activePage.createCDPSession();
+                    const { cookies: allCookies } = await client.send("Network.getAllCookies");
+                    await client.detach();
+                    if (Array.isArray(allCookies) && allCookies.length > 0) {
+                        latestCdpCookies = allCookies;
+                    }
+                }
+            } catch (e) { }
+
+            if (latestChromeUA) {
+                applyGlobalUserAgent(latestChromeUA);
+                const wv = getTargetWebviewContents();
+                if (wv && !wv.isDestroyed()) {
+                    try { wv.setUserAgent(latestChromeUA); } catch (e) { }
+                }
+                sendToRenderer("tools-log", `[Google-Auth] Đã đồng bộ User-Agent: ${latestChromeUA.substring(0, 45)}...`);
+            }
+
+            const importedCount = await importCdpCookiesToElectronSessions(latestCdpCookies, true);
+            sendToRenderer("tools-log", `[Google-Auth] Đã đồng bộ và lưu ${importedCount}/${latestCdpCookies.length} cookie thành công!`);
+
+            try { await stealthBrowser.close(); } catch (e) { }
+            try { chromeProcess.kill(); } catch (e) { }
+
+            const wv = getTargetWebviewContents();
+            if (wv && !wv.isDestroyed()) {
+                sendToRenderer("tools-log", "[Google-Auth] Đang làm mới trang web hiện tại...");
+                try { wv.reloadIgnoringCache(); } catch (e) { }
+            }
+
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send("google-auth-synced", {
+                    success: importedCount > 0,
+                    importedCount
+                });
+            }
+
+            return { success: importedCount > 0, importedCount };
+        } catch (err) {
+            sendToRenderer("tools-log", `[Gemini-Auth] Lỗi: ${err.message}`);
+            return { success: false, error: err.message };
+        } finally {
+            if (syncInterval) clearInterval(syncInterval);
+            isGeminiAuthRunning = false;
+        }
+    };
+
+    ipcMain.handle("google-stealth-login", async (_event, loginUrl) => {
+        return await launchStealthLogin(loginUrl, null);
+    });
 
     // Chạy hàm load ngay khi khởi tạo
     loadBinaries();
 
     startGoService();
     startSttWebSocketServer();
-    startSttServer(); // <--- [THÊM] G�?i hàm vừa tạo
+    startSttServer();
     createMainWindow();
 
     try {
         require("./type-lite/type-lite.js");
-        sendToRenderer("tools-log", "📥 Type: Khởi chạy server type-lite nhúng thành công.");
+        sendToRenderer("tools-log", "Type: Khởi chạy server type-lite nhúng thành công.");
     } catch (err) {
-        sendToRenderer("tools-log", `❌ Type lỗi khởi động nhúng: ${err.message}`);
+        sendToRenderer("tools-log", `Type lỗi khởi động nhúng: ${err.message}`);
     }
 
     // ===== IPC: Xoá toàn bộ cookie Google để đăng nhập lại =====
-    ipcMain.handle('clear-google-cookies', async () => {
+    ipcMain.handle("clear-google-cookies", async () => {
         try {
-            const cookies = await session.defaultSession.cookies.get({});
+            const wvSess = session.fromPartition("persist:gemini-webview");
             let removedCount = 0;
-            for (const cookie of cookies) {
-                if (cookie.domain.includes('google') || cookie.domain.includes('labs.google')) {
-                    const url = `http${cookie.secure ? 's' : ''}://${cookie.domain.replace(/^\./, '')}${cookie.path}`;
-                    await session.defaultSession.cookies.remove(url, cookie.name);
-                    removedCount++;
+            for (const sess of [session.defaultSession, wvSess]) {
+                const cookies = await sess.cookies.get({});
+                for (const cookie of cookies) {
+                    if (cookie.domain.includes("google") || cookie.domain.includes("labs.google")) {
+                        const url = `http${cookie.secure ? "s" : ""}://${cookie.domain.replace(/^\./, "")}${cookie.path}`;
+                        await sess.cookies.remove(url, cookie.name);
+                        removedCount++;
+                    }
                 }
+                try { await sess.cookies.flushStore(); } catch (e) { }
             }
+            hasGoogleCookiesCached = false;
 
-            // Xoá thư mục Chrome auth profile để lần sau đăng nhập lại từ đầu
-            const googleAuthDir = path.join(app.getPath('userData'), 'google-auth-profile');
+            const googleAuthDir = path.join(app.getPath("userData"), "google-auth-profile");
             if (fs.existsSync(googleAuthDir)) {
                 fs.rmSync(googleAuthDir, { recursive: true, force: true });
             }
+            if (fs.existsSync(googleAuthMirrorPath)) {
+                fs.rmSync(googleAuthMirrorPath, { force: true });
+            }
 
-            sendToRenderer("tools-log", `[Gemini-Auth] ✅ �?ã xoá ${removedCount} cookie Google.`);
+            sendToRenderer("tools-log", `[Gemini-Auth] Đã xoá ${removedCount} cookie Google.`);
             return { success: true, removed: removedCount };
         } catch (err) {
             sendToRenderer("tools-log", `[Gemini-Auth] Lỗi xoá cookie: ${err.message}`);
@@ -5888,23 +6439,25 @@ app.whenReady().then(async () => {
         }
     });
 
-    ipcMain.handle('clear-all-cookies', async () => {
+    ipcMain.handle("clear-all-cookies", async () => {
         try {
-            // Clear in defaultSession
             await session.defaultSession.clearStorageData();
+            await session.fromPartition("persist:gemini-webview").clearStorageData();
+            hasGoogleCookiesCached = false;
 
-            // Xoá thư mục Chrome auth profile để lần sau đăng nhập lại từ đầu
-            const googleAuthDir = path.join(app.getPath('userData'), 'google-auth-profile');
+            const googleAuthDir = path.join(app.getPath("userData"), "google-auth-profile");
             if (fs.existsSync(googleAuthDir)) {
                 fs.rmSync(googleAuthDir, { recursive: true, force: true });
             }
+            if (fs.existsSync(googleAuthMirrorPath)) {
+                fs.rmSync(googleAuthMirrorPath, { force: true });
+            }
 
-            // Tìm webview đang chạy và xoá storage của nó (nếu khác defaultSession)
-            if (targetWindow && targetWindow.webContents) {
+            if (targetWindow && targetWindow.webContents && !targetWindow.webContents.isDestroyed()) {
                 await targetWindow.webContents.session.clearStorageData();
             }
 
-            sendToRenderer("tools-log", `[Gemini-Auth] ✅ �?ã xoá toàn bộ Cookie và Storage của ứng dụng.`);
+            sendToRenderer("tools-log", "[Gemini-Auth] Đã xoá toàn bộ Cookie và Storage của ứng dụng.");
             return { success: true };
         } catch (err) {
             sendToRenderer("tools-log", `[Gemini-Auth] Lỗi xoá tất cả cookie: ${err.message}`);
@@ -5912,36 +6465,39 @@ app.whenReady().then(async () => {
         }
     });
 
-    ipcMain.handle('clear-webview-auth', async () => {
+    ipcMain.handle("clear-webview-auth", async () => {
         try {
-            // Xóa session storage của webview
-            await session.fromPartition('persist:gemini-webview').clearStorageData();
+            await session.fromPartition("persist:gemini-webview").clearStorageData();
+            hasGoogleCookiesCached = false;
 
-            // Chỉ xóa thư mục Chrome auth profile của Puppeteer
-            const googleAuthDir = path.join(app.getPath('userData'), 'google-auth-profile');
+            const googleAuthDir = path.join(app.getPath("userData"), "google-auth-profile");
             if (fs.existsSync(googleAuthDir)) {
                 fs.rmSync(googleAuthDir, { recursive: true, force: true });
             }
+            if (fs.existsSync(googleAuthMirrorPath)) {
+                fs.rmSync(googleAuthMirrorPath, { force: true });
+            }
             return { success: true };
         } catch (error) {
-            console.error('Lỗi khi xoá auth webview:', error);
+            console.error("Lỗi khi xoá auth webview:", error);
             return { success: false, error: error.message };
         }
     });
 
     // Lắng nghe Webview sinh ra từ giao diện Angular (nếu có) để Auto-map nó làm đối tượng lấy hình ảnh
-    app.on('web-contents-created', (event, contents) => {
-        if (contents.getType() === 'window') {
-            contents.on('will-attach-webview', (embedEvent, webPreferences, params) => {
+    app.on("web-contents-created", (event, contents) => {
+        if (contents.getType() === "window") {
+            contents.on("will-attach-webview", (embedEvent, webPreferences, params) => {
                 const preloadPath = resolvePreload();
                 webPreferences.preload = preloadPath;
                 webPreferences.contextIsolation = true;
                 console.log(`[Zalo Webview] Đã tiêm preload script vào webview: ${preloadPath}`);
             });
         }
-        if (contents.getType() === 'webview') {
-            // Duck-type tương thích chức năng (bao gồm EventEmitter methods)
-            const EventEmitter = require('events');
+        if (contents.getType() === "webview") {
+            try { contents.setUserAgent(trueAgent); } catch (e) { }
+
+            const EventEmitter = require("events");
             const fakeEmitter = new EventEmitter();
             targetWindow = {
                 isWebview: true,
@@ -5954,296 +6510,63 @@ app.whenReady().then(async () => {
                 emit: (...args) => fakeEmitter.emit(...args),
             };
 
-            // Vô hiệu hóa menu chuột phải cho webview
-            contents.on('context-menu', (event, params) => {
-                // Không hiển thị menu popup
+            contents.on("context-menu", (event, params) => {
             });
 
-            contents.on('console-message', (event) => {
-                const fs = require('fs');
-                const logPath = require('path').join(app.getPath('userData'), 'webview.log');
+            contents.on("console-message", (event) => {
+                const fs = require("fs");
+                const logPath = require("path").join(app.getPath("userData"), "webview.log");
                 try {
                     fs.appendFileSync(logPath, `[WEBVIEW] ${event.level}: ${event.message} (line ${event.line} at ${event.sourceId})\n`);
                 } catch (e) {
-                    console.error('Failed to write to webview.log:', e);
+                    console.error("Failed to write to webview.log:", e);
                 }
             });
 
-            // ============================================================
-            // PUPPETEER STEALTH LOGIN: Mở Chromium THẬT (không phải Electron)
-            // để đăng nhập Google, rồi chuyển cookie v�? Electron.
-            // Google phát hiện Electron qua JS fingerprinting nên BrowserWindow
-            // luôn bị chặn. Puppeteer Stealth patch hết các dấu hiệu đó.
-            // ============================================================
-            let isGeminiAuthRunning = false; // Tránh mở nhi�?u lần
-
-            const launchStealthLogin = async (loginUrl, webviewContents) => {
-                if (isGeminiAuthRunning) return;
-                isGeminiAuthRunning = true;
-                sendToRenderer("tools-log", "[Gemini-Auth] �?ang mở Chrome thật để đăng nhập...");
-
-                const CHROME_DEBUG_PORT = 9224;
-                let syncInterval = null;
-
-                try {
-                    const realChromePath = getChromePath();
-                    if (!realChromePath) {
-                        sendToRenderer("tools-log", "[Gemini-Auth] �?� Không tìm thấy Chrome trên máy!");
-                        isGeminiAuthRunning = false;
-                        return;
-                    }
-
-                    const googleAuthDir = path.join(app.getPath('userData'), 'google-auth-profile');
-
-                    let targetLoginUrl = loginUrl;
-                    if (!targetLoginUrl || targetLoginUrl.includes('trigger-stealth-login')) {
-                        targetLoginUrl = 'https://accounts.google.com/ServiceLogin';
-                    }
-
-                    const chromeArgs = [
-                        `--remote-debugging-port=${CHROME_DEBUG_PORT}`,
-                        `--user-data-dir=${googleAuthDir}`,
-                        '--no-first-run',
-                        '--no-default-browser-check',
-                        '--disable-sync',
-                        '--disable-features=ChromeSigninInterceptEnabled,DialMediaRouteProvider',
-                        '--disable-infobars',
-                        `--window-size=550,750`,
-                        targetLoginUrl
-                    ];
-
-                    sendToRenderer("tools-log", `[Gemini-Auth] Mở: ${realChromePath}`);
-                    const chromeProcess = require('child_process').spawn(realChromePath, chromeArgs, {
-                        detached: false,
-                        stdio: 'ignore'
-                    });
-
-                    // Ch�? Chrome khởi động xong (2 giây)
-                    await new Promise(resolve => setTimeout(resolve, 3000));
-
-                    sendToRenderer("tools-log", "[Gemini-Auth] �?ang kết nối vào Chrome...");
-
-                    // Kết nối vào Chrome đang chạy qua remote debugging
-                    let stealthBrowser;
-                    try {
-                        stealthBrowser = await puppeteer.connect({
-                            browserURL: `http://127.0.0.1:${CHROME_DEBUG_PORT}`,
-                            defaultViewport: null
-                        });
-                    } catch (connectErr) {
-                        // Thử lại sau 3 giây nếu Chrome chưa sẵn sàng
-                        await new Promise(resolve => setTimeout(resolve, 3000));
-                        stealthBrowser = await puppeteer.connect({
-                            browserURL: `http://127.0.0.1:${CHROME_DEBUG_PORT}`,
-                            defaultViewport: null
-                        });
-                    }
-
-                    sendToRenderer("tools-log", "[Gemini-Auth] ✅ �?ã kết nối Chrome! Hãy đăng nhập Google...");
-
-                    // Dùng vòng lặp kiểm tra URL liên tục trên tất cả các tab
-                    const startContinuousSync = async (browserInstance) => {
-                        syncInterval = setInterval(async () => {
-                            try {
-                                const pages = await browserInstance.pages();
-                                const page = pages.find(p => !p.isClosed());
-                                if (!page) return;
-
-                                const client = await page.createCDPSession();
-                                const { cookies: allCookies } = await client.send('Network.getAllCookies');
-                                await client.detach();
-
-                                for (const cookie of allCookies) {
-                                    try {
-                                        const cookieObj = {
-                                            url: `http${cookie.secure ? 's' : ''}://${cookie.domain.replace(/^\./, '')}${cookie.path}`,
-                                            name: cookie.name,
-                                            value: cookie.value,
-                                            domain: cookie.name.startsWith('__Host-') ? undefined : cookie.domain,
-                                            path: cookie.path,
-                                            secure: cookie.secure,
-                                            httpOnly: cookie.httpOnly,
-                                            sameSite: cookie.sameSite === 'None' ? 'no_restriction'
-                                                : cookie.sameSite === 'Lax' ? 'lax'
-                                                    : cookie.sameSite === 'Strict' ? 'strict'
-                                                        : undefined
-                                        };
-                                        if (cookie.expires && cookie.expires > 0) cookieObj.expirationDate = cookie.expires;
-
-                                        await webviewContents.session.cookies.set(cookieObj);
-                                        if (webviewContents.session !== session.defaultSession) {
-                                            await session.defaultSession.cookies.set(cookieObj);
-                                        }
-                                    } catch (e) { }
-                                }
-                            } catch (e) { }
-                        }, 1500);
-                    };
-
-                    startContinuousSync(stealthBrowser);
-
-                    // �?ảm bảo window nổi lên trên cùng (focus)
-                    try {
-                        const pages = await stealthBrowser.pages();
-                        if (pages.length > 0) {
-                            await pages[0].bringToFront();
-                        }
-                    } catch (e) { }
-
-                    try {
-                        let isLoggedIn = false;
-                        let checkCount = 0;
-                        while (!isLoggedIn && checkCount < 300) { // Timeout 5 phút (300 * 1s)
-                            await new Promise(r => setTimeout(r, 1000));
-                            checkCount++;
-                            const pages = await stealthBrowser.pages();
-                            if (pages.length === 0) throw new Error("All pages closed");
-
-                            for (const p of pages) {
-                                try {
-                                    const pageUrl = p.url();
-                                    if (
-                                        pageUrl.includes('myaccount.google.com') ||
-                                        (pageUrl.includes('google.com') &&
-                                            !pageUrl.includes('accounts.google.com') &&
-                                            !pageUrl.includes('signin') &&
-                                            !pageUrl.includes('ServiceLogin'))
-                                    ) {
-                                        isLoggedIn = true;
-                                        break;
-                                    }
-                                } catch (e) { }
-                            }
-                        }
-                        if (!isLoggedIn) throw new Error("Timeout waiting for login");
-                    } catch (waitErr) {
-                        sendToRenderer("tools-log", "[Google-Auth] Cửa sổ đăng nhập đã đóng hoặc hết thời gian chờ.");
-                        if (syncInterval) clearInterval(syncInterval);
-                        try { await stealthBrowser.close(); } catch (e) { }
-                        try { chromeProcess.kill(); } catch (e) { }
-                        isGeminiAuthRunning = false;
-                        return;
-                    }
-
-                    sendToRenderer("tools-log", "[Google-Auth] Đăng nhập thành công! Đang đồng bộ cookie...");
-
-                    // Chờ thêm 2 giây để cookie ổn định
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-
-                    const pages = await stealthBrowser.pages();
-                    let activePage = pages.find(p => !p.isClosed()) || pages[0];
-
-                    if (!activePage || activePage.isClosed()) {
-                        throw new Error("Không tìm thấy tab để lấy cookie!");
-                    }
-
-                    // Sync User-Agent để tránh Google đá văng do lệch fingerprint
-                    try {
-                        const chromeUA = await stealthBrowser.userAgent();
-                        webviewContents.setUserAgent(chromeUA);
-                        sendToRenderer("tools-log", `[Google-Auth] Đã đồng bộ User-Agent: ${chromeUA.substring(0, 30)}...`);
-
-                        try {
-                            const fs = require('fs');
-                            const uaPath = require('path').join(app.getPath('userData'), 'chrome_ua.txt');
-                            fs.writeFileSync(uaPath, chromeUA, 'utf-8');
-                        } catch (e) { }
-                    } catch (e) {
-                        sendToRenderer("tools-log", `[Google-Auth] Lỗi đồng bộ UA: ${e.message}`);
-                    }
-
-                    // Hút TOÀN BỘ cookie từ Chrome
-                    const client = await activePage.createCDPSession();
-                    const { cookies: allCookies } = await client.send('Network.getAllCookies');
-                    await client.detach();
-
-                    const googleCookies = allCookies;
-                    sendToRenderer("tools-log", `[Google-Auth] Thu được ${googleCookies.length} cookie.`);
-
-                    // Import cookie vào Electron session
-                    let importedCount = 0;
-                    for (const cookie of googleCookies) {
-                        try {
-                            const cookieObj = {
-                                url: `http${cookie.secure ? 's' : ''}://${cookie.domain.replace(/^\./, '')}${cookie.path}`,
-                                name: cookie.name,
-                                value: cookie.value,
-                                domain: cookie.domain,
-                                path: cookie.path,
-                                secure: cookie.secure,
-                                httpOnly: cookie.httpOnly,
-                                sameSite: cookie.sameSite === 'None' ? 'no_restriction'
-                                    : cookie.sameSite === 'Lax' ? 'lax'
-                                        : cookie.sameSite === 'Strict' ? 'strict'
-                                            : undefined
-                            };
-                            if (cookie.expires && cookie.expires > 0) {
-                                cookieObj.expirationDate = cookie.expires;
-                            } else {
-                                cookieObj.expirationDate = Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 365);
-                            }
-                            if (cookie.name.startsWith('__Host-')) {
-                                delete cookieObj.domain;
-                            }
-                            await webviewContents.session.cookies.set(cookieObj);
-                            if (webviewContents.session !== session.defaultSession) {
-                                await session.defaultSession.cookies.set(cookieObj);
-                            }
-                            importedCount++;
-                        } catch (cookieErr) {
-                            sendToRenderer("tools-log", `[Google-Auth] Lỗi import cookie ${cookie.name}: ${cookieErr.message}`);
-                        }
-                    }
-
-                    sendToRenderer("tools-log", `[Google-Auth] Đã import ${importedCount}/${googleCookies.length} cookie thành công!`);
-
-                    // Đóng Chrome
-                    try {
-                        await stealthBrowser.close();
-                    } catch (closeErr) { }
-                    try { chromeProcess.kill(); } catch (e) { }
-
-                    // Tải lại trang webview hiện tại để áp dụng cookie, giữ nguyên URL
-                    if (!webviewContents.isDestroyed()) {
-                        sendToRenderer("tools-log", "[Google-Auth] Đang làm mới trang web hiện tại...");
-                        webviewContents.reloadIgnoringCache();
-                    }
-
-                } catch (err) {
-                    sendToRenderer("tools-log", `[Gemini-Auth] Lỗi: ${err.message}`);
-                } finally {
-                    if (syncInterval) clearInterval(syncInterval);
-                    isGeminiAuthRunning = false;
-                }
-            };
-
-
-
-            // Bắt sự kiện khi user tự bấm vào nút Login từ lớp overlay
-            contents.on('will-navigate', (e, url) => {
-                if (url.includes('trigger-stealth-login')) {
+            contents.on("will-navigate", (e, url) => {
+                if (url.includes("trigger-stealth-login")) {
                     e.preventDefault();
-                    // Lấy chính URL hiện tại (có chứa tham số continue=... của trang gốc) để đăng nhập
                     launchStealthLogin(contents.getURL(), contents);
                 }
             });
 
-            // Bắt sự kiện mở popup mới (nút Sign In có thể mở popup)
             contents.setWindowOpenHandler(({ url }) => {
-                if (url.includes('accounts.google.com')) {
-                    launchStealthLogin(url, contents);
-                    return { action: 'deny' };
+                if (url.includes("accounts.google.com")) {
+                    if (!hasGoogleCookiesCached) {
+                        launchStealthLogin(url, contents);
+                        return { action: "deny" };
+                    }
+                    return {
+                        action: "allow",
+                        overrideBrowserWindowOptions: {
+                            width: 540,
+                            height: 720,
+                            autoHideMenuBar: true,
+                            webPreferences: {
+                                partition: "persist:gemini-webview",
+                                contextIsolation: true,
+                                nodeIntegration: false,
+                                preload: resolvePreload()
+                            }
+                        }
+                    };
                 }
-                return { 
-                    action: 'allow',
+                return {
+                    action: "allow",
                     overrideBrowserWindowOptions: {
                         width: 1024,
-                        height: 800
+                        height: 800,
+                        autoHideMenuBar: true,
+                        webPreferences: {
+                            partition: "persist:gemini-webview",
+                            contextIsolation: true,
+                            nodeIntegration: false,
+                            preload: resolvePreload()
+                        }
                     }
                 };
             });
 
-            // Bắt sự kiện ngư�?i dùng tải xuống từ màn hình phụ
             contents.session.on('will-download', (event, item, webContents) => {
                 const fileName = item.getFilename();
                 sendToRenderer("tools-log", `[Webview] Bắt đầu tải file: ${fileName}`);
@@ -10703,6 +11026,20 @@ ipcMain.handle('scan-companion-video-assets', async (_event, payload) => {
     } catch (err) {
         console.error('Lỗi scan-companion-video-assets:', err);
         return { success: false, error: err.message };
+    }
+});
+
+// Mở liên kết HTTPS bằng trình duyệt mặc định của hệ điều hành (chỉ chấp nhận https://)
+ipcMain.handle('open-url-external', async (_event, targetUrl) => {
+    try {
+        const urlStr = String(targetUrl || '').trim();
+        if (!/^https:\/\//i.test(urlStr)) {
+            return { success: false, error: 'Only https:// URLs are allowed' };
+        }
+        await shell.openExternal(urlStr);
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
     }
 });
 

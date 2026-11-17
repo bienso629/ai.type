@@ -368,9 +368,30 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         }
     }
 
-    // Mở trang đăng nhập Google
-    openLoginBrowser() {
+    // Mở trang đăng nhập Google bằng trình duyệt Chrome thật và tự động đồng bộ Cookie
+    async openLoginBrowser() {
+        const electron = (window as any).electron;
         const container = document.getElementById('webview-container-div');
+
+        if (electron?.googleStealthLogin) {
+            await electron.googleStealthLogin(
+                'https://accounts.google.com/ServiceLogin?hl=vi&continue=https%3A%2F%2Fmyaccount.google.com%2F',
+            );
+            if (container) {
+                const webviews = container.querySelectorAll('webview');
+                webviews.forEach((wv: any) => {
+                    try {
+                        if (wv.reloadIgnoringCache) {
+                            wv.reloadIgnoringCache();
+                        } else if (wv.reload) {
+                            wv.reload();
+                        }
+                    } catch (e) {}
+                });
+            }
+            return;
+        }
+
         if (container) {
             const activeWebview =
                 (Array.from(container.querySelectorAll('webview')).find(

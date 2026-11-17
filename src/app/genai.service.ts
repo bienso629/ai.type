@@ -37,6 +37,8 @@ export class GenaiService {
 
     private static readonly VOLCE_ASSET_CACHE_KEY = 'ai_type_volce_asset_cache_v1';
     private static _volceAssetGroupCache: Record<string, string> = {};
+    private static _volceLivenessAssetUris = new Set<string>();
+    private static _volcePreferLivenessKeys = new Set<string>();
     private static _volceAssetUrlCache: Record<string, string> | null = null;
     private static _volceGroupInFlight = new Map<string, Promise<string>>();
     private static _volceAssetInFlight = new Map<string, Promise<string>>();
@@ -495,6 +497,147 @@ export class GenaiService {
         }
     }
 
+    private static readonly VOLCE_LIVENESS_GROUP_KEY = 'ai_type_volce_liveness_group_v1';
+    private static _volceLivenessInFlight = new Map<string, Promise<string>>();
+
+    /**
+     * Lấy nhóm tài nguyên LivenessFace (dành cho ảnh người thật đã xác thực khuôn mặt).
+     * Volcengine bắt buộc chính người trong ảnh hoàn tất phiên xác thực (visual-validate) một lần;
+     * sau đó mọi ảnh của người đó đăng ký vào nhóm này sẽ dùng được qua asset:// mà không bị chặn PrivacyInformation.
+     */
+    private async getOrCreateVolceLivenessGroup(
+        baseWithV1: string,
+        headers: Record<string, string>,
+        keyFp: string,
+        assetRegion: 'cn' | 'overseas'
+    ): Promise<string> {
+        const groupCacheKey = `${baseWithV1}|${keyFp}|${assetRegion}|LivenessFace`;
+        if (GenaiService._volceAssetGroupCache[groupCacheKey]) {
+            return GenaiService._volceAssetGroupCache[groupCacheKey];
+        }
+        try {
+            const stored = JSON.parse(localStorage.getItem(GenaiService.VOLCE_LIVENESS_GROUP_KEY) || '{}');
+            if (stored && typeof stored[groupCacheKey] === 'string' && stored[groupCacheKey]) {
+                GenaiService._volceAssetGroupCache[groupCacheKey] = stored[groupCacheKey];
+                return stored[groupCacheKey];
+            }
+        } catch { /* ignore */ }
+
+        const inFlight = GenaiService._volceLivenessInFlight.get(groupCacheKey);
+        if (inFlight) return inFlight;
+
+        const persistGroup = (gid: string) => {
+            GenaiService._volceAssetGroupCache[groupCacheKey] = gid;
+            try {
+                const stored = JSON.parse(localStorage.getItem(GenaiService.VOLCE_LIVENESS_GROUP_KEY) || '{}');
+                stored[groupCacheKey] = gid;
+                localStorage.setItem(GenaiService.VOLCE_LIVENESS_GROUP_KEY, JSON.stringify(stored));
+            } catch { /* ignore */ }
+        };
+
+        const livenessPromise = (async (): Promise<string> => {
+            // 1. Tái sử dụng nhóm LivenessFace đã xác thực trước đó (nếu có)
+            try {
+                const listRes = await fetch(`${baseWithV1}/volce-asset/groups/list`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        asset_region: assetRegion,
+                        filter: { group_type: 'LivenessFace' },
+                        page_number: 1,
+                        page_size: 50
+                    })
+                });
+                const listText = await listRes.text();
+                let listData: any = {};
+                try { listData = JSON.parse(listText); } catch { listData = {}; }
+                const items: any[] = listData?.output?.data?.items || listData?.data?.items || listData?.items || [];
+                const matched = Array.isArray(items)
+                    ? items.find((g: any) => g && g.id && g.group_type === 'LivenessFace')
+                    : null;
+                if (matched?.id) {
+                    persistGroup(matched.id);
+                    return matched.id;
+                }
+            } catch (listErr) {
+                console.warn('[VolceLiveness] Không truy vấn được danh sách nhóm LivenessFace:', listErr);
+            }
+
+            // 2. Tạo phiên xác thực khuôn mặt người thật
+            const sessRes = await fetch(`${baseWithV1}/volce-asset/visual-validate/sessions`, {
+                method: 'GET',
+                headers
+            });
+            const sessText = await sessRes.text();
+            let sessData: any = {};
+            try { sessData = JSON.parse(sessText); } catch { sessData = {}; }
+            const bearerToken = sessData?.bearer_token || sessData?.output?.data?.bearer_token || sessData?.data?.bearer_token || '';
+            const h5Link = sessData?.h5_link || sessData?.output?.data?.h5_link || sessData?.data?.h5_link || '';
+            if (!bearerToken || !h5Link) {
+                throw new Error(`Không tạo được phiên xác thực người thật Volcengine Asset: ${sessText.substring(0, 240)}`);
+            }
+
+            // 3. Mở trang xác thực cho người dùng (trình duyệt mặc định trên Desktop, tab mới trên Web)
+            const electronWin = typeof window !== 'undefined' ? (window as any) : null;
+            let opened = false;
+            if (electronWin?.electron?.openUrlExternal) {
+                try {
+                    const r = await electronWin.electron.openUrlExternal(h5Link);
+                    opened = Boolean(r?.success);
+                } catch { /* ignore */ }
+            }
+            if (!opened && typeof window !== 'undefined') {
+                try { window.open(h5Link, '_blank'); opened = true; } catch { /* ignore */ }
+            }
+            console.log(`[VolceLiveness] Liên kết xác thực người thật: ${h5Link}`);
+            try {
+                this.toastr?.warning(
+                    'Ảnh nhân vật là người thật nên Seedance yêu cầu xác thực khuôn mặt một lần. Trang xác thực đã được mở trong trình duyệt, hãy làm theo hướng dẫn (có thể quét bằng điện thoại). Phần mềm sẽ tự tiếp tục tạo video sau khi xác thực xong.',
+                    'Xác thực người thật (chỉ 1 lần)',
+                    { timeOut: 60000, extendedTimeOut: 30000 }
+                );
+            } catch { /* ignore */ }
+
+            // 4. Chờ kết quả xác thực (phiên có hiệu lực khoảng 30 phút)
+            const deadline = Date.now() + 28 * 60 * 1000;
+            while (Date.now() < deadline) {
+                await new Promise((r) => setTimeout(r, 4000));
+                try {
+                    const resRes = await fetch(`${baseWithV1}/volce-asset/visual-validate/result`, {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({ bearer_token: bearerToken })
+                    });
+                    const resText = await resRes.text();
+                    let resData: any = {};
+                    try { resData = JSON.parse(resText); } catch { resData = {}; }
+                    const st = String(resData?.status || resData?.output?.data?.status || resData?.data?.status || '').toLowerCase();
+                    const gid = resData?.group_id || resData?.output?.data?.group_id || resData?.data?.group_id || '';
+                    if (st === 'group_ready' && gid) {
+                        persistGroup(gid);
+                        try { this.toastr?.success('Xác thực người thật thành công. Đang tiếp tục tạo video...', 'Volcengine'); } catch { /* ignore */ }
+                        return gid;
+                    }
+                    if (st === 'failed' || st === 'expired') {
+                        throw new Error(`Xác thực người thật Volcengine Asset ${st === 'failed' ? 'thất bại' : 'đã hết hạn'}. Vui lòng bấm tạo lại để mở phiên xác thực mới.`);
+                    }
+                } catch (pollErr: any) {
+                    if (pollErr?.message && pollErr.message.includes('Xác thực người thật Volcengine Asset')) {
+                        throw pollErr;
+                    }
+                }
+            }
+            throw new Error('Quá thời gian chờ xác thực người thật Volcengine Asset (30 phút). Vui lòng bấm tạo lại.');
+        })();
+
+        GenaiService._volceLivenessInFlight.set(groupCacheKey, livenessPromise);
+        try {
+            return await livenessPromise;
+        } finally {
+            GenaiService._volceLivenessInFlight.delete(groupCacheKey);
+        }
+    }
+
     /**
      * Đăng ký ảnh/video/âm thanh vào Volcengine Asset Library (group_type: AIGC) để nhận định danh asset://<id>,
      * cho phép Seedance 2.0/2.5 tạo video và AI Avatar với khuôn mặt người thật / giọng đọc mà không bị chặn PrivacyInformation.
@@ -506,7 +649,8 @@ export class GenaiService {
         mediaSource: string,
         assetRegion: 'cn' | 'overseas',
         assetType: 'Image' | 'Video' | 'Audio' = 'Image',
-        forceRefresh: boolean = false
+        forceRefresh: boolean = false,
+        groupKind: 'AIGC' | 'LivenessFace' = 'AIGC'
     ): Promise<string> {
         if (!mediaSource) {
             throw new Error('Nguồn dữ liệu media trống khi đăng ký Volcengine Asset.');
@@ -516,7 +660,9 @@ export class GenaiService {
         }
 
         const hash = GenaiService.computeVolceSourceHash(mediaSource);
-        const cacheKey = `${baseWithV1}|${keyFp}|${assetRegion}|${hash}`;
+        const cacheKey = groupKind === 'LivenessFace'
+            ? `${baseWithV1}|${keyFp}|${assetRegion}|${hash}|LivenessFace`
+            : `${baseWithV1}|${keyFp}|${assetRegion}|${hash}`;
         const urlCache = GenaiService.getVolceAssetUrlCache();
 
         if (!forceRefresh && urlCache[cacheKey] && urlCache[cacheKey].startsWith('asset://')) {
@@ -534,8 +680,10 @@ export class GenaiService {
         }
 
         const registerPromise = (async (): Promise<string> => {
-            const groupId = await this.getOrCreateVolceAigcGroup(baseWithV1, headers, keyFp, assetRegion);
-            const assetName = `aigc-${assetRegion}-${hash}`;
+            const groupId = groupKind === 'LivenessFace'
+                ? await this.getOrCreateVolceLivenessGroup(baseWithV1, headers, keyFp, assetRegion)
+                : await this.getOrCreateVolceAigcGroup(baseWithV1, headers, keyFp, assetRegion);
+            const assetName = `${groupKind === 'LivenessFace' ? 'live' : 'aigc'}-${assetRegion}-${hash}`;
 
             const lookupExistingByName = async (): Promise<{ id: string; status: string } | null> => {
                 try {
@@ -546,7 +694,7 @@ export class GenaiService {
                             asset_region: assetRegion,
                             filter: {
                                 group_ids: [groupId],
-                                group_type: 'AIGC',
+                                group_type: groupKind,
                                 name: assetName
                             },
                             page_number: 1,
@@ -4870,6 +5018,13 @@ export class GenaiService {
                     }
                     const h = GenaiService.computeVolceSourceHash(rawUrl);
                     const ck = `${videoApiBase.versioned}|${seedanceKeyFp}|${seedanceAssetRegion}|${h}`;
+                    // Ưu tiên asset đã đăng ký trong nhóm LivenessFace (ảnh người thật đã xác thực)
+                    const liveUri = volceUrlCache[`${ck}|LivenessFace`];
+                    if (liveUri && liveUri.startsWith('asset://')) {
+                        GenaiService._volceLivenessAssetUris.add(liveUri);
+                        seedanceOriginalMediaMap.set(liveUri, rawUrl);
+                        return liveUri;
+                    }
                     const cachedUri = volceUrlCache[ck];
                     if (cachedUri && cachedUri.startsWith('asset://')) {
                         seedanceOriginalMediaMap.set(cachedUri, rawUrl);
@@ -5448,7 +5603,7 @@ export class GenaiService {
                     // tự động đăng ký ảnh/audio vào Volcengine Asset Library (group_type: AIGC -> asset://<id>) tối đa 2 vòng và gửi lại ngay.
                     for (
                         let assetPass = 0;
-                        assetPass < 2 && !response.ok && config?.payloadFormat === 'doubao_sdk' && Array.isArray(currentBody?.input?.content);
+                        assetPass < 3 && !response.ok && config?.payloadFormat === 'doubao_sdk' && Array.isArray(currentBody?.input?.content);
                         assetPass++
                     ) {
                         const errLower = responseText.toLowerCase();
@@ -5465,8 +5620,20 @@ export class GenaiService {
                                 (it?.type === 'video_url' && String(it.video_url?.url || '').startsWith('asset://')) ||
                                 (it?.type === 'audio_url' && String(it.audio_url?.url || '').startsWith('asset://'))
                         );
+                        const isPrivacyError =
+                            errLower.includes('privacyinformation') || errLower.includes('real person');
+                        const keyFpForAsset = GenaiService.computeKeyFingerprint(key);
+                        // Ảnh đã nằm trong nhóm AIGC nhưng vẫn bị nhận diện là người thật -> phải chuyển sang nhóm LivenessFace
+                        const hasAigcImageStillBlocked =
+                            isPrivacyError &&
+                            contentList.some(
+                                (it: any) =>
+                                    it?.type === 'image_url' &&
+                                    String(it.image_url?.url || '').startsWith('asset://') &&
+                                    !GenaiService._volceLivenessAssetUris.has(String(it.image_url.url))
+                            );
                         const isFacePrivacyBlock =
-                            (errLower.includes('privacyinformation') || errLower.includes('real person') || errLower.includes('audio_url')) && hasRawMedia;
+                            (isPrivacyError || errLower.includes('audio_url')) && (hasRawMedia || hasAigcImageStillBlocked);
                         const isStaleAssetError =
                             (errLower.includes('asset not found') || errLower.includes('asset not active')) && hasAssetUri;
 
@@ -5475,8 +5642,10 @@ export class GenaiService {
                         }
 
                         const assetRegion: 'cn' | 'overseas' = model.toLowerCase().includes('global') ? 'overseas' : 'cn';
-                        const keyFp = GenaiService.computeKeyFingerprint(key);
-                        console.log(`[VolceAsset] Phát hiện ${isFacePrivacyBlock ? 'chặn khuôn mặt người / media (PrivacyInformation)' : 'asset:// hết hiệu lực'} trên ${model} (${assetRegion}). Tiến hành đăng ký Volcengine AIGC Asset...`);
+                        const keyFp = keyFpForAsset;
+                        const preferLiveness =
+                            GenaiService._volcePreferLivenessKeys.has(`${baseWithV1}|${keyFp}`) || hasAigcImageStillBlocked;
+                        console.log(`[VolceAsset] Phát hiện ${isFacePrivacyBlock ? 'chặn khuôn mặt người / media (PrivacyInformation)' : 'asset:// hết hiệu lực'} trên ${model} (${assetRegion}). Tiến hành đăng ký Volcengine Asset (${preferLiveness ? 'LivenessFace' : 'AIGC'})...`);
                         try {
                             this.toastr?.info(
                                 'Đang đăng ký dữ liệu nhân vật vào Volcengine Asset Library cho Seedance (chỉ cần thực hiện 1 lần)...',
@@ -5485,14 +5654,41 @@ export class GenaiService {
                             );
                         } catch { /* ignore UI toast error */ }
 
+                        const registerImageAsLiveness = async (origSource: string): Promise<string> => {
+                            const liveUri = await this.registerVolceMediaAsset(
+                                baseWithV1,
+                                headers,
+                                keyFp,
+                                origSource,
+                                assetRegion,
+                                'Image',
+                                isStaleAssetError,
+                                'LivenessFace'
+                            );
+                            GenaiService._volceLivenessAssetUris.add(liveUri);
+                            GenaiService._volcePreferLivenessKeys.add(`${baseWithV1}|${keyFp}`);
+                            return liveUri;
+                        };
+
                         let convertedCount = 0;
                         for (const item of contentList) {
                             if (item?.type === 'image_url' && item.image_url?.url) {
                                 const curUrl = String(item.image_url.url);
-                                if (isStaleAssetError || !curUrl.startsWith('asset://')) {
-                                    const origSource = seedanceOriginalMediaMap.get(curUrl) || curUrl;
-                                    if (!origSource.startsWith('asset://')) {
-                                        const newAssetUri = await this.registerVolceMediaAsset(
+                                const alreadyLiveness = GenaiService._volceLivenessAssetUris.has(curUrl);
+                                const needsWork =
+                                    isStaleAssetError ||
+                                    !curUrl.startsWith('asset://') ||
+                                    (hasAigcImageStillBlocked && !alreadyLiveness);
+                                if (!needsWork) continue;
+                                const origSource = seedanceOriginalMediaMap.get(curUrl) || curUrl;
+                                if (origSource.startsWith('asset://')) continue;
+
+                                let newAssetUri = '';
+                                if (preferLiveness) {
+                                    newAssetUri = await registerImageAsLiveness(origSource);
+                                } else {
+                                    try {
+                                        newAssetUri = await this.registerVolceMediaAsset(
                                             baseWithV1,
                                             headers,
                                             keyFp,
@@ -5501,11 +5697,15 @@ export class GenaiService {
                                             'Image',
                                             isStaleAssetError
                                         );
-                                        seedanceOriginalMediaMap.set(newAssetUri, origSource);
-                                        item.image_url.url = newAssetUri;
-                                        convertedCount++;
+                                    } catch (aigcErr: any) {
+                                        // Nhóm AIGC chỉ nhận nhân vật do AI tạo; ảnh người thật bị từ chối -> chuyển sang LivenessFace
+                                        console.warn('[VolceAsset] Nhóm AIGC từ chối ảnh, chuyển sang nhóm LivenessFace (người thật):', aigcErr?.message || aigcErr);
+                                        newAssetUri = await registerImageAsLiveness(origSource);
                                     }
                                 }
+                                seedanceOriginalMediaMap.set(newAssetUri, origSource);
+                                item.image_url.url = newAssetUri;
+                                convertedCount++;
                             } else if (item?.type === 'video_url' && item.video_url?.url && errLower.includes('video')) {
                                 const curVidUrl = String(item.video_url.url);
                                 if (isStaleAssetError || !curVidUrl.startsWith('asset://')) {
@@ -5598,6 +5798,9 @@ export class GenaiService {
                         // Nếu là lỗi an toàn/nhạy cảm, ném lỗi luôn không thử các payload/endpoint khác nữa
                         const errStr = responseText.toLowerCase();
                         if (errStr.includes('sensitive') || errStr.includes('privacyinformation') || errStr.includes('real person') || errStr.includes('violate') || errStr.includes('safety')) {
+                            if (errStr.includes('privacyinformation') || errStr.includes('real person')) {
+                                throw new Error("Seedance vẫn nhận diện ảnh nhân vật là người thật sau khi đã đăng ký Volcengine Asset. Nếu đây là ảnh của chính bạn, hãy hoàn tất bước xác thực khuôn mặt trên trang vừa mở rồi bấm tạo lại; nếu là ảnh người khác, Seedance không cho phép dùng khi chưa có xác thực của chính người đó.");
+                            }
                             throw new Error("Hình ảnh hoặc nội dung vi phạm tiêu chuẩn an toàn của AI (có thể AI nhận diện nhầm là ảnh người thật, bạo lực, nhạy cảm...). Vui lòng thử hình/từ khoá khác.");
                         }
                         // [MINIMAX-ADAPTER] Adapter cua proxy khong ho tro chuyen doi anh
@@ -5614,7 +5817,9 @@ export class GenaiService {
                         e.message &&
                         (e.message.includes('tiêu chuẩn an toàn của AI') ||
                             e.message.includes('Volcengine Asset') ||
-                            e.message.includes('Volcengine kích hoạt Asset'))
+                            e.message.includes('Volcengine AIGC Asset') ||
+                            e.message.includes('Volcengine kích hoạt Asset') ||
+                            e.message.includes('người thật'))
                     ) {
                         throw e;
                     }

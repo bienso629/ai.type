@@ -117,10 +117,39 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Mở trang đăng nhập Google bằng Chrome thật (Stealth Login)
-    openLoginBrowser() {
+    async openLoginBrowser() {
+        const electron = (window as any).electron;
+        if (electron?.googleStealthLogin) {
+            const webview = this.getActiveWebview();
+            const currentUrl =
+                webview && typeof webview.getURL === 'function'
+                    ? webview.getURL()
+                    : this.popupHomeUrl || '';
+            const loginTarget =
+                currentUrl &&
+                currentUrl.includes('google.com') &&
+                !currentUrl.includes('accounts.google.com')
+                    ? `https://accounts.google.com/ServiceLogin?hl=vi&continue=${encodeURIComponent(currentUrl)}`
+                    : 'https://accounts.google.com/ServiceLogin?hl=vi&continue=https%3A%2F%2Fmyaccount.google.com%2F';
+
+            await electron.googleStealthLogin(loginTarget);
+            const container = document.getElementById('webview-container-div');
+            if (container) {
+                container.querySelectorAll('webview').forEach((wv: any) => {
+                    try {
+                        if (wv.reloadIgnoringCache) {
+                            wv.reloadIgnoringCache();
+                        } else if (wv.reload) {
+                            wv.reload();
+                        }
+                    } catch (e) {}
+                });
+            }
+            return;
+        }
+
         const webview = this.getActiveWebview();
         if (webview && typeof webview.executeJavaScript === 'function') {
-            // Kích hoạt stealth login qua navigation ảo mà không làm thay đổi URL trang hiện tại
             webview.executeJavaScript(`
                 (function() {
                     const iframe = document.createElement('iframe');
@@ -132,7 +161,6 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                     }, 5000);
                 })();
             `).catch(() => {
-                // Fallback nếu webview chưa có document body (đang load hoặc lỗi)
                 if (typeof webview.loadURL === 'function') {
                     const curUrl = webview.getURL ? webview.getURL() : (this.popupHomeUrl || 'https://accounts.google.com/ServiceLogin');
                     webview.loadURL(`https://accounts.google.com/ServiceLogin?trigger-stealth-login=true&continue=${encodeURIComponent(curUrl)}`);
@@ -1066,12 +1094,8 @@ if tunnel_url:
                     'https://gemini.google.com/app?hl=vi',
                 );
                 webview.setAttribute('allowpopups', 'true');
-                // Tạo User Agent sạch (từ UA thực của hệ thống) để tránh lệch phiên bản Client Hints với Chrome thực tế
-                // Xóa chữ Electron và tên ứng dụng đi để Google không chặn đăng nhập (lỗi Cookie)
-                let cleanUA = navigator.userAgent
-                    .replace(/ Electron\/[\d\.]+/, '')
-                    .replace(/ ai\.type\/[\d\.]+/, '');
-                webview.setAttribute('useragent', cleanUA);
+                // Không ghi đè thuộc tính useragent bằng navigator.userAgent của Electron
+                // để webview kế thừa nguyên vẹn User-Agent của Chrome thật từ partition persist:gemini-webview
 
                 webview.style.width = '100%';
                 webview.style.height = '100%';
@@ -1123,6 +1147,21 @@ if tunnel_url:
                 });
 
                 container.appendChild(webview);
+
+                const electronApi = (window as any).electron;
+                if (electronApi?.onGoogleAuthSynced) {
+                    electronApi.onGoogleAuthSynced(() => {
+                        container.querySelectorAll('webview').forEach((wv: any) => {
+                            try {
+                                if (wv.reloadIgnoringCache) {
+                                    wv.reloadIgnoringCache();
+                                } else if (wv.reload) {
+                                    wv.reload();
+                                }
+                            } catch (e) {}
+                        });
+                    });
+                }
 
                 // Xử lý chống lag mượt mà khi kéo viền (resize) hoặc kéo thanh tiêu đề (drag)
                 const popupEl = document.querySelector(
