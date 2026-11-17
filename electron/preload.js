@@ -1,8 +1,21 @@
 // preload.js
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
+// Chỉ phơi bày window.electron trên ứng dụng nội bộ (file://, localhost, 127.0.0.1).
+// Tránh lộ window.electron trên các trang web ngoài trong <webview> (như accounts.google.com, meshy.ai)
+// khiến hệ thống chống bot của Google / Cloudflare chặn phiên đăng nhập.
+const isInternalAppOrigin = (() => {
+    try {
+        const host = window.location.hostname || '';
+        const proto = window.location.protocol || '';
+        return !host || proto === 'file:' || host === 'localhost' || host === '127.0.0.1';
+    } catch (e) {
+        return true;
+    }
+})();
+
 /** ====== API CŨ (GIỮ NGUYÊN) ====== */
-contextBridge.exposeInMainWorld('electron', {
+if (isInternalAppOrigin) contextBridge.exposeInMainWorld('electron', {
     tools: (data) => ipcRenderer.send('tools-command', data),
 
     // Thêm hàm invoke chung để dùng cho TTS và các tính năng async khác
@@ -103,6 +116,7 @@ contextBridge.exposeInMainWorld('electron', {
     composeAvatarVideo: (payload) => ipcRenderer.invoke('compose-avatar-video', payload),
     ensurePlayableVideo: (videoPath) => ipcRenderer.invoke('ensure-playable-video', videoPath),
     uploadTempMedia: (payload) => ipcRenderer.invoke('upload-temp-media', payload),
+    openUrlExternal: (url) => ipcRenderer.invoke('open-url-external', url),
     extractVideoFrames: (videoPath) => ipcRenderer.invoke('extract-video-frames', videoPath),
     extractOnlineVideoStream: (payload) => ipcRenderer.invoke('extract-online-video-stream', payload),
     selectLocalFile: (filePath, customDir) => ipcRenderer.invoke('select-local-file', { filePath, customDir }),
@@ -271,7 +285,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     checkColabGpuStatus: () => ipcRenderer.invoke('check-colab-gpu-status'),
     getPluginsStatus: () => ipcRenderer.invoke('get-plugins-status'),
     installPlugin: (pluginId) => ipcRenderer.invoke('install-plugin', pluginId),
-    uninstallPlugin: (pluginId) => ipcRenderer.invoke('uninstall-plugin', pluginId)
+    uninstallPlugin: (pluginId) => ipcRenderer.invoke('uninstall-plugin', pluginId),
+    googleStealthLogin: (url) => ipcRenderer.invoke('google-stealth-login', url),
+    onGoogleAuthSynced: (callback) => {
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on('google-auth-synced', listener);
+        return () => ipcRenderer.removeListener('google-auth-synced', listener);
+    }
 });
 
 // Tìm đoạn IIFE Dreamina trong preload.js và thay thế bằng logic này:
