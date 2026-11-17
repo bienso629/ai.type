@@ -466,7 +466,27 @@
                                 }
                                 <div class="prop-card__info">
                                     <div class="prop-card__name-row">
-                                        <span class="prop-card__name">{{ prop.name }}</span>
+                                        <span class="prop-card__name" [title]="prop.name">{{ prop.name }}</span>
+                                        @if (prop.locked) {
+                                            <mat-icon
+                                                class="prop-card__lock"
+                                                [title]="prop.name + ' đang khóa — không di chuyển/xoay/scale được'"
+                                                >lock</mat-icon
+                                            >
+                                        }
+                                        @if (prop.glbPath) {
+                                            <button
+                                                mat-icon-button
+                                                class="prop-card__tune"
+                                                (click)="$event.stopPropagation(); onPropClick(prop); openPropTimeline(prop.id, $event)"
+                                                title="Timeline Chuyển động & Khớp xương (GLB Rig)"
+                                            >
+                                                <mat-icon
+                                                    class="icon-size-4 text-teal-600 hover:text-teal-500"
+                                                    >movie</mat-icon
+                                                >
+                                            </button>
+                                        }
                                         <!-- Nút Thuộc tính & Phương thức hành động -->
                                         <button
                                             mat-icon-button
@@ -605,6 +625,19 @@
                                                 [title]="prop.name + ' đang khóa — không di chuyển/xoay/scale được'"
                                                 >lock</mat-icon
                                             >
+                                        }
+                                        @if (prop.glbPath) {
+                                            <button
+                                                mat-icon-button
+                                                class="prop-card__tune"
+                                                (click)="$event.stopPropagation(); onPropClick(prop); openPropTimeline(prop.id, $event)"
+                                                title="Timeline Chuyển động & Khớp xương (GLB Rig)"
+                                            >
+                                                <mat-icon
+                                                    class="icon-size-4 text-teal-600 hover:text-teal-500"
+                                                    >movie</mat-icon
+                                                >
+                                            </button>
                                         }
                                         <!-- Nút Thuộc tính & Phương thức hành động -->
                                         <button
@@ -1162,6 +1195,17 @@
                     [style.left.px]="propActionAnchor.x"
                     [style.top.px]="propActionAnchor.y"
                 >
+                    @if (selectedPropHasRig) {
+                        <button
+                            type="button"
+                            class="sontinh-prop-actions__btn sontinh-prop-actions__btn--anim"
+                            [class.sontinh-prop-actions__btn--anim-active]="isGlbTimelineOpen"
+                            title="Mở Timeline Chuyển động & Khớp xương (GLB Rig & Timeline)"
+                            (pointerdown)="openPropTimeline(propActionAnchor.propId, $event)"
+                        >
+                            <mat-icon>movie</mat-icon>
+                        </button>
+                    }
                     <button
                         type="button"
                         class="sontinh-prop-actions__btn sontinh-prop-actions__btn--lock"
@@ -1190,8 +1234,8 @@
                 </div>
             }
 
-            <!-- Selection XYZ overlay: trục + tọa độ đồ vật đang chọn -->
-            @if (selectedPropId && selectedPropPos) {
+            <!-- Selection XYZ overlay: trục + tọa độ đồ vật đang chọn (ẩn khi đang mở chế độ Timeline) -->
+            @if (selectedPropId && selectedPropPos && !isGlbTimelineOpen) {
                 <div class="sontinh-axes-info">
                     <div class="sontinh-axes-info__name">{{ selectedPropName }}</div>
                     <div class="sontinh-axes-info__sec">Vị trí</div>
@@ -1318,6 +1362,409 @@
                         </button>
                     </div>
                     <div class="sontinh-axes-info__hint">Kéo nút mũi tên để chỉnh &middot; thả ra để lưu</div>
+                    @if (selectedPropHasRig) {
+                        <button
+                            type="button"
+                            class="sontinh-axes-info__timeline-btn"
+                            (click)="openPropTimeline(selectedPropId, $event)"
+                        >
+                            <mat-icon class="icon-size-4">movie</mat-icon>
+                            <span>Timeline & Khớp xương</span>
+                        </button>
+                    }
+                </div>
+            }
+
+            <!-- Hidden input để nạp tệp .GLB chứa animation rời cho đồ vật -->
+            <input
+                #propAnimGlbInput
+                type="file"
+                accept=".glb"
+                class="hidden"
+                (change)="onPropAnimGlbSelected($event)"
+            />
+
+            <!-- BẢNG TIMELINE CHUYỂN ĐỘNG & KHỚP XƯƠNG GLB (DOCK DƯỚI CANVAS 3D) -->
+            @if (isGlbTimelineOpen && timelineData) {
+                <div
+                    class="glb-timeline-dock"
+                    (mousedown)="$event.stopPropagation()"
+                >
+                    <!-- Thanh điều khiển trên cùng -->
+                    <div class="glb-timeline-dock__header">
+                        <div class="glb-timeline-dock__title">
+                            <mat-icon class="icon-size-5 text-teal-400">movie</mat-icon>
+                            <span class="font-bold text-white truncate max-w-[180px]" [title]="timelinePropName">{{ timelinePropName }}</span>
+                            <span class="glb-timeline-badge">{{ timelineBones.length }} khớp xương</span>
+                            @if (timelineClips.length > 0) {
+                                <span class="glb-timeline-badge glb-timeline-badge--amber">{{ timelineClips.length }} clip</span>
+                            }
+                        </div>
+
+                        <!-- Chuyển chế độ: Keyframe Khớp Xương vs Clip có sẵn -->
+                        <div class="glb-timeline-mode-tabs">
+                            <button
+                                type="button"
+                                class="glb-timeline-mode-btn"
+                                [class.glb-timeline-mode-btn--active]="timelineData.mode === 'keyframes'"
+                                (click)="timelineData.mode = 'keyframes'; onTimelineConfigChange()"
+                            >
+                                Keyframe Khớp xương
+                            </button>
+                            <button
+                                type="button"
+                                class="glb-timeline-mode-btn"
+                                [class.glb-timeline-mode-btn--active]="timelineData.mode === 'clip'"
+                                (click)="timelineData.mode = 'clip'; onTimelineConfigChange()"
+                            >
+                                Clip Chuyển động ({{ timelineClips.length }})
+                            </button>
+                        </div>
+
+                        <!-- Transport Controls: Play/Pause, Stop, Loop, Speed, Duration -->
+                        <div class="glb-timeline-transport">
+                            <button
+                                type="button"
+                                class="glb-tl-btn glb-tl-btn--play"
+                                [class.glb-tl-btn--playing]="timelineData.playing"
+                                (click)="toggleTimelinePlay()"
+                                [title]="timelineData.playing ? 'Tạm dừng' : 'Phát chuyển động'"
+                            >
+                                <mat-icon class="icon-size-5">{{ timelineData.playing ? 'pause' : 'play_arrow' }}</mat-icon>
+                                <span>{{ timelineData.playing ? 'Dừng' : 'Phát' }}</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="glb-tl-btn"
+                                (click)="stopTimelinePlayback()"
+                                title="Về đầu Timeline (0.00s)"
+                            >
+                                <mat-icon class="icon-size-4">replay</mat-icon>
+                            </button>
+                            <button
+                                type="button"
+                                class="glb-tl-btn"
+                                [class.glb-tl-btn--active]="timelineData.loop"
+                                (click)="timelineData.loop = !timelineData.loop; onTimelineConfigChange()"
+                                title="Bật/tắt lặp lại liên tục (Loop)"
+                            >
+                                <mat-icon class="icon-size-4">repeat</mat-icon>
+                            </button>
+                            <div class="glb-tl-field" title="Tốc độ phát">
+                                <span>Tốc độ</span>
+                                <select
+                                    [(ngModel)]="timelineData.speed"
+                                    (ngModelChange)="onTimelineConfigChange()"
+                                >
+                                    <option [ngValue]="0.25">0.25x</option>
+                                    <option [ngValue]="0.5">0.5x</option>
+                                    <option [ngValue]="1">1.0x</option>
+                                    <option [ngValue]="1.5">1.5x</option>
+                                    <option [ngValue]="2">2.0x</option>
+                                </select>
+                            </div>
+                            <div class="glb-tl-field" title="Tổng thời lượng Timeline (giây)">
+                                <span>Thời lượng (s)</span>
+                                <input
+                                    type="number"
+                                    min="0.5"
+                                    max="60"
+                                    step="0.5"
+                                    [(ngModel)]="timelineData.duration"
+                                    (ngModelChange)="onTimelineConfigChange()"
+                                />
+                            </div>
+                        </div>
+
+                        <!-- Các nút thao tác nhanh -->
+                        <div class="glb-timeline-actions">
+                            <button
+                                type="button"
+                                class="glb-tl-btn glb-tl-btn--accent"
+                                (click)="addCurrentBoneKeyframe()"
+                                title="Đặt mốc Keyframe cho khớp đang chọn tại thời điểm hiện tại"
+                            >
+                                <mat-icon class="icon-size-4">add_circle</mat-icon>
+                                <span>+ Keyframe</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="glb-tl-btn"
+                                (click)="propAnimGlbInput.click()"
+                                title="Nạp thêm tệp .GLB chứa chuyển động (Mixamo / Meshy / Blender)"
+                            >
+                                <mat-icon class="icon-size-4">upload_file</mat-icon>
+                                <span>Nạp Anim .GLB</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="glb-tl-btn"
+                                (click)="saveTimelineToProp(false)"
+                                title="Lưu Timeline vào hồ sơ đồ vật"
+                            >
+                                <mat-icon class="icon-size-4">save</mat-icon>
+                                <span>Lưu</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="glb-tl-btn glb-tl-btn--close"
+                                (click)="closePropTimeline()"
+                                title="Đóng bảng Timeline"
+                            >
+                                <mat-icon class="icon-size-4">close</mat-icon>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Thân bảng Timeline: Cột trái (Khớp xương & Góc xoay) + Cột phải (Dải Timeline & Keyframe) -->
+                    <div class="glb-timeline-dock__body">
+                        <!-- CỘT TRÁI: DANH SÁCH KHỚP XƯƠNG + THANH TRƯỢT XOAY X/Y/Z -->
+                        <div class="glb-timeline-bones-pane">
+                            <div class="glb-pane-header">
+                                <span>Khớp xương (Rig Bones)</span>
+                                <input
+                                    type="text"
+                                    [(ngModel)]="timelineBoneSearch"
+                                    placeholder="Tìm khớp xương..."
+                                    class="glb-bone-search"
+                                />
+                            </div>
+                            <div class="glb-bone-list">
+                                @for (b of filteredTimelineBones; track b.name) {
+                                    <button
+                                        type="button"
+                                        class="glb-bone-item"
+                                        [class.glb-bone-item--active]="b.name === selectedBoneName"
+                                        [style.padding-left.px]="8 + (b.depth > 5 ? 5 : b.depth) * 8"
+                                        (click)="selectTimelineBone(b.name)"
+                                    >
+                                        <span class="glb-bone-item__dot" [class.glb-bone-item__dot--skinned]="b.isSkinnedBone"></span>
+                                        <span class="truncate flex-1 text-left" [title]="b.name">{{ b.label }}</span>
+                                        @if (getKeyframesForBone(b.name).length > 0) {
+                                            <span class="glb-bone-item__kf-count">{{ getKeyframesForBone(b.name).length }}</span>
+                                        }
+                                    </button>
+                                }
+                            </div>
+
+                            <!-- Điều khiển xoay khớp đang chọn -->
+                            <div class="glb-bone-controls">
+                                <div class="glb-bone-controls__top">
+                                    <span class="text-xs font-semibold text-teal-300 truncate" [title]="selectedBoneName">
+                                        Khớp: {{ getBoneLabel(selectedBoneName) }}
+                                    </span>
+                                    <label class="glb-autokey-toggle" title="Tự động tạo/cập nhật Keyframe ngay khi kéo thanh trượt góc xoay">
+                                        <input type="checkbox" [(ngModel)]="timelineAutoKey" />
+                                        <span>Auto-Key</span>
+                                    </label>
+                                    <button
+                                        type="button"
+                                        class="glb-mini-reset"
+                                        (click)="resetCurrentBonePose()"
+                                        title="Đặt lại khớp này về góc 0"
+                                    >
+                                        Reset khớp
+                                    </button>
+                                </div>
+
+                                <div class="glb-axis-slider">
+                                    <span class="glb-axis-tag glb-axis-tag--x">Xoay X</span>
+                                    <input
+                                        type="range"
+                                        min="-180"
+                                        max="180"
+                                        step="1"
+                                        [(ngModel)]="boneRot.x"
+                                        (ngModelChange)="onBoneTransformChange()"
+                                    />
+                                    <input
+                                        type="number"
+                                        min="-180"
+                                        max="180"
+                                        [(ngModel)]="boneRot.x"
+                                        (ngModelChange)="onBoneTransformChange()"
+                                        class="glb-axis-num"
+                                    />
+                                </div>
+                                <div class="glb-axis-slider">
+                                    <span class="glb-axis-tag glb-axis-tag--y">Xoay Y</span>
+                                    <input
+                                        type="range"
+                                        min="-180"
+                                        max="180"
+                                        step="1"
+                                        [(ngModel)]="boneRot.y"
+                                        (ngModelChange)="onBoneTransformChange()"
+                                    />
+                                    <input
+                                        type="number"
+                                        min="-180"
+                                        max="180"
+                                        [(ngModel)]="boneRot.y"
+                                        (ngModelChange)="onBoneTransformChange()"
+                                        class="glb-axis-num"
+                                    />
+                                </div>
+                                <div class="glb-axis-slider">
+                                    <span class="glb-axis-tag glb-axis-tag--z">Xoay Z</span>
+                                    <input
+                                        type="range"
+                                        min="-180"
+                                        max="180"
+                                        step="1"
+                                        [(ngModel)]="boneRot.z"
+                                        (ngModelChange)="onBoneTransformChange()"
+                                    />
+                                    <input
+                                        type="number"
+                                        min="-180"
+                                        max="180"
+                                        [(ngModel)]="boneRot.z"
+                                        (ngModelChange)="onBoneTransformChange()"
+                                        class="glb-axis-num"
+                                    />
+                                </div>
+                                <div class="glb-axis-slider">
+                                    <span class="glb-axis-tag glb-axis-tag--pos">Dịch Y</span>
+                                    <input
+                                        type="range"
+                                        min="-2"
+                                        max="2"
+                                        step="0.02"
+                                        [(ngModel)]="bonePos.y"
+                                        (ngModelChange)="onBoneTransformChange()"
+                                    />
+                                    <input
+                                        type="number"
+                                        min="-5"
+                                        max="5"
+                                        step="0.05"
+                                        [(ngModel)]="bonePos.y"
+                                        (ngModelChange)="onBoneTransformChange()"
+                                        class="glb-axis-num"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CỘT PHẢI: DẢI TIMELINE, SCRUBBER, MẪU CHUYỂN ĐỘNG & CÁC TRACK KEYFRAME -->
+                        <div class="glb-timeline-tracks-pane">
+                            <!-- Thanh tạo mẫu chuyển động nhanh + Scrubber thời gian -->
+                            <div class="glb-scrubber-bar">
+                                <div class="glb-scrubber-info">
+                                    <span class="glb-time-readout">{{ timelineCurrentTime.toFixed(2) }}s / {{ timelineData.duration.toFixed(2) }}s</span>
+                                    <div class="glb-presets-row">
+                                        <span class="text-xs text-slate-400">Mẫu nhanh:</span>
+                                        <button type="button" class="glb-preset-chip" (click)="applyBonePreset('breathe')">Thở nhịp nhàng</button>
+                                        <button type="button" class="glb-preset-chip" (click)="applyBonePreset('wave')">Vẫy chào</button>
+                                        <button type="button" class="glb-preset-chip" (click)="applyBonePreset('bounce')">Nhún nhảy</button>
+                                        <button type="button" class="glb-preset-chip" (click)="applyBonePreset('look_around')">Nhìn quanh</button>
+                                        @if (activeKeyframeAtCurrentTime; as activeKf) {
+                                            <button
+                                                type="button"
+                                                class="glb-preset-chip glb-preset-chip--danger"
+                                                (click)="deleteTimelineKeyframe(activeKf.id, $event)"
+                                                title="Xóa Keyframe tại thời điểm hiện tại của khớp đang chọn"
+                                            >
+                                                Xóa Keyframe này
+                                            </button>
+                                        }
+                                        @if (timelineData.keyframes.length > 0) {
+                                            <button type="button" class="glb-preset-chip glb-preset-chip--danger" (click)="clearTimelineKeyframes()">Xóa hết Keyframe</button>
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Thanh kéo thời gian (Timeline Scrubber) -->
+                                <div class="glb-scrubber-track-wrap">
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        [max]="timelineData.duration"
+                                        step="0.01"
+                                        [ngModel]="timelineCurrentTime"
+                                        (ngModelChange)="onTimelineScrub($event)"
+                                        class="glb-scrubber-range"
+                                    />
+                                    <div class="glb-scrubber-ticks">
+                                        <span>0.0s</span>
+                                        <span>{{ (timelineData.duration * 0.25).toFixed(2) }}s</span>
+                                        <span>{{ (timelineData.duration * 0.5).toFixed(2) }}s</span>
+                                        <span>{{ (timelineData.duration * 0.75).toFixed(2) }}s</span>
+                                        <span>{{ timelineData.duration.toFixed(2) }}s</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if (timelineData.mode === 'keyframes') {
+                                <!-- Danh sách Track của từng khớp xương -->
+                                <div class="glb-tracks-list">
+                                    @for (boneName of activeBoneTrackNames; track boneName) {
+                                        <div
+                                            class="glb-track-row"
+                                            [class.glb-track-row--selected]="boneName === selectedBoneName"
+                                            (click)="selectTimelineBone(boneName)"
+                                        >
+                                            <div class="glb-track-row__label" [title]="boneName">
+                                                <span>{{ getBoneLabel(boneName) }}</span>
+                                            </div>
+                                            <div class="glb-track-row__lane">
+                                                <!-- Vạch kim thời gian hiện tại -->
+                                                <div
+                                                    class="glb-track-playhead"
+                                                    [style.left.%]="(timelineCurrentTime / (timelineData.duration || 1)) * 100"
+                                                ></div>
+
+                                                <!-- Các điểm neo Keyframe hình thoi -->
+                                                @for (kf of getKeyframesForBone(boneName); track kf.id) {
+                                                    <div
+                                                        class="glb-kf-diamond"
+                                                        [class.glb-kf-diamond--active]="(kf.time - timelineCurrentTime) <= 0.05 && (timelineCurrentTime - kf.time) <= 0.05"
+                                                        [style.left.%]="(kf.time / (timelineData.duration || 1)) * 100"
+                                                        [title]="getBoneLabel(boneName) + ' @ ' + kf.time.toFixed(2) + 's | Xoay: (' + kf.rot.x + '°, ' + kf.rot.y + '°, ' + kf.rot.z + '°) — Nhấp để chọn, nhấp đúp hoặc chuột phải để xóa'"
+                                                        (click)="jumpToKeyframe(kf, $event)"
+                                                        (dblclick)="deleteTimelineKeyframe(kf.id, $event)"
+                                                        (contextmenu)="deleteTimelineKeyframe(kf.id, $event)"
+                                                    ></div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                    @if (timelineData.keyframes.length === 0) {
+                                        <div class="glb-tracks-hint">
+                                            Kéo thanh thời gian tới mốc mong muốn, chọn khớp xương bên trái rồi kéo thanh trượt <b>Xoay X / Y / Z</b> (hoặc bấm <b>Mẫu nhanh</b> ở trên) để tạo chuyển động Keyframe.
+                                        </div>
+                                    }
+                                </div>
+                            } @else {
+                                <!-- Chế độ phát Animation Clip có sẵn hoặc nạp từ file .GLB -->
+                                <div class="glb-clips-panel">
+                                    @if (timelineClips.length > 0) {
+                                        <div class="glb-clips-grid">
+                                            @for (c of timelineClips; track c.name) {
+                                                <button
+                                                    type="button"
+                                                    class="glb-clip-card"
+                                                    [class.glb-clip-card--active]="timelineData.activeClipName === c.name"
+                                                    (click)="selectTimelineClip(c.name)"
+                                                >
+                                                    <mat-icon class="icon-size-5 text-teal-400">play_circle</mat-icon>
+                                                    <div class="text-left min-w-0 flex-1">
+                                                        <div class="font-semibold text-xs text-white truncate">{{ c.name }}</div>
+                                                        <div class="text-[11px] text-slate-400">Thời lượng: {{ c.duration.toFixed(2) }}s</div>
+                                                    </div>
+                                                </button>
+                                            }
+                                        </div>
+                                    } @else {
+                                        <div class="glb-tracks-hint">
+                                            Mô hình GLB này chưa có sẵn Animation Clip đóng gói bên trong. Bạn có thể bấm nút <b>Nạp Anim .GLB</b> ở góc trên để nạp tệp chuyển động rời, hoặc chuyển sang tab <b>Keyframe Khớp xương</b> để tự tạo chuyển động trực tiếp.
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
                 </div>
             }
         </div>

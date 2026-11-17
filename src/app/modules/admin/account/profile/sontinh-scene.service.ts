@@ -4,6 +4,33 @@ import { UserProfile } from './profile-data.service';
 
 /** Meta mot thuoc tinh dong cua effect script (parse tu attributes.add hoac fx.params) */
 export interface FxParamMeta { name: string; type: string; value: any; title: string; min?: number; max?: number; step?: number; }
+
+export interface GlbBoneKeyframe {
+  id: string;
+  time: number;
+  boneName: string;
+  rot: { x: number; y: number; z: number };
+  pos: { x: number; y: number; z: number };
+}
+
+export interface GlbPropTimelineData {
+  enabled: boolean;
+  playing: boolean;
+  loop: boolean;
+  speed: number;
+  duration: number;
+  mode: 'keyframes' | 'clip';
+  activeClipName?: string | null;
+  keyframes: GlbBoneKeyframe[];
+}
+
+export interface GlbBoneInfo {
+  name: string;
+  label: string;
+  depth: number;
+  isSkinnedBone: boolean;
+}
+
 export interface RoomProp {
   id: string;
   name: string;
@@ -29,6 +56,7 @@ export interface RoomProp {
   roughness?: number;
   activeScreenState?: string;
   screenOptions?: any;
+  boneTimeline?: GlbPropTimelineData;
   _customPositionSet?: boolean;
   _customRotationSet?: boolean;
   _customScaleSet?: boolean;
@@ -416,7 +444,12 @@ export class SontinhSceneService implements OnDestroy {
     }
     // Quan trong: truyen ten goc — ham stop tu chuon hoa de khop key da luu
     // (runPropEffect luu key "Tuy_t r_i" -> "Tuy_t_r_i").
-    if (this._stopPropEffect) this._stopPropEffect(fx.name);
+    if (this._stopPropEffect) {
+      this._stopPropEffect(fx.name);
+      if (this.fxEffects.every((f) => f.enabled === false)) {
+        this._stopPropEffect('*');
+      }
+    }
     return true;
   }
 
@@ -431,10 +464,15 @@ export class SontinhSceneService implements OnDestroy {
     const idx = this.fxEffects.findIndex((f) => f.id === id);
     if (idx < 0) return;
     const fx = this.fxEffects[idx];
-    // Ten goc — stopPropEffect tu chuan hoa de khop key "Tuy_t_r_i" trong map
-    if (this._stopPropEffect) this._stopPropEffect(fx.name);
     this.fxEffects.splice(idx, 1);
     this._saveFxRegistry();
+    // Ten goc — stopPropEffect tu chuan hoa de khop key "Tuy_t_r_i" trong map
+    if (this._stopPropEffect) {
+      this._stopPropEffect(fx.name);
+      if (this.fxEffects.every((f) => f.enabled === false)) {
+        this._stopPropEffect('*');
+      }
+    }
   }
 
   /** Luu registry vao localStorage de giu danh sach + cau hinh qua F5 */
@@ -1787,6 +1825,738 @@ export class SontinhSceneService implements OnDestroy {
     });
     this._glbAssetCache.clear();
     this._propIdToGlbKey.clear();
+    this._propRigMap.clear();
+    this._highlightedBoneNode = null;
+    if (this._boneHighlightEntity) {
+      try { this._boneHighlightEntity.destroy(); } catch (_) {}
+      this._boneHighlightEntity = null;
+    }
+  }
+
+  // ============================================================================
+  // GLB SKELETAL RIG, ANIMATION CLIPS & BONE KEYFRAME TIMELINE ENGINE
+  // ============================================================================
+  private _propRigMap = new Map<string, {
+    propId: string;
+    wrapper: pc.Entity;
+    glbEntity: pc.Entity;
+    bones: Map<string, {
+      name: string;
+      label: string;
+      depth: number;
+      isSkinnedBone: boolean;
+      node: pc.GraphNode;
+      restPos: pc.Vec3;
+      restQuat: pc.Quat;
+      restScale: pc.Vec3;
+      curRotDelta: { x: number; y: number; z: number };
+      curPosDelta: { x: number; y: number; z: number };
+    }>;
+    clips: Array<{ name: string; duration: number; resource: any }>;
+    animComp: any | null;
+    timeline: GlbPropTimelineData;
+    currentTime: number;
+  }>();
+
+  private _boneHighlightEntity: pc.Entity | null = null;
+  private _highlightedBoneNode: pc.GraphNode | null = null;
+  onTimelineTimeUpdate: ((propId: string, time: number, playing: boolean) => void) | null = null;
+
+  private _registerPropRig(propId: string, wrapper: pc.Entity, glbEntity: pc.Entity, container: any, prop?: any): void {
+    const bonesMap = new Map<string, {
+      name: string;
+      label: string;
+      depth: number;
+      isSkinnedBone: boolean;
+      node: pc.GraphNode;
+      restPos: pc.Vec3;
+      restQuat: pc.Quat;
+      restScale: pc.Vec3;
+      curRotDelta: { x: number; y: number; z: number };
+      curPosDelta: { x: number; y: number; z: number };
+    }>();
+
+    // 1. Tập hợp các xương thực sự từ skinInstance.bones (nếu mô hình có rigged skin)
+    const skinnedNodes = new Set<any>();
+    const meshComps: any[] = [
+      ...((glbEntity.findComponents('render') as any[]) || []),
+      ...((glbEntity.findComponents('model') as any[]) || [])
+    ];
+    for (const r of meshComps) {
+      const mis = r.meshInstances || [];
+      for (const mi of mis) {
+        const skin = mi?.skinInstance;
+        if (skin && Array.isArray(skin.bones)) {
+          for (const b of skin.bones) {
+            if (b) skinnedNodes.add(b);
+          }
+        }
+      }
+    }
+
+    // 2. Duyệt cây phân cấp của glbEntity để thu thập xương và các node con
+    const usedNames = new Set<string>();
+    const addBoneEntry = (node: pc.GraphNode, rawName: string, label: string, depth: number, isSkinned: boolean) => {
+      let key = rawName || 'Bone';
+      let suffix = 1;
+      while (usedNames.has(key)) {
+        suffix++;
+        key = `${rawName}_${suffix}`;
+      }
+      usedNames.add(key);
+      bonesMap.set(key, {
+        name: key,
+        label,
+        depth,
+        isSkinnedBone: isSkinned,
+        node,
+        restPos: node.getLocalPosition().clone(),
+        restQuat: node.getLocalRotation().clone(),
+        restScale: node.getLocalScale().clone(),
+        curRotDelta: { x: 0, y: 0, z: 0 },
+        curPosDelta: { x: 0, y: 0, z: 0 }
+      });
+    };
+
+    // Luôn thêm node gốc để kể cả GLB chỉ có 1 mesh vẫn tạo chuyển động keyframe được
+    addBoneEntry(glbEntity, '__root__', 'Toàn bộ mô hình (Root)', 0, false);
+
+    const walk = (node: any, depth: number) => {
+      if (!node) return;
+      const children: any[] = node.children || [];
+      for (const ch of children) {
+        const nm = String(ch?.name || '').trim();
+        const isSkinned = skinnedNodes.has(ch);
+        if (nm && (isSkinned || skinnedNodes.size === 0 || !nm.startsWith('Untitled'))) {
+          const cleanLabel = nm.replace(/^mixamorig:?/i, '');
+          addBoneEntry(ch as pc.GraphNode, nm, cleanLabel, depth, isSkinned);
+        }
+        walk(ch, depth + 1);
+      }
+    };
+    walk(glbEntity, 1);
+
+    // 3. Thu thập các Animation Clip có sẵn trong file GLB
+    const clips: Array<{ name: string; duration: number; resource: any }> = [];
+    const rawAnims: any[] = Array.isArray(container?.animations) ? container.animations : [];
+    for (let i = 0; i < rawAnims.length; i++) {
+      const a = rawAnims[i];
+      const track = a?.resource || a;
+      if (!track) continue;
+      const cName = String(a?.name || track?.name || `Animation_${i + 1}`);
+      const dur = Math.max(0.1, Number(track?.duration) || 2.5);
+      clips.push({ name: cName, duration: dur, resource: track });
+    }
+
+    // 4. Khởi tạo hoặc khôi phục cấu hình Timeline từ prop.boneTimeline
+    const savedTl: GlbPropTimelineData | undefined = prop?.boneTimeline;
+    const defaultMode: 'keyframes' | 'clip' = savedTl?.mode
+      ? savedTl.mode
+      : (clips.length > 0 ? 'clip' : 'keyframes');
+    const defaultClipName = savedTl?.activeClipName || (clips.length > 0 ? clips[0].name : null);
+    const matchedClip = clips.find((c) => c.name === defaultClipName) || clips[0];
+    const defaultDuration = savedTl?.duration
+      ? Math.max(0.5, Number(savedTl.duration))
+      : (matchedClip ? matchedClip.duration : 3.0);
+
+    const timeline: GlbPropTimelineData = {
+      enabled: savedTl ? savedTl.enabled !== false : (clips.length > 0),
+      playing: savedTl ? savedTl.playing !== false : (clips.length > 0),
+      loop: savedTl ? savedTl.loop !== false : true,
+      speed: savedTl && typeof savedTl.speed === 'number' ? savedTl.speed : 1.0,
+      duration: defaultDuration,
+      mode: defaultMode,
+      activeClipName: defaultClipName,
+      keyframes: Array.isArray(savedTl?.keyframes)
+        ? JSON.parse(JSON.stringify(savedTl!.keyframes))
+        : []
+    };
+
+    const rig = {
+      propId,
+      wrapper,
+      glbEntity,
+      bones: bonesMap,
+      clips,
+      animComp: null as any,
+      timeline,
+      currentTime: 0
+    };
+    this._propRigMap.set(propId, rig);
+
+    // Nếu ở chế độ clip và có clip sẵn, gắn component anim và phát ngay
+    if (timeline.mode === 'clip' && matchedClip && timeline.playing) {
+      this.playPropClip(propId, matchedClip.name);
+    } else if (timeline.mode === 'keyframes' && timeline.keyframes.length > 0) {
+      this.evaluatePropKeyframesAtTime(propId, 0);
+    }
+  }
+
+  hasPropRig(propId: string | null | undefined): boolean {
+    if (!propId) return false;
+    return this._propRigMap.has(propId);
+  }
+
+  getPropBones(propId: string): GlbBoneInfo[] {
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return [];
+    const list: GlbBoneInfo[] = [];
+    rig.bones.forEach((b) => {
+      list.push({
+        name: b.name,
+        label: b.label,
+        depth: b.depth,
+        isSkinnedBone: b.isSkinnedBone
+      });
+    });
+    return list;
+  }
+
+  getPropClips(propId: string): Array<{ name: string; duration: number }> {
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return [];
+    return rig.clips.map((c) => ({ name: c.name, duration: c.duration }));
+  }
+
+  getPropTimeline(propId: string): GlbPropTimelineData | null {
+    const rig = this._propRigMap.get(propId);
+    return rig ? rig.timeline : null;
+  }
+
+  getPropCurrentTime(propId: string): number {
+    const rig = this._propRigMap.get(propId);
+    return rig ? rig.currentTime : 0;
+  }
+
+  /** Hiển thị quả cầu đánh dấu vị trí khớp xương đang chọn trên màn hình 3D */
+  highlightPropBone(propId: string | null, boneName: string | null): void {
+    if (!this.app || !propId || !boneName) {
+      this._highlightedBoneNode = null;
+      if (this._boneHighlightEntity) this._boneHighlightEntity.enabled = false;
+      return;
+    }
+    const rig = this._propRigMap.get(propId);
+    const bone = rig?.bones.get(boneName);
+    if (!bone || !bone.node) {
+      this._highlightedBoneNode = null;
+      if (this._boneHighlightEntity) this._boneHighlightEntity.enabled = false;
+      return;
+    }
+    this._highlightedBoneNode = bone.node;
+    if (!this._boneHighlightEntity) {
+      const marker = new pc.Entity('BoneHighlightMarker');
+      marker.addComponent('render', { type: 'sphere' });
+      const mat = new pc.StandardMaterial();
+      mat.diffuse = new pc.Color(0, 0, 0);
+      mat.emissive = new pc.Color(0.0, 0.95, 0.85);
+      mat.useLighting = false;
+      mat.opacity = 0.88;
+      mat.blendType = pc.BLEND_NORMAL;
+      mat.depthTest = false;
+      mat.depthWrite = false;
+      mat.update();
+      if (marker.render) {
+        marker.render.meshInstances.forEach((mi: any) => {
+          mi.material = mat;
+          mi.pick = false;
+        });
+      }
+      marker.setLocalScale(0.32, 0.32, 0.32);
+      this.app.root.addChild(marker);
+      this._boneHighlightEntity = marker;
+    }
+    this._boneHighlightEntity.enabled = true;
+    const wp = bone.node.getPosition();
+    this._boneHighlightEntity.setPosition(wp.x, wp.y, wp.z);
+  }
+
+  getBonePoseDelta(propId: string, boneName: string): { rot: { x: number; y: number; z: number }; pos: { x: number; y: number; z: number } } {
+    const rig = this._propRigMap.get(propId);
+    const bone = rig?.bones.get(boneName);
+    if (!bone) {
+      return { rot: { x: 0, y: 0, z: 0 }, pos: { x: 0, y: 0, z: 0 } };
+    }
+    return {
+      rot: { ...bone.curRotDelta },
+      pos: { ...bone.curPosDelta }
+    };
+  }
+
+  setBonePoseDelta(
+    propId: string,
+    boneName: string,
+    rot: { x: number; y: number; z: number },
+    pos?: { x: number; y: number; z: number }
+  ): void {
+    const rig = this._propRigMap.get(propId);
+    const bone = rig?.bones.get(boneName);
+    if (!bone) return;
+
+    // Nếu đang bật animComp của clip thì tạm dừng để không ghi đè pose xương thủ công
+    if (rig?.animComp && rig.timeline.mode === 'keyframes') {
+      try { rig.animComp.playing = false; } catch (_) {}
+    }
+
+    bone.curRotDelta = {
+      x: Number(rot?.x) || 0,
+      y: Number(rot?.y) || 0,
+      z: Number(rot?.z) || 0
+    };
+    if (pos) {
+      bone.curPosDelta = {
+        x: Number(pos.x) || 0,
+        y: Number(pos.y) || 0,
+        z: Number(pos.z) || 0
+      };
+    }
+
+    const qDelta = new pc.Quat().setFromEulerAngles(bone.curRotDelta.x, bone.curRotDelta.y, bone.curRotDelta.z);
+    const finalQuat = new pc.Quat().mul2(bone.restQuat, qDelta);
+    bone.node.setLocalRotation(finalQuat);
+    bone.node.setLocalPosition(
+      bone.restPos.x + bone.curPosDelta.x,
+      bone.restPos.y + bone.curPosDelta.y,
+      bone.restPos.z + bone.curPosDelta.z
+    );
+  }
+
+  resetBonePose(propId: string, boneName?: string): void {
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return;
+    if (boneName) {
+      const b = rig.bones.get(boneName);
+      if (b) {
+        b.curRotDelta = { x: 0, y: 0, z: 0 };
+        b.curPosDelta = { x: 0, y: 0, z: 0 };
+        b.node.setLocalRotation(b.restQuat);
+        b.node.setLocalPosition(b.restPos);
+        b.node.setLocalScale(b.restScale);
+      }
+      return;
+    }
+    rig.bones.forEach((b) => {
+      b.curRotDelta = { x: 0, y: 0, z: 0 };
+      b.curPosDelta = { x: 0, y: 0, z: 0 };
+      b.node.setLocalRotation(b.restQuat);
+      b.node.setLocalPosition(b.restPos);
+      b.node.setLocalScale(b.restScale);
+    });
+  }
+
+  upsertBoneKeyframe(
+    propId: string,
+    boneName: string,
+    time: number,
+    rot: { x: number; y: number; z: number },
+    pos?: { x: number; y: number; z: number }
+  ): GlbBoneKeyframe | null {
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return null;
+    rig.timeline.mode = 'keyframes';
+    rig.timeline.enabled = true;
+    const clampedTime = Math.round(Math.max(0, Math.min(rig.timeline.duration, Number(time) || 0)) * 100) / 100;
+    const cleanRot = {
+      x: Math.round((Number(rot?.x) || 0) * 10) / 10,
+      y: Math.round((Number(rot?.y) || 0) * 10) / 10,
+      z: Math.round((Number(rot?.z) || 0) * 10) / 10
+    };
+    const cleanPos = {
+      x: Math.round((Number(pos?.x) || 0) * 100) / 100,
+      y: Math.round((Number(pos?.y) || 0) * 100) / 100,
+      z: Math.round((Number(pos?.z) || 0) * 100) / 100
+    };
+
+    // Nếu đã có keyframe cùng xương ở cùng mốc thời gian (sai số <= 0.04s) thì cập nhật
+    const existing = rig.timeline.keyframes.find(
+      (k) => k.boneName === boneName && Math.abs(k.time - clampedTime) <= 0.04
+    );
+    if (existing) {
+      existing.time = clampedTime;
+      existing.rot = cleanRot;
+      existing.pos = cleanPos;
+      return existing;
+    }
+
+    const created: GlbBoneKeyframe = {
+      id: 'kf_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 1e5).toString(36),
+      time: clampedTime,
+      boneName,
+      rot: cleanRot,
+      pos: cleanPos
+    };
+    rig.timeline.keyframes.push(created);
+    rig.timeline.keyframes.sort((a, b) => a.time - b.time);
+    return created;
+  }
+
+  deleteBoneKeyframe(propId: string, kfId: string): void {
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return;
+    const idx = rig.timeline.keyframes.findIndex((k) => k.id === kfId);
+    if (idx >= 0) {
+      rig.timeline.keyframes.splice(idx, 1);
+      this.evaluatePropKeyframesAtTime(propId, rig.currentTime);
+    }
+  }
+
+  clearAllBoneKeyframes(propId: string): void {
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return;
+    rig.timeline.keyframes = [];
+    rig.timeline.playing = false;
+    this.resetBonePose(propId);
+  }
+
+  /** Nội suy tư thế toàn bộ khớp xương tại thời điểm t bằng Quaternion Slerp */
+  evaluatePropKeyframesAtTime(propId: string, time: number): void {
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return;
+    const dur = Math.max(0.1, rig.timeline.duration || 3.0);
+    const t = Math.max(0, Math.min(dur, time));
+    rig.currentTime = t;
+
+    const kfs = rig.timeline.keyframes;
+    if (!Array.isArray(kfs) || kfs.length === 0) return;
+
+    // Nhóm keyframes theo boneName
+    const byBone = new Map<string, GlbBoneKeyframe[]>();
+    for (const k of kfs) {
+      if (!byBone.has(k.boneName)) byBone.set(k.boneName, []);
+      byBone.get(k.boneName)!.push(k);
+    }
+
+    byBone.forEach((list, boneName) => {
+      const bone = rig.bones.get(boneName);
+      if (!bone || list.length === 0) return;
+      list.sort((a, b) => a.time - b.time);
+
+      if (list.length === 1) {
+        const only = list[0];
+        this.setBonePoseDelta(propId, boneName, only.rot, only.pos);
+        return;
+      }
+
+      // Tìm cặp keyframe kề trước và kề sau thời điểm t
+      let kfA: GlbBoneKeyframe | null = null;
+      let kfB: GlbBoneKeyframe | null = null;
+      let span = 0;
+      let localT = 0;
+
+      if (t <= list[0].time) {
+        if (rig.timeline.loop && list.length >= 2) {
+          kfA = list[list.length - 1];
+          kfB = list[0];
+          span = (dur - kfA.time) + kfB.time;
+          localT = (dur - kfA.time) + t;
+        } else {
+          this.setBonePoseDelta(propId, boneName, list[0].rot, list[0].pos);
+          return;
+        }
+      } else if (t >= list[list.length - 1].time) {
+        if (rig.timeline.loop && list.length >= 2) {
+          kfA = list[list.length - 1];
+          kfB = list[0];
+          span = (dur - kfA.time) + kfB.time;
+          localT = t - kfA.time;
+        } else {
+          const last = list[list.length - 1];
+          this.setBonePoseDelta(propId, boneName, last.rot, last.pos);
+          return;
+        }
+      } else {
+        for (let i = 0; i < list.length - 1; i++) {
+          if (t >= list[i].time && t <= list[i + 1].time) {
+            kfA = list[i];
+            kfB = list[i + 1];
+            span = kfB.time - kfA.time;
+            localT = t - kfA.time;
+            break;
+          }
+        }
+      }
+
+      if (!kfA || !kfB || span <= 0.0001) {
+        const fallback = kfA || list[0];
+        this.setBonePoseDelta(propId, boneName, fallback.rot, fallback.pos);
+        return;
+      }
+
+      const alpha = Math.max(0, Math.min(1, localT / span));
+      // Smoothstep nhẹ giúp chuyển động khớp xương tự nhiên hơn
+      const qA = new pc.Quat().setFromEulerAngles(kfA.rot.x, kfA.rot.y, kfA.rot.z);
+      const qB = new pc.Quat().setFromEulerAngles(kfB.rot.x, kfB.rot.y, kfB.rot.z);
+      const qInterp = new pc.Quat().slerp(qA, qB, alpha);
+      const eulerInterp = qInterp.getEulerAngles();
+
+      const posInterp = {
+        x: kfA.pos.x + (kfB.pos.x - kfA.pos.x) * alpha,
+        y: kfA.pos.y + (kfB.pos.y - kfA.pos.y) * alpha,
+        z: kfA.pos.z + (kfB.pos.z - kfA.pos.z) * alpha
+      };
+
+      bone.curRotDelta = { x: eulerInterp.x, y: eulerInterp.y, z: eulerInterp.z };
+      bone.curPosDelta = posInterp;
+
+      const finalQuat = new pc.Quat().mul2(bone.restQuat, qInterp);
+      bone.node.setLocalRotation(finalQuat);
+      bone.node.setLocalPosition(
+        bone.restPos.x + posInterp.x,
+        bone.restPos.y + posInterp.y,
+        bone.restPos.z + posInterp.z
+      );
+    });
+  }
+
+  seekPropTimeline(propId: string, time: number): void {
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return;
+    const clamped = Math.max(0, Math.min(rig.timeline.duration, Number(time) || 0));
+    rig.currentTime = clamped;
+    if (rig.timeline.mode === 'clip' && rig.animComp?.baseLayer) {
+      try {
+        rig.animComp.baseLayer.activeStateCurrentTime = clamped;
+      } catch (_) {}
+    } else {
+      this.evaluatePropKeyframesAtTime(propId, clamped);
+    }
+  }
+
+  setPropTimelinePlaying(propId: string, playing: boolean): void {
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return;
+    rig.timeline.playing = !!playing;
+    rig.timeline.enabled = true;
+    if (rig.timeline.mode === 'clip') {
+      if (rig.timeline.playing) {
+        const clipName = rig.timeline.activeClipName || rig.clips[0]?.name;
+        if (clipName) this.playPropClip(propId, clipName);
+      } else if (rig.animComp) {
+        try { rig.animComp.speed = 0; } catch (_) {}
+      }
+    }
+  }
+
+  setPropTimelineConfig(propId: string, cfg: Partial<GlbPropTimelineData>): void {
+    const rig = this._propRigMap.get(propId);
+    if (!rig || !cfg) return;
+    if (typeof cfg.loop === 'boolean') rig.timeline.loop = cfg.loop;
+    if (typeof cfg.speed === 'number' && cfg.speed > 0) {
+      rig.timeline.speed = cfg.speed;
+      if (rig.animComp && rig.timeline.mode === 'clip' && rig.timeline.playing) {
+        try { rig.animComp.speed = cfg.speed; } catch (_) {}
+      }
+    }
+    if (typeof cfg.duration === 'number' && cfg.duration >= 0.5) {
+      rig.timeline.duration = Math.min(120, cfg.duration);
+    }
+    if (cfg.mode === 'clip' || cfg.mode === 'keyframes') {
+      rig.timeline.mode = cfg.mode;
+      if (cfg.mode === 'keyframes' && rig.animComp) {
+        try { rig.animComp.playing = false; } catch (_) {}
+        this.evaluatePropKeyframesAtTime(propId, rig.currentTime);
+      } else if (cfg.mode === 'clip') {
+        const clipName = rig.timeline.activeClipName || rig.clips[0]?.name;
+        if (clipName) this.playPropClip(propId, clipName);
+      }
+    }
+  }
+
+  playPropClip(propId: string, clipName: string): boolean {
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return false;
+    const clip = rig.clips.find((c) => c.name === clipName) || rig.clips[0];
+    if (!clip) return false;
+
+    rig.timeline.mode = 'clip';
+    rig.timeline.activeClipName = clip.name;
+    rig.timeline.duration = clip.duration;
+    rig.timeline.playing = true;
+    rig.timeline.enabled = true;
+
+    try {
+      if (!rig.animComp) {
+        rig.animComp = rig.glbEntity.anim || (rig.glbEntity as any).animation || rig.glbEntity.addComponent('anim', { activate: true });
+      }
+      if (rig.animComp) {
+        if (rig.animComp.assignAnimation) {
+          rig.animComp.assignAnimation(clip.name, clip.resource);
+          if (rig.animComp.baseLayer) {
+            rig.animComp.baseLayer.transition(clip.name, 0.15);
+          }
+          rig.animComp.playing = true;
+          rig.animComp.speed = rig.timeline.speed || 1.0;
+        } else if (rig.animComp.addClip) {
+          rig.animComp.addClip(clip.resource, clip.name);
+          rig.animComp.play(clip.name, 0.15);
+        }
+        return true;
+      }
+    } catch (e) {
+      console.warn('[SontinhScene] playPropClip error:', e);
+    }
+    return false;
+  }
+
+  importPropAnimationGlb(propId: string, blobUrl: string, fileName: string): Promise<{ ok: boolean; clipName?: string; duration?: number; error?: string }> {
+    return new Promise((resolve) => {
+      const rig = this._propRigMap.get(propId);
+      if (!rig || !this.app) {
+        resolve({ ok: false, error: 'Đồ vật GLB chưa sẵn sàng trên canvas.' });
+        return;
+      }
+      this.app.assets.loadFromUrl(blobUrl, 'container', (err: any, asset?: pc.Asset) => {
+        if (err || !asset?.resource) {
+          resolve({ ok: false, error: 'Không đọc được tệp GLB chuyển động.' });
+          return;
+        }
+        const rawAnims: any[] = Array.isArray((asset.resource as any).animations) ? (asset.resource as any).animations : [];
+        if (rawAnims.length === 0) {
+          resolve({ ok: false, error: 'Tệp GLB này không chứa dữ liệu chuyển động (animation track) nào.' });
+          return;
+        }
+        const baseLabel = String(fileName || 'CustomAnim').replace(/\.glb$/i, '');
+        let firstAddedName = '';
+        let firstDur = 2.5;
+        for (let i = 0; i < rawAnims.length; i++) {
+          const a = rawAnims[i];
+          const track = a?.resource || a;
+          if (!track) continue;
+          const cName = rawAnims.length === 1 ? baseLabel : `${baseLabel}_${i + 1}`;
+          const dur = Math.max(0.1, Number(track?.duration) || 2.5);
+          const existingIdx = rig.clips.findIndex((c) => c.name === cName);
+          if (existingIdx >= 0) rig.clips.splice(existingIdx, 1);
+          rig.clips.push({ name: cName, duration: dur, resource: track });
+          if (!firstAddedName) {
+            firstAddedName = cName;
+            firstDur = dur;
+          }
+        }
+        if (firstAddedName) {
+          this.playPropClip(propId, firstAddedName);
+          resolve({ ok: true, clipName: firstAddedName, duration: firstDur });
+        } else {
+          resolve({ ok: false, error: 'Không trích xuất được animation track hợp lệ.' });
+        }
+      });
+    });
+  }
+
+  /** Tạo nhanh bộ Keyframe mẫu tự động cho các khớp xương của GLB (Thở, Vẫy tay, Nhún nhảy, Nhìn quanh) */
+  applyProceduralBonePreset(propId: string, preset: 'breathe' | 'wave' | 'bounce' | 'look_around'): boolean {
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return false;
+    this.resetBonePose(propId);
+    rig.timeline.keyframes = [];
+    rig.timeline.mode = 'keyframes';
+    rig.timeline.duration = 2.4;
+    rig.timeline.loop = true;
+
+    const findBoneByRegex = (re: RegExp): string | null => {
+      for (const b of rig.bones.values()) {
+        if (b.name !== '__root__' && re.test(b.label)) return b.name;
+      }
+      return null;
+    };
+
+    const spineBone = findBoneByRegex(/spine1|spine2|chest|upperchest|spine/i) || '__root__';
+    const headBone = findBoneByRegex(/head|neck/i) || spineBone;
+    const rightArmBone = findBoneByRegex(/rightarm|arm_r|r_arm|rightforearm|hand_r/i) || spineBone;
+    const hipsBone = findBoneByRegex(/hips|pelvis|root/i) || '__root__';
+
+    const addKf = (boneName: string, time: number, rx: number, ry: number, rz: number, py = 0) => {
+      this.upsertBoneKeyframe(propId, boneName, time, { x: rx, y: ry, z: rz }, { x: 0, y: py, z: 0 });
+    };
+
+    if (preset === 'breathe') {
+      addKf(spineBone, 0.0, 0, 0, 0);
+      addKf(spineBone, 1.2, 6, 0, 0);
+      addKf(spineBone, 2.4, 0, 0, 0);
+      if (headBone !== spineBone) {
+        addKf(headBone, 0.0, 0, 0, 0);
+        addKf(headBone, 1.2, -4, 3, 0);
+        addKf(headBone, 2.4, 0, 0, 0);
+      }
+    } else if (preset === 'wave') {
+      addKf(rightArmBone, 0.0, 0, 0, 0);
+      addKf(rightArmBone, 0.6, -35, 0, -45);
+      addKf(rightArmBone, 1.2, -35, 0, -15);
+      addKf(rightArmBone, 1.8, -35, 0, -45);
+      addKf(rightArmBone, 2.4, 0, 0, 0);
+      if (headBone !== rightArmBone) {
+        addKf(headBone, 0.0, 0, 0, 0);
+        addKf(headBone, 1.2, 0, 8, 5);
+        addKf(headBone, 2.4, 0, 0, 0);
+      }
+    } else if (preset === 'bounce') {
+      addKf(hipsBone, 0.0, 0, 0, 0, 0);
+      addKf(hipsBone, 0.6, 5, -8, 0, 0.25);
+      addKf(hipsBone, 1.2, 0, 0, 0, 0);
+      addKf(hipsBone, 1.8, 5, 8, 0, 0.25);
+      addKf(hipsBone, 2.4, 0, 0, 0, 0);
+    } else if (preset === 'look_around') {
+      addKf(headBone, 0.0, 0, 0, 0);
+      addKf(headBone, 0.7, -5, -28, 0);
+      addKf(headBone, 1.7, -5, 28, 0);
+      addKf(headBone, 2.4, 0, 0, 0);
+      if (spineBone !== headBone) {
+        addKf(spineBone, 0.0, 0, 0, 0);
+        addKf(spineBone, 0.7, 0, -10, 0);
+        addKf(spineBone, 1.7, 0, 10, 0);
+        addKf(spineBone, 2.4, 0, 0, 0);
+      }
+    }
+
+    rig.currentTime = 0;
+    rig.timeline.playing = true;
+    this.evaluatePropKeyframesAtTime(propId, 0);
+    return true;
+  }
+
+  /** Được gọi mỗi khung hình từ vòng lặp update chính của PlayCanvas */
+  private _tickAllPropTimelines(dt: number): void {
+    if (this._boneHighlightEntity && this._boneHighlightEntity.enabled && this._highlightedBoneNode) {
+      try {
+        const wp = this._highlightedBoneNode.getPosition();
+        this._boneHighlightEntity.setPosition(wp.x, wp.y, wp.z);
+      } catch (_) {
+        this._boneHighlightEntity.enabled = false;
+      }
+    }
+
+    if (this._propRigMap.size === 0) return;
+    this._propRigMap.forEach((rig) => {
+      const tl = rig.timeline;
+      if (!tl || !tl.enabled) return;
+
+      if (tl.mode === 'clip') {
+        if (rig.animComp?.baseLayer && tl.playing) {
+          const cur = Number(rig.animComp.baseLayer.activeStateCurrentTime) || 0;
+          const dur = Math.max(0.1, tl.duration || 2.5);
+          rig.currentTime = cur % dur;
+          if (this.onTimelineTimeUpdate) {
+            this.onTimelineTimeUpdate(rig.propId, rig.currentTime, true);
+          }
+        }
+        return;
+      }
+
+      if (tl.mode === 'keyframes' && tl.playing && tl.keyframes.length > 0) {
+        const dur = Math.max(0.1, tl.duration || 3.0);
+        rig.currentTime += dt * (tl.speed || 1.0);
+        if (rig.currentTime >= dur) {
+          if (tl.loop) {
+            rig.currentTime = rig.currentTime % dur;
+          } else {
+            rig.currentTime = dur;
+            tl.playing = false;
+          }
+        }
+        this.evaluatePropKeyframesAtTime(rig.propId, rig.currentTime);
+        if (this.onTimelineTimeUpdate) {
+          this.onTimelineTimeUpdate(rig.propId, rig.currentTime, tl.playing);
+        }
+      }
+    });
   }
 
   /** Kiểm tra xem glbPath đã có sẵn trong Asset Cache chưa (tránh đọc lại file từ đĩa) */
@@ -1910,6 +2680,11 @@ export class SontinhSceneService implements OnDestroy {
       wrapper.setPosition(p.x, finalY, p.z);
       if (this._applyProps && prop) {
         try { this._applyProps([prop]); } catch (_) {}
+      }
+      try {
+        this._registerPropRig(propId, wrapper, glbEntity, container, prop);
+      } catch (rigErr) {
+        console.warn('[SontinhSceneService] Register prop rig warning:', rigErr);
       }
       console.log('[SontinhSceneService] Prop GLB loaded:', propId, 'bottomWorldY=', bottomWorldY, 'finalY=', finalY);
       onLoaded?.(true);
@@ -3274,8 +4049,67 @@ export class SontinhSceneService implements OnDestroy {
     }
     
     // Mouse & Touch Controls
+    let isPanning = false;
+    const panCameraByScreenDelta = (dx: number, dy: number) => {
+      if (dx === 0 && dy === 0) return;
+      const yawRad = orbitYaw * pc.math.DEG_TO_RAD;
+      const pitchRad = orbitPitch * pc.math.DEG_TO_RAD;
+
+      // Vector Right (ngang màn hình) và Up (dọc màn hình) chuẩn theo góc nhìn hiện tại của camera
+      const rightX = Math.cos(yawRad);
+      const rightZ = -Math.sin(yawRad);
+      const upX = -Math.sin(yawRad) * Math.sin(pitchRad);
+      const upY = Math.cos(pitchRad);
+      const upZ = -Math.cos(yawRad) * Math.sin(pitchRad);
+
+      const fovDeg = camera?.camera?.fov || 45;
+      const viewH = Math.max(1, canvas.clientHeight || 600);
+      // Tỷ lệ 1:1 giữa pixel kéo chuột và khoảng cách dịch chuyển trong không gian 3D tại tâm nhìn
+      const worldPerPixel = (2 * orbitDistance * Math.tan((fovDeg * Math.PI) / 360)) / viewH;
+
+      const moveRight = -dx * worldPerPixel;
+      const moveUp = dy * worldPerPixel;
+
+      targetPivot.x += rightX * moveRight + upX * moveUp;
+      targetPivot.y += upY * moveUp;
+      targetPivot.z += rightZ * moveRight + upZ * moveUp;
+
+      // Giới hạn vùng dịch chuyển để camera không bị chạm tường/sàn làm lệch góc nhìn hoặc độ zoom
+      const marginX = 2.0, marginZ = 2.0, marginY = 1.2;
+      const minX = EMPTY_SCENE ? -500 : -ROOM_WIDTH_X / 2 + marginX;
+      const maxX = EMPTY_SCENE ?  500 :  ROOM_WIDTH_X / 2 - marginX;
+      const minZ = EMPTY_SCENE ? -500 : -ROOM_DEPTH_Z / 2 + marginZ;
+      const maxZ = EMPTY_SCENE ?  500 :  ROOM_DEPTH_Z / 2 - marginZ;
+      const minY = EMPTY_SCENE ? -250 : 1.2;
+      const maxY = EMPTY_SCENE ?  500 : WALL_H - marginY;
+
+      const offX = targetDistance * Math.sin(yawRad) * Math.cos(pitchRad);
+      const offY = targetDistance * Math.sin(pitchRad);
+      const offZ = targetDistance * Math.cos(yawRad) * Math.cos(pitchRad);
+
+      targetPivot.x = pc.math.clamp(targetPivot.x, minX - offX, maxX - offX);
+      targetPivot.y = pc.math.clamp(targetPivot.y, minY - offY, maxY - offY);
+      targetPivot.z = pc.math.clamp(targetPivot.z, minZ - offZ, maxZ - offZ);
+    };
+
+    try {
+      canvas.addEventListener('contextmenu', (ev: MouseEvent) => ev.preventDefault());
+    } catch (e) { /* ignore */ }
+
     if (app.mouse) {
+      try { app.mouse.disableContextMenu(); } catch (e) { /* ignore */ }
+
       app.mouse.on(pc.EVENT_MOUSEDOWN, (e: pc.MouseEvent) => {
+        if (e.button === pc.MOUSEBUTTON_RIGHT || e.button === pc.MOUSEBUTTON_MIDDLE) {
+          mouseDownPos.x = e.x;
+          mouseDownPos.y = e.y;
+          lastMouseX = e.x;
+          lastMouseY = e.y;
+          isPanning = true;
+          isDragging = false;
+          try { canvas.style.cursor = 'grabbing'; } catch (err) { /* ignore */ }
+          return;
+        }
         if (e.button === pc.MOUSEBUTTON_LEFT) {
           mouseDownPos.x = e.x;
           mouseDownPos.y = e.y;
@@ -3292,6 +4126,11 @@ export class SontinhSceneService implements OnDestroy {
       });
     
       app.mouse.on(pc.EVENT_MOUSEUP, (e: pc.MouseEvent) => {
+        if (e.button === pc.MOUSEBUTTON_RIGHT || e.button === pc.MOUSEBUTTON_MIDDLE || isPanning) {
+          isPanning = false;
+          try { canvas.style.cursor = ''; } catch (err) { /* ignore */ }
+          if (e.button !== pc.MOUSEBUTTON_LEFT) return;
+        }
         const distMoved = Math.hypot(e.x - mouseDownPos.x, e.y - mouseDownPos.y);
         if (propDragCandidate || propDragActive) { handlePropMouseUp(e.x, e.y, distMoved); return; }
         if (distMoved < 5) {
@@ -3321,6 +4160,14 @@ export class SontinhSceneService implements OnDestroy {
     
       app.mouse.on(pc.EVENT_MOUSEMOVE, (e: pc.MouseEvent) => {
         if (propDragCandidate || propDragActive) { handlePropDragMove(e.x, e.y); return; }
+        if (isPanning) {
+          const dx = e.x - lastMouseX;
+          const dy = e.y - lastMouseY;
+          lastMouseX = e.x;
+          lastMouseY = e.y;
+          panCameraByScreenDelta(dx, dy);
+          return;
+        }
         if (!isDragging) return;
         const dx = e.x - lastMouseX;
         const dy = e.y - lastMouseY;
@@ -3345,6 +4192,10 @@ export class SontinhSceneService implements OnDestroy {
     
     window.addEventListener('mouseup', () => {
       isDragging = false;
+      if (isPanning) {
+        isPanning = false;
+        try { canvas.style.cursor = ''; } catch (err) { /* ignore */ }
+      }
       if (propDragActive || propDragCandidate) handlePropMouseUp(lastMouseX, lastMouseY, 99);
       propDragCandidate = null;
     });
@@ -7737,14 +8588,14 @@ export class SontinhSceneService implements OnDestroy {
       const marginZ = 2.0; // 2.0m away from Back/Front walls
       const marginY = 1.2; // 1.2m away from Floor/Ceiling
 
-      // Studio trong (EMPTY_SCENE): hop khoa rat rong de camera zoom-out tu do;
+      // Studio trong (EMPTY_SCENE): hop khoa rat rong de camera zoom-out va pan tu do;
       // phong that: giu margin sat tuong nhu cu.
-      const minX = EMPTY_SCENE ? -250 : -ROOM_WIDTH_X / 2 + marginX;
-      const maxX = EMPTY_SCENE ?  250 :  ROOM_WIDTH_X / 2 - marginX;
-      const minZ = EMPTY_SCENE ? -250 : -ROOM_DEPTH_Z / 2 + marginZ;
-      const maxZ = EMPTY_SCENE ?  250 :  ROOM_DEPTH_Z / 2 - marginZ;
-      const minY = EMPTY_SCENE ? 0.5 : 1.2;     // van khong chui duoi san
-      const maxY = EMPTY_SCENE ? 400 : WALL_H - marginY;
+      const minX = EMPTY_SCENE ? -500 : -ROOM_WIDTH_X / 2 + marginX;
+      const maxX = EMPTY_SCENE ?  500 :  ROOM_WIDTH_X / 2 - marginX;
+      const minZ = EMPTY_SCENE ? -500 : -ROOM_DEPTH_Z / 2 + marginZ;
+      const maxZ = EMPTY_SCENE ?  500 :  ROOM_DEPTH_Z / 2 - marginZ;
+      const minY = EMPTY_SCENE ? -250 : 1.2;
+      const maxY = EMPTY_SCENE ?  500 : WALL_H - marginY;
 
       const vx = targetCamPos.x - pivot.x;
       const vy = targetCamPos.y - pivot.y;
@@ -7795,6 +8646,9 @@ export class SontinhSceneService implements OnDestroy {
     
     app.on('update', (dt: number) => {
       timer += dt;
+
+      // 🌟 GLB SKELETAL RIG & BONE KEYFRAME TIMELINE TICKER
+      try { _svc._tickAllPropTimelines(dt); } catch (_) {}
 
       // 🌟 CUSTOM EFFECT RUNTIME — tick script hieu ung moi khung hinh
       if (activeEffects.size > 0) {
@@ -8011,34 +8865,83 @@ export class SontinhSceneService implements OnDestroy {
     
     // 🌟 CUSTOM EFFECT RUNTIME — thuc thi script JS hieu ung (tuyet roi, la roi, dom dom...)
     // Script nguoi dung/AI viet theo API: function effect(fx) { fx.spawnParticles(...); fx.onTick(...) }
-    const activeEffects = new Map<string, { root: pc.Entity; tickFns: Array<(dt: number) => void>; mis: pc.MeshInstance[] }>();
+    const activeEffects = new Map<string, { root: pc.Entity; tickFns: Array<(dt: number) => void>; mis: pc.MeshInstance[]; cleanupFns: Array<() => void> }>();
     const fxWorldLayer = () => app.scene.layers.getLayerByName('World') || app.scene.layers.getLayerByName('Skybox') || null;
 
     // Chuon hoa ten giong hec runPropEffect luu key: "Tuy_t r_i" -> "Tuy_t_r_i".
-    // BUG da sua: switch tat truyen ten GOC ("Tuy_t r_i") nhung key trong map la
-    // ten DA chuan hoa ("Tuy_t_r_i") -> get tra undefined -> ham thoat som ->
-    // khong don hat, tuyet van roi du switch dang o trang thai tat.
     function stopPropEffect(name: string): void {
+      if (name === '*') {
+        for (const k of Array.from(activeEffects.keys())) {
+          stopPropEffect(k);
+        }
+        try {
+          const allChildren = (app.root.children || []).slice();
+          for (const c of allChildren) {
+            const nm = String((c as any)?.name || '');
+            if (nm.startsWith('FX_') || nm.startsWith('FXP_')) {
+              try { (c as pc.Entity).destroy(); } catch (e) { /* ignore */ }
+            }
+          }
+        } catch (e) { /* ignore */ }
+        return;
+      }
+
       const normFxName = (s: string) => String(s || '').replace(/[^a-zA-Z0-9_-]/g, '_') || 'custom';
       const wanted = normFxName(name);
-      let key: string | null = activeEffects.has(wanted) ? wanted : null;
-      if (!key) {
-        for (const k of Array.from(activeEffects.keys())) {
-          if (normFxName(k) === wanted) { key = k; break; }
+      const keysToStop: string[] = [];
+      for (const k of Array.from(activeEffects.keys())) {
+        if (k === wanted || normFxName(k) === wanted || k.toLowerCase() === wanted.toLowerCase()) {
+          keysToStop.push(k);
         }
       }
-      if (!key) return;
-      const fx = activeEffects.get(key)!;
+
       const wl = fxWorldLayer();
-      for (const mi of fx.mis) {
-        try { if (wl) wl.removeMeshInstances([mi]); } catch (e) { /* ignore */ }
+      const allLayers: any[] = (app.scene?.layers as any)?.layerList || (wl ? [wl] : []);
+
+      for (const key of keysToStop) {
+        const fx = activeEffects.get(key);
+        if (!fx) continue;
+        fx.tickFns.length = 0;
+
+        if (Array.isArray(fx.mis) && fx.mis.length > 0) {
+          for (const mi of fx.mis) {
+            try { (mi as any).visible = false; } catch (e) { /* ignore */ }
+          }
+          for (const layer of allLayers) {
+            try { layer?.removeMeshInstances?.(fx.mis); } catch (e) {
+              for (const mi of fx.mis) {
+                try { layer?.removeMeshInstances?.([mi]); } catch (e2) { /* ignore */ }
+              }
+            }
+          }
+          fx.mis.length = 0;
+        }
+
+        if (Array.isArray(fx.cleanupFns)) {
+          for (const cleanFn of fx.cleanupFns) {
+            try { cleanFn(); } catch (e) { /* ignore */ }
+          }
+          fx.cleanupFns.length = 0;
+        }
+
+        try {
+          fx.root.getChildren().slice().forEach((c) => { (c as pc.Entity).destroy(); });
+          fx.root.destroy();
+        } catch (e) { /* ignore */ }
+        activeEffects.delete(key);
+        console.log('[SontinhScene] Effect stopped:', key);
       }
+
+      // Dọn dẹp các node FX_ / FXP_ còn sót trực tiếp dưới app.root có tên khớp
       try {
-        fx.root.getChildren().slice().forEach((c) => { (c as pc.Entity).destroy(); });
-        fx.root.destroy();
+        const rootCh = (app.root.children || []).slice();
+        for (const c of rootCh) {
+          const nm = String((c as any)?.name || '');
+          if (nm === 'FX_' + wanted || nm.startsWith('FXP_' + wanted + '_')) {
+            try { (c as pc.Entity).destroy(); } catch (e) { /* ignore */ }
+          }
+        }
       } catch (e) { /* ignore */ }
-      activeEffects.delete(key);
-      console.log('[SontinhScene] Effect stopped:', key);
     }
 
     // Bien hoa script kieu PlayCanvas Editor (pc.createScript + prototype.initialize/update)
@@ -8411,15 +9314,59 @@ export class SontinhSceneService implements OnDestroy {
         }
       };
 
+      const cleanupFns: Array<() => void> = [];
+      const rootChildrenBefore = new Set<any>((app.root.children || []).slice());
+      const hostChildrenBefore = new Set<any>(hostEntity ? (hostEntity.children || []).slice() : []);
+      const hadParticleOnHost = !!(hostEntity && (hostEntity as any).particlesystem);
+      const origAppOn = app.on.bind(app);
+      (app as any).on = (evt: string, handler: any, scope?: any) => {
+        cleanupFns.push(() => {
+          try { app.off(evt, handler, scope); } catch (e) { /* ignore */ }
+        });
+        return origAppOn(evt, handler, scope);
+      };
+
       try {
         const fn = new Function('fx', 'pc', '"use strict";\n' + normalizeFxScript(cmd.script) +
           '\n;(function(){ if (typeof effect === "function") { effect(fx); } else if (typeof init === "function") { init(fx); } })();');
         fn(api, pc);
       } catch (e) {
+        (app as any).on = origAppOn;
         console.warn('[SontinhScene] Effect script error:', e);
         try { fxRoot.destroy(); } catch (e2) { /* ignore */ }
         return false;
+      } finally {
+        (app as any).on = origAppOn;
       }
+
+      // Ghi nhận mọi entity hoặc particlesystem mà script tự gắn trực tiếp vào app.root / hostEntity
+      try {
+        for (const c of (app.root.children || []).slice()) {
+          if (c !== fxRoot && !rootChildrenBefore.has(c)) {
+            cleanupFns.push(() => {
+              try { (c as pc.Entity).destroy(); } catch (e) { /* ignore */ }
+            });
+          }
+        }
+        if (hostEntity) {
+          for (const c of (hostEntity.children || []).slice()) {
+            if (!hostChildrenBefore.has(c)) {
+              cleanupFns.push(() => {
+                try { (c as pc.Entity).destroy(); } catch (e) { /* ignore */ }
+              });
+            }
+          }
+          if (!hadParticleOnHost && (hostEntity as any).particlesystem) {
+            cleanupFns.push(() => {
+              try {
+                (hostEntity as any).particlesystem?.stop?.();
+                (hostEntity as any).particlesystem?.reset?.();
+                hostEntity?.removeComponent?.('particlesystem');
+              } catch (e) { /* ignore */ }
+            });
+          }
+        }
+      } catch (e) { /* ignore */ }
 
       // ===== FIX "import script tuyet ma khong co hat nao roi" =====
       // Nhung script copy tu PlayCanvas Editor/web dat ten "tuyet roi" nhung
@@ -8462,7 +9409,7 @@ export class SontinhSceneService implements OnDestroy {
         console.warn('[SontinhScene] Snow auto-layer fallback loi (bo qua):', e);
       }
 
-      activeEffects.set(fxName, { root: fxRoot, tickFns, mis });
+      activeEffects.set(fxName, { root: fxRoot, tickFns, mis, cleanupFns });
       console.log('[SontinhScene] Effect started:', fxName, '— tickFns:', tickFns.length);
       return true;
     }
