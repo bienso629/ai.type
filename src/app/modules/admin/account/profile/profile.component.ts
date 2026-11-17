@@ -13,7 +13,12 @@ import {
 import { Subject } from 'rxjs';
 import { takeUntil, take } from 'rxjs/operators';
 import { UserService } from 'app/core/user/user.service';
-import { SontinhSceneService } from './sontinh-scene.service';
+import {
+  SontinhSceneService,
+  GlbBoneInfo,
+  GlbBoneKeyframe,
+  GlbPropTimelineData
+} from './sontinh-scene.service';
 import { ProfileDataService, UserProfile } from './profile-data.service';
 import { GenaiService } from 'app/genai.service';
 
@@ -344,6 +349,11 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.sceneService.onPropLockChanged = (propId: string, locked: boolean) => {
         this.cdr.markForCheck();
       };
+      this.sceneService.onTimelineTimeUpdate = (propId: string, time: number, playing: boolean) => {
+        if (this.isGlbTimelineOpen && this.timelinePropId === propId) {
+          this.ngZoneRunTimelineUpdate(time, playing);
+        }
+      };
       this.sceneService.onPropSelected = (propId: string | null, pos: { x: number; y: number; z: number } | null) => {
         this.selectedPropId = propId;
         this.selectedPropPos = pos ? { ...pos } : null;
@@ -354,6 +364,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           const scl = prop?.scale;
           this.selectedPropRot = rot && typeof rot.x === 'number' ? { ...rot } : { x: 0, y: 0, z: 0 };
           this.selectedPropScl = scl && typeof scl.x === 'number' ? { ...scl } : { x: 1, y: 1, z: 1 };
+          if (this.isGlbTimelineOpen && this.sceneService.hasPropRig(propId)) {
+            this.openPropTimeline(propId);
+          }
         }
         if (!propId) {
           this.selectedPropRot = null;
@@ -808,9 +821,14 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   }
 
   /** Bat/tat hieu ung tu switch tren the (khong mat cau hinh da chinh) */
-  toggleFxEffect(fx: any, event: Event): void {
-    event.stopPropagation();
-    const checked = (event.target as HTMLInputElement).checked;
+  toggleFxEffect(fx: any, event: any): void {
+    if (event && typeof event.stopPropagation === 'function') {
+      event.stopPropagation();
+    }
+    const checked =
+      typeof event?.checked === 'boolean'
+        ? event.checked
+        : Boolean(event?.target?.checked);
     const ok = this.sceneService.setFxEffectEnabled(fx.id, checked);
     if (ok) {
       this.toastr.success(
@@ -819,8 +837,13 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       );
     } else {
       this.toastr.error(`Không bật/tắt được hiệu ứng "${fx.name}".`, 'Hiệu ứng canvas');
-      (event.target as HTMLInputElement).checked = !checked;
+      if (event?.source && 'checked' in event.source) {
+        event.source.checked = !checked;
+      } else if (event?.target) {
+        (event.target as HTMLInputElement).checked = !checked;
+      }
     }
+    this.cdr.markForCheck();
   }
 
   removeFxFromList(id: string, event?: Event): void {
@@ -1838,6 +1861,358 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     if (live) live.locked = next;
     this.profileDataService.saveProps(this.roomProps).subscribe();
     this.cdr.markForCheck();
+  }
+
+  // ============================================================================
+  // GLB BONE & ANIMATION TIMELINE STUDIO
+  // ============================================================================
+  isGlbTimelineOpen = false;
+  timelinePropId: string | null = null;
+  timelinePropName = '';
+  timelineBones: GlbBoneInfo[] = [];
+  timelineBoneSearch = '';
+  selectedBoneName = '__root__';
+  boneRot = { x: 0, y: 0, z: 0 };
+  bonePos = { x: 0, y: 0, z: 0 };
+  timelineAutoKey = true;
+  timelineClips: Array<{ name: string; duration: number }> = [];
+  timelineCurrentTime = 0;
+  timelineData: GlbPropTimelineData | null = null;
+  private _lastUiTickMs = 0;
+
+  get selectedPropHasRig(): boolean {
+    const pid = this.selectedPropId || this.propActionAnchor.propId;
+    return !!(pid && this.sceneService.hasPropRig(pid));
+  }
+
+  get filteredTimelineBones(): GlbBoneInfo[] {
+    const q = (this.timelineBoneSearch || '').trim().toLowerCase();
+    if (!q) return this.timelineBones;
+    return this.timelineBones.filter(
+      (b) => b.label.toLowerCase().includes(q) || b.name.toLowerCase().includes(q)
+    );
+  }
+
+  get activeBoneTrackNames(): string[] {
+    const names = new Set<string>();
+    if (this.selectedBoneName) names.add(this.selectedBoneName);
+    if (this.timelineData?.keyframes) {
+      for (const k of this.timelineData.keyframes) {
+        names.add(k.boneName);
+      }
+    }
+    return Array.from(names);
+  }
+
+  getBoneLabel(boneName: string): string {
+    const found = this.timelineBones.find((b) => b.name === boneName);
+    return found ? found.label : boneName;
+  }
+
+  getKeyframesForBone(boneName: string): GlbBoneKeyframe[] {
+    if (!this.timelineData?.keyframes) return [];
+    return this.timelineData.keyframes.filter((k) => k.boneName === boneName);
+  }
+
+  get activeKeyframeAtCurrentTime(): GlbBoneKeyframe | null {
+    if (!this.timelineData?.keyframes || !this.selectedBoneName) return null;
+    return (
+      this.timelineData.keyframes.find(
+        (k) => k.boneName === this.selectedBoneName && Math.abs(k.time - this.timelineCurrentTime) <= 0.05
+      ) || null
+    );
+  }
+
+  private ngZoneRunTimelineUpdate(time: number, playing: boolean): void {
+    const now = performance.now();
+    if (now - this._lastUiTickMs < 50 && playing) return;
+    this._lastUiTickMs = now;
+    this.timelineCurrentTime = Math.round(time * 100) / 100;
+    if (this.timelinePropId && this.selectedBoneName && this.timelineData?.mode === 'keyframes') {
+      const pose = this.sceneService.getBonePoseDelta(this.timelinePropId, this.selectedBoneName);
+      this.boneRot = {
+        x: Math.round(pose.rot.x * 10) / 10,
+        y: Math.round(pose.rot.y * 10) / 10,
+        z: Math.round(pose.rot.z * 10) / 10
+      };
+      this.bonePos = {
+        x: Math.round(pose.pos.x * 100) / 100,
+        y: Math.round(pose.pos.y * 100) / 100,
+        z: Math.round(pose.pos.z * 100) / 100
+      };
+    }
+    this.cdr.markForCheck();
+  }
+
+  openPropTimeline(propId?: string | null, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    const pid = propId || this.selectedPropId || this.propActionAnchor.propId;
+    if (!pid) return;
+    if (!this.sceneService.hasPropRig(pid)) {
+      this.toastr.info('Đồ vật này chưa nạp mô hình GLB trên canvas.', 'Timeline 3D');
+      return;
+    }
+    this.timelinePropId = pid;
+    const prop = this.roomProps?.find((p) => p && p.id === pid);
+    this.timelinePropName = prop?.name || pid;
+    this.timelineBones = this.sceneService.getPropBones(pid);
+    this.timelineClips = this.sceneService.getPropClips(pid);
+    this.timelineData = this.sceneService.getPropTimeline(pid);
+    this.timelineCurrentTime = Math.round(this.sceneService.getPropCurrentTime(pid) * 100) / 100;
+
+    // Ưu tiên chọn xương đầu tiên có trong danh sách (bỏ qua __root__ nếu mô hình có xương thật)
+    const firstSkinned = this.timelineBones.find((b) => b.isSkinnedBone) || this.timelineBones[1] || this.timelineBones[0];
+    this.selectedBoneName = firstSkinned ? firstSkinned.name : '__root__';
+    this.selectTimelineBone(this.selectedBoneName);
+    this.isGlbTimelineOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closePropTimeline(): void {
+    this.isGlbTimelineOpen = false;
+    this.sceneService.highlightPropBone(null, null);
+    this.cdr.markForCheck();
+  }
+
+  selectTimelineBone(boneName: string): void {
+    this.selectedBoneName = boneName;
+    if (!this.timelinePropId) return;
+    this.sceneService.highlightPropBone(this.timelinePropId, boneName);
+    const pose = this.sceneService.getBonePoseDelta(this.timelinePropId, boneName);
+    this.boneRot = {
+      x: Math.round(pose.rot.x * 10) / 10,
+      y: Math.round(pose.rot.y * 10) / 10,
+      z: Math.round(pose.rot.z * 10) / 10
+    };
+    this.bonePos = {
+      x: Math.round(pose.pos.x * 100) / 100,
+      y: Math.round(pose.pos.y * 100) / 100,
+      z: Math.round(pose.pos.z * 100) / 100
+    };
+    this.cdr.markForCheck();
+  }
+
+  onBoneTransformChange(): void {
+    if (!this.timelinePropId || !this.selectedBoneName) return;
+    if (this.timelineData) {
+      this.timelineData.mode = 'keyframes';
+      this.timelineData.playing = false;
+    }
+    this.sceneService.setBonePoseDelta(
+      this.timelinePropId,
+      this.selectedBoneName,
+      this.boneRot,
+      this.bonePos
+    );
+    if (this.timelineAutoKey) {
+      this.sceneService.upsertBoneKeyframe(
+        this.timelinePropId,
+        this.selectedBoneName,
+        this.timelineCurrentTime,
+        this.boneRot,
+        this.bonePos
+      );
+      this.saveTimelineToProp(true);
+    }
+    this.cdr.markForCheck();
+  }
+
+  addCurrentBoneKeyframe(): void {
+    if (!this.timelinePropId || !this.selectedBoneName) return;
+    const kf = this.sceneService.upsertBoneKeyframe(
+      this.timelinePropId,
+      this.selectedBoneName,
+      this.timelineCurrentTime,
+      this.boneRot,
+      this.bonePos
+    );
+    if (kf) {
+      this.saveTimelineToProp(true);
+      this.toastr.success(
+        `Đã lưu Keyframe cho khớp "${this.getBoneLabel(this.selectedBoneName)}" tại ${kf.time.toFixed(2)}s.`,
+        'Timeline GLB'
+      );
+    }
+    this.cdr.markForCheck();
+  }
+
+  deleteTimelineKeyframe(kfId: string, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    if (!this.timelinePropId) return;
+    this.sceneService.deleteBoneKeyframe(this.timelinePropId, kfId);
+    this.saveTimelineToProp(true);
+    this.cdr.markForCheck();
+  }
+
+  jumpToKeyframe(kf: GlbBoneKeyframe, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    if (!this.timelinePropId) return;
+    this.sceneService.setPropTimelinePlaying(this.timelinePropId, false);
+    this.timelineCurrentTime = kf.time;
+    this.sceneService.seekPropTimeline(this.timelinePropId, kf.time);
+    this.selectTimelineBone(kf.boneName);
+  }
+
+  resetCurrentBonePose(): void {
+    if (!this.timelinePropId || !this.selectedBoneName) return;
+    this.boneRot = { x: 0, y: 0, z: 0 };
+    this.bonePos = { x: 0, y: 0, z: 0 };
+    this.sceneService.resetBonePose(this.timelinePropId, this.selectedBoneName);
+    if (this.timelineAutoKey) {
+      this.sceneService.upsertBoneKeyframe(
+        this.timelinePropId,
+        this.selectedBoneName,
+        this.timelineCurrentTime,
+        this.boneRot,
+        this.bonePos
+      );
+      this.saveTimelineToProp(true);
+    }
+    this.cdr.markForCheck();
+  }
+
+  resetAllBonesPose(): void {
+    if (!this.timelinePropId) return;
+    this.boneRot = { x: 0, y: 0, z: 0 };
+    this.bonePos = { x: 0, y: 0, z: 0 };
+    this.sceneService.resetBonePose(this.timelinePropId);
+    this.cdr.markForCheck();
+  }
+
+  clearTimelineKeyframes(): void {
+    if (!this.timelinePropId) return;
+    this.sceneService.clearAllBoneKeyframes(this.timelinePropId);
+    this.boneRot = { x: 0, y: 0, z: 0 };
+    this.bonePos = { x: 0, y: 0, z: 0 };
+    this.saveTimelineToProp(true);
+    this.toastr.info('Đã xóa toàn bộ Keyframe và đưa khớp xương về tư thế gốc.', 'Timeline GLB');
+    this.cdr.markForCheck();
+  }
+
+  onTimelineScrub(timeVal: number): void {
+    if (!this.timelinePropId) return;
+    const t = Number(timeVal) || 0;
+    this.timelineCurrentTime = Math.round(t * 100) / 100;
+    this.sceneService.setPropTimelinePlaying(this.timelinePropId, false);
+    this.sceneService.seekPropTimeline(this.timelinePropId, this.timelineCurrentTime);
+    if (this.selectedBoneName && this.timelineData?.mode === 'keyframes') {
+      const pose = this.sceneService.getBonePoseDelta(this.timelinePropId, this.selectedBoneName);
+      this.boneRot = {
+        x: Math.round(pose.rot.x * 10) / 10,
+        y: Math.round(pose.rot.y * 10) / 10,
+        z: Math.round(pose.rot.z * 10) / 10
+      };
+      this.bonePos = {
+        x: Math.round(pose.pos.x * 100) / 100,
+        y: Math.round(pose.pos.y * 100) / 100,
+        z: Math.round(pose.pos.z * 100) / 100
+      };
+    }
+    this.cdr.markForCheck();
+  }
+
+  toggleTimelinePlay(): void {
+    if (!this.timelinePropId || !this.timelineData) return;
+    const next = !this.timelineData.playing;
+    if (next && this.timelineData.mode === 'keyframes' && (!this.timelineData.keyframes || this.timelineData.keyframes.length === 0)) {
+      this.toastr.warning('Chưa có Keyframe nào trên Timeline. Hãy xoay khớp xương hoặc chọn một mẫu chuyển động nhanh.', 'Timeline GLB');
+      return;
+    }
+    this.sceneService.setPropTimelinePlaying(this.timelinePropId, next);
+    this.saveTimelineToProp(true);
+    this.cdr.markForCheck();
+  }
+
+  stopTimelinePlayback(): void {
+    if (!this.timelinePropId) return;
+    this.sceneService.setPropTimelinePlaying(this.timelinePropId, false);
+    this.timelineCurrentTime = 0;
+    this.sceneService.seekPropTimeline(this.timelinePropId, 0);
+    this.saveTimelineToProp(true);
+    this.cdr.markForCheck();
+  }
+
+  onTimelineConfigChange(): void {
+    if (!this.timelinePropId || !this.timelineData) return;
+    this.sceneService.setPropTimelineConfig(this.timelinePropId, {
+      loop: this.timelineData.loop,
+      speed: Number(this.timelineData.speed) || 1.0,
+      duration: Math.max(0.5, Number(this.timelineData.duration) || 3.0),
+      mode: this.timelineData.mode
+    });
+    this.saveTimelineToProp(true);
+    this.cdr.markForCheck();
+  }
+
+  selectTimelineClip(clipName: string): void {
+    if (!this.timelinePropId) return;
+    if (this.sceneService.playPropClip(this.timelinePropId, clipName)) {
+      this.timelineData = this.sceneService.getPropTimeline(this.timelinePropId);
+      this.saveTimelineToProp(true);
+      this.toastr.success(`Đang phát clip chuyển động "${clipName}".`, 'Timeline GLB');
+    }
+    this.cdr.markForCheck();
+  }
+
+  applyBonePreset(preset: 'breathe' | 'wave' | 'bounce' | 'look_around'): void {
+    if (!this.timelinePropId) return;
+    if (this.sceneService.applyProceduralBonePreset(this.timelinePropId, preset)) {
+      this.timelineData = this.sceneService.getPropTimeline(this.timelinePropId);
+      this.saveTimelineToProp(true);
+      const labelMap = {
+        breathe: 'Thở nhịp nhàng',
+        wave: 'Vẫy chào',
+        bounce: 'Nhún nhảy',
+        look_around: 'Xoay nhìn quanh'
+      };
+      this.toastr.success(`Đã tạo Keyframe mẫu "${labelMap[preset]}" và phát trên Timeline.`, 'Timeline GLB');
+    }
+    this.cdr.markForCheck();
+  }
+
+  onPropAnimGlbSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    if (input) input.value = '';
+    if (!file || !this.timelinePropId) return;
+    if (!/\.glb$/i.test(file.name)) {
+      this.toastr.error('Vui lòng chọn tệp định dạng .GLB chứa animation.', 'Timeline GLB');
+      return;
+    }
+    const blobUrl = URL.createObjectURL(file);
+    this.sceneService.importPropAnimationGlb(this.timelinePropId, blobUrl, file.name).then((res) => {
+      URL.revokeObjectURL(blobUrl);
+      if (res.ok) {
+        this.timelineClips = this.sceneService.getPropClips(this.timelinePropId!);
+        this.timelineData = this.sceneService.getPropTimeline(this.timelinePropId!);
+        this.saveTimelineToProp(true);
+        this.toastr.success(`Đã nạp và phát chuyển động "${res.clipName}" (${res.duration?.toFixed(2)}s).`, 'Timeline GLB');
+      } else {
+        this.toastr.error(res.error || 'Không nạp được animation từ tệp GLB.', 'Timeline GLB');
+      }
+      this.cdr.markForCheck();
+    });
+  }
+
+  saveTimelineToProp(silent = false): void {
+    if (!this.timelinePropId) return;
+    const tl = this.sceneService.getPropTimeline(this.timelinePropId);
+    const prop = this.roomProps?.find((p) => p && p.id === this.timelinePropId);
+    if (prop && tl) {
+      prop.boneTimeline = JSON.parse(JSON.stringify(tl));
+      this.profileDataService.saveProps(this.roomProps).subscribe();
+      if (!silent) {
+        this.toastr.success(`Đã lưu Timeline chuyển động cho "${prop.name}".`, 'Timeline GLB');
+      }
+    }
   }
 
   /** Trigger thêm đồ vật mới */
