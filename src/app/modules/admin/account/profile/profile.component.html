@@ -451,54 +451,56 @@
                                 [class.prop-card--used]="prop.visible !== false"
                                 (click)="onPropClick(prop)"
                             >
-                                <!-- Thumbnail preview lớn (GLB đã render offscreen) -->
-                                @if (prop.thumbnail) {
-                                    <img
-                                        [src]="prop.thumbnail"
-                                        [alt]="prop.name"
-                                        class="prop-thumb"
-                                        draggable="false"
-                                    />
-                                } @else if (prop.glbPath) {
-                                    <div class="prop-thumb prop-thumb--empty">
-                                        <mat-icon class="icon-size-6">view_in_ar</mat-icon>
-                                    </div>
-                                }
-                                <div class="prop-card__info">
-                                    <div class="prop-card__name-row">
-                                        <span class="prop-card__name" [title]="prop.name">{{ prop.name }}</span>
-                                        @if (prop.locked) {
-                                            <mat-icon
-                                                class="prop-card__lock"
-                                                [title]="prop.name + ' đang khóa — không di chuyển/xoay/scale được'"
-                                                >lock</mat-icon
-                                            >
-                                        }
+                                <!-- Thumbnail preview lớn (GLB đã render offscreen) + Nút thao tác bên trong -->
+                                <div class="prop-thumb-wrap">
+                                    @if (prop.thumbnail) {
+                                        <img
+                                            [src]="prop.thumbnail"
+                                            [alt]="prop.name"
+                                            class="prop-thumb"
+                                            draggable="false"
+                                        />
+                                    } @else {
+                                        <div class="prop-thumb prop-thumb--empty">
+                                            <mat-icon class="icon-size-6">view_in_ar</mat-icon>
+                                        </div>
+                                    }
+
+                                    @if (prop.locked) {
+                                        <span
+                                            class="prop-thumb-lock"
+                                            [title]="prop.name + ' đang khóa — không di chuyển/xoay/scale được'"
+                                        >
+                                            <mat-icon>lock</mat-icon>
+                                        </span>
+                                    }
+
+                                    <div class="prop-thumb-actions" (click)="$event.stopPropagation()">
                                         @if (prop.glbPath) {
                                             <button
+                                                type="button"
                                                 mat-icon-button
-                                                class="prop-card__tune"
+                                                class="prop-thumb-btn"
                                                 (click)="$event.stopPropagation(); onPropClick(prop); openPropTimeline(prop.id, $event)"
                                                 title="Timeline Chuyển động & Khớp xương (GLB Rig)"
                                             >
-                                                <mat-icon
-                                                    class="icon-size-4 text-teal-600 hover:text-teal-500"
-                                                    >movie</mat-icon
-                                                >
+                                                <mat-icon class="text-teal-600 hover:text-teal-500">movie</mat-icon>
                                             </button>
                                         }
-                                        <!-- Nút Thuộc tính & Phương thức hành động -->
                                         <button
+                                            type="button"
                                             mat-icon-button
-                                            class="prop-card__tune"
+                                            class="prop-thumb-btn"
                                             (click)="$event.stopPropagation(); openPropInspector(prop)"
                                             title="Thuộc tính & Phương thức hành động"
                                         >
-                                            <mat-icon
-                                                class="icon-size-4 text-slate-400 hover:text-teal-600"
-                                                >tune</mat-icon
-                                            >
+                                            <mat-icon class="text-slate-500 hover:text-teal-600">tune</mat-icon>
                                         </button>
+                                    </div>
+                                </div>
+                                <div class="prop-card__info">
+                                    <div class="prop-card__name-row">
+                                        <span class="prop-card__name" [title]="prop.name">{{ prop.name }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -602,55 +604,57 @@
                                 [class.prop-card--selected]="prop.id === selectedPropId"
                                 (click)="onPropClick(prop)"
                             >
-                                @if (prop.thumbnail) {
-                                    <img
-                                        [src]="prop.thumbnail"
-                                        [alt]="prop.name"
-                                        class="prop-thumb"
-                                        draggable="false"
-                                    />
-                                } @else if (prop.glbPath) {
-                                    <div class="prop-thumb prop-thumb--empty">
-                                        <mat-icon class="icon-size-6">view_in_ar</mat-icon>
+                                <div class="prop-thumb-wrap">
+                                    @if (prop.thumbnail) {
+                                        <img
+                                            [src]="prop.thumbnail"
+                                            [alt]="prop.name"
+                                            class="prop-thumb"
+                                            draggable="false"
+                                        />
+                                    } @else {
+                                        <div class="prop-thumb prop-thumb--empty">
+                                            <mat-icon class="icon-size-6">view_in_ar</mat-icon>
+                                        </div>
+                                    }
+
+                                    @if (prop.locked) {
+                                        <span
+                                            class="prop-thumb-lock"
+                                            [title]="prop.name + ' đang khóa — không di chuyển/xoay/scale được'"
+                                        >
+                                            <mat-icon>lock</mat-icon>
+                                        </span>
+                                    }
+
+                                    <div class="prop-thumb-actions" (click)="$event.stopPropagation()">
+                                        @if (prop.glbPath) {
+                                            <button
+                                                type="button"
+                                                mat-icon-button
+                                                class="prop-thumb-btn"
+                                                (click)="$event.stopPropagation(); onPropClick(prop); openPropTimeline(prop.id, $event)"
+                                                title="Timeline Chuyển động & Khớp xương (GLB Rig)"
+                                            >
+                                                <mat-icon class="text-teal-600 hover:text-teal-500">movie</mat-icon>
+                                            </button>
+                                        }
+                                        <button
+                                            type="button"
+                                            mat-icon-button
+                                            class="prop-thumb-btn"
+                                            (click)="$event.stopPropagation(); openPropInspector(prop)"
+                                            title="Thuộc tính & Phương thức hành động"
+                                        >
+                                            <mat-icon class="text-slate-500 hover:text-teal-600">tune</mat-icon>
+                                        </button>
                                     </div>
-                                }
+                                </div>
                                 <div class="prop-card__info">
                                     <div class="prop-card__name-row">
                                         <span class="prop-card__name" [title]="prop.name">{{
                                             prop.name
                                         }}</span>
-                                        @if (prop.locked) {
-                                            <mat-icon
-                                                class="prop-card__lock"
-                                                [title]="prop.name + ' đang khóa — không di chuyển/xoay/scale được'"
-                                                >lock</mat-icon
-                                            >
-                                        }
-                                        @if (prop.glbPath) {
-                                            <button
-                                                mat-icon-button
-                                                class="prop-card__tune"
-                                                (click)="$event.stopPropagation(); onPropClick(prop); openPropTimeline(prop.id, $event)"
-                                                title="Timeline Chuyển động & Khớp xương (GLB Rig)"
-                                            >
-                                                <mat-icon
-                                                    class="icon-size-4 text-teal-600 hover:text-teal-500"
-                                                    >movie</mat-icon
-                                                >
-                                            </button>
-                                        }
-                                        <!-- Nút Thuộc tính & Phương thức hành động -->
-                                        <button
-                                            mat-icon-button
-                                            class="prop-card__tune"
-                                            (click)="$event.stopPropagation(); openPropInspector(prop)"
-                                            title="Thuộc tính & Phương thức hành động"
-                                        >
-                                            <mat-icon
-                                                class="icon-size-4 text-slate-400 hover:text-teal-600"
-                                                >tune</mat-icon
-                                            >
-                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -673,20 +677,21 @@
                         }
                         @for (fx of sceneService.fxEffects; track fx.id) {
                             <div
-                                class="sidebar-sub-item prop-card group cursor-pointer"
+                                class="sidebar-sub-item prop-card fx-card group cursor-pointer"
                                 [class.prop-card--selected]="fx.id === fxInspectingId"
                                 (click)="openFxEffectInspector(fx.id)"
                                 [title]="'Cấu hình hiệu ứng: ' + fx.name"
                             >
-                                <div class="prop-thumb fx-thumb">
-                                    <mat-icon class="icon-size-5">auto_awesome</mat-icon>
+                                <div class="prop-card__info flex-1 min-w-0">
+                                    <span class="prop-card__name" [title]="fx.name">{{ fx.name }}</span>
+                                    <div class="fx-file-name" [title]="fx.fileName">{{ fx.fileName }}</div>
                                 </div>
-                                <div class="prop-card__info">
-                                    <div class="prop-card__name-row">
-                                        <span class="prop-card__name" [title]="fx.name">{{ fx.name }}</span>
+                                <div class="fx-card__actions" (click)="$event.stopPropagation()">
+                                    <div class="fx-card__hover-btns">
                                         <button
+                                            type="button"
                                             mat-icon-button
-                                            class="prop-card__tune"
+                                            class="fx-card__action-btn"
                                             (click)="$event.stopPropagation(); openFxEffectInspector(fx.id)"
                                             title="Cấu hình thuộc tính hiệu ứng"
                                         >
@@ -695,16 +700,10 @@
                                                 >tune</mat-icon
                                             >
                                         </button>
-                                        <mat-slide-toggle
-                                            class="fx-card__toggle"
-                                            [checked]="sceneService.isFxEffectEnabled(fx.id)"
-                                            (change)="toggleFxEffect(fx, $event)"
-                                            (click)="$event.stopPropagation()"
-                                            title="Bật/tắt hiệu ứng (giữ nguyên cấu hình)"
-                                        ></mat-slide-toggle>
                                         <button
+                                            type="button"
                                             mat-icon-button
-                                            class="prop-card__tune"
+                                            class="fx-card__action-btn"
                                             (click)="removeFxFromList(fx.id, $event)"
                                             title="Gỡ khỏi danh sách & dừng hiệu ứng"
                                         >
@@ -714,7 +713,13 @@
                                             >
                                         </button>
                                     </div>
-                                    <div class="fx-file-name">{{ fx.fileName }}</div>
+                                    <mat-slide-toggle
+                                        class="fx-card__toggle"
+                                        [checked]="sceneService.isFxEffectEnabled(fx.id)"
+                                        (change)="toggleFxEffect(fx, $event)"
+                                        (click)="$event.stopPropagation()"
+                                        title="Bật/tắt hiệu ứng (giữ nguyên cấu hình)"
+                                    ></mat-slide-toggle>
                                 </div>
                             </div>
                         }

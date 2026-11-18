@@ -29,6 +29,7 @@ const { registerProjectStoreHandlers } = require("./project-store");
 const { registerProfileHandlers } = require("./local-profiles");
 const { registerDesignPresetHandlers } = require("./design-presets");
 const { registerFontsHandlers } = require("./fonts");
+const { registerWorkspaceFoldersHandlers } = require("./workspace-folders");
 const { generateEdgeAudio } = require("./edge-tts-v2");
 const { registerOperaCodecHandlers } = require("./opera-codec");
 const { initDatabase } = require("./database");
@@ -5821,6 +5822,7 @@ app.whenReady().then(async () => {
     registerProfileHandlers();
     registerDesignPresetHandlers();
     registerFontsHandlers();
+    registerWorkspaceFoldersHandlers();
     registerOperaCodecHandlers(ipcMain);
     initDatabase(app, ipcMain);
     if (process.platform === 'win32') {
@@ -8933,6 +8935,126 @@ ipcMain.handle('check-file-exists', async (event, filePath) => {
     }
 });
 
+/**
+ * Xuất toàn bộ cookie đang đăng nhập trong phiên Electron (defaultSession + persist:gemini-webview)
+ * kết hợp với customCookies / cookies.json ra định dạng Netscape Cookie File cho yt-dlp.
+ * Hỗ trợ đầy đủ cả Facebook, YouTube, TikTok, Instagram, X...
+ */
+async function buildYtDlpCookieFile(targetUrl, customCookies, targetDir) {
+    try {
+        const cookieMap = new Map();
+        const addNetscapeLine = (domain, pathVal, secure, expiration, name, value) => {
+            if (!domain || !name || value === undefined || value === null) return;
+            const cleanDomain = String(domain).trim();
+            if (!cleanDomain) return;
+            const includeSubdomains = cleanDomain.startsWith('.') ? 'TRUE' : 'FALSE';
+            const cPath = pathVal || '/';
+            const secStr = secure ? 'TRUE' : 'FALSE';
+            const expInt = expiration && !isNaN(Number(expiration)) ? Math.max(0, Math.round(Number(expiration))) : 0;
+            const cleanName = String(name).replace(/[\r\n\t]/g, '');
+            const cleanVal = String(value).replace(/[\r\n\t]/g, '');
+            if (!cleanName) return;
+            cookieMap.set(`${cleanDomain}|${cPath}|${cleanName}`, `${cleanDomain}\t${includeSubdomains}\t${cPath}\t${secStr}\t${expInt}\t${cleanName}\t${cleanVal}`);
+        };
+
+        // 1. Lấy trực tiếp cookie đã đăng nhập trong Electron (defaultSession + persist:gemini-webview)
+        const sessionsToRead = [session.defaultSession];
+        try {
+            const wvSess = session.fromPartition('persist:gemini-webview');
+            if (wvSess) sessionsToRead.push(wvSess);
+        } catch (e) {}
+
+        for (const sess of sessionsToRead) {
+            try {
+                const liveCookies = await sess.cookies.get({});
+                for (const c of liveCookies) {
+                    const exp = c.expirationDate ? Math.round(c.expirationDate) : 0;
+                    addNetscapeLine(c.domain || '', c.path || '/', Boolean(c.secure), exp, c.name, c.value);
+                }
+            } catch (e) {}
+        }
+
+        // 2. Bổ sung từ cookies.json (nếu chưa truyền customCookies)
+        let rawCustom = typeof customCookies === 'string' ? customCookies.trim() : '';
+        if (!rawCustom) {
+            const cookiesJsonPath = path.join(__dirname, 'cookies.json');
+            if (fs.existsSync(cookiesJsonPath)) {
+                try {
+                    rawCustom = fs.readFileSync(cookiesJsonPath, 'utf8').trim();
+                } catch (e) {}
+            }
+        }
+
+        // 3. Hợp nhất customCookies (hỗ trợ JSON mảng, Netscape, hoặc chuỗi raw key=value)
+        if (rawCustom) {
+            if (rawCustom.startsWith('[')) {
+                try {
+                    const cookiesData = JSON.parse(rawCustom);
+                    for (const c of cookiesData) {
+                        const exp = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
+                        addNetscapeLine(c.domain || '', c.path || '/', Boolean(c.secure), exp, c.name, c.value);
+                    }
+                } catch (e) {}
+            } else if (rawCustom.includes('# Netscape') || rawCustom.includes('# HTTP Cookie File')) {
+                const lines = rawCustom.split(/\r?\n/);
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed || trimmed.startsWith('#')) continue;
+                    const parts = trimmed.split('\t');
+                    if (parts.length >= 7) {
+                        cookieMap.set(`${parts[0]}|${parts[2]}|${parts[5]}`, trimmed);
+                    }
+                }
+            } else {
+                let cookieDomain = '.youtube.com';
+                try {
+                    const parsedUrl = new URL(targetUrl);
+                    const host = parsedUrl.hostname.replace(/^www\./, '').replace(/^m\./, '');
+                    if (host.includes('fb.watch') || host.includes('fb.com') || host.includes('facebook.com')) {
+                        cookieDomain = '.facebook.com';
+                    } else if (host.includes('youtu.be') || host.includes('youtube.com')) {
+                        cookieDomain = '.youtube.com';
+                    } else {
+                        cookieDomain = '.' + host;
+                    }
+                } catch (e) {
+                    if (String(targetUrl).includes('facebook.com') || String(targetUrl).includes('fb.watch')) {
+                        cookieDomain = '.facebook.com';
+                    } else if (String(targetUrl).includes('tiktok.com')) {
+                        cookieDomain = '.tiktok.com';
+                    }
+                }
+                const pairs = rawCustom.split(';');
+                for (const pair of pairs) {
+                    const trimmed = pair.trim();
+                    if (!trimmed) continue;
+                    const idx = trimmed.indexOf('=');
+                    if (idx > 0) {
+                        const key = trimmed.substring(0, idx).trim();
+                        const val = trimmed.substring(idx + 1).trim();
+                        addNetscapeLine(cookieDomain, '/', true, 0, key, val);
+                    }
+                }
+            }
+        }
+
+        if (cookieMap.size === 0) return null;
+
+        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# Generated by AI.Type\n\n";
+        for (const line of cookieMap.values()) {
+            netscapeStr += line + "\n";
+        }
+
+        const dir = targetDir && fs.existsSync(targetDir) ? targetDir : app.getPath('temp');
+        const tempCookiePath = path.join(dir, `cookies_ytdlp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.txt`);
+        fs.writeFileSync(tempCookiePath, netscapeStr, 'utf8');
+        return tempCookiePath;
+    } catch (err) {
+        console.error('[buildYtDlpCookieFile] Lỗi tạo file cookie cho yt-dlp:', err);
+        return null;
+    }
+}
+
 ipcMain.handle('download-single-video-temp', async (event, payload) => {
     try {
         const url = typeof payload === 'string' ? payload : payload.url;
@@ -8948,7 +9070,7 @@ ipcMain.handle('download-single-video-temp', async (event, payload) => {
         fs.mkdirSync(videoFolder, { recursive: true });
 
         const outputTemplate = path.join(videoFolder, `video.%(ext)s`);
-        const args = [
+        const baseArgs = [
             '-o', outputTemplate,
             '--newline',
             '--no-warnings',
@@ -8960,61 +9082,18 @@ ipcMain.handle('download-single-video-temp', async (event, payload) => {
             '--merge-output-format', 'mp4'
         ];
         if (binaries.ffmpeg) {
-            args.push('--ffmpeg-location', binaries.ffmpeg);
+            baseArgs.push('--ffmpeg-location', binaries.ffmpeg);
         }
 
-        const isFacebook = url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com');
-        
-        if (!customCookies || !customCookies.trim()) {
-            const cookiesJsonPath = path.join(__dirname, 'cookies.json');
-            if (fs.existsSync(cookiesJsonPath)) {
-                try {
-                    customCookies = fs.readFileSync(cookiesJsonPath, 'utf8');
-                } catch (e) {}
+        const tempCookiePath = await buildYtDlpCookieFile(url, customCookies, videoFolder);
+
+        const runYtDlp = (useCookieFile) => new Promise((resolve, reject) => {
+            const args = [...baseArgs];
+            if (useCookieFile && tempCookiePath && fs.existsSync(tempCookiePath)) {
+                args.push('--cookies', tempCookiePath);
             }
-        }
+            args.push(url);
 
-        if (customCookies && customCookies.trim().length > 0) {
-            try {
-                let cookieContent = customCookies.trim();
-                if (cookieContent.startsWith('[')) {
-                    const cookiesData = JSON.parse(cookieContent);
-                    let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from custom cookies\n\n";
-                    for (const c of cookiesData) {
-                        let domain = c.domain || '';
-                        let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
-                        let cPath = c.path || '/';
-                        let secure = c.secure ? 'TRUE' : 'FALSE';
-                        let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
-                        netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
-                    }
-                    cookieContent = netscapeStr;
-                } else if (!cookieContent.includes('# Netscape')) {
-                    let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from raw cookies\n\n";
-                    const pairs = cookieContent.split(';');
-                    for (const pair of pairs) {
-                        const trimmed = pair.trim();
-                        if (!trimmed) continue;
-                        const idx = trimmed.indexOf('=');
-                        if (idx > 0) {
-                            const key = trimmed.substring(0, idx).trim();
-                            const val = trimmed.substring(idx + 1).trim();
-                            netscapeStr += `.youtube.com\tTRUE\t/\tTRUE\t0\t${key}\t${val}\n`;
-                        }
-                    }
-                    cookieContent = netscapeStr;
-                }
-                const tempCookiePath = path.join(app.getPath('temp'), `cookies_temp_${Date.now()}.txt`);
-                fs.writeFileSync(tempCookiePath, cookieContent, 'utf8');
-                if (!isFacebook) args.push('--cookies', tempCookiePath);
-            } catch (err) {
-                console.error("Lỗi ghi file cookies tạm", err);
-            }
-        }
-
-        args.push(url);
-
-        await new Promise((resolve, reject) => {
             const child = spawn(ytdlpPath, args);
             let stderrOutput = "";
             child.stdout.on('data', (data) => {
@@ -9038,8 +9117,27 @@ ipcMain.handle('download-single-video-temp', async (event, payload) => {
             });
         });
 
+        try {
+            await runYtDlp(true);
+        } catch (firstErr) {
+            // Nếu có cookie mà gặp lỗi (ví dụ cookie hết hạn với video công khai), thử lại không dùng cookie
+            if (tempCookiePath) {
+                try {
+                    await runYtDlp(false);
+                } catch (_) {
+                    throw firstErr;
+                }
+            } else {
+                throw firstErr;
+            }
+        } finally {
+            if (tempCookiePath && fs.existsSync(tempCookiePath)) {
+                try { fs.unlinkSync(tempCookiePath); } catch (_) {}
+            }
+        }
+
         const files = fs.readdirSync(videoFolder);
-        const foundVideoFile = files.find(f => f.startsWith('video.') && !f.endsWith('.json') && !f.endsWith('.vtt') && !f.endsWith('.srt'));
+        const foundVideoFile = files.find(f => f.startsWith('video.') && !f.endsWith('.json') && !f.endsWith('.vtt') && !f.endsWith('.srt') && !f.endsWith('.txt'));
         if (foundVideoFile) {
             return { success: true, path: path.join(videoFolder, foundVideoFile) };
         } else {
@@ -9057,6 +9155,7 @@ ipcMain.handle('extract-online-video-stream', async (event, payload) => {
             return { success: false, error: 'Đường dẫn URL không hợp lệ.' };
         }
         const ytdlpPath = binaries.ytdlp || "yt-dlp";
+        const tempCookiePath = await buildYtDlpCookieFile(url.trim(), payload?.customCookies || '', app.getPath('temp'));
         const args = [
             '--no-warnings',
             '--rm-cache-dir',
@@ -9064,12 +9163,18 @@ ipcMain.handle('extract-online-video-stream', async (event, payload) => {
             '-f', 'best[ext=mp4]/best',
             '--print', '%(url)s',
             '--print', '%(title)s',
-            '--print', '%(duration)s',
-            url.trim()
+            '--print', '%(duration)s'
         ];
+        if (tempCookiePath && fs.existsSync(tempCookiePath)) {
+            args.push('--cookies', tempCookiePath);
+        }
+        args.push(url.trim());
 
         return new Promise((resolve) => {
             execFile(ytdlpPath, args, { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+                if (tempCookiePath && fs.existsSync(tempCookiePath)) {
+                    try { fs.unlinkSync(tempCookiePath); } catch (_) {}
+                }
                 if (err) {
                     console.error('[yt-dlp extract stream error]', err, stderr);
                     return resolve({ success: false, error: stderr || err.message });
@@ -9135,65 +9240,10 @@ ipcMain.handle('download-video', async (event, payload) => {
                 args.push('--ffmpeg-location', binaries.ffmpeg);
             }
 
-            // Bổ sung cookie từ giao diện người dùng cấu hình
-            const isFacebook = url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com');
-            if (payload.customCookies && payload.customCookies.trim().length > 0) {
-                try {
-                    let cookieContent = payload.customCookies.trim();
-                    if (cookieContent.startsWith('[')) {
-                        const cookiesData = JSON.parse(cookieContent);
-                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from custom cookies\n\n";
-                        for (const c of cookiesData) {
-                            let domain = c.domain || '';
-                            let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
-                            let cPath = c.path || '/';
-                            let secure = c.secure ? 'TRUE' : 'FALSE';
-                            let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
-                            netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
-                        }
-                        cookieContent = netscapeStr;
-                    } else if (!cookieContent.includes('# Netscape')) {
-                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from raw cookies\n\n";
-                        const pairs = cookieContent.split(';');
-                        for (const pair of pairs) {
-                            const trimmed = pair.trim();
-                            if (!trimmed) continue;
-                            const idx = trimmed.indexOf('=');
-                            if (idx > 0) {
-                                const key = trimmed.substring(0, idx).trim();
-                                const val = trimmed.substring(idx + 1).trim();
-                                netscapeStr += `.youtube.com\tTRUE\t/\tTRUE\t0\t${key}\t${val}\n`;
-                            }
-                        }
-                        cookieContent = netscapeStr;
-                    }
-                    const tempCookiePath = path.join(app.getPath('temp'), `cookies_temp_${Date.now()}.txt`);
-                    fs.writeFileSync(tempCookiePath, cookieContent, 'utf8');
-                    if (!isFacebook) args.push('--cookies', tempCookiePath);
-                } catch (err) {
-                    console.error("Lỗi ghi file cookies tạm", err);
-                }
-            } else {
-                const cookiesJsonPath = path.join(__dirname, 'cookies.json');
-                if (fs.existsSync(cookiesJsonPath)) {
-                    try {
-                        const cookiesData = JSON.parse(fs.readFileSync(cookiesJsonPath, 'utf8'));
-                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from cookies.json\n\n";
-                        for (const c of cookiesData) {
-                            let domain = c.domain || '';
-                            let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
-                            let cPath = c.path || '/';
-                            let secure = c.secure ? 'TRUE' : 'FALSE';
-                            let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
-                            netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
-                        }
-                        const tempCookiePath = path.join(app.getPath('temp'), `cookies_temp_${Date.now()}.txt`);
-                        fs.writeFileSync(tempCookiePath, netscapeStr, 'utf8');
-                        if (!isFacebook) args.push('--cookies', tempCookiePath);
-                    } catch (err) {
-                        console.error("Lỗi đọc file cookies.json", err);
-                    }
-                }
+            // Xuất cookie trực tiếp từ phiên Electron + customCookies cho yt-dlp (bao gồm cả Facebook)
+            const tempCookiePath = await buildYtDlpCookieFile(url, payload.customCookies, app.getPath('temp'));
+            if (tempCookiePath && fs.existsSync(tempCookiePath)) {
+                args.push('--cookies', tempCookiePath);
             }
 
             args.push(url);
@@ -9638,81 +9688,11 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                 ytdlpArgs.push('--ffmpeg-location', binaries.ffmpeg);
             }
 
-            // Bổ sung cookie từ giao diện người dùng cấu hình
-            let hasCustomCookies = false;
-            const isFacebook = url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com');
-
-            if (payload.customCookies && payload.customCookies.trim().length > 0) {
-                try {
-                    let cookieContent = payload.customCookies.trim();
-                    if (cookieContent.startsWith('[')) {
-                        const cookiesData = JSON.parse(cookieContent);
-                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from custom cookies\n\n";
-                        for (const c of cookiesData) {
-                            let domain = c.domain || '';
-                            let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
-                            let cPath = c.path || '/';
-                            let secure = c.secure ? 'TRUE' : 'FALSE';
-                            let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
-                            netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
-                        }
-                        cookieContent = netscapeStr;
-                    } else if (!cookieContent.includes('# Netscape')) {
-                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from raw cookies\n\n";
-                        let cookieDomain = '.youtube.com';
-                        try {
-                            const parsedUrl = new URL(url);
-                            cookieDomain = '.' + parsedUrl.hostname.replace(/^www\./, '');
-                        } catch (e) {
-                            if (url.includes('tiktok.com')) cookieDomain = '.tiktok.com';
-                            else if (url.includes('facebook.com')) cookieDomain = '.facebook.com';
-                        }
-                        const pairs = cookieContent.split(';');
-                        for (const pair of pairs) {
-                            const trimmed = pair.trim();
-                            if (!trimmed) continue;
-                            const idx = trimmed.indexOf('=');
-                            if (idx > 0) {
-                                const key = trimmed.substring(0, idx).trim();
-                                const val = trimmed.substring(idx + 1).trim();
-                                netscapeStr += `${cookieDomain}\tTRUE\t/\tTRUE\t0\t${key}\t${val}\n`;
-                            }
-                        }
-                        cookieContent = netscapeStr;
-                    }
-                    const tempCookiePath = path.join(tempDir, 'cookies_temp.txt');
-                    fs.writeFileSync(tempCookiePath, cookieContent, 'utf8');
-                    if (!isFacebook) ytdlpArgs.push('--cookies', tempCookiePath);
-                    hasCustomCookies = true;
-                } catch (err) {
-                    console.error("Lỗi ghi file cookies tạm", err);
-                }
-            } else {
-                const cookiesJsonPath = path.join(__dirname, 'cookies.json');
-                if (fs.existsSync(cookiesJsonPath)) {
-                    try {
-                        const cookiesData = JSON.parse(fs.readFileSync(cookiesJsonPath, 'utf8'));
-                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from cookies.json\n\n";
-                        for (const c of cookiesData) {
-                            let domain = c.domain || '';
-                            let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
-                            let cPath = c.path || '/';
-                            let secure = c.secure ? 'TRUE' : 'FALSE';
-                            let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
-                            netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
-                        }
-                        const tempCookiePath = path.join(tempDir, 'cookies_temp.txt');
-                        fs.writeFileSync(tempCookiePath, netscapeStr, 'utf8');
-                        if (!isFacebook) ytdlpArgs.push('--cookies', tempCookiePath);
-                        hasCustomCookies = true;
-                    } catch (err) {
-                        console.error("Lỗi đọc file cookies.json", err);
-                    }
-                }
+            // Xuất cookie trực tiếp từ phiên Electron + customCookies cho yt-dlp (bao gồm cả Facebook)
+            const tempCookiePath = await buildYtDlpCookieFile(url, payload.customCookies, tempDir);
+            if (tempCookiePath && fs.existsSync(tempCookiePath)) {
+                ytdlpArgs.push('--cookies', tempCookiePath);
             }
-
-            // Nếu không có file cookie nào được xuất, thì mới dùng cookie từ trình duyệt Chrome
-            // Lấy cookie từ Chrome bị lỗi DPAPI trên phiên bản Chrome mới nên bị vô hiệu hóa.
 
             ytdlpArgs.push(url);
 

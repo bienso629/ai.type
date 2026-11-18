@@ -344,108 +344,102 @@ export class SettingsAccountComponent implements OnInit {
      * On init
      */
     ngOnInit(): void {
-        // [Fix 2026-11-10] Chờ DB nạp xong trước khi đọc settings để form không nạp dữ liệu
-        // rỗng rồi ghi đè mất session thật khi người dùng bấm Lưu ngay sau khi mở app.
-        this.multiAccountService.isReady.then(() => {
-        let settings: any = getSettings();
+        const initialSettings: any = getSettings() || {};
 
-        // Create the form
+        // Khởi tạo đồng bộ accountForm ngay lập tức để tránh lỗi NG01052 khi template render lần đầu
         this.accountForm = this._formBuilder.group({
-            emailConfig_nodebbUrl: [(settings && settings.emailConfig_nodebbUrl) ? settings.emailConfig_nodebbUrl : ''],
-            emailConfig_nodebbToken: [(settings && settings.emailConfig_nodebbToken) ? settings.emailConfig_nodebbToken : ''],
-            emailConfig_smtpHost: [(settings && settings.emailConfig_smtpHost) ? settings.emailConfig_smtpHost : ''],
-            emailConfig_smtpPort: [(settings && settings.emailConfig_smtpPort) ? settings.emailConfig_smtpPort : ''],
-            emailConfig_smtpUser: [(settings && settings.emailConfig_smtpUser) ? settings.emailConfig_smtpUser : ''],
-            emailConfig_smtpPass: [(settings && settings.emailConfig_smtpPass) ? settings.emailConfig_smtpPass : ''],
-            saveimages: [(settings && settings.saveimages) ? settings.saveimages : false],
+            emailConfig_nodebbUrl: [initialSettings.emailConfig_nodebbUrl || ''],
+            emailConfig_nodebbToken: [initialSettings.emailConfig_nodebbToken || ''],
+            emailConfig_smtpHost: [initialSettings.emailConfig_smtpHost || ''],
+            emailConfig_smtpPort: [initialSettings.emailConfig_smtpPort || ''],
+            emailConfig_smtpUser: [initialSettings.emailConfig_smtpUser || ''],
+            emailConfig_smtpPass: [initialSettings.emailConfig_smtpPass || ''],
+            saveimages: [initialSettings.saveimages || false],
             statusTypeLite: [true],
-            autosave: [(settings && settings.autosave) ? settings.autosave : false],
+            autosave: [initialSettings.autosave || false],
             autoSaveLocal: [
                 this.isElectron
-                    ? ((settings && settings.autoSaveLocal !== undefined)
-                        ? settings.autoSaveLocal
-                        : true)
+                    ? (initialSettings.autoSaveLocal !== undefined ? initialSettings.autoSaveLocal : true)
                     : false
             ],
             closethread: [false],
             proccessing: [false],
-            linkDonate: [(settings && settings.linkDonate) ? settings.linkDonate : ''],
-            language: [(settings && settings.language) ? settings.language : 'vi'],
-            secretKey: [(settings && settings.secretKey) ? settings.secretKey : ''],
-            searchAPIKey: [(settings && settings.searchAPIKey) ? settings.searchAPIKey : ''],
-            port: [(settings && settings.port) ? settings.port : ''],
-            typelite_plugin: [(settings && settings.typelite_plugin) ? settings.typelite_plugin : ''],
-            chatbot: [(settings && settings.chatbot) ? settings.chatbot : ''],
-            customer: [(settings && settings.customer) ? settings.customer : ''],
-            bigdata: [(settings && settings.bigdata) ? settings.bigdata : ''],
-            downloader_plugin: [(settings && settings.downloader_plugin) ? settings.downloader_plugin : ''],
-            tts: [(settings && settings.tts) ? settings.tts : ''],
-            sst: [(settings && settings.sst) ? settings.sst : ''],
-            mxhauto: [(settings && settings.mxhauto) ? settings.mxhauto : ''],
-            n8n: [(settings && settings.n8n) ? settings.n8n : ''],
-            figmaToken: [(settings && settings.figmaToken) ? settings.figmaToken : ''],
-            figmaMcp: [(settings && settings.figmaMcp) ? settings.figmaMcp : ''],
-            umodelverseUrl: [(settings && settings.umodelverseUrl) ? settings.umodelverseUrl : ''],
-            umodelverseKey: [(settings && settings.umodelverseKey) ? settings.umodelverseKey : ''],
-            umodelverseChatModel: [(settings && settings.umodelverseChatModel) ? settings.umodelverseChatModel : ''],
-            umodelverseImageModel: [(settings && settings.umodelverseImageModel) ? settings.umodelverseImageModel : ''],
-            umodelverseVideoModel: [(settings && settings.umodelverseVideoModel) ? settings.umodelverseVideoModel : ''],
-            enableUmodelverse: [(settings && settings.enableUmodelverse !== undefined) ? settings.enableUmodelverse : false],
-            customCookies: [(settings && settings.customCookies) ? settings.customCookies : ''],
-            geminiTextModel: [(settings && settings.geminiTextModel) ? settings.geminiTextModel : ''],
+            linkDonate: [initialSettings.linkDonate || ''],
+            language: [initialSettings.language || 'vi'],
+            secretKey: [initialSettings.secretKey || ''],
+            searchAPIKey: [initialSettings.searchAPIKey || ''],
+            port: [initialSettings.port || ''],
+            typelite_plugin: [initialSettings.typelite_plugin || ''],
+            chatbot: [initialSettings.chatbot || ''],
+            customer: [initialSettings.customer || ''],
+            bigdata: [initialSettings.bigdata || ''],
+            downloader_plugin: [initialSettings.downloader_plugin || ''],
+            tts: [initialSettings.tts || ''],
+            sst: [initialSettings.sst || ''],
+            mxhauto: [initialSettings.mxhauto || ''],
+            n8n: [initialSettings.n8n || ''],
+            figmaToken: [initialSettings.figmaToken || ''],
+            figmaMcp: [initialSettings.figmaMcp || ''],
+            umodelverseUrl: [initialSettings.umodelverseUrl || ''],
+            umodelverseKey: [initialSettings.umodelverseKey || ''],
+            umodelverseChatModel: [initialSettings.umodelverseChatModel || ''],
+            umodelverseImageModel: [initialSettings.umodelverseImageModel || ''],
+            umodelverseVideoModel: [initialSettings.umodelverseVideoModel || ''],
+            enableUmodelverse: [initialSettings.enableUmodelverse !== undefined ? initialSettings.enableUmodelverse : false],
+            customCookies: [initialSettings.customCookies || ''],
+            geminiTextModel: [initialSettings.geminiTextModel || ''],
         });
 
-        const secretKeyValue = this.accountForm.get('secretKey').value;
-        if (secretKeyValue) {
-            this.geminiKeys = secretKeyValue.split(';').filter((k: string) => k.trim() !== '');
-            if (this.geminiKeys.length === 0) {
-                this.geminiKeys = [''];
-            }
-        }
-        this.geminiKeysVisibility = this.geminiKeys.map(() => false);
-
-        // Khởi tạo autocomplete filter ngay lập tức để Observable sẵn sàng render
+        this.applySettingsToForm(initialSettings);
         this.setupAutocompleteFilters();
 
-        // Fetch umodelverse models
-        fetch('https://api-us-ca.umodelverse.ai/v1/models')
-            .then(res => res.json())
-            .then(data => {
-                if (data && data.data) {
-                    const allModels = data.data.map((m: any) => m.id).sort();
-
-                    const currentChat = this.accountForm.get('umodelverseChatModel')?.value;
-                    const currentImg = this.accountForm.get('umodelverseImageModel')?.value;
-                    const currentVid = this.accountForm.get('umodelverseVideoModel')?.value;
-
-                    if (currentChat && !allModels.includes(currentChat)) allModels.unshift(currentChat);
-                    if (currentImg && !allModels.includes(currentImg)) allModels.unshift(currentImg);
-                    if (currentVid && !allModels.includes(currentVid)) allModels.unshift(currentVid);
-
-                    this.allModelsList = Array.from(new Set(allModels));
-                    this.setupAutocompleteFilters();
-
-                    this.cd.markForCheck();
-                }
-            })
-            .catch(err => {
-                console.warn('Could not fetch umodelverse models', err);
-            });
-
-        // Nếu settings rỗng và có user, chủ động gọi fetch profile để lấp đầy form
-        if (!settings || Object.keys(settings).length === 0) {
-            const currentUname = this.user?.name || this.multiAccountService.getItem('username') || localStorage.getItem('username');
-            if (currentUname) {
-                this._userClientService.profile({ name: currentUname })
-                    .pipe(takeUntil(this._unsubscribeAll))
-                    .subscribe(res => {
-                        if (res && res.success && res.data && res.data.settings) {
-                            this.applySettingsToForm(res.data.settings);
-                        }
-                    });
+        // Chờ DB nạp xong rồi đồng bộ lại dữ liệu cấu hình vào form
+        this.multiAccountService.isReady.then(() => {
+            const settings: any = getSettings();
+            if (settings && Object.keys(settings).length > 0) {
+                this.applySettingsToForm(settings);
             }
-        }
-    });
+            this.setupAutocompleteFilters();
+
+            // Fetch umodelverse models
+            fetch('https://api-us-ca.umodelverse.ai/v1/models')
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.data) {
+                        const allModels = data.data.map((m: any) => m.id).sort();
+
+                        const currentChat = this.accountForm.get('umodelverseChatModel')?.value;
+                        const currentImg = this.accountForm.get('umodelverseImageModel')?.value;
+                        const currentVid = this.accountForm.get('umodelverseVideoModel')?.value;
+
+                        if (currentChat && !allModels.includes(currentChat)) allModels.unshift(currentChat);
+                        if (currentImg && !allModels.includes(currentImg)) allModels.unshift(currentImg);
+                        if (currentVid && !allModels.includes(currentVid)) allModels.unshift(currentVid);
+
+                        this.allModelsList = Array.from(new Set(allModels));
+                        this.setupAutocompleteFilters();
+
+                        this.cd.markForCheck();
+                    }
+                })
+                .catch(err => {
+                    console.warn('Could not fetch umodelverse models', err);
+                });
+
+            // Nếu settings rỗng và có user, chủ động gọi fetch profile để lấp đầy form
+            if (!settings || Object.keys(settings).length === 0) {
+                const currentUname = this.user?.name || this.multiAccountService.getItem('username') || localStorage.getItem('username');
+                if (currentUname) {
+                    this._userClientService.profile({ name: currentUname })
+                        .pipe(takeUntil(this._unsubscribeAll))
+                        .subscribe(res => {
+                            if (res && res.success && res.data && res.data.settings) {
+                                this.applySettingsToForm(res.data.settings);
+                            }
+                        });
+                }
+            }
+        });
     }
 
 

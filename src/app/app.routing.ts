@@ -96,6 +96,7 @@ export const appRoutes: Route[] = [
             { path: 'wp2md',          loadChildren: () => import('app/modules/admin/content/archives/wp2md/wp2md.module').then(m => m.WP2MDModule) },
             { path: 'dashboard',      loadChildren: () => import('app/modules/admin/account/dashboard/dashboard.module').then(m => m.DashboardModule) },
             { path: 'tools',          loadChildren: () => import('app/modules/admin/account/tools/tools.module').then(m => m.AIToolsModule) },
+            { path: 'folders',        loadChildren: () => import('app/modules/admin/account/folders/folders.module').then(m => m.WorkspaceFoldersModule) },
             { path: 'dollar',         loadChildren: () => import('app/modules/admin/account/dollar/dollar.module').then(m => m.DollarModule) },
             { path: 'archives',       loadChildren: () => import('app/modules/admin/content/archives/archives.module').then(m => m.AIArchiveModule) },
             { path: 'collection',     loadChildren: () => import('app/modules/admin/content/collection/collection.module').then(m => m.CollectionModule) },

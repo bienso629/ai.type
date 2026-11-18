@@ -110,6 +110,10 @@
             "title": "Công cụ",
             "subtitle": "Công cụ tạo nội dung AI."
         },
+        "folders": {
+            "title": "Thư mục",
+            "subtitle": "Thư mục làm việc của phần mềm."
+        },
         "jobs": {
             "title": "Tác vụ"
         },

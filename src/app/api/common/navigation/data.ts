@@ -54,6 +54,17 @@ export const defaultNavigation: FuseNavigationItem[] = [
                     icon: 'icon-size-6'
                 },
                 link: '/tools'
+            },
+            {
+                id: 'admin.folders',
+                title: 'nav.folders.title',
+                subtitle: 'nav.folders.subtitle',
+                type: 'basic',
+                icon: 'feather:folder',
+                classes: {
+                    icon: 'icon-size-6'
+                },
+                link: '/folders'
             }
         ]
     },
