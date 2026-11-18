@@ -88,8 +88,15 @@
 /* ── Sidebar Footer (Prompt) ── */
 .sidebar-footer {
   flex-shrink: 0;
+  margin: 0 12px 12px;
   background: var(--fuse-bg-card, #ffffff);
-  border-top: 1px solid var(--fuse-border, #e2e8f0);
+  border: 1px solid var(--fuse-border, #e2e8f0);
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:focus-within {
+    border-color: rgba(13, 148, 136, 0.45);
+  }
 }
 
 .sidebar-prompt-bar {
@@ -97,7 +104,8 @@
   display: flex;
   align-items: stretch;
   background: #f7fefc;
-  padding: 6px 8px;
+  padding: 8px 10px;
+  border-radius: 7px;
   transition: background 0.15s;
 
   &:focus-within {
@@ -453,6 +461,12 @@
   }
 }
 
+.prop-thumb-wrap {
+  position: relative;
+  width: 100%;
+  height: 84px;
+}
+
 .prop-thumb {
   width: 100%;
   height: 84px;
@@ -472,6 +486,87 @@
     align-items: center;
     justify-content: center;
     color: var(--fuse-text-secondary, #94a3b8);
+  }
+}
+
+.prop-thumb-lock {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #f59e0b;
+  pointer-events: auto;
+
+  mat-icon,
+  .mat-icon {
+    width: 14px !important;
+    height: 14px !important;
+    font-size: 14px !important;
+    line-height: 14px !important;
+  }
+}
+
+.prop-thumb-actions {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+
+  .group:hover & {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.prop-thumb-btn,
+.prop-thumb-btn.mat-mdc-icon-button {
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  min-height: 22px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 5px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  &:hover {
+    background: rgba(13, 148, 136, 0.1) !important;
+  }
+
+  .mat-icon,
+  mat-icon {
+    width: 15px !important;
+    height: 15px !important;
+    font-size: 15px !important;
+    line-height: 15px !important;
+  }
+
+  .mat-mdc-button-touch-target {
+    width: 22px !important;
+    height: 22px !important;
   }
 }
 
@@ -1368,30 +1463,99 @@
 /* Khoi hieu ung script: chiem tron ca hang cua grid 2 cot -> luon xuong dong rieng */
 .fx-list-block {
     grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .fx-list-sep {
-    height: 2px;
-    margin: 14px 2px 10px;
-    border-radius: 2px;
-    background: linear-gradient(90deg, rgba(13, 148, 136, 0.55), rgba(100, 116, 139, 0.22) 55%, rgba(13, 148, 136, 0.35));
+    height: 1px;
+    margin: 6px 0 4px;
+    background: var(--fuse-border, #e2e8f0);
 }
 
 .fx-list-title {
-    padding: 0 8px 6px;
+    padding: 0 4px 2px;
     font-size: 10px;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #94a3b8;
+    color: var(--fuse-text-hint, #94a3b8);
 }
 
-.fx-thumb {
-    display: flex;
+.fx-card {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px;
+    min-height: auto;
+    padding: 8px 10px;
+}
+
+.fx-card__actions {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    color: #0d9488;
-    background: rgba(13, 148, 136, 0.1);
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.fx-card__hover-btns {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+
+    .group:hover & {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
+.fx-card__action-btn,
+.fx-card__action-btn.mat-mdc-icon-button {
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+    min-height: 24px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    &:hover {
+        background: rgba(15, 23, 42, 0.05) !important;
+    }
+
+    .mat-icon,
+    mat-icon {
+        width: 16px !important;
+        height: 16px !important;
+        font-size: 16px !important;
+        line-height: 16px !important;
+    }
+
+    .mat-mdc-button-touch-target {
+        width: 24px !important;
+        height: 24px !important;
+    }
+}
+
+.fx-card__toggle {
+    flex: 0 0 auto;
+
+    ::ng-deep {
+        .mdc-label {
+            display: none !important;
+        }
+        .mdc-switch--unselected .mdc-switch__track::before {
+            background: #e2e8f0 !important;
+            border-color: #cbd5e1 !important;
+        }
+    }
 }
 
 .fx-file-name {
@@ -1400,7 +1564,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 150px;
+    max-width: 100%;
 }
 
 // Dialog dong

@@ -1,0 +1,536 @@
+<div class="ws-layout">
+    <!-- HEADER CHUẨN CỦA APP -->
+    <div
+        class="flex flex-col lg:flex-row flex-0 lg:items-center lg:justify-between p-4 sm:py-4 sm:px-10 bg-default border-b dark:bg-transparent gap-3"
+    >
+        <div class="flex-1 min-w-0">
+            <div class="hidden sm:flex flex-wrap items-center font-medium">
+                <div class="flex items-center whitespace-nowrap">
+                    <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                </div>
+                <div class="flex items-center ml-1 whitespace-nowrap">
+                    <mat-icon
+                        class="icon-size-4 text-secondary"
+                        style="margin-top: 2px"
+                        [svgIcon]="'heroicons_solid:chevron-right'"
+                    ></mat-icon>
+                    <a class="ml-1 text-base text-primary-500" [routerLink]="['/tools']">công cụ</a>
+                </div>
+                <div class="flex items-center ml-1 whitespace-nowrap">
+                    <mat-icon
+                        class="icon-size-4 text-secondary"
+                        style="margin-top: 2px"
+                        [svgIcon]="'heroicons_solid:chevron-right'"
+                    ></mat-icon>
+                    <span class="ml-1 text-base text-secondary">thư mục làm việc của phần mềm</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- BỘ NÚT & INPUT CHUẨN CỦA APP -->
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+            <mat-form-field
+                class="w-64 sm:w-72 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                [subscriptSizing]="'dynamic'"
+                appearance="fill"
+            >
+                <mat-icon
+                    class="icon-size-4"
+                    matPrefix
+                    [svgIcon]="'feather:search'"
+                ></mat-icon>
+                <input
+                    matInput
+                    [(ngModel)]="searchQuery"
+                    placeholder="Tìm nhanh tệp hoặc thư mục..."
+                />
+                @if (searchQuery) {
+                    <button
+                        type="button"
+                        mat-icon-button
+                        matSuffix
+                        (click)="searchQuery = ''"
+                        matTooltip="Xóa tìm kiếm"
+                    >
+                        <mat-icon class="icon-size-4" [svgIcon]="'feather:x'"></mat-icon>
+                    </button>
+                }
+            </mat-form-field>
+
+            <button
+                type="button"
+                mat-icon-button
+                (click)="collapseAllNodes()"
+                matTooltip="Thu gọn toàn bộ nhánh cây thư mục"
+            >
+                <mat-icon class="icon-size-5 text-secondary" [svgIcon]="'feather:minimize-2'"></mat-icon>
+            </button>
+
+            <button
+                type="button"
+                mat-icon-button
+                (click)="loadWorkspaceRoots(false)"
+                matTooltip="Làm mới danh sách thư mục làm việc"
+            >
+                <mat-icon class="icon-size-5 text-secondary" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+            </button>
+
+            <button
+                type="button"
+                mat-icon-button
+                (click)="cleanTempFolders()"
+                matTooltip="Dọn dẹp các thư mục phân tích tạm (_temp_*) trong Downloads/AI.TYPING"
+            >
+                <mat-icon class="icon-size-5 text-secondary" [svgIcon]="'feather:trash-2'"></mat-icon>
+            </button>
+
+            <button
+                type="button"
+                mat-flat-button
+                color="primary"
+                (click)="addCustomWorkspaceRoot()"
+                matTooltip="Gắn thêm một thư mục bất kỳ trên máy tính vào danh sách làm việc"
+            >
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:folder-plus'"></mat-icon>
+                <mat-label class="ml-2">Thêm thư mục làm việc</mat-label>
+            </button>
+        </div>
+    </div>
+
+    <!-- DẢI LỌC NHANH THEO LOẠI TỆP -->
+    <div class="ws-filter-strip">
+        <span class="ws-filter-strip__label">Lọc loại mục:</span>
+        @for (f of categoryFilters; track f.id) {
+            <button
+                type="button"
+                class="ws-filter-chip"
+                [class.ws-filter-chip--active]="activeCategoryFilter === f.id"
+                (click)="activeCategoryFilter = f.id"
+            >
+                {{ f.label }}
+            </button>
+        }
+    </div>
+
+    <!-- THÂN CHÍNH 2 CỘT: CỘT TRÁI (TREE VIEW) + CỘT PHẢI (CHI TIẾT / XEM TRƯỚC) -->
+    <div class="ws-body">
+        <!-- CỘT TRÁI: TREE VIEW EXPLORER -->
+        <div class="ws-tree-pane">
+            <div class="ws-pane-header">
+                <span>Cây Thư mục ({{ treeRoots.length }} thư mục gốc)</span>
+            </div>
+
+            <div class="ws-tree-scroll">
+                @for (node of flattenedTreeNodes; track trackByPath($index, node)) {
+                    <div
+                        class="ws-tree-row group"
+                        [class.ws-tree-row--root]="node.isRoot"
+                        [class.ws-tree-row--selected]="selectedNode?.path === node.path"
+                        [class.ws-tree-row--missing]="node.isRoot && node.exists === false"
+                        [style.padding-left.px]="10 + node.depth * 18"
+                        (click)="onNodeRowClick(node, $event)"
+                    >
+                        <!-- Mũi tên đóng/mở nhánh -->
+                        @if (node.isDirectory) {
+                            <button
+                                type="button"
+                                class="ws-tree-chevron"
+                                (click)="toggleNodeExpand(node, undefined, $event)"
+                            >
+                                <mat-icon>
+                                    {{ node.expanded ? 'expand_more' : 'chevron_right' }}
+                                </mat-icon>
+                            </button>
+                        } @else {
+                            <span class="ws-tree-chevron-spacer"></span>
+                        }
+
+                        <!-- Biểu tượng theo phân loại -->
+                        <mat-icon
+                            class="ws-tree-icon"
+                            [ngClass]="'ws-tree-icon--' + node.category"
+                        >
+                            {{ getNodeIcon(node) }}
+                        </mat-icon>
+
+                        <!-- Tên mục + Nhãn loại thư mục gốc -->
+                        <div class="ws-tree-label-wrap">
+                            <span class="ws-tree-name" [title]="node.path">{{ node.name }}</span>
+                            @if (node.isRoot && node.badge) {
+                                <span class="ws-tree-badge">{{ node.badge }}</span>
+                            }
+                        </div>
+
+                        <!-- Số mục con hoặc kích thước tệp -->
+                        @if (node.isDirectory) {
+                            @if (node.isRoot && node.exists === false) {
+                                <button
+                                    type="button"
+                                    class="ws-tree-init-btn"
+                                    (click)="ensureRootExists(node, $event)"
+                                    title="Thư mục này chưa được tạo trên ổ đĩa. Nhấn để tạo ngay."
+                                >
+                                    Khởi tạo
+                                </button>
+                            } @else {
+                                <span class="ws-tree-meta">{{ node.childCount }}</span>
+                            }
+                        } @else {
+                            <span class="ws-tree-meta">{{ formatBytes(node.size) }}</span>
+                        }
+
+                        <!-- Cụm nút thao tác nhanh khi rê chuột trên Tree View -->
+                        <div class="ws-tree-hover-actions" (click)="$event.stopPropagation()">
+                            @if (node.isDirectory) {
+                                <button
+                                    type="button"
+                                    class="ws-tree-mini-btn"
+                                    (click)="startCreateFolder(node, $event)"
+                                    title="Tạo thư mục con bên trong"
+                                >
+                                    <mat-icon>create_new_folder</mat-icon>
+                                </button>
+                            }
+                            <button
+                                type="button"
+                                class="ws-tree-mini-btn"
+                                (click)="openInOs(node, 'reveal', $event)"
+                                title="Mở vị trí trong trình quản lý tệp Hệ điều hành"
+                            >
+                                <mat-icon>open_in_new</mat-icon>
+                            </button>
+                            @if (!node.isRoot) {
+                                <button
+                                    type="button"
+                                    class="ws-tree-mini-btn"
+                                    (click)="startRenameNode(node, $event)"
+                                    title="Đổi tên"
+                                >
+                                    <mat-icon>edit</mat-icon>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="ws-tree-mini-btn ws-tree-mini-btn--danger"
+                                    (click)="deleteNode(node, $event)"
+                                    title="Xóa vào thùng rác"
+                                >
+                                    <mat-icon>delete_outline</mat-icon>
+                                </button>
+                            }
+                            @if (node.isCustomRoot) {
+                                <button
+                                    type="button"
+                                    class="ws-tree-mini-btn ws-tree-mini-btn--danger"
+                                    (click)="removeCustomWorkspaceRoot(node, $event)"
+                                    title="Bỏ thư mục này khỏi danh sách quản lý"
+                                >
+                                    <mat-icon>link_off</mat-icon>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- CỘT PHẢI: CHI TIẾT THƯ MỤC & TRÌNH XEM / SỬA TỆP TIN -->
+        <div class="ws-content-pane">
+            @if (selectedNode) {
+                <!-- THANH ĐƯỜNG DẪN & CÔNG CỤ CỦA MỤC ĐANG CHỌN -->
+                <div class="ws-inspector-bar">
+                    <div class="ws-inspector-bar__path-group">
+                        <mat-icon class="ws-inspector-bar__icon" [ngClass]="'ws-tree-icon--' + selectedNode.category">
+                            {{ getNodeIcon(selectedNode) }}
+                        </mat-icon>
+                        <div class="min-w-0 flex-1">
+                            <div class="ws-inspector-bar__name">{{ selectedNode.name }}</div>
+                            <div class="ws-inspector-bar__path" [title]="selectedNode.path">{{ selectedNode.path }}</div>
+                        </div>
+                    </div>
+
+                    <div class="ws-inspector-bar__btns">
+                        <button
+                            type="button"
+                            class="ws-btn ws-btn--sm ws-btn--ghost"
+                            (click)="copyPath(selectedNode.path)"
+                            title="Sao chép đường dẫn đầy đủ"
+                        >
+                            <mat-icon>content_copy</mat-icon>
+                            <span>Copy đường dẫn</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            class="ws-btn ws-btn--sm ws-btn--ghost"
+                            (click)="openInOs(selectedNode, 'reveal')"
+                            title="Hiển thị vị trí tệp/thư mục trong File Explorer / Finder"
+                        >
+                            <mat-icon>folder_open</mat-icon>
+                            <span>Mở vị trí</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            class="ws-btn ws-btn--sm ws-btn--ghost"
+                            (click)="openInOs(selectedNode, 'open')"
+                            title="Mở bằng phần mềm mặc định của Hệ điều hành"
+                        >
+                            <mat-icon>launch</mat-icon>
+                            <span>Mở ngoài HĐH</span>
+                        </button>
+
+                        @if (selectedNode.isDirectory) {
+                            <button
+                                type="button"
+                                class="ws-btn ws-btn--sm ws-btn--ghost"
+                                (click)="startCreateFolder(selectedNode)"
+                                title="Tạo thư mục con mới trong thư mục này"
+                            >
+                                <mat-icon>create_new_folder</mat-icon>
+                                <span>+ Thư mục con</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="ws-btn ws-btn--sm ws-btn--ghost"
+                                (click)="startCreateFile(selectedNode)"
+                                title="Tạo tệp văn bản / ghi chú mới trong thư mục này"
+                            >
+                                <mat-icon>note_add</mat-icon>
+                                <span>+ Tệp mới</span>
+                            </button>
+                        }
+
+                        @if (!selectedNode.isRoot) {
+                            <button
+                                type="button"
+                                class="ws-btn ws-btn--sm ws-btn--ghost"
+                                (click)="startRenameNode(selectedNode)"
+                            >
+                                <mat-icon>edit</mat-icon>
+                                <span>Đổi tên</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="ws-btn ws-btn--sm ws-btn--danger"
+                                (click)="deleteNode(selectedNode)"
+                            >
+                                <mat-icon>delete_outline</mat-icon>
+                                <span>Xóa</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                @if (selectedNode.isRoot && selectedNode.description) {
+                    <div class="ws-root-desc">
+                        <span>{{ selectedNode.description }}</span>
+                    </div>
+                }
+
+                <!-- THANH NHẬP INLINE KHI TẠO THƯ MỤC / TẠO TỆP / ĐỔI TÊN -->
+                @if (inlineActionMode !== 'none' && inlineActionTargetNode) {
+                    <div class="ws-inline-prompt">
+                        <span class="ws-inline-prompt__label">
+                            @if (inlineActionMode === 'create-folder') {
+                                Tạo thư mục mới trong "{{ inlineActionTargetNode.name }}":
+                            } @else if (inlineActionMode === 'create-file') {
+                                Tạo tệp mới trong "{{ inlineActionTargetNode.name }}":
+                            } @else {
+                                Đổi tên "{{ inlineActionTargetNode.name }}":
+                            }
+                        </span>
+                        <input
+                            type="text"
+                            [(ngModel)]="inlineInputName"
+                            (keydown.enter)="confirmInlineAction()"
+                            (keydown.escape)="cancelInlineAction()"
+                            placeholder="Nhập tên..."
+                            class="ws-inline-prompt__input"
+                        />
+                        <button
+                            type="button"
+                            class="ws-btn ws-btn--sm ws-btn--primary"
+                            [disabled]="isSubmittingInline"
+                            (click)="confirmInlineAction()"
+                        >
+                            Xác nhận
+                        </button>
+                        <button
+                            type="button"
+                            class="ws-btn ws-btn--sm ws-btn--ghost"
+                            (click)="cancelInlineAction()"
+                        >
+                            Hủy
+                        </button>
+                    </div>
+                }
+
+                <!-- NỘI DUNG CHÍNH: BẢNG DANH SÁCH TRONG THƯ MỤC HOẶC KHUNG XEM TRƯỚC TỆP -->
+                @if (selectedNode.isDirectory) {
+                    <div class="ws-table-wrap">
+                        @if (filteredCurrentDirItems.length > 0) {
+                            <table class="ws-table">
+                                <thead>
+                                    <tr>
+                                        <th>Tên mục</th>
+                                        <th class="w-40">Phân loại</th>
+                                        <th class="w-36 text-right">Kích thước / Mục</th>
+                                        <th class="w-44 text-right">Cập nhật</th>
+                                        <th class="w-36 text-right">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (item of filteredCurrentDirItems; track trackByPath($index, item)) {
+                                        <tr
+                                            class="ws-table__row"
+                                            (click)="openChildFromTable(item)"
+                                        >
+                                            <td>
+                                                <div class="ws-table__name-cell">
+                                                    <mat-icon
+                                                        class="ws-tree-icon"
+                                                        [ngClass]="'ws-tree-icon--' + item.category"
+                                                    >
+                                                        {{ getNodeIcon(item) }}
+                                                    </mat-icon>
+                                                    <span class="ws-table__name" [title]="item.path">{{ item.name }}</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="ws-cat-pill" [ngClass]="'ws-cat-pill--' + item.category">
+                                                    {{ getCategoryLabel(item.category) }}
+                                                </span>
+                                            </td>
+                                            <td class="text-right text-slate-600">
+                                                @if (item.isDirectory) {
+                                                    {{ item.childCount }} mục
+                                                } @else {
+                                                    {{ formatBytes(item.size) }}
+                                                }
+                                            </td>
+                                            <td
+                                                class="text-right text-slate-500"
+                                                [title]="item.mtimeMs ? (item.mtimeMs | date: 'dd/MM/yyyy HH:mm:ss') : ''"
+                                            >
+                                                {{ formatTimeAgo(item.mtimeMs) }}
+                                            </td>
+                                            <td class="text-right" (click)="$event.stopPropagation()">
+                                                <div class="ws-table__actions">
+                                                    <button
+                                                        type="button"
+                                                        class="ws-tree-mini-btn"
+                                                        (click)="openInOs(item, 'open', $event)"
+                                                        title="Mở tệp / thư mục"
+                                                    >
+                                                        <mat-icon>launch</mat-icon>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="ws-tree-mini-btn"
+                                                        (click)="openInOs(item, 'reveal', $event)"
+                                                        title="Hiện trong thư mục Hệ điều hành"
+                                                    >
+                                                        <mat-icon>folder_open</mat-icon>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="ws-tree-mini-btn"
+                                                        (click)="startRenameNode(item, $event)"
+                                                        title="Đổi tên"
+                                                    >
+                                                        <mat-icon>edit</mat-icon>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="ws-tree-mini-btn ws-tree-mini-btn--danger"
+                                                        (click)="deleteNode(item, $event)"
+                                                        title="Xóa"
+                                                    >
+                                                        <mat-icon>delete_outline</mat-icon>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        } @else {
+                            <div class="ws-empty-state">
+                                <mat-icon class="ws-empty-state__icon">folder_open</mat-icon>
+                                <div class="ws-empty-state__title">Thư mục trống hoặc không có mục khớp bộ lọc</div>
+                                <div class="ws-empty-state__sub">
+                                    Bạn có thể bấm "Thư mục con" hoặc "Tệp mới" ở thanh công cụ phía trên để thêm dữ liệu.
+                                </div>
+                            </div>
+                        }
+                    </div>
+                } @else {
+                    <!-- KHUNG XEM TRƯỚC & CHỈNH SỬA TỆP TIN -->
+                    <div class="ws-preview-wrap">
+                        @if (isLoadingPreview) {
+                            <div class="ws-empty-state">
+                                <div class="ws-empty-state__title">Đang tải nội dung tệp...</div>
+                            </div>
+                        } @else if (previewData) {
+                            <div class="ws-preview-meta">
+                                <span>Phân loại: <b>{{ getCategoryLabel(selectedNode.category) }}</b></span>
+                                <span>Kích thước: <b>{{ formatBytes(selectedNode.size) }}</b></span>
+                                @if (selectedNode.mtimeMs) {
+                                    <span>Cập nhật: <b>{{ selectedNode.mtimeMs | date: 'dd/MM/yyyy HH:mm:ss' }}</b></span>
+                                }
+                                @if (previewData.type === 'text') {
+                                    <button
+                                        type="button"
+                                        class="ws-btn ws-btn--sm ws-btn--primary ml-auto"
+                                        [disabled]="!isTextDirty || isSavingText"
+                                        (click)="saveCurrentTextFile()"
+                                    >
+                                        <mat-icon>save</mat-icon>
+                                        <span>{{ isSavingText ? 'Đang lưu...' : 'Lưu nội dung tệp' }}</span>
+                                    </button>
+                                }
+                            </div>
+
+                            @if (previewData.type === 'text') {
+                                <textarea
+                                    class="ws-text-editor"
+                                    [(ngModel)]="editableTextContent"
+                                    (ngModelChange)="onEditableTextChange()"
+                                    spellcheck="false"
+                                ></textarea>
+                            } @else if (previewData.type === 'image' && previewData.dataUrl) {
+                                <div class="ws-media-stage">
+                                    <img [src]="previewData.dataUrl" [alt]="selectedNode.name" class="ws-preview-image" />
+                                </div>
+                            } @else if (previewData.type === 'video' && previewData.mediaUrl) {
+                                <div class="ws-media-stage">
+                                    <video [src]="previewData.mediaUrl" controls class="ws-preview-video"></video>
+                                </div>
+                            } @else if (previewData.type === 'audio' && previewData.mediaUrl) {
+                                <div class="ws-media-stage">
+                                    <audio [src]="previewData.mediaUrl" controls class="w-full max-w-xl"></audio>
+                                </div>
+                            } @else {
+                                <div class="ws-empty-state">
+                                    <mat-icon class="ws-empty-state__icon">{{ getNodeIcon(selectedNode) }}</mat-icon>
+                                    <div class="ws-empty-state__title">{{ selectedNode.name }}</div>
+                                    <div class="ws-empty-state__sub">
+                                        Tệp định dạng nhị phân ({{ selectedNode.ext || 'Binary' }} — {{ formatBytes(selectedNode.size) }}).
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="ws-btn ws-btn--primary mt-3"
+                                        (click)="openInOs(selectedNode, 'open')"
+                                    >
+                                        <mat-icon>launch</mat-icon>
+                                        <span>Mở bằng ứng dụng Hệ điều hành</span>
+                                    </button>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
