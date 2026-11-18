@@ -64,6 +64,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
             title: 'app.renewal',
             description: 'app.maintain_operation'
         },
+        {
+            id: 'affiliate',
+            icon: 'feather:shopping-bag',
+            title: 'Affiliate',
+            description: 'Tiếp thị liên kết'
+        },
         // {
         //     id: 'money',
         //     icon: 'feather:credit-card',

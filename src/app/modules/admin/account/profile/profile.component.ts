@@ -489,6 +489,8 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     const resultProps: any[] = [];
     const seenIds = new Set<string>();
 
+    let missingAdded = false;
+
     if (Array.isArray(savedProps) && savedProps.length > 0) {
       for (const saved of savedProps) {
         if (!saved || !saved.id) continue;
@@ -502,6 +504,16 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           delete saved._modifiedPosition;
         }
 
+        // Tự động phục hồi đồ vật bị văng quá xa khỏi lưới Studio (|x| > 150 hoặc |z| > 150) về tâm sàn (0, y, 0)
+        if (!isStructural && saved.position && (Math.abs(Number(saved.position.z) || 0) > 150 || Math.abs(Number(saved.position.x) || 0) > 150)) {
+          saved.position = {
+            x: 0,
+            y: Number(saved.position.y) || 0,
+            z: 0
+          };
+          missingAdded = true;
+        }
+
         const def = defaultMap.get(saved.id) || {};
         const mergedProp = { ...def, ...saved };
         delete (mergedProp as any)._inserting;
@@ -511,7 +523,6 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       }
     }
 
-    let missingAdded = false;
     const tombstones: string[] = (this.profile as any)?.deletedDefaultProps || [];
     for (const defProp of DEFAULT_PROPS) {
       if (!seenIds.has(defProp.id) && !tombstones.includes(defProp.id)) {
@@ -2215,6 +2226,306 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  // ============================================================================
+  // AI MOTION DESIGNER: TỰ ĐỘNG THIẾT KẾ CLIP KEYFRAME TỪ KHỚP XƯƠNG & VIDEO MẪU
+  // ============================================================================
+  isAiMotionBarOpen = false;
+  isDesigningAiMotion = false;
+  aiMotionPrompt = '';
+  aiMotionVideoName = '';
+  aiMotionVideoDuration = 0;
+  aiMotionVideoFrames: Array<{
+    time: number;
+    dataUrl: string;
+    base64: string;
+    mimeType: string;
+    energy: number;
+  }> = [];
+
+  toggleAiMotionBar(): void {
+    this.isAiMotionBarOpen = !this.isAiMotionBarOpen;
+    this.cdr.markForCheck();
+  }
+
+  clearMotionVideo(): void {
+    this.aiMotionVideoName = '';
+    this.aiMotionVideoDuration = 0;
+    this.aiMotionVideoFrames = [];
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Trích xuất chuỗi khung hình mẫu (keyframes) phân bố đều theo thời gian từ tệp Video mẫu
+   * kèm theo độ biến thiên chuyển động (motion energy) giữa các khung hình.
+   */
+  extractKeyFramesFromVideoFile(
+    file: File,
+    sampleCount = 8
+  ): Promise<{
+    duration: number;
+    frames: Array<{ time: number; dataUrl: string; base64: string; mimeType: string; energy: number }>;
+  }> {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const video = document.createElement('video');
+      video.preload = 'auto';
+      video.muted = true;
+      video.playsInline = true;
+      video.src = url;
+
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        try {
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+        } catch (_) {}
+        URL.revokeObjectURL(url);
+      };
+
+      const failTimeout = setTimeout(() => {
+        cleanup();
+        reject(new Error('Quá thời gian đọc tệp video mẫu.'));
+      }, 20000);
+
+      video.onerror = () => {
+        clearTimeout(failTimeout);
+        cleanup();
+        reject(new Error('Không thể giải mã tệp video mẫu.'));
+      };
+
+      video.onloadedmetadata = async () => {
+        try {
+          const rawDur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 2.4;
+          const clampedDur = Math.round(Math.max(0.8, Math.min(12.0, rawDur)) * 100) / 100;
+          const vw = video.videoWidth || 320;
+          const vh = video.videoHeight || 320;
+          const maxDim = 256;
+          const scale = Math.min(1, maxDim / Math.max(vw, vh));
+          const cw = Math.max(64, Math.round(vw * scale));
+          const ch = Math.max(64, Math.round(vh * scale));
+
+          const canvas = document.createElement('canvas');
+          canvas.width = cw;
+          canvas.height = ch;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (!ctx) throw new Error('Không khởi tạo được Canvas trích xuất khung hình.');
+
+          const frames: Array<{ time: number; dataUrl: string; base64: string; mimeType: string; energy: number }> = [];
+          let prevLuma: Float32Array | null = null;
+          const rawDiffs: number[] = [];
+
+          const seekTo = (t: number) =>
+            new Promise<void>((resSeek) => {
+              const onSeeked = () => {
+                video.removeEventListener('seeked', onSeeked);
+                resSeek();
+              };
+              video.addEventListener('seeked', onSeeked);
+              try {
+                video.currentTime = t;
+              } catch (_) {
+                video.removeEventListener('seeked', onSeeked);
+                resSeek();
+              }
+            });
+
+          const safeEnd = Math.max(0.1, Math.min(clampedDur, rawDur) - 0.04);
+          for (let i = 0; i < sampleCount; i++) {
+            const ratio = sampleCount > 1 ? i / (sampleCount - 1) : 0;
+            const t = Math.round(ratio * safeEnd * 100) / 100;
+            await seekTo(t);
+            ctx.drawImage(video, 0, 0, cw, ch);
+
+            // Tính năng lượng biến thiên ánh sáng khung hình để đo nhịp chuyển động
+            const imgData = ctx.getImageData(0, 0, cw, ch).data;
+            const step = 16;
+            const luma = new Float32Array(Math.ceil(imgData.length / step));
+            let diffSum = 0;
+            let idx = 0;
+            for (let p = 0; p < imgData.length; p += step) {
+              const y = 0.299 * imgData[p] + 0.587 * imgData[p + 1] + 0.114 * imgData[p + 2];
+              luma[idx] = y;
+              if (prevLuma && idx < prevLuma.length) {
+                diffSum += Math.abs(y - prevLuma[idx]);
+              }
+              idx++;
+            }
+            const avgDiff = prevLuma && idx > 0 ? diffSum / idx : 12;
+            rawDiffs.push(avgDiff);
+            prevLuma = luma;
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.76);
+            const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+            frames.push({
+              time: Math.round(ratio * clampedDur * 100) / 100,
+              dataUrl,
+              base64,
+              mimeType: 'image/jpeg',
+              energy: 1.0
+            });
+          }
+
+          const meanDiff = rawDiffs.reduce((a, b) => a + b, 0) / Math.max(1, rawDiffs.length) || 1;
+          for (let i = 0; i < frames.length; i++) {
+            frames[i].energy = Math.max(0.6, Math.min(1.5, rawDiffs[i] / meanDiff));
+          }
+
+          clearTimeout(failTimeout);
+          cleanup();
+          resolve({ duration: clampedDur, frames });
+        } catch (err) {
+          clearTimeout(failTimeout);
+          cleanup();
+          reject(err);
+        }
+      };
+    });
+  }
+
+  async onMotionVideoSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    if (input) input.value = '';
+    if (!file) return;
+
+    try {
+      this.toastr.info(`Đang trích xuất khung hình chuyển động từ "${file.name}"...`, 'AI Motion Studio');
+      const res = await this.extractKeyFramesFromVideoFile(file, 8);
+      this.aiMotionVideoName = file.name;
+      this.aiMotionVideoDuration = res.duration;
+      this.aiMotionVideoFrames = res.frames;
+      this.isAiMotionBarOpen = true;
+      if (this.timelineData) {
+        this.timelineData.duration = res.duration;
+      }
+      this.toastr.success(
+        `Đã trích xuất ${res.frames.length} khung hình mẫu (${res.duration}s) từ "${file.name}". Bấm "AI Thiết kế Clip" để tạo chuyển động!`,
+        'AI Motion Studio'
+      );
+      this.cdr.markForCheck();
+    } catch (err: any) {
+      this.toastr.error(err?.message || 'Không đọc được tệp video mẫu.', 'AI Motion Studio');
+    }
+  }
+
+  async designMotionWithAi(): Promise<void> {
+    const pid = this.timelinePropId || this.selectedPropId;
+    if (!pid || !this.sceneService.hasPropRig(pid)) {
+      this.toastr.warning('Vui lòng chọn một nhân vật hoặc đồ vật 3D có khớp xương trước.', 'AI Motion Studio');
+      return;
+    }
+    const prompt = (this.aiMotionPrompt || '').trim();
+    if (!prompt && this.aiMotionVideoFrames.length === 0) {
+      this.toastr.warning('Hãy chọn một Video mẫu hoặc nhập mô tả chuyển động để AI thiết kế.', 'AI Motion Studio');
+      return;
+    }
+
+    this.isDesigningAiMotion = true;
+    this.cdr.markForCheck();
+
+    const bones = this.sceneService.getPropBones(pid);
+    const boneNames = bones.map((b) => b.name);
+    const targetDur = this.aiMotionVideoDuration > 0
+      ? this.aiMotionVideoDuration
+      : (this.timelineData?.duration || 2.4);
+
+    try {
+      this.toastr.info('AI Agent đang phân tích khớp xương và thiết kế chuỗi Keyframe...', 'AI Motion Studio', { timeOut: 2500 });
+
+      const frameMetaDesc = this.aiMotionVideoFrames.length > 0
+        ? `Người dùng đã đính kèm ${this.aiMotionVideoFrames.length} khung hình trích xuất theo trình tự thời gian từ Video mẫu "${this.aiMotionVideoName}" (tổng thời lượng ${targetDur}s): ` +
+          this.aiMotionVideoFrames.map((f, idx) => `Ảnh #${idx + 1} tại t=${f.time.toFixed(2)}s`).join(', ') +
+          `. Hãy quan sát tư thế nhân vật/vật thể qua từng khung hình ở các mốc thời gian tương ứng để ước lượng góc xoay Euler (rot: {x, y, z} tính bằng độ trong khoảng -120 đến 120) và độ dịch chuyển gốc (pos: {x, y, z}) cho các khớp xương.`
+        : `Hãy thiết kế chuỗi Keyframe chuyển động mượt mà trong thời lượng ${targetDur}s dựa trên mô tả của người dùng.`;
+
+      const systemPrompt = `Bạn là **Chuyên gia Diễn hoạt Khớp xương 3D (3D Skeletal Rig & Motion Capture AI Animator)**.
+Nhiệm vụ: Dựa trên danh sách khớp xương thật của mô hình 3D và các khung hình Video mẫu / mô tả hành động, hãy thiết kế một clip chuyển động Keyframe hoàn chỉnh.
+
+### DANH SÁCH KHỚP XƯƠNG CỦA MÔ HÌNH HIỆN TẠI (CHỈ ĐƯỢC DÙNG TÊN TRONG DANH SÁCH NÀY):
+${JSON.stringify(boneNames)}
+
+### THÔNG TIN VIDEO MẪU & MÔ TẢ:
+- ${frameMetaDesc}
+- Yêu cầu từ người dùng: "${prompt || 'Tái tạo chuyển động theo đúng tư thế trong các khung hình video mẫu'}"
+
+### QUY TẮC THIẾT KẾ KEYFRAME:
+1. Tạo tối thiểu 20 đến 45 keyframes phân bố trên các khớp xương chính (như Hips, Spine/Spine01/Spine02, Head/neck, LeftArm, LeftForeArm, RightArm, RightForeArm, LeftUpLeg, LeftLeg, RightUpLeg, RightLeg, hoặc __root__ nếu mô hình ít xương) tại các mốc thời gian từ 0.0s đến ${targetDur}s.
+2. Để chuyển động lặp lại (loop) mượt mà, tư thế ở t = 0.0s và t = ${targetDur}s nên khớp nhau.
+3. Góc xoay \`rot: { "x": number, "y": number, "z": number }\` tính bằng độ (từ -120 đến 120). Dịch chuyển \`pos: { "x": 0, "y": number, "z": 0 }\` chỉ dùng nhẹ cho Hips hoặc __root__ (từ -0.3 đến 0.4).
+4. CHỈ TRẢ VỀ JSON THUẦN TÚY (không bọc markdown, không giải thích ngoài JSON) theo đúng cấu trúc:
+{
+  "duration": ${targetDur},
+  "loop": true,
+  "explanation": "Mô tả ngắn gọn chuyển động vừa thiết kế",
+  "keyframes": [
+    { "time": 0.0, "boneName": "Hips", "rot": { "x": 0, "y": 0, "z": 0 }, "pos": { "x": 0, "y": 0, "z": 0 } }
+  ]
+}`;
+
+      const parts: any[] = [{ text: systemPrompt }];
+      for (const f of this.aiMotionVideoFrames) {
+        parts.push({
+          inlineData: {
+            mimeType: f.mimeType || 'image/jpeg',
+            data: f.base64
+          }
+        });
+      }
+
+      let appliedCount = 0;
+      let explanation = '';
+      try {
+        const aiRes: any = await this.genaiService.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: parts
+        });
+        if (aiRes && aiRes.text) {
+          let clean = aiRes.text.trim();
+          if (clean.startsWith('```json')) clean = clean.replace(/^```json/, '').replace(/```$/, '').trim();
+          if (clean.startsWith('```')) clean = clean.replace(/^```/, '').replace(/```$/, '').trim();
+          const parsed = JSON.parse(clean);
+          if (parsed && Array.isArray(parsed.keyframes) && parsed.keyframes.length > 0) {
+            appliedCount = this.sceneService.applyGeneratedBoneTimeline(pid, {
+              duration: Number(parsed.duration) || targetDur,
+              loop: parsed.loop !== false,
+              keyframes: parsed.keyframes
+            });
+            explanation = parsed.explanation || '';
+          }
+        }
+      } catch (apiErr) {
+        console.warn('[AI Motion Studio] Fallback to smart motion synthesizer:', apiErr);
+      }
+
+      // Nếu AI trả về thiếu keyframe hoặc lỗi kết nối, dùng bộ tổng hợp chuyển động khớp xương thông minh theo năng lượng Video + từ khóa
+      if (appliedCount === 0) {
+        const energies = this.aiMotionVideoFrames.map((f) => f.energy);
+        appliedCount = this.sceneService.generateSmartBoneMotion(
+          pid,
+          prompt || this.aiMotionVideoName || 'dance',
+          targetDur,
+          energies
+        );
+      }
+
+      this.timelineData = this.sceneService.getPropTimeline(pid);
+      this.timelineCurrentTime = 0;
+      this.saveTimelineToProp(true);
+      this.toastr.success(
+        explanation || `AI Agent đã thiết kế xong ${appliedCount} Keyframe chuyển động trên các khớp xương và bắt đầu phát!`,
+        'AI Motion Studio'
+      );
+    } catch (err: any) {
+      this.toastr.error(err?.message || 'Không thể thiết kế chuyển động AI.', 'AI Motion Studio');
+    } finally {
+      this.isDesigningAiMotion = false;
+      this.cdr.markForCheck();
+    }
+  }
+
   /** Trigger thêm đồ vật mới */
   triggerAddProp(): void {
     const newProp = {
@@ -2263,6 +2574,29 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           this.cdr.markForCheck();
         };
         reader.readAsDataURL(file);
+      } else if (file.type.startsWith('video/') || /\.(mp4|webm|mov)$/i.test(file.name)) {
+        this.toastr.info(`Đang trích xuất khung hình chuyển động từ video "${file.name}"...`, 'Đính kèm Video mẫu');
+        this.extractKeyFramesFromVideoFile(file, 6)
+          .then((res) => {
+            this.aiMotionVideoName = file.name;
+            this.aiMotionVideoDuration = res.duration;
+            this.aiMotionVideoFrames = res.frames;
+            for (const f of res.frames) {
+              this.attachedImages.push({
+                dataUrl: f.dataUrl,
+                base64: f.base64,
+                mimeType: f.mimeType
+              });
+            }
+            this.toastr.success(
+              `Đã đính kèm ${res.frames.length} khung hình chuyển động (${res.duration}s) từ "${file.name}"!`,
+              'Đính kèm Video mẫu'
+            );
+            this.cdr.markForCheck();
+          })
+          .catch((err) => {
+            this.toastr.error(err?.message || 'Không thể đọc tệp video đính kèm.', 'Đính kèm Video mẫu');
+          });
       } else if (file.type === 'text/javascript' || file.type === 'application/javascript' || /\.js$/i.test(file.name)) {
         // Tệp JS hiệu ứng PlayCanvas: đọc nội dung văn bản để nhúng vào prompt
         if (file.size > 512 * 1024) {
@@ -2680,6 +3014,18 @@ ${targetPropInstruction}
      * Script viết dạng "function effect(fx) { ... }", KHÔNG dùng fetch/XHR/DOM/setInterval, chỉ dùng API trên + Math + pc.
      * Script kiểu PlayCanvas Editor (pc.createScript + prototype.initialize/update, có attributes.add) cũng được CHẤP NHẬN: runtime tự chuyển đổi sang effect(fx) và attributes thành fx.params. Nếu file đính kèm có lỗi cú pháp (vd "default:," thiếu giá trị), vẫn copy nguyên văn — runtime tự sửa.
 
+8. THIẾT KẾ CLIP CHUYỂN ĐỘNG KHỚP XƯƠNG 3D TỪ VIDEO MẪU / MÔ TẢ ('designBoneAnimation'):
+   - Khi người dùng yêu cầu thiết kế/tạo chuyển động khớp xương (keyframe, vẫy tay, đá chân, cúi chào, nhảy, quyền anh, đi bộ...) hoặc đính kèm các khung hình trích xuất từ Video mẫu cho một nhân vật / đồ vật GLB có xương, trả về trường \`designBoneAnimation\`:
+     {
+       "targetPropId": "id_món_đồ_GLB",
+       "duration": 2.4,
+       "loop": true,
+       "keyframes": [
+         { "time": 0.0, "boneName": "Hips", "rot": { "x": 0, "y": 0, "z": 0 }, "pos": { "x": 0, "y": 0, "z": 0 } }
+       ]
+     }
+   - Chỉ sử dụng đúng tên khớp xương trong mảng \`rigBones\` của đồ vật đó ở phần TRẠNG THÁI HIỆN TẠI bên dưới.
+
 ---
 ### TRẠNG THÁI HIỆN TẠI:
 ${JSON.stringify({
@@ -2694,7 +3040,10 @@ ${JSON.stringify({
     rotation: p.rotation,
     scale: p.scale,
     animation: p.animation || 'none',
-    visible: p.visible
+    visible: p.visible,
+    rigBones: p.visible && this.sceneService.hasPropRig(p.id)
+      ? this.sceneService.getPropBones(p.id).map(b => b.name)
+      : undefined
   }))
 }, null, 2)}
 
@@ -2734,6 +3083,7 @@ ${JSON.stringify({
   "cameraPreset": null,
   "focusPropName": null,
   "applyEffect": null,
+  "designBoneAnimation": null,
   "explanation": "Câu mô tả ngắn gọn vui vẻ về những gì bạn vừa tạo/thay đổi trên PlayCanvas"
 }`;
         const parts: any[] = [{ text: domainSystemPrompt }];
@@ -3018,7 +3368,25 @@ ${JSON.stringify({
                 // Hieu ung chi choi trong phien hien tai: KHONG ghi vao profile
                 // de tranh tu dong chay lai moi lan mo app / F5
                 updated = true;
-                message = '✨ AI đã kích hoạt hiệu ứng "' + (fxSpecs[0].name || 'custom') + '" trong scene 3D PlayCanvas!';
+                message = 'AI đã kích hoạt hiệu ứng "' + (fxSpecs[0].name || 'custom') + '" trong scene 3D PlayCanvas!';
+              }
+            }
+            if (parsed.designBoneAnimation) {
+              const dba = parsed.designBoneAnimation;
+              const targetPid =
+                dba.targetPropId ||
+                (targetProps && targetProps[0]?.id) ||
+                this.timelinePropId ||
+                this.selectedPropId ||
+                this.roomProps.find((p) => p && p.visible && this.sceneService.hasPropRig(p.id))?.id;
+              if (targetPid && this.sceneService.hasPropRig(targetPid)) {
+                const count = this.sceneService.applyGeneratedBoneTimeline(targetPid, dba);
+                if (count > 0) {
+                  this.openPropTimeline(targetPid);
+                  this.saveTimelineToProp(true);
+                  updated = true;
+                  message = parsed.explanation || `AI đã thiết kế xong ${count} Keyframe chuyển động khớp xương!`;
+                }
               }
             }
             if (parsed.explanation) {
@@ -3029,6 +3397,30 @@ ${JSON.stringify({
       } catch (aiErr: any) {
         console.warn('[Profile] AI Agent Service call error:', aiErr?.message || aiErr);
       }
+
+    // Fallback thiết kế chuyển động khớp xương khi đính kèm Video mẫu hoặc yêu cầu diễn hoạt xương
+    if (
+      !updated &&
+      (this.aiMotionVideoFrames.length > 0 ||
+        /keyframe|khớp xương|chuyển động|diễn hoạt|đá chân|đấm|cúi chào|vẫy tay|nhảy/.test(lower))
+    ) {
+      const targetPid =
+        (targetProps && targetProps[0]?.id) ||
+        this.timelinePropId ||
+        this.selectedPropId ||
+        this.roomProps.find((p) => p && p.visible && this.sceneService.hasPropRig(p.id))?.id;
+      if (targetPid && this.sceneService.hasPropRig(targetPid)) {
+        const energies = this.aiMotionVideoFrames.map((f) => f.energy);
+        const dur = this.aiMotionVideoDuration > 0 ? this.aiMotionVideoDuration : 2.4;
+        const count = this.sceneService.generateSmartBoneMotion(targetPid, text || 'dance', dur, energies);
+        if (count > 0) {
+          this.openPropTimeline(targetPid);
+          this.saveTimelineToProp(true);
+          updated = true;
+          message = `AI đã thiết kế ${count} Keyframe chuyển động khớp xương và phát trên Timeline!`;
+        }
+      }
+    }
 
     const hasTargetProps = targetProps && targetProps.length > 0;
 

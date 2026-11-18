@@ -780,6 +780,31 @@
                                                 }
                                             </div>
 
+                                            <!-- LINK AFFILIATE SẢN PHẨM CHO VIDEO -->
+                                            <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                                                <mat-label class="ml-2">Link Affiliate sản phẩm</mat-label>
+                                                <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:link'"></mat-icon>
+                                                <input
+                                                    matInput
+                                                    type="text"
+                                                    [ngModel]="videoShareAffiliateLink"
+                                                    (ngModelChange)="onAffiliateLinkChange($event)"
+                                                    (keydown.enter)="insertAffiliateLinkToDescription()"
+                                                    placeholder="Dán link rút gọn Shopee, Lazada hoặc TikTok Shop cho video này..."
+                                                />
+                                                @if (videoShareAffiliateLink) {
+                                                    <button
+                                                        type="button"
+                                                        mat-icon-button
+                                                        matSuffix
+                                                        (click)="insertAffiliateLinkToDescription()"
+                                                        matTooltip="Chèn mẫu câu CTA kèm Link Affiliate vào Nội dung bài đăng"
+                                                    >
+                                                        <mat-icon class="icon-size-4 text-primary" [svgIcon]="'feather:plus-circle'"></mat-icon>
+                                                    </button>
+                                                }
+                                            </mat-form-field>
+
                                             <!-- HẸN GIỜ ĐĂNG -->
                                             <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
                                                 <mat-label class="ml-2">Hẹn giờ đăng (để trống nếu đăng ngay)</mat-label>
