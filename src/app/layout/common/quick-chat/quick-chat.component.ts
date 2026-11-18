@@ -18,7 +18,10 @@ import {
 
 import { ScrollStrategy, ScrollStrategyOptions } from '@angular/cdk/overlay';
 import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { UserSettingsService, getSettings, saveSettingsPartial } from 'app/_services/user-settings.service';
+import { UserService } from 'app/core/user/user.service';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 
@@ -30,6 +33,18 @@ export interface ToolItem {
     url: string;
     icon?: string;
 }
+
+export const DEFAULT_WEB_TOOLS: ToolItem[] = [
+    {
+        id: '1',
+        name: 'Gemini',
+        url: 'https://gemini.google.com/app?hl=vi',
+    },
+    { id: '3', name: 'Facebook', url: 'https://facebook.com' },
+    { id: '4', name: 'Tiktok', url: 'https://www.tiktok.com' },
+    { id: '5', name: 'Instagram', url: 'https://instagram.com' },
+    { id: '6', name: 'X', url: 'https://x.com' },
+];
 
 @Component({
     selector: 'quick-chat',
@@ -70,6 +85,8 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         private _ngZone: NgZone,
         private _scrollStrategyOptions: ScrollStrategyOptions,
         private multiAccountService: MultiAccountService,
+        private _userSettingsService: UserSettingsService,
+        private _userService: UserService,
         private _matDialog: MatDialog,
         private cd: ChangeDetectorRef,
     ) {}
@@ -82,6 +99,32 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
     ngOnInit(): void {
         this.loadTools();
+
+        if (this.multiAccountService.isReady) {
+            this.multiAccountService.isReady.then(() => {
+                this.loadTools();
+            });
+        }
+
+        // Đồng bộ trực tiếp danh sách Web Tools từ settings trên Server API
+        this._userSettingsService.settings$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((settings: any) => {
+                if (Array.isArray(settings?.tools_urls) && settings.tools_urls.length > 0) {
+                    const cleaned = settings.tools_urls
+                        .filter((t: any) => t && t.name !== 'Google Labs')
+                        .map((t: any) => ({ ...t }));
+                    this.tools = cleaned;
+                    this.multiAccountService.setItem('tools_urls', cleaned);
+                    this.cd.detectChanges();
+                } else if (settings && Object.keys(settings).length > 0 && !Array.isArray(settings.tools_urls)) {
+                    // Nếu tài khoản trên server chưa có tools_urls nhưng máy đang có danh sách riêng -> đẩy lên server luôn
+                    if (this.tools && this.tools.length > 0) {
+                        this.persistTools();
+                    }
+                }
+            });
+
         this._ngZone.runOutsideAngular(() => {
             this.checkZaloStatus();
 
@@ -125,11 +168,30 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         return tool && tool.url && tool.url.includes('zalo.me');
     }
 
+    private getCurrentUsername(): string | undefined {
+        return (
+            this._userService.user?.name ||
+            this.multiAccountService.getItem('username') ||
+            localStorage.getItem('username') ||
+            undefined
+        );
+    }
+
+    private persistTools(): void {
+        const cloned = (this.tools || []).map((t) => ({ ...t }));
+        this.multiAccountService.setItem('tools_urls', cloned);
+        saveSettingsPartial({ tools_urls: cloned }, this.getCurrentUsername());
+    }
+
     loadTools(): void {
-        let savedTools = this.multiAccountService.getItem('tools_urls');
+        const serverSettings = getSettings();
+        let savedTools =
+            Array.isArray(serverSettings?.tools_urls) && serverSettings.tools_urls.length > 0
+                ? serverSettings.tools_urls
+                : this.multiAccountService.getItem('tools_urls');
 
         // Remove Google Labs from existing cached tools
-        if (savedTools && savedTools.length > 0) {
+        if (Array.isArray(savedTools) && savedTools.length > 0) {
             const hasLabs = savedTools.find(
                 (t: any) => t.name === 'Google Labs',
             );
@@ -140,21 +202,11 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                 this.multiAccountService.setItem('tools_urls', savedTools);
             }
         }
-        if (!savedTools || savedTools.length === 0) {
-            savedTools = [
-                {
-                    id: '1',
-                    name: 'Gemini',
-                    url: 'https://gemini.google.com/app?hl=vi',
-                },
-                { id: '3', name: 'Facebook', url: 'https://facebook.com' },
-                { id: '4', name: 'Tiktok', url: 'https://www.tiktok.com' },
-                { id: '5', name: 'Instagram', url: 'https://instagram.com' },
-                { id: '6', name: 'X', url: 'https://x.com' },
-            ];
+        if (!Array.isArray(savedTools) || savedTools.length === 0) {
+            savedTools = DEFAULT_WEB_TOOLS.map((t) => ({ ...t }));
             this.multiAccountService.setItem('tools_urls', savedTools);
         }
-        this.tools = savedTools;
+        this.tools = savedTools.map((t: any) => ({ ...t }));
     }
 
     onNewIconSelected(event: any): void {
@@ -175,7 +227,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
             const reader = new FileReader();
             reader.onload = (e: any) => {
                 tool.icon = e.target.result;
-                this.multiAccountService.setItem('tools_urls', this.tools);
+                this.persistTools();
                 this.cd.detectChanges();
             };
             reader.readAsDataURL(file);
@@ -193,7 +245,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         };
 
         this.tools.push(newTool);
-        this.multiAccountService.setItem('tools_urls', this.tools);
+        this.persistTools();
 
         // Reset form
         this.newToolName = '';
@@ -220,7 +272,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                 };
 
                 this.tools.push(newTool);
-                this.multiAccountService.setItem('tools_urls', this.tools);
+                this.persistTools();
                 this.cd.detectChanges();
             }
         });
@@ -228,7 +280,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
     removeTool(id: string): void {
         this.tools = this.tools.filter((t) => t.id !== id);
-        this.multiAccountService.setItem('tools_urls', this.tools);
+        this.persistTools();
         if (this.selectedTool && this.selectedTool.id === id) {
             this.selectedTool = null;
         }
@@ -247,7 +299,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
     drop(event: CdkDragDrop<ToolItem[]>) {
         moveItemInArray(this.tools, event.previousIndex, event.currentIndex);
-        this.multiAccountService.setItem('tools_urls', this.tools);
+        this.persistTools();
     }
 
     openTool(tool: ToolItem): void {
@@ -475,7 +527,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         }
 
         if (tool) {
-            this.multiAccountService.setItem('tools_urls', this.tools);
+            this.persistTools();
             this.open();
             this.openTool(tool);
         }

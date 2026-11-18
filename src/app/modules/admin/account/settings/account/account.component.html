@@ -842,6 +842,100 @@
                 </mat-accordion>
             </mat-tab>
 
+            <!-- Tab Web Tools -->
+            <mat-tab label="Web Tools">
+                <div class="w-full mt-2">
+                    <div class="text-secondary">
+                        Quản lý danh sách Web Tools (Lưu trữ đồng bộ trên Server API theo tài khoản)
+                    </div>
+                    <div class="mt-2 mb-4 border-t"></div>
+
+                    <!-- Form thêm Web Tool mới -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center mb-6">
+                        <mat-form-field
+                            class="md:col-span-4 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label>Tên công cụ</mat-label>
+                            <input
+                                matInput
+                                type="text"
+                                [(ngModel)]="newWebToolName"
+                                [ngModelOptions]="{ standalone: true }"
+                                (keydown.enter)="$event.preventDefault(); addWebToolFromSettings()"
+                                placeholder="VD: ChatGPT, Zalo, Canva..."
+                            />
+                        </mat-form-field>
+
+                        <mat-form-field
+                            class="md:col-span-6 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label>Đường dẫn URL</mat-label>
+                            <input
+                                matInput
+                                type="text"
+                                [(ngModel)]="newWebToolUrl"
+                                [ngModelOptions]="{ standalone: true }"
+                                (keydown.enter)="$event.preventDefault(); addWebToolFromSettings()"
+                                placeholder="https://..."
+                            />
+                        </mat-form-field>
+
+                        <div class="md:col-span-2 flex justify-end">
+                            <button
+                                type="button"
+                                mat-flat-button
+                                color="primary"
+                                class="w-full"
+                                (click)="addWebToolFromSettings()"
+                            >
+                                <mat-icon class="icon-size-4" [svgIcon]="'feather:plus'"></mat-icon>
+                                <mat-label class="ml-2">Thêm</mat-label>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Danh sách Web Tools hiện tại (Kéo thả sắp xếp) -->
+                    <div
+                        class="bg-card rounded-xl border overflow-hidden"
+                        cdkDropList
+                        (cdkDropListDropped)="dropWebToolInSettings($event)"
+                    >
+                        @for (tool of webTools; track tool.id) {
+                            <div
+                                cdkDrag
+                                class="flex items-center px-4 py-3 border-b last:border-none hover:bg-gray-50 cursor-move bg-white dark:bg-transparent gap-3"
+                            >
+                                <img
+                                    [src]="getWebToolFavicon(tool)"
+                                    class="w-8 h-8 rounded-lg object-cover shrink-0"
+                                    onerror="this.src='./assets/images/logo/favicon.svg'"
+                                />
+                                <div class="flex-auto min-w-0">
+                                    <div class="font-medium text-base truncate">{{ tool.name }}</div>
+                                    <div class="text-sm text-gray-500 truncate" dir="ltr">{{ tool.url }}</div>
+                                </div>
+                                <button
+                                    type="button"
+                                    mat-icon-button
+                                    color="warn"
+                                    (click)="removeWebToolFromSettings(tool.id)"
+                                    matTooltip="Xóa khỏi danh sách"
+                                >
+                                    <mat-icon class="icon-size-5">delete</mat-icon>
+                                </button>
+                            </div>
+                        }
+                        @if (!webTools || webTools.length === 0) {
+                            <div class="p-6 text-center text-gray-500">
+                                Chưa có công cụ nào trong danh sách Web Tools.
+                            </div>
+                        }
+                    </div>
+                </div>
+            </mat-tab>
+
             <!-- Tab Backup -->
             <mat-tab label="{{ 'account.tabs.backup' | transloco }}">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mt-4">
