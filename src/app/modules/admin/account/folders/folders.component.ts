@@ -6,6 +6,7 @@ import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { N8nService } from 'app/_services/n8n.service';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { getSettings } from 'app/_services/user-settings.service';
 import { HelperService } from 'app/helper.service';
 
 export interface WorkspaceRootInfo {
@@ -98,6 +99,7 @@ export class WorkspaceFoldersComponent implements OnInit {
     activeShareTab: 'facebook' | 'tiktok' | 'youtube' = 'facebook';
     videoShareTitle = '';
     videoShareDescription = '';
+    videoShareAffiliateLink = '';
     videoShareScheduleTime = '';
     isSharingVideo = false;
 
@@ -528,6 +530,7 @@ export class WorkspaceFoldersComponent implements OnInit {
                         .replace(/[_-]+/g, ' ')
                         .trim();
                     this.videoShareTitle = cleanName || node.name;
+                    this.videoShareAffiliateLink = this._getSavedVideoAffiliateLink(node.path);
                     if (!this.videoShareDescription) {
                         this.videoShareDescription = `${this.videoShareTitle}\n\n#xuhuong #fyp #reels #shorts #tiktok`;
                     }
@@ -1012,9 +1015,78 @@ export class WorkspaceFoldersComponent implements OnInit {
         this._cdr.markForCheck();
     }
 
+    private _getSavedVideoAffiliateLink(videoPath: string): string {
+        if (!videoPath) return '';
+        try {
+            const map = this._multiAccountService.getItem('video_affiliate_links') || {};
+            const parsed = typeof map === 'string' ? JSON.parse(map) : map;
+            return parsed?.[videoPath] || '';
+        } catch (_) {
+            return '';
+        }
+    }
+
+    onAffiliateLinkChange(value: string): void {
+        this.videoShareAffiliateLink = value || '';
+        if (!this.selectedNode?.path) return;
+        try {
+            const raw = this._multiAccountService.getItem('video_affiliate_links') || {};
+            const map = typeof raw === 'string' ? JSON.parse(raw) : { ...raw };
+            if (this.videoShareAffiliateLink.trim()) {
+                map[this.selectedNode.path] = this.videoShareAffiliateLink.trim();
+            } else {
+                delete map[this.selectedNode.path];
+            }
+            this._multiAccountService.setItem('video_affiliate_links', map);
+        } catch (_) {}
+    }
+
+    formatAffiliateCtaLine(rawLink?: string): string {
+        const link = (rawLink ?? this.videoShareAffiliateLink ?? '').trim();
+        if (!link) return '';
+        const settings = getSettings() || {};
+        const affCfg = settings?.affiliate || this._multiAccountService.getItem('affiliate_config') || {};
+        const lower = link.toLowerCase();
+
+        let tpl = '';
+        if (lower.includes('shopee') || lower.includes('shp.ee')) {
+            tpl = affCfg.shopeeCtaTemplate || 'Mua ngay chính hãng trên Shopee tại đây: {link}';
+        } else if (lower.includes('lazada')) {
+            tpl = affCfg.lazadaCtaTemplate || 'Săn deal Lazada giá hời tại đây: {link}';
+        } else if (lower.includes('tiktok')) {
+            tpl = affCfg.tiktokCtaTemplate || 'Sản phẩm có trong giỏ hàng góc trái màn hình hoặc tại: {link}';
+        } else {
+            tpl = 'Mua ngay sản phẩm tại đây: {link}';
+        }
+
+        return tpl.includes('{link}') ? tpl.replace(/\{link\}/g, link) : `${tpl} ${link}`;
+    }
+
+    insertAffiliateLinkToDescription(): void {
+        const link = (this.videoShareAffiliateLink || '').trim();
+        if (!link) return;
+        const ctaLine = this.formatAffiliateCtaLine(link);
+        const cur = (this.videoShareDescription || '').trim();
+        if (!cur.includes(link)) {
+            this.videoShareDescription = cur ? `${cur}\n\n${ctaLine}` : ctaLine;
+            this._toastr.info('Đã chèn Link Affiliate vào nội dung bài đăng.');
+            this._cdr.markForCheck();
+        }
+    }
+
+    private _buildFinalDescriptionWithAffiliate(baseDesc: string): string {
+        let desc = (baseDesc || '').trim();
+        const affLink = (this.videoShareAffiliateLink || '').trim();
+        if (affLink && !desc.includes(affLink)) {
+            const ctaLine = this.formatAffiliateCtaLine(affLink);
+            desc = desc ? `${desc}\n\n${ctaLine}` : ctaLine;
+        }
+        return desc;
+    }
+
     async copyShareCaption(): Promise<void> {
         const title = (this.videoShareTitle || '').trim();
-        const desc = (this.videoShareDescription || '').trim();
+        const desc = this._buildFinalDescriptionWithAffiliate(this.videoShareDescription);
         const fullText = [title, desc].filter(Boolean).join('\n\n');
         if (!fullText) {
             this._toastr.warning('Chưa có tiêu đề hoặc nội dung để sao chép.');
@@ -1022,7 +1094,7 @@ export class WorkspaceFoldersComponent implements OnInit {
         }
         try {
             await navigator.clipboard.writeText(fullText);
-            this._toastr.info('Đã sao chép tiêu đề và nội dung vào bộ nhớ tạm.');
+            this._toastr.info('Đã sao chép tiêu đề, nội dung và link Affiliate vào bộ nhớ tạm.');
         } catch (_) {}
     }
 
@@ -1085,7 +1157,7 @@ export class WorkspaceFoldersComponent implements OnInit {
 
     async openPlatformStudio(platform: 'facebook' | 'tiktok' | 'youtube', revealFile = true): Promise<void> {
         const title = (this.videoShareTitle || '').trim();
-        let desc = (this.videoShareDescription || '').trim();
+        let desc = this._buildFinalDescriptionWithAffiliate(this.videoShareDescription);
         if (platform === 'youtube' && this.youtubeIsShorts && !/#shorts/i.test(title) && !/#shorts/i.test(desc)) {
             desc = desc ? `${desc} #Shorts` : '#Shorts';
         }
@@ -1163,13 +1235,16 @@ export class WorkspaceFoldersComponent implements OnInit {
 
             const formData = new FormData();
             let finalTitle = title;
-            let finalDesc = (this.videoShareDescription || '').trim();
+            let finalDesc = this._buildFinalDescriptionWithAffiliate(this.videoShareDescription);
             if (platform === 'youtube' && this.youtubeIsShorts && !/#shorts/i.test(finalTitle)) {
                 finalTitle = `${finalTitle} #Shorts`;
             }
 
             formData.append('title', finalTitle);
             formData.append('description', finalDesc || finalTitle);
+            if (this.videoShareAffiliateLink?.trim()) {
+                formData.append('affiliateLink', this.videoShareAffiliateLink.trim());
+            }
             formData.append('platform', platform);
             formData.append('delay_minutes', String(delayMinutes));
             if (this.videoShareScheduleTime) {

@@ -167,6 +167,41 @@
                     <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
             </button>
+            <!-- Nút Chuyển đổi giao diện Điện thoại / Máy tính (Mobile Emulation) -->
+            <button
+                (click)="toggleWebviewMobileMode()"
+                [title]="isWebviewMobileMode ? 'Đang ở chế độ Điện thoại (Nhấn để về Máy tính)' : 'Chuyển sang giao diện Điện thoại (Mobile)'"
+                [style.color]="isWebviewMobileMode ? '#14b8a6' : '#aaa'"
+                [style.background]="isWebviewMobileMode ? 'rgba(20, 184, 166, 0.15)' : 'none'"
+                style="
+                    border: none;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 4px;
+                    padding: 4px 6px;
+                    border-radius: 4px;
+                    margin-right: 4px;
+                    font-size: 11px;
+                    font-weight: 600;
+                "
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    style="width: 15px; height: 15px"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                </svg>
+                <span>{{ isWebviewMobileMode ? 'Mobile' : 'PC' }}</span>
+            </button>
             <!-- Nút Tải lại / Về trang chủ -->
             <button
                 (click)="webviewGoHome()"

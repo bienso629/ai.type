@@ -926,11 +926,11 @@
             </mat-menu>
         </div>
 
-        <!-- Hidden input for prompt image attachments -->
+        <!-- Hidden input for prompt image, video, and JS script attachments -->
         <input
             #promptFileInput
             type="file"
-            accept="image/*,.js,text/javascript,application/javascript"
+            accept="image/*,video/*,.mp4,.webm,.mov,.js,text/javascript,application/javascript"
             multiple
             class="hidden"
             (change)="onPromptFileSelected($event)"
@@ -1389,8 +1389,142 @@
                 (change)="onPropAnimGlbSelected($event)"
             />
 
-            <!-- BẢNG TIMELINE CHUYỂN ĐỘNG & KHỚP XƯƠNG GLB (DOCK DƯỚI CANVAS 3D) -->
+            <!-- BẢNG TIMELINE CHUYỂN ĐỘNG & KHỚP XƯƠNG GLB (TÁCH RIÊNG CỘT KHỚP XƯƠNG FULL-HEIGHT BÊN TRÁI & DOCK TIMELINE BÊN DƯỚI) -->
             @if (isGlbTimelineOpen && timelineData) {
+                <!-- DOCK KHỚP XƯƠNG FULL-HEIGHT BÊN TRÁI -->
+                <div
+                    class="glb-bones-dock"
+                    [class.glb-bones-dock--offset-top]="isSidebarCollapsed"
+                    (mousedown)="$event.stopPropagation()"
+                >
+                    <div class="glb-pane-header">
+                        <span>Khớp xương (Rig Bones)</span>
+                        <input
+                            type="text"
+                            [(ngModel)]="timelineBoneSearch"
+                            placeholder="Tìm khớp xương..."
+                            class="glb-bone-search"
+                        />
+                    </div>
+                    <div class="glb-bone-list">
+                        @for (b of filteredTimelineBones; track b.name) {
+                            <button
+                                type="button"
+                                class="glb-bone-item"
+                                [class.glb-bone-item--active]="b.name === selectedBoneName"
+                                [style.padding-left.px]="8 + (b.depth > 5 ? 5 : b.depth) * 8"
+                                (click)="selectTimelineBone(b.name)"
+                            >
+                                <span class="glb-bone-item__dot" [class.glb-bone-item__dot--skinned]="b.isSkinnedBone"></span>
+                                <span class="truncate flex-1 text-left" [title]="b.name">{{ b.label }}</span>
+                                @if (getKeyframesForBone(b.name).length > 0) {
+                                    <span class="glb-bone-item__kf-count">{{ getKeyframesForBone(b.name).length }}</span>
+                                }
+                            </button>
+                        }
+                    </div>
+
+                    <!-- Điều khiển xoay khớp đang chọn -->
+                    <div class="glb-bone-controls">
+                        <div class="glb-bone-controls__top">
+                            <span class="text-xs font-semibold text-teal-300 truncate" [title]="selectedBoneName">
+                                Khớp: {{ getBoneLabel(selectedBoneName) }}
+                            </span>
+                            <label class="glb-autokey-toggle" title="Tự động tạo/cập nhật Keyframe ngay khi kéo thanh trượt góc xoay">
+                                <input type="checkbox" [(ngModel)]="timelineAutoKey" />
+                                <span>Auto-Key</span>
+                            </label>
+                            <button
+                                type="button"
+                                class="glb-mini-reset"
+                                (click)="resetCurrentBonePose()"
+                                title="Đặt lại khớp này về góc 0"
+                            >
+                                Reset khớp
+                            </button>
+                        </div>
+
+                        <div class="glb-axis-slider">
+                            <span class="glb-axis-tag glb-axis-tag--x">Xoay X</span>
+                            <input
+                                type="range"
+                                min="-180"
+                                max="180"
+                                step="1"
+                                [(ngModel)]="boneRot.x"
+                                (ngModelChange)="onBoneTransformChange()"
+                            />
+                            <input
+                                type="number"
+                                min="-180"
+                                max="180"
+                                [(ngModel)]="boneRot.x"
+                                (ngModelChange)="onBoneTransformChange()"
+                                class="glb-axis-num"
+                            />
+                        </div>
+                        <div class="glb-axis-slider">
+                            <span class="glb-axis-tag glb-axis-tag--y">Xoay Y</span>
+                            <input
+                                type="range"
+                                min="-180"
+                                max="180"
+                                step="1"
+                                [(ngModel)]="boneRot.y"
+                                (ngModelChange)="onBoneTransformChange()"
+                            />
+                            <input
+                                type="number"
+                                min="-180"
+                                max="180"
+                                [(ngModel)]="boneRot.y"
+                                (ngModelChange)="onBoneTransformChange()"
+                                class="glb-axis-num"
+                            />
+                        </div>
+                        <div class="glb-axis-slider">
+                            <span class="glb-axis-tag glb-axis-tag--z">Xoay Z</span>
+                            <input
+                                type="range"
+                                min="-180"
+                                max="180"
+                                step="1"
+                                [(ngModel)]="boneRot.z"
+                                (ngModelChange)="onBoneTransformChange()"
+                            />
+                            <input
+                                type="number"
+                                min="-180"
+                                max="180"
+                                [(ngModel)]="boneRot.z"
+                                (ngModelChange)="onBoneTransformChange()"
+                                class="glb-axis-num"
+                            />
+                        </div>
+                        <div class="glb-axis-slider">
+                            <span class="glb-axis-tag glb-axis-tag--pos">Dịch Y</span>
+                            <input
+                                type="range"
+                                min="-2"
+                                max="2"
+                                step="0.02"
+                                [(ngModel)]="bonePos.y"
+                                (ngModelChange)="onBoneTransformChange()"
+                            />
+                            <input
+                                type="number"
+                                min="-5"
+                                max="5"
+                                step="0.05"
+                                [(ngModel)]="bonePos.y"
+                                (ngModelChange)="onBoneTransformChange()"
+                                class="glb-axis-num"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DOCK TIMELINE CHUYỂN ĐỘNG BÊN DƯỚI -->
                 <div
                     class="glb-timeline-dock"
                     (mousedown)="$event.stopPropagation()"
@@ -1483,6 +1617,23 @@
 
                         <!-- Các nút thao tác nhanh -->
                         <div class="glb-timeline-actions">
+                            <input
+                                #propMotionVideoInput
+                                type="file"
+                                accept="video/*,.mp4,.webm,.mov"
+                                class="hidden"
+                                (change)="onMotionVideoSelected($event)"
+                            />
+                            <button
+                                type="button"
+                                class="glb-tl-btn glb-tl-btn--ai"
+                                [class.glb-tl-btn--active]="isAiMotionBarOpen"
+                                (click)="toggleAiMotionBar()"
+                                title="Mở công cụ AI Agent tự thiết kế chuyển động từ Khớp xương & Video mẫu"
+                            >
+                                <mat-icon class="icon-size-4">auto_awesome</mat-icon>
+                                <span>AI Thiết kế từ Video</span>
+                            </button>
                             <button
                                 type="button"
                                 class="glb-tl-btn glb-tl-btn--accent"
@@ -1521,138 +1672,65 @@
                         </div>
                     </div>
 
-                    <!-- Thân bảng Timeline: Cột trái (Khớp xương & Góc xoay) + Cột phải (Dải Timeline & Keyframe) -->
-                    <div class="glb-timeline-dock__body">
-                        <!-- CỘT TRÁI: DANH SÁCH KHỚP XƯƠNG + THANH TRƯỢT XOAY X/Y/Z -->
-                        <div class="glb-timeline-bones-pane">
-                            <div class="glb-pane-header">
-                                <span>Khớp xương (Rig Bones)</span>
+                    <!-- THANH AI AGENT THIẾT KẾ CHUYỂN ĐỘNG TỪ KHỚP XƯƠNG & VIDEO MẪU -->
+                    @if (isAiMotionBarOpen) {
+                        <div class="glb-ai-motion-bar">
+                            <div class="glb-ai-motion-bar__controls">
+                                <button
+                                    type="button"
+                                    class="glb-tl-btn"
+                                    (click)="propMotionVideoInput.click()"
+                                    [disabled]="isDesigningAiMotion"
+                                    title="Chọn tệp Video mẫu (.mp4, .webm, .mov) để trích xuất khung hình tư thế"
+                                >
+                                    <mat-icon class="icon-size-4">video_library</mat-icon>
+                                    <span>{{ aiMotionVideoFrames.length > 0 ? 'Đổi Video mẫu' : 'Chọn Video mẫu' }}</span>
+                                </button>
+
+                                @if (aiMotionVideoName) {
+                                    <span class="glb-ai-video-tag" [title]="aiMotionVideoName">
+                                        <span class="truncate max-w-[140px]">{{ aiMotionVideoName }} ({{ aiMotionVideoDuration }}s)</span>
+                                        <button type="button" (click)="clearMotionVideo()" title="Gỡ video mẫu">&times;</button>
+                                    </span>
+                                }
+
                                 <input
                                     type="text"
-                                    [(ngModel)]="timelineBoneSearch"
-                                    placeholder="Tìm khớp xương..."
-                                    class="glb-bone-search"
+                                    [(ngModel)]="aiMotionPrompt"
+                                    (keydown.enter)="designMotionWithAi()"
+                                    [disabled]="isDesigningAiMotion"
+                                    placeholder="Nhập mô tả chuyển động (VD: Nhảy theo video mẫu, Đá chân cao, Đấm quyền anh, Vẫy tay cúi chào...)"
+                                    class="glb-ai-motion-input"
                                 />
-                            </div>
-                            <div class="glb-bone-list">
-                                @for (b of filteredTimelineBones; track b.name) {
-                                    <button
-                                        type="button"
-                                        class="glb-bone-item"
-                                        [class.glb-bone-item--active]="b.name === selectedBoneName"
-                                        [style.padding-left.px]="8 + (b.depth > 5 ? 5 : b.depth) * 8"
-                                        (click)="selectTimelineBone(b.name)"
-                                    >
-                                        <span class="glb-bone-item__dot" [class.glb-bone-item__dot--skinned]="b.isSkinnedBone"></span>
-                                        <span class="truncate flex-1 text-left" [title]="b.name">{{ b.label }}</span>
-                                        @if (getKeyframesForBone(b.name).length > 0) {
-                                            <span class="glb-bone-item__kf-count">{{ getKeyframesForBone(b.name).length }}</span>
-                                        }
-                                    </button>
-                                }
+
+                                <button
+                                    type="button"
+                                    class="glb-tl-btn glb-tl-btn--accent"
+                                    (click)="designMotionWithAi()"
+                                    [disabled]="isDesigningAiMotion"
+                                >
+                                    <mat-icon class="icon-size-4" [class.animate-spin]="isDesigningAiMotion">
+                                        {{ isDesigningAiMotion ? 'sync' : 'bolt' }}
+                                    </mat-icon>
+                                    <span>{{ isDesigningAiMotion ? 'Đang thiết kế...' : 'AI Thiết kế Clip' }}</span>
+                                </button>
                             </div>
 
-                            <!-- Điều khiển xoay khớp đang chọn -->
-                            <div class="glb-bone-controls">
-                                <div class="glb-bone-controls__top">
-                                    <span class="text-xs font-semibold text-teal-300 truncate" [title]="selectedBoneName">
-                                        Khớp: {{ getBoneLabel(selectedBoneName) }}
-                                    </span>
-                                    <label class="glb-autokey-toggle" title="Tự động tạo/cập nhật Keyframe ngay khi kéo thanh trượt góc xoay">
-                                        <input type="checkbox" [(ngModel)]="timelineAutoKey" />
-                                        <span>Auto-Key</span>
-                                    </label>
-                                    <button
-                                        type="button"
-                                        class="glb-mini-reset"
-                                        (click)="resetCurrentBonePose()"
-                                        title="Đặt lại khớp này về góc 0"
-                                    >
-                                        Reset khớp
-                                    </button>
+                            @if (aiMotionVideoFrames.length > 0) {
+                                <div class="glb-ai-frames-strip">
+                                    @for (frame of aiMotionVideoFrames; track frame.time) {
+                                        <div class="glb-ai-frame-thumb" [title]="'Khung hình tại ' + frame.time.toFixed(2) + 's'">
+                                            <img [src]="frame.dataUrl" alt="Frame" />
+                                            <span>{{ frame.time.toFixed(2) }}s</span>
+                                        </div>
+                                    }
                                 </div>
-
-                                <div class="glb-axis-slider">
-                                    <span class="glb-axis-tag glb-axis-tag--x">Xoay X</span>
-                                    <input
-                                        type="range"
-                                        min="-180"
-                                        max="180"
-                                        step="1"
-                                        [(ngModel)]="boneRot.x"
-                                        (ngModelChange)="onBoneTransformChange()"
-                                    />
-                                    <input
-                                        type="number"
-                                        min="-180"
-                                        max="180"
-                                        [(ngModel)]="boneRot.x"
-                                        (ngModelChange)="onBoneTransformChange()"
-                                        class="glb-axis-num"
-                                    />
-                                </div>
-                                <div class="glb-axis-slider">
-                                    <span class="glb-axis-tag glb-axis-tag--y">Xoay Y</span>
-                                    <input
-                                        type="range"
-                                        min="-180"
-                                        max="180"
-                                        step="1"
-                                        [(ngModel)]="boneRot.y"
-                                        (ngModelChange)="onBoneTransformChange()"
-                                    />
-                                    <input
-                                        type="number"
-                                        min="-180"
-                                        max="180"
-                                        [(ngModel)]="boneRot.y"
-                                        (ngModelChange)="onBoneTransformChange()"
-                                        class="glb-axis-num"
-                                    />
-                                </div>
-                                <div class="glb-axis-slider">
-                                    <span class="glb-axis-tag glb-axis-tag--z">Xoay Z</span>
-                                    <input
-                                        type="range"
-                                        min="-180"
-                                        max="180"
-                                        step="1"
-                                        [(ngModel)]="boneRot.z"
-                                        (ngModelChange)="onBoneTransformChange()"
-                                    />
-                                    <input
-                                        type="number"
-                                        min="-180"
-                                        max="180"
-                                        [(ngModel)]="boneRot.z"
-                                        (ngModelChange)="onBoneTransformChange()"
-                                        class="glb-axis-num"
-                                    />
-                                </div>
-                                <div class="glb-axis-slider">
-                                    <span class="glb-axis-tag glb-axis-tag--pos">Dịch Y</span>
-                                    <input
-                                        type="range"
-                                        min="-2"
-                                        max="2"
-                                        step="0.02"
-                                        [(ngModel)]="bonePos.y"
-                                        (ngModelChange)="onBoneTransformChange()"
-                                    />
-                                    <input
-                                        type="number"
-                                        min="-5"
-                                        max="5"
-                                        step="0.05"
-                                        [(ngModel)]="bonePos.y"
-                                        (ngModelChange)="onBoneTransformChange()"
-                                        class="glb-axis-num"
-                                    />
-                                </div>
-                            </div>
+                            }
                         </div>
+                    }
 
-                        <!-- CỘT PHẢI: DẢI TIMELINE, SCRUBBER, MẪU CHUYỂN ĐỘNG & CÁC TRACK KEYFRAME -->
+                    <!-- Thân bảng Timeline: Dải Timeline, Scrubber, Mẫu chuyển động & các Track Keyframe -->
+                    <div class="glb-timeline-dock__body">
                         <div class="glb-timeline-tracks-pane">
                             <!-- Thanh tạo mẫu chuyển động nhanh + Scrubber thời gian -->
                             <div class="glb-scrubber-bar">

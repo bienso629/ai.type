@@ -2512,6 +2512,260 @@ export class SontinhSceneService implements OnDestroy {
     return true;
   }
 
+  /**
+   * Áp dụng danh sách Keyframe khớp xương do AI Agent thiết kế (từ Video mẫu và/hoặc Prompt)
+   * lên mô hình GLB hiện tại, tự động ánh xạ tên xương linh hoạt và phát ngay trên Timeline.
+   */
+  applyGeneratedBoneTimeline(
+    propId: string,
+    spec: {
+      duration?: number;
+      loop?: boolean;
+      speed?: number;
+      keyframes?: Array<{
+        time: number;
+        boneName: string;
+        rot?: { x?: number; y?: number; z?: number };
+        pos?: { x?: number; y?: number; z?: number };
+      }>;
+    }
+  ): number {
+    const rig = this._propRigMap.get(propId);
+    if (!rig || !spec || !Array.isArray(spec.keyframes)) return 0;
+
+    this.resetBonePose(propId);
+    rig.timeline.keyframes = [];
+    rig.timeline.mode = 'keyframes';
+    rig.timeline.enabled = true;
+    const dur = Math.max(0.5, Math.min(60, Number(spec.duration) || 2.4));
+    rig.timeline.duration = Math.round(dur * 100) / 100;
+    rig.timeline.loop = spec.loop !== undefined ? !!spec.loop : true;
+    if (typeof spec.speed === 'number' && spec.speed > 0) {
+      rig.timeline.speed = spec.speed;
+    }
+
+    const resolveBoneName = (raw: string): string | null => {
+      if (!raw) return null;
+      const trimmed = String(raw).trim();
+      if (rig.bones.has(trimmed)) return trimmed;
+      const clean = trimmed.replace(/^mixamorig:?/i, '').toLowerCase();
+      for (const b of rig.bones.values()) {
+        if (b.name.toLowerCase() === clean || b.label.toLowerCase() === clean) {
+          return b.name;
+        }
+      }
+      for (const b of rig.bones.values()) {
+        if (b.label.toLowerCase().includes(clean) || clean.includes(b.label.toLowerCase())) {
+          return b.name;
+        }
+      }
+      return null;
+    };
+
+    const clampAngle = (v: any) => Math.max(-180, Math.min(180, Number(v) || 0));
+    const clampOffset = (v: any) => Math.max(-5, Math.min(5, Number(v) || 0));
+
+    let addedCount = 0;
+    for (const kf of spec.keyframes) {
+      if (!kf || !kf.boneName) continue;
+      const resolved = resolveBoneName(kf.boneName);
+      if (!resolved) continue;
+      const t = Math.max(0, Math.min(rig.timeline.duration, Number(kf.time) || 0));
+      const rot = {
+        x: clampAngle(kf.rot?.x),
+        y: clampAngle(kf.rot?.y),
+        z: clampAngle(kf.rot?.z)
+      };
+      const pos = {
+        x: clampOffset(kf.pos?.x),
+        y: clampOffset(kf.pos?.y),
+        z: clampOffset(kf.pos?.z)
+      };
+      if (this.upsertBoneKeyframe(propId, resolved, t, rot, pos)) {
+        addedCount++;
+      }
+    }
+
+    if (addedCount > 0) {
+      rig.currentTime = 0;
+      rig.timeline.playing = true;
+      this.evaluatePropKeyframesAtTime(propId, 0);
+    }
+    return addedCount;
+  }
+
+  /**
+   * Bộ tổng hợp chuyển động khớp xương thông minh dựa trên từ khóa kịch bản + nhịp năng lượng khung hình Video mẫu.
+   * Dùng làm bộ sinh dự phòng hoặc kết hợp khi người dùng yêu cầu thiết kế chuyển động cho mọi Rig xương.
+   */
+  generateSmartBoneMotion(
+    propId: string,
+    promptText: string,
+    duration = 2.4,
+    frameEnergies: number[] = []
+  ): number {
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return 0;
+
+    const findBone = (re: RegExp, fallback = '__root__'): string => {
+      for (const b of rig.bones.values()) {
+        if (b.name !== '__root__' && re.test(b.label)) return b.name;
+      }
+      return fallback;
+    };
+
+    const hips = findBone(/^(hips|pelvis|root)$/i, '__root__');
+    const spine = findBone(/spine01|spine1|spine/i, hips);
+    const chest = findBone(/spine02|spine2|chest|upperchest/i, spine);
+    const neck = findBone(/neck/i, chest);
+    const head = findBone(/head/i, neck);
+    const lArm = findBone(/leftarm|arm_l|l_arm|upperarm_l/i, chest);
+    const lForeArm = findBone(/leftforearm|forearm_l|lowerarm_l/i, lArm);
+    const rArm = findBone(/rightarm|arm_r|r_arm|upperarm_r/i, chest);
+    const rForeArm = findBone(/rightforearm|forearm_r|lowerarm_r/i, rArm);
+    const lUpLeg = findBone(/leftupleg|thigh_l|upleg_l/i, hips);
+    const lLeg = findBone(/^(leftleg|calf_l|shin_l|leg_l)$/i, lUpLeg);
+    const rUpLeg = findBone(/rightupleg|thigh_r|upleg_r/i, hips);
+    const rLeg = findBone(/^(rightleg|calf_r|shin_r|leg_r)$/i, rUpLeg);
+
+    const dur = Math.max(1.0, Math.min(12.0, Number(duration) || 2.4));
+    const lower = (promptText || '').toLowerCase();
+    const kfs: Array<{ time: number; boneName: string; rot: { x: number; y: number; z: number }; pos?: { x: number; y: number; z: number } }> = [];
+    const push = (boneName: string, time: number, rx: number, ry: number, rz: number, py = 0) => {
+      kfs.push({
+        time: Math.round(time * 100) / 100,
+        boneName,
+        rot: { x: Math.round(rx), y: Math.round(ry), z: Math.round(rz) },
+        pos: { x: 0, y: Math.round(py * 100) / 100, z: 0 }
+      });
+    };
+
+    // Hệ số biên độ nhịp theo năng lượng chuyển động của video mẫu (nếu có)
+    const energyBoost = frameEnergies.length > 0
+      ? Math.max(0.75, Math.min(1.45, frameEnergies.reduce((a, b) => a + b, 0) / frameEnergies.length))
+      : 1.0;
+
+    if (/đá|kick|võ|karate|taekwondo/.test(lower)) {
+      const steps = [0, dur * 0.25, dur * 0.5, dur * 0.75, dur];
+      push(hips, steps[0], 0, 0, 0, 0);
+      push(hips, steps[1], -8, 18, 0, 0.05);
+      push(hips, steps[2], -15, 28, 6, 0.12);
+      push(hips, steps[3], -6, 10, 0, 0.04);
+      push(hips, steps[4], 0, 0, 0, 0);
+
+      push(rUpLeg, steps[0], 0, 0, 0);
+      push(rUpLeg, steps[1], -45 * energyBoost, 0, -8);
+      push(rUpLeg, steps[2], -82 * energyBoost, -10, -12);
+      push(rUpLeg, steps[3], -30, 0, -4);
+      push(rUpLeg, steps[4], 0, 0, 0);
+
+      if (rLeg !== rUpLeg) {
+        push(rLeg, steps[0], 0, 0, 0);
+        push(rLeg, steps[1], 55, 0, 0);
+        push(rLeg, steps[2], 5, 0, 0);
+        push(rLeg, steps[3], 35, 0, 0);
+        push(rLeg, steps[4], 0, 0, 0);
+      }
+      push(lArm, steps[0], -20, 0, 25);
+      push(lArm, steps[2], -45, 20, 35);
+      push(lArm, steps[4], -20, 0, 25);
+      push(rArm, steps[0], -20, 0, -25);
+      push(rArm, steps[2], 25, -20, -35);
+      push(rArm, steps[4], -20, 0, -25);
+    } else if (/đấm|boxing|punch|chiến đấu|combat/.test(lower)) {
+      const steps = [0, dur * 0.25, dur * 0.5, dur * 0.75, dur];
+      push(spine, steps[0], 8, -15, 0);
+      push(spine, steps[1], 12, 28 * energyBoost, 0);
+      push(spine, steps[2], 8, -22 * energyBoost, 0);
+      push(spine, steps[3], 14, 32 * energyBoost, 0);
+      push(spine, steps[4], 8, -15, 0);
+
+      push(lArm, steps[0], -35, 20, 18);
+      push(lArm, steps[1], -78 * energyBoost, 35, 8);
+      push(lArm, steps[2], -35, 20, 18);
+      push(lArm, steps[3], -30, 15, 22);
+      push(lArm, steps[4], -35, 20, 18);
+
+      push(rArm, steps[0], -35, -20, -18);
+      push(rArm, steps[1], -30, -15, -22);
+      push(rArm, steps[2], -82 * energyBoost, -35, -8);
+      push(rArm, steps[3], -35, -20, -18);
+      push(rArm, steps[4], -35, -20, -18);
+    } else if (/cúi|chào|bow|cảm ơn|xin chào/.test(lower)) {
+      const steps = [0, dur * 0.3, dur * 0.55, dur * 0.8, dur];
+      push(spine, steps[0], 0, 0, 0);
+      push(spine, steps[1], 32 * energyBoost, 0, 0);
+      push(spine, steps[2], 38 * energyBoost, 0, 0);
+      push(spine, steps[3], 12, 0, 0);
+      push(spine, steps[4], 0, 0, 0);
+
+      push(head, steps[0], 0, 0, 0);
+      push(head, steps[1], 22, 0, 0);
+      push(head, steps[2], 25, 0, 0);
+      push(head, steps[4], 0, 0, 0);
+
+      push(rArm, steps[0], 0, 0, 0);
+      push(rArm, steps[1], -35, 0, -45);
+      push(rArm, steps[2], -35, 0, -15);
+      push(rArm, steps[3], -35, 0, -45);
+      push(rArm, steps[4], 0, 0, 0);
+    } else if (/đi bộ|walk|chạy|run|bước/.test(lower)) {
+      const isRun = /chạy|run/.test(lower);
+      const swing = (isRun ? 48 : 30) * energyBoost;
+      const steps = [0, dur * 0.25, dur * 0.5, dur * 0.75, dur];
+      for (let i = 0; i < steps.length; i++) {
+        const phase = (i / 4) * Math.PI * 2;
+        const s = Math.sin(phase);
+        const c = Math.abs(Math.cos(phase));
+        push(hips, steps[i], isRun ? 8 : 2, s * 6, 0, c * (isRun ? 0.18 : 0.08));
+        push(spine, steps[i], isRun ? 12 : 4, -s * 8, 0);
+        push(lUpLeg, steps[i], s * swing, 0, 0);
+        push(rUpLeg, steps[i], -s * swing, 0, 0);
+        if (lLeg !== lUpLeg) push(lLeg, steps[i], Math.max(0, -s) * (swing * 0.85), 0, 0);
+        if (rLeg !== rUpLeg) push(rLeg, steps[i], Math.max(0, s) * (swing * 0.85), 0, 0);
+        push(lArm, steps[i], -s * (swing * 0.7), 0, 12);
+        push(rArm, steps[i], s * (swing * 0.7), 0, -12);
+      }
+    } else {
+      // Chuyển động nhảy / biểu diễn theo nhịp khung hình Video mẫu (Dance / Dynamic Motion)
+      const numSamples = Math.max(5, Math.min(9, frameEnergies.length > 1 ? frameEnergies.length : 5));
+      for (let i = 0; i < numSamples; i++) {
+        const ratio = i / (numSamples - 1);
+        const t = ratio * dur;
+        const isLoopEnd = i === 0 || i === numSamples - 1;
+        const e = frameEnergies[i] !== undefined ? Math.max(0.6, Math.min(1.5, frameEnergies[i])) : energyBoost;
+        const sign = i % 2 === 1 ? 1 : -1;
+        if (isLoopEnd) {
+          push(hips, t, 0, 0, 0, 0);
+          push(spine, t, 0, 0, 0);
+          push(head, t, 0, 0, 0);
+          push(lArm, t, 0, 0, 15);
+          push(rArm, t, 0, 0, -15);
+          push(lUpLeg, t, 0, 0, 0);
+          push(rUpLeg, t, 0, 0, 0);
+        } else {
+          push(hips, t, 6 * e, sign * 16 * e, sign * 6, 0.16 * e);
+          push(spine, t, 8 * e, -sign * 18 * e, -sign * 8);
+          push(head, t, -6, sign * 20 * e, sign * 6);
+          push(lArm, t, -35 * e, sign * 22, 25 + (sign > 0 ? 30 * e : -10));
+          push(rArm, t, -35 * e, sign * 22, -25 + (sign < 0 ? -30 * e : 10));
+          if (lForeArm !== lArm) push(lForeArm, t, -25 * e, 0, 15);
+          if (rForeArm !== rArm) push(rForeArm, t, -25 * e, 0, -15);
+          push(lUpLeg, t, sign > 0 ? -24 * e : 8, 0, -5);
+          push(rUpLeg, t, sign < 0 ? -24 * e : 8, 0, 5);
+          if (lLeg !== lUpLeg) push(lLeg, t, sign > 0 ? 28 * e : 0, 0, 0);
+          if (rLeg !== rUpLeg) push(rLeg, t, sign < 0 ? 28 * e : 0, 0, 0);
+        }
+      }
+    }
+
+    return this.applyGeneratedBoneTimeline(propId, {
+      duration: dur,
+      loop: true,
+      keyframes: kfs
+    });
+  }
+
   /** Được gọi mỗi khung hình từ vòng lặp update chính của PlayCanvas */
   private _tickAllPropTimelines(dt: number): void {
     if (this._boneHighlightEntity && this._boneHighlightEntity.enabled && this._highlightedBoneNode) {
@@ -2976,9 +3230,11 @@ export class SontinhSceneService implements OnDestroy {
     // -------------------------------------------------------------
     // DRAG & DROP DO VAT (select bang click, keo tha di chuyen)
     // -------------------------------------------------------------
-    let propDragCandidate: { ent: pc.Entity; propId: string } | null = null;
+    let propDragCandidate: { ent: pc.Entity; propId: string; hitPoint?: pc.Vec3 } | null = null;
     let propDragActive = false;
     let dragPlaneY = 0;
+    const dragPlaneOrigin = new pc.Vec3();
+    const dragPlaneNormal = new pc.Vec3(0, 1, 0);
     let dragStartPos = new pc.Vec3();
     let dragOffset = new pc.Vec3();
     let dragAccY = 0;
@@ -3371,20 +3627,48 @@ export class SontinhSceneService implements OnDestroy {
       selRing.setPosition(p.x, p.y - ringOffsetY + 0.04, p.z);
     }
 
-    function rayPlaneHit(sx: number, sy: number, planeY: number): pc.Vec3 | null {
+    function setupDragPlane(sx: number, sy: number, entPos: pc.Vec3, initialHitPoint?: pc.Vec3) {
+      if (initialHitPoint) {
+        dragPlaneOrigin.copy(initialHitPoint);
+      } else {
+        dragPlaneOrigin.copy(entPos);
+      }
+      // Khi góc nhìn camera thấp (ví dụ pitch = 12 độ ở chế độ Studio), mặt phẳng nằm ngang thuần túy
+      // sẽ cắt đường chân trời ngay giữa màn hình khiến tia ray trượt ra vô cực phía xa.
+      // Nghiêng nhẹ pháp tuyến mặt phẳng kéo về phía camera tối thiểu 32 độ giúp kéo gần/xa mượt tuyệt đối.
+      const tiltRad = Math.max(0, (32 - orbitPitch) * pc.math.DEG_TO_RAD);
+      const yawRad = orbitYaw * pc.math.DEG_TO_RAD;
+      const sinT = Math.sin(tiltRad);
+      const cosT = Math.cos(tiltRad);
+      dragPlaneNormal.set(
+        Math.sin(yawRad) * sinT,
+        cosT,
+        Math.cos(yawRad) * sinT
+      ).normalize();
+
+      const hit0 = rayDragPlaneHit(sx, sy);
+      // QUAN TRỌNG: np = hit + dragOffset => tại điểm bắt đầu kéo (hit = hit0), np phải bằng đúng entPos:
+      // entPos = hit0 + dragOffset  ==>  dragOffset = entPos - hit0
+      dragOffset = hit0 ? entPos.clone().sub(hit0) : new pc.Vec3();
+    }
+
+    function rayDragPlaneHit(sx: number, sy: number): pc.Vec3 | null {
       if (!camera || !camera.camera) return null;
       const rayFrom = new pc.Vec3();
       const rayTo = new pc.Vec3();
       camera.camera.screenToWorld(sx, sy, camera.camera.nearClip, rayFrom);
       camera.camera.screenToWorld(sx, sy, camera.camera.farClip, rayTo);
       const dir = rayTo.clone().sub(rayFrom).normalize();
-      if (Math.abs(dir.y) < 1e-5) return null;
-      const t = (planeY - rayFrom.y) / dir.y;
+      const denom = dir.dot(dragPlaneNormal);
+      if (Math.abs(denom) < 1e-4) return null;
+      const diff = dragPlaneOrigin.clone().sub(rayFrom);
+      const t = diff.dot(dragPlaneNormal) / denom;
       if (t <= 0) return null;
-      return rayFrom.add(dir.scale(t));
+      const maxT = Math.max(250, orbitDistance * 4.5);
+      return rayFrom.add(dir.scale(Math.min(t, maxT)));
     }
 
-    function pickUserPropAt(sx: number, sy: number): { ent: pc.Entity; propId: string } | null {
+    function pickUserPropAt(sx: number, sy: number): { ent: pc.Entity; propId: string; hitPoint: pc.Vec3 } | null {
       if (!camera || !camera.camera) return null;
       const rayFrom = new pc.Vec3();
       const rayTo = new pc.Vec3();
@@ -3392,7 +3676,7 @@ export class SontinhSceneService implements OnDestroy {
       camera.camera.screenToWorld(sx, sy, camera.camera.farClip, rayTo);
       const dir = rayTo.clone().sub(rayFrom).normalize();
       const ray = new pc.Ray(rayFrom, dir);
-      let best: { ent: pc.Entity; propId: string } | null = null;
+      let best: { ent: pc.Entity; propId: string; hitPoint: pc.Vec3 } | null = null;
       let bestT = Infinity;
       for (const ent of app.root.findByTag('user_prop') as pc.Entity[]) {
         if (!ent.enabled) continue;
@@ -3405,7 +3689,7 @@ export class SontinhSceneService implements OnDestroy {
             bestT = t;
             const en0 = ent.name;
             const pid0 = en0.startsWith('PropGLB_') ? en0.slice(8) : en0;
-            best = { ent, propId: pid0 };
+            best = { ent, propId: pid0, hitPoint: hit.clone() };
           }
         }
       }
@@ -3418,7 +3702,7 @@ export class SontinhSceneService implements OnDestroy {
       propMainBase.copy(ent.getPosition());
     }
 
-    function beginPropDrag(hit: { ent: pc.Entity; propId: string }) {
+    function beginPropDrag(hit: { ent: pc.Entity; propId: string; hitPoint?: pc.Vec3 }) {
       propDragCandidate = hit;
       propDragActive = false;
       preparePropExtras(hit.ent);
@@ -3433,8 +3717,7 @@ export class SontinhSceneService implements OnDestroy {
         const p = propDragCandidate.ent.getPosition();
         dragStartPos.copy(p);
         dragPlaneY = p.y;
-        const hit = rayPlaneHit(mouseDownPos.x, mouseDownPos.y, dragPlaneY);
-        dragOffset = hit ? hit.clone().sub(p) : new pc.Vec3();
+        setupDragPlane(mouseDownPos.x, mouseDownPos.y, p, propDragCandidate.hitPoint);
         dragAccY = 0;
         lastDragY = sy;
         prevShift = false;
@@ -3447,11 +3730,17 @@ export class SontinhSceneService implements OnDestroy {
         dragAccY += ((lastDragY ?? sy) - sy) * k;
         lastDragY = sy;
         const ny = dragStartPos.y + dragAccY; // Y tu do, khong gioi han
-        ent.setPosition(dragStartPos.x, ny, dragStartPos.z);
+        const curPos = ent.getPosition();
+        ent.setPosition(curPos.x, ny, curPos.z);
         dragPlaneY = ny;
       } else {
-        if (prevShift) dragStartPos.copy(ent.getPosition());
-        const hit = rayPlaneHit(sx, sy, dragPlaneY);
+        if (prevShift) {
+          const curP = ent.getPosition();
+          dragStartPos.copy(curP);
+          dragPlaneY = curP.y;
+          setupDragPlane(sx, sy, curP);
+        }
+        const hit = rayDragPlaneHit(sx, sy);
         if (hit) {
           const np = hit.clone().add(dragOffset);
           ent.setPosition(np.x, dragPlaneY, np.z);
@@ -3775,6 +4064,26 @@ export class SontinhSceneService implements OnDestroy {
 
     self._applyCameraPreset = (presetName: string) => {
       let p = (presetName || '').toLowerCase();
+      // Nếu presetName là ID của một đồ vật GLB người dùng đang hiển thị trên canvas, hội tụ tâm camera vào đồ vật đó
+      if (presetName && p !== 'default' && p !== 'default_view' && p !== 'overhead' && p !== 'overhead_view' && p !== 'character' && p !== 'character_view' && p !== 'custom') {
+        const userEnt = findPropEntityById(presetName);
+        if (userEnt && userEnt.enabled) {
+          isWindowViewActive = false;
+          isPictureViewActive = false;
+          isAquariumViewActive = false;
+          isPropCameraActive = true;
+          const bb = collectAabb(userEnt);
+          if (bb) {
+            targetPivot.copy(bb.center);
+            const r = Math.max(bb.halfExtents.x, bb.halfExtents.y, bb.halfExtents.z, 1.5);
+            targetDistance = Math.max(12, Math.min(120, r * 3.6));
+          } else {
+            const ep = userEnt.getPosition();
+            targetPivot.set(ep.x, ep.y + 3, ep.z);
+          }
+          return;
+        }
+      }
       if (EMPTY_SCENE && !p.startsWith('prop_') && p !== 'custom') p = 'default'; // studio trống: luôn nhìn chính diện bàn
       isWindowViewActive = false;
       isPictureViewActive = false;

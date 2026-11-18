@@ -55,10 +55,104 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     popupFavicon =
         'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64';
     popupHomeUrl = 'https://gemini.google.com/app?hl=vi';
+    isWebviewMobileMode = false;
+    private _savedDesktopPopupWidth = 860;
 
     // Toggle webview: ẩn/hiện nhanh
     toggleWebview() {
         this.isWebviewVisible = !this.isWebviewVisible;
+    }
+
+    // Chuyển đổi chế độ Giả lập Điện thoại (Thu nhỏ khung cửa sổ Popup + Mobile UA + m.facebook.com) cho WebTools
+    toggleWebviewMobileMode(forceMobile?: boolean) {
+        this.isWebviewMobileMode =
+            forceMobile !== undefined ? forceMobile : !this.isWebviewMobileMode;
+        const popupEl = document.querySelector('.gemini-popup') as HTMLElement;
+        const webview = this.getActiveWebview();
+
+        const mobileUA =
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
+        const desktopUA =
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+
+        if (this.isWebviewMobileMode) {
+            if (popupEl) {
+                if (popupEl.offsetWidth > 430) {
+                    this._savedDesktopPopupWidth = popupEl.offsetWidth;
+                }
+                popupEl.style.width = '414px';
+            }
+            if (webview) {
+                webview.style.width = '100%';
+                webview.style.maxWidth = '100%';
+                webview.style.margin = '0';
+                webview.style.borderLeft = 'none';
+                webview.style.borderRight = 'none';
+            }
+        } else {
+            if (popupEl) {
+                popupEl.style.width = `${this._savedDesktopPopupWidth || 860}px`;
+            }
+            if (webview) {
+                webview.style.width = '100%';
+                webview.style.maxWidth = '100%';
+                webview.style.margin = '0';
+                webview.style.borderLeft = 'none';
+                webview.style.borderRight = 'none';
+            }
+        }
+
+        if (!webview) return;
+
+        let currentUrl = '';
+        try {
+            currentUrl =
+                typeof webview.getURL === 'function'
+                    ? webview.getURL()
+                    : webview.getAttribute('src') || this.popupHomeUrl || '';
+        } catch (_) {
+            currentUrl = webview.getAttribute('src') || this.popupHomeUrl || '';
+        }
+
+        if (this.isWebviewMobileMode) {
+            try {
+                if (typeof webview.setUserAgent === 'function') {
+                    webview.setUserAgent(mobileUA);
+                }
+            } catch (_) {}
+
+            let targetUrl = currentUrl;
+            if (/^https?:\/\/(www\.|web\.)?facebook\.com/i.test(targetUrl)) {
+                targetUrl = targetUrl.replace(
+                    /^https?:\/\/(www\.|web\.)?facebook\.com/i,
+                    'https://m.facebook.com',
+                );
+            }
+            if (targetUrl && typeof webview.loadURL === 'function') {
+                webview.loadURL(targetUrl, { userAgent: mobileUA });
+            } else if (typeof webview.reload === 'function') {
+                webview.reload();
+            }
+        } else {
+            try {
+                if (typeof webview.setUserAgent === 'function') {
+                    webview.setUserAgent(desktopUA);
+                }
+            } catch (_) {}
+
+            let targetUrl = currentUrl;
+            if (/^https?:\/\/m\.facebook\.com/i.test(targetUrl)) {
+                targetUrl = targetUrl.replace(
+                    /^https?:\/\/m\.facebook\.com/i,
+                    'https://www.facebook.com',
+                );
+            }
+            if (targetUrl && typeof webview.loadURL === 'function') {
+                webview.loadURL(targetUrl, { userAgent: desktopUA });
+            } else if (typeof webview.reload === 'function') {
+                webview.reload();
+            }
+        }
     }
 
     // Lấy thẻ webview đang được hiển thị trong container

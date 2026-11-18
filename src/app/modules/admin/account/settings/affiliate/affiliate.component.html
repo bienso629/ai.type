@@ -1,0 +1,410 @@
+<div class="w-full">
+    <form [formGroup]="affiliateForm" (ngSubmit)="save()">
+        <mat-tab-group
+            class="border rounded-lg"
+            animationDuration="0ms"
+            mat-stretch-tabs="false"
+            mat-align-tabs="start"
+        >
+            <!-- TAB 1: SHOPEE AFFILIATE -->
+            <mat-tab label="Shopee Affiliate">
+                <div class="w-full">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div class="text-secondary">
+                            Cấu hình kết nối và tạo link tiếp thị liên kết Shopee Affiliate
+                        </div>
+                        <a
+                            href="https://affiliate.shopee.vn"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+                        >
+                            <span>Mở trang Shopee Affiliate</span>
+                            <mat-icon class="icon-size-3.5" [svgIcon]="'feather:external-link'"></mat-icon>
+                        </a>
+                    </div>
+                    <div class="mt-2 mb-4 border-t"></div>
+                </div>
+
+                <div class="w-full mt-4">
+                    <div class="full-width-toggle mb-6">
+                        <mat-slide-toggle
+                            [formControlName]="'shopeeEnabled'"
+                            [labelPosition]="'before'"
+                            class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
+                            [color]="'primary'"
+                        >
+                            <mat-label class="toggle-label text-md">
+                                Kích hoạt Shopee Affiliate
+                                <span class="text-gray-400">
+                                    (Tự động gắn mã đối tác và chuyển đổi link sản phẩm Shopee trong bài viết, bình luận và mô tả video)
+                                </span>
+                            </mat-label>
+                        </mat-slide-toggle>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">Affiliate ID / App ID Shopee</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:shopping-bag'"></mat-icon>
+                            <input
+                                matInput
+                                type="text"
+                                [formControlName]="'shopeeAppId'"
+                                placeholder="Nhập Affiliate ID hoặc Open API App ID..."
+                            />
+                        </mat-form-field>
+
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">API Secret / Mật khẩu ứng dụng Shopee</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:key'"></mat-icon>
+                            <input
+                                matInput
+                                [type]="showShopeeSecret ? 'text' : 'password'"
+                                [formControlName]="'shopeeSecret'"
+                                placeholder="Nhập Secret Key Shopee Open API..."
+                            />
+                            <button
+                                type="button"
+                                mat-icon-button
+                                matSuffix
+                                (click)="showShopeeSecret = !showShopeeSecret"
+                            >
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="showShopeeSecret ? 'feather:eye-off' : 'feather:eye'"
+                                ></mat-icon>
+                            </button>
+                        </mat-form-field>
+
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">Sub ID mặc định (sub_id1)</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:tag'"></mat-icon>
+                            <input
+                                matInput
+                                type="text"
+                                [formControlName]="'shopeeSubId'"
+                                placeholder="Ví dụ: aitype_video, fanpage_reels..."
+                            />
+                        </mat-form-field>
+
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">Mẫu câu kêu gọi mua hàng (CTA) Shopee</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:message-square'"></mat-icon>
+                            <input
+                                matInput
+                                type="text"
+                                [formControlName]="'shopeeCtaTemplate'"
+                                placeholder="Mua ngay chính hãng trên Shopee tại đây: {link}"
+                            />
+                        </mat-form-field>
+                    </div>
+
+                    <div class="mt-4">
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">Cookie phiên Shopee Affiliate (tùy chọn)</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:shield'"></mat-icon>
+                            <input
+                                matInput
+                                type="text"
+                                [formControlName]="'shopeeCookie'"
+                                placeholder="Dán chuỗi Cookie SPC_EC=... nếu muốn tạo link rút gọn s.shopee.vn trực tiếp không qua Open API"
+                            />
+                        </mat-form-field>
+                        <div class="mt-1.5 text-sm text-hint">
+                            Sử dụng biến <code>{{ '{link}' }}</code> trong mẫu câu CTA để hệ thống tự động điền đường dẫn tiếp thị đã gắn mã Affiliate của bạn.
+                        </div>
+                    </div>
+                </div>
+            </mat-tab>
+
+            <!-- TAB 2: LAZADA AFFILIATE -->
+            <mat-tab label="Lazada Affiliate">
+                <div class="w-full">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div class="text-secondary">
+                            Cấu hình tài khoản đối tác Lazada Affiliate (LazAffiliate)
+                        </div>
+                        <a
+                            href="https://pages.lazada.vn/wow/gcp/lazada/channel/vn/marketing/lazada-affiliate-program"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+                        >
+                            <span>Mở trang Lazada Affiliate</span>
+                            <mat-icon class="icon-size-3.5" [svgIcon]="'feather:external-link'"></mat-icon>
+                        </a>
+                    </div>
+                    <div class="mt-2 mb-4 border-t"></div>
+                </div>
+
+                <div class="w-full mt-4">
+                    <div class="full-width-toggle mb-6">
+                        <mat-slide-toggle
+                            [formControlName]="'lazadaEnabled'"
+                            [labelPosition]="'before'"
+                            class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
+                            [color]="'primary'"
+                        >
+                            <mat-label class="toggle-label text-md">
+                                Kích hoạt Lazada Affiliate
+                                <span class="text-gray-400">
+                                    (Tự động chèn mã theo dõi đối tác và tạo đường dẫn rút gọn s.lazada.vn cho sản phẩm Lazada)
+                                </span>
+                            </mat-label>
+                        </mat-slide-toggle>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">Member ID / App Key Lazada</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:shopping-cart'"></mat-icon>
+                            <input
+                                matInput
+                                type="text"
+                                [formControlName]="'lazadaAppKey'"
+                                placeholder="Nhập Member ID hoặc Open Platform App Key..."
+                            />
+                        </mat-form-field>
+
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">App Secret / User Token Lazada</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:key'"></mat-icon>
+                            <input
+                                matInput
+                                [type]="showLazadaSecret ? 'text' : 'password'"
+                                [formControlName]="'lazadaAppSecret'"
+                                placeholder="Nhập App Secret hoặc User Token Lazada Affiliate..."
+                            />
+                            <button
+                                type="button"
+                                mat-icon-button
+                                matSuffix
+                                (click)="showLazadaSecret = !showLazadaSecret"
+                            >
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="showLazadaSecret ? 'feather:eye-off' : 'feather:eye'"
+                                ></mat-icon>
+                            </button>
+                        </mat-form-field>
+
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">Tracking ID / Sub ID mặc định (sub_aff_id)</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:tag'"></mat-icon>
+                            <input
+                                matInput
+                                type="text"
+                                [formControlName]="'lazadaTrackingId'"
+                                placeholder="Ví dụ: aitype_lazada, blog_review..."
+                            />
+                        </mat-form-field>
+
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">Mẫu câu kêu gọi mua hàng (CTA) Lazada</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:message-square'"></mat-icon>
+                            <input
+                                matInput
+                                type="text"
+                                [formControlName]="'lazadaCtaTemplate'"
+                                placeholder="Săn deal Lazada giá hời tại đây: {link}"
+                            />
+                        </mat-form-field>
+                    </div>
+
+                    <div class="mt-4">
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">Cookie phiên Lazada Affiliate (tùy chọn)</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:shield'"></mat-icon>
+                            <input
+                                matInput
+                                type="text"
+                                [formControlName]="'lazadaCookie'"
+                                placeholder="Dán Cookie phiên Lazada nếu sử dụng trình tạo link trực tiếp..."
+                            />
+                        </mat-form-field>
+                        <div class="mt-1.5 text-sm text-hint">
+                            Hệ thống hỗ trợ tự động gắn tham số <code>sub_aff_id</code> và tạo link tiếp thị Lazada khi xuất bản nội dung.
+                        </div>
+                    </div>
+                </div>
+            </mat-tab>
+
+            <!-- TAB 3: TIKTOK SHOP AFFILIATE -->
+            <mat-tab label="TikTok Shop Affiliate">
+                <div class="w-full">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div class="text-secondary">
+                            Cấu hình tài khoản Nhà sáng tạo & Đối tác TikTok Shop Affiliate
+                        </div>
+                        <a
+                            href="https://affiliate.tiktok.com"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+                        >
+                            <span>Mở TikTok Shop Affiliate Center</span>
+                            <mat-icon class="icon-size-3.5" [svgIcon]="'feather:external-link'"></mat-icon>
+                        </a>
+                    </div>
+                    <div class="mt-2 mb-4 border-t"></div>
+                </div>
+
+                <div class="w-full mt-4">
+                    <div class="full-width-toggle mb-6">
+                        <mat-slide-toggle
+                            [formControlName]="'tiktokShopEnabled'"
+                            [labelPosition]="'before'"
+                            class="fuse-mat-dense fuse-mat-emphasized-affix w-full"
+                            [color]="'primary'"
+                        >
+                            <mat-label class="toggle-label text-md">
+                                Kích hoạt TikTok Shop Affiliate
+                                <span class="text-gray-400">
+                                    (Đồng bộ giỏ hàng trưng bày Showcase và tự động chèn lời nhắc mua hàng khi đăng video TikTok)
+                                </span>
+                            </mat-label>
+                        </mat-slide-toggle>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">TikTok Creator ID / Username</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:user'"></mat-icon>
+                            <input
+                                matInput
+                                type="text"
+                                [formControlName]="'tiktokCreatorId'"
+                                placeholder="Ví dụ: @ten_kenh_tiktok"
+                            />
+                        </mat-form-field>
+
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">App Key / Partner ID TikTok Shop</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:briefcase'"></mat-icon>
+                            <input
+                                matInput
+                                type="text"
+                                [formControlName]="'tiktokAppKey'"
+                                placeholder="Nhập App Key từ TikTok Shop Partner Center..."
+                            />
+                        </mat-form-field>
+
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">App Secret / Access Token TikTok Shop</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:key'"></mat-icon>
+                            <input
+                                matInput
+                                [type]="showTiktokSecret ? 'text' : 'password'"
+                                [formControlName]="'tiktokAppSecret'"
+                                placeholder="Nhập App Secret hoặc Access Token..."
+                            />
+                            <button
+                                type="button"
+                                mat-icon-button
+                                matSuffix
+                                (click)="showTiktokSecret = !showTiktokSecret"
+                            >
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="showTiktokSecret ? 'feather:eye-off' : 'feather:eye'"
+                                ></mat-icon>
+                            </button>
+                        </mat-form-field>
+
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">Shop Cipher / Mã giỏ hàng Showcase</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:hash'"></mat-icon>
+                            <input
+                                matInput
+                                type="text"
+                                [formControlName]="'tiktokShopCipher'"
+                                placeholder="Nhập Shop Cipher hoặc Product ID mặc định..."
+                            />
+                        </mat-form-field>
+                    </div>
+
+                    <div class="mt-4">
+                        <mat-form-field
+                            class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'"
+                        >
+                            <mat-label class="ml-2">Mẫu câu gắn giỏ hàng / Bio Link TikTok Shop</mat-label>
+                            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:message-square'"></mat-icon>
+                            <input
+                                matInput
+                                type="text"
+                                [formControlName]="'tiktokCtaTemplate'"
+                                placeholder="Sản phẩm có trong giỏ hàng góc trái màn hình hoặc tại: {link}"
+                            />
+                        </mat-form-field>
+                        <div class="mt-1.5 text-sm text-hint">
+                            Cấu hình này sẽ được lưu đồng bộ theo tài khoản trên máy chủ và sử dụng cho các luồng tạo nội dung, đăng video và kịch bản bán hàng.
+                        </div>
+                    </div>
+                </div>
+            </mat-tab>
+        </mat-tab-group>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-end mt-10">
+            <mat-label class="mr-2 text-sm text-gray-500">
+                {{ "account.save_hint" | transloco }}
+            </mat-label>
+            <button
+                class="ml-2"
+                mat-flat-button
+                type="submit"
+                [color]="'primary'"
+                [disabled]="isSaving"
+            >
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:save'"></mat-icon>
+                <mat-label class="ml-2">
+                    {{ isSaving ? "Đang lưu..." : ("account.save_btn" | transloco) }}
+                </mat-label>
+            </button>
+        </div>
+    </form>
+</div>

@@ -47,6 +47,7 @@ import { MomoQrDialog } from 'app/modules/admin/account/settings/active/active.c
 
 import { SettingsPluginsComponent } from 'app/modules/admin/account/settings/plugins/plugins.component';
 import { SettingsFontComponent } from 'app/modules/admin/account/settings/font/font.component';
+import { SettingsAffiliateComponent } from 'app/modules/admin/account/settings/affiliate/affiliate.component';
 import { TimeagoModule } from 'ngx-timeago';
 
 @NgModule({
@@ -57,6 +58,7 @@ import { TimeagoModule } from 'ngx-timeago';
         // SettingsSecurityComponent,
         SettingsMoneyComponent,
         SettingsActiveComponent,
+        SettingsAffiliateComponent,
         SettingsLicenseKeysComponent,
         SettingsCreateLicenseKeyComponent,
         SettingsAdminComponent,
