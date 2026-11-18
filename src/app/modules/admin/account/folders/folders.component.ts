@@ -1,6 +1,12 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { firstValueFrom } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { N8nService } from 'app/_services/n8n.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
+import { HelperService } from 'app/helper.service';
 
 export interface WorkspaceRootInfo {
     id: string;
@@ -50,6 +56,13 @@ export interface FilePreviewData {
     mediaUrl?: string;
 }
 
+export interface WorkspaceBreadcrumbItem {
+    name: string;
+    path: string;
+    isRoot: boolean;
+    isCurrent: boolean;
+}
+
 @Component({
     selector: 'app-workspace-folders',
     standalone: false,
@@ -69,6 +82,8 @@ export class WorkspaceFoldersComponent implements OnInit {
     // Xem trước & chỉnh sửa tệp
     isLoadingPreview = false;
     previewData: FilePreviewData | null = null;
+    safeMediaUrl: SafeUrl | string = '';
+    private _cachedRawMediaUrl = '';
     editableTextContent = '';
     isTextDirty = false;
     isSavingText = false;
@@ -78,6 +93,36 @@ export class WorkspaceFoldersComponent implements OnInit {
     inlineActionTargetNode: WorkspaceTreeNode | null = null;
     inlineInputName = '';
     isSubmittingInline = false;
+
+    // Công cụ chia sẻ Video (Facebook, TikTok, YouTube)
+    activeShareTab: 'facebook' | 'tiktok' | 'youtube' = 'facebook';
+    videoShareTitle = '';
+    videoShareDescription = '';
+    videoShareScheduleTime = '';
+    isSharingVideo = false;
+
+    // Facebook Fanpage state (đồng bộ với AMXHShareAppComponent)
+    fbPages: any[] = [];
+    selectedFbPageIds: string[] = [];
+    searchPageTerm = '';
+    showTokenInput = false;
+    fbTokenInput = '';
+    isFetchingPages = false;
+
+    // TikTok & YouTube options
+    tiktokPrivacy: 'PUBLIC_TO_EVERYONE' | 'MUTUAL_FOLLOW_FRIENDS' | 'SELF_ONLY' = 'PUBLIC_TO_EVERYONE';
+    youtubePrivacy: 'public' | 'unlisted' | 'private' = 'public';
+    youtubeIsShorts = true;
+
+    readonly suggestedHashtags = [
+        '#xuhuong',
+        '#fyp',
+        '#reels',
+        '#shorts',
+        '#tiktok',
+        '#viral',
+        '#aitype'
+    ];
 
     readonly categoryFilters = [
         { id: 'all', label: 'Tất cả' },
@@ -93,7 +138,12 @@ export class WorkspaceFoldersComponent implements OnInit {
     constructor(
         private _cdr: ChangeDetectorRef,
         private _toastr: ToastrService,
-        private _confirmationService: FuseConfirmationService
+        private _confirmationService: FuseConfirmationService,
+        private _http: HttpClient,
+        private _sanitizer: DomSanitizer,
+        private _n8nService: N8nService,
+        private _multiAccountService: MultiAccountService,
+        private _helperService: HelperService
     ) {}
 
     private get _electron(): any {
@@ -101,6 +151,7 @@ export class WorkspaceFoldersComponent implements OnInit {
     }
 
     ngOnInit(): void {
+        this.loadSavedFacebookPages();
         this.loadWorkspaceRoots(true);
     }
 
@@ -218,6 +269,102 @@ export class WorkspaceFoldersComponent implements OnInit {
         return false;
     }
 
+    /** Danh sách phân đoạn Breadcrumb từ thư mục gốc đến mục đang chọn */
+    get selectedNodeBreadcrumbs(): WorkspaceBreadcrumbItem[] {
+        if (!this.selectedNode) return [];
+        const normPath = (p: string) => (p || '').replace(/\\/g, '/').replace(/\/+$/, '');
+        const selNorm = normPath(this.selectedNode.path);
+
+        const root = (this.treeRoots || []).find(r => {
+            const rNorm = normPath(r.path);
+            return selNorm === rNorm || selNorm.startsWith(rNorm + '/');
+        });
+
+        if (!root) {
+            return [
+                {
+                    name: this.selectedNode.name,
+                    path: this.selectedNode.path,
+                    isRoot: !!this.selectedNode.isRoot,
+                    isCurrent: true
+                }
+            ];
+        }
+
+        const rootNorm = normPath(root.path);
+        const shortRootName = (root.name || '').replace(/\s*\(.*?\)\s*$/, '').trim() || root.name;
+        const crumbs: WorkspaceBreadcrumbItem[] = [
+            {
+                name: shortRootName,
+                path: root.path,
+                isRoot: true,
+                isCurrent: selNorm === rootNorm
+            }
+        ];
+
+        if (selNorm.length > rootNorm.length) {
+            const sep = root.path.includes('\\') ? '\\' : '/';
+            const rel = selNorm.slice(rootNorm.length).replace(/^\/+/, '');
+            const parts = rel.split('/').filter(Boolean);
+            let accPath = root.path.replace(/[/\\]+$/, '');
+
+            for (let i = 0; i < parts.length; i++) {
+                accPath = accPath + sep + parts[i];
+                crumbs.push({
+                    name: parts[i],
+                    path: accPath,
+                    isRoot: false,
+                    isCurrent: i === parts.length - 1
+                });
+            }
+        }
+
+        return crumbs;
+    }
+
+    async navigateToBreadcrumb(crumb: WorkspaceBreadcrumbItem, event?: Event): Promise<void> {
+        if (event) {
+            event.stopPropagation();
+        }
+        if (!crumb || this.selectedNode?.path === crumb.path) return;
+
+        // Thử tìm nhanh nếu node đã có sẵn trong cây
+        const existing = this._findNodeByPath(this.treeRoots, crumb.path);
+        if (existing) {
+            if (existing.isDirectory) {
+                existing.expanded = true;
+            }
+            await this.selectNode(existing);
+            return;
+        }
+
+        // Nếu chưa mở nhánh cha, duyệt từ gốc xuống từng cấp
+        const crumbs = this.selectedNodeBreadcrumbs;
+        if (!crumbs.length) return;
+        let current = this._findNodeByPath(this.treeRoots, crumbs[0].path);
+        if (!current) return;
+
+        for (let i = 0; i < crumbs.length; i++) {
+            const step = crumbs[i];
+            if (i > 0) {
+                if (!current.loaded) {
+                    await this.loadNodeChildren(current);
+                }
+                current.expanded = true;
+                const nextNode = (current.children || []).find(c => c.path === step.path);
+                if (!nextNode) break;
+                current = nextNode;
+            }
+            if (step.path === crumb.path) {
+                if (current.isDirectory) {
+                    current.expanded = true;
+                }
+                await this.selectNode(current);
+                return;
+            }
+        }
+    }
+
     /** Danh sách mục con hiển thị ở bảng chi tiết bên phải khi đang chọn 1 thư mục (sắp xếp mới nhất lên đầu) */
     get filteredCurrentDirItems(): WorkspaceTreeNode[] {
         const q = (this.searchQuery || '').trim().toLowerCase();
@@ -312,17 +459,20 @@ export class WorkspaceFoldersComponent implements OnInit {
         if (event) {
             event.stopPropagation();
         }
+        const isSameFile = !node.isDirectory && this.selectedNode?.path === node.path && !!this.previewData;
         this.selectedNode = node;
         this.cancelInlineAction();
 
         if (node.isDirectory) {
             this.previewData = null;
+            this.safeMediaUrl = '';
+            this._cachedRawMediaUrl = '';
             if (!node.loaded) {
                 await this.loadNodeChildren(node);
             }
             this.currentDirItems = node.children || [];
             this._cdr.markForCheck();
-        } else {
+        } else if (!isSameFile) {
             await this.loadFilePreview(node);
         }
     }
@@ -357,6 +507,8 @@ export class WorkspaceFoldersComponent implements OnInit {
         if (!this._electron?.invoke) return;
         this.isLoadingPreview = true;
         this.previewData = null;
+        this.safeMediaUrl = '';
+        this._cachedRawMediaUrl = '';
         this.isTextDirty = false;
         this._cdr.markForCheck();
 
@@ -364,8 +516,21 @@ export class WorkspaceFoldersComponent implements OnInit {
             const res = await this._electron.invoke('workspace:preview-item', { itemPath: node.path });
             if (res?.success) {
                 this.previewData = res;
+                if (res.mediaUrl) {
+                    this._cachedRawMediaUrl = res.mediaUrl;
+                    this.safeMediaUrl = this._sanitizer.bypassSecurityTrustUrl(res.mediaUrl);
+                }
                 if (res.type === 'text') {
                     this.editableTextContent = res.content || '';
+                } else if (res.type === 'video') {
+                    const cleanName = (node.name || '')
+                        .replace(/\.[^.]+$/, '')
+                        .replace(/[_-]+/g, ' ')
+                        .trim();
+                    this.videoShareTitle = cleanName || node.name;
+                    if (!this.videoShareDescription) {
+                        this.videoShareDescription = `${this.videoShareTitle}\n\n#xuhuong #fyp #reels #shorts #tiktok`;
+                    }
                 }
             } else {
                 this._toastr.warning(res?.error || 'Không thể xem trước tệp này.');
@@ -741,5 +906,320 @@ export class WorkspaceFoldersComponent implements OnInit {
 
     trackByPath(_index: number, item: WorkspaceTreeNode): string {
         return item.path;
+    }
+
+    // -------------------------------------------------------------------------
+    // CÔNG CỤ CHIA SẺ VIDEO (FACEBOOK, TIKTOK, YOUTUBE)
+    // -------------------------------------------------------------------------
+
+    getSafeMediaUrl(url?: string): SafeUrl | string {
+        if (!url) return '';
+        if (this._cachedRawMediaUrl === url && this.safeMediaUrl) {
+            return this.safeMediaUrl;
+        }
+        this._cachedRawMediaUrl = url;
+        this.safeMediaUrl = this._sanitizer.bypassSecurityTrustUrl(url);
+        return this.safeMediaUrl;
+    }
+
+    loadSavedFacebookPages(): void {
+        try {
+            const savedPages = this._multiAccountService.getItem('fb_pages');
+            if (savedPages) {
+                this.fbPages = typeof savedPages === 'string' ? JSON.parse(savedPages) : savedPages;
+            }
+            const savedSelected = this._multiAccountService.getItem('fb_selected_pages');
+            if (savedSelected && Array.isArray(this.fbPages) && this.fbPages.length > 0) {
+                const parsed = typeof savedSelected === 'string' ? JSON.parse(savedSelected) : savedSelected;
+                if (Array.isArray(parsed)) {
+                    const validIds = parsed.filter((id: string) => this.fbPages.some(p => p.id === id));
+                    this.selectedFbPageIds = validIds.length > 0 ? validIds : [this.fbPages[0].id];
+                }
+            } else if (Array.isArray(this.fbPages) && this.fbPages.length > 0) {
+                this.selectedFbPageIds = [this.fbPages[0].id];
+            }
+        } catch (_) {}
+    }
+
+    get filteredFbPages(): any[] {
+        if (!this.searchPageTerm) return this.fbPages || [];
+        const term = this.searchPageTerm.toLowerCase();
+        return (this.fbPages || []).filter(
+            p => (p.name || '').toLowerCase().includes(term) || String(p.id || '').includes(term)
+        );
+    }
+
+    onSelectedFbPagesChange(ids: string[]): void {
+        this.selectedFbPageIds = ids || [];
+        if (this.selectedFbPageIds.length > 0) {
+            this._multiAccountService.setItem('fb_selected_pages', this.selectedFbPageIds);
+        }
+        this._cdr.markForCheck();
+    }
+
+    getSelectedPageNames(): string {
+        if (!this.selectedFbPageIds?.length) return '';
+        const selected = (this.fbPages || []).filter(p => this.selectedFbPageIds.includes(p.id));
+        return selected.map(p => p.name).join(', ');
+    }
+
+    toggleTokenInput(): void {
+        this.showTokenInput = !this.showTokenInput;
+        this._cdr.markForCheck();
+    }
+
+    fetchFacebookPages(): void {
+        if (!this.fbTokenInput?.trim()) {
+            this._toastr.warning('Vui lòng nhập Access Token Facebook trước khi đồng bộ.');
+            return;
+        }
+        this.isFetchingPages = true;
+        this._cdr.markForCheck();
+
+        this._http
+            .get(
+                `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,category,picture{url}&access_token=${encodeURIComponent(this.fbTokenInput.trim())}`
+            )
+            .subscribe({
+                next: (res: any) => {
+                    if (res?.data?.length > 0) {
+                        this.fbPages = res.data;
+                        this._multiAccountService.setItem('fb_pages', this.fbPages);
+                        if (!this.selectedFbPageIds?.length) {
+                            this.selectedFbPageIds = [this.fbPages[0].id];
+                            this._multiAccountService.setItem('fb_selected_pages', this.selectedFbPageIds);
+                        }
+                        this.showTokenInput = false;
+                        this._toastr.success(`Đã đồng bộ ${this.fbPages.length} Fanpage thành công.`);
+                    } else {
+                        this._toastr.warning('Không tìm thấy Fanpage nào hoặc Token không có quyền.');
+                    }
+                    this.isFetchingPages = false;
+                    this._cdr.markForCheck();
+                },
+                error: () => {
+                    this._toastr.error('Lỗi khi lấy danh sách Fanpage. Vui lòng kiểm tra lại Token.');
+                    this.isFetchingPages = false;
+                    this._cdr.markForCheck();
+                }
+            });
+    }
+
+    insertHashtag(tag: string): void {
+        const cur = (this.videoShareDescription || '').trim();
+        if (cur.includes(tag)) return;
+        this.videoShareDescription = cur ? `${cur} ${tag}` : tag;
+        this._cdr.markForCheck();
+    }
+
+    async copyShareCaption(): Promise<void> {
+        const title = (this.videoShareTitle || '').trim();
+        const desc = (this.videoShareDescription || '').trim();
+        const fullText = [title, desc].filter(Boolean).join('\n\n');
+        if (!fullText) {
+            this._toastr.warning('Chưa có tiêu đề hoặc nội dung để sao chép.');
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(fullText);
+            this._toastr.info('Đã sao chép tiêu đề và nội dung vào bộ nhớ tạm.');
+        } catch (_) {}
+    }
+
+    private async _readSelectedVideoBlob(): Promise<{ blob: Blob; fileName: string } | null> {
+        if (!this.selectedNode || this.selectedNode.isDirectory) return null;
+        let safePath = this.selectedNode.path.replace(/\\/g, '/');
+        if (!safePath.startsWith('/')) safePath = '/' + safePath;
+        const fileName = this.selectedNode.name || safePath.split('/').pop() || 'video.mp4';
+
+        const candidateUrls = [
+            `mediacors://${safePath.replace(/^\/+/, '')}`,
+            this.previewData?.mediaUrl || '',
+            `file://${safePath}`
+        ].filter(Boolean);
+
+        for (const url of candidateUrls) {
+            try {
+                const response = await fetch(url);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    return { blob, fileName };
+                }
+            } catch (_) {}
+        }
+        return null;
+    }
+
+    async sendVideoToAiAssistant(): Promise<void> {
+        if (!this.selectedNode) return;
+        try {
+            const fileData = await this._readSelectedVideoBlob();
+            if (!fileData) {
+                this._toastr.error('Không thể đọc tệp video để gửi sang Trợ lý AI.');
+                return;
+            }
+            const base64Data = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const result = String(reader.result || '');
+                    resolve(result.includes(',') ? result.split(',')[1] : result);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(fileData.blob);
+            });
+
+            this._helperService.openChatGPTWithSEO$.next({
+                goiy: `Hãy viết tiêu đề thu hút, mô tả chuẩn SEO và bộ hashtag xu hướng để đăng video "${this.selectedNode.name}" lên Facebook Reels, TikTok và YouTube Shorts.`,
+                attachedFile: {
+                    name: fileData.fileName,
+                    type: fileData.blob.type || 'video/mp4',
+                    path: this.selectedNode.path,
+                    base64: base64Data
+                }
+            });
+            this._toastr.info('Đã đính kèm video sang khung Trợ lý AI.');
+        } catch (_) {
+            this._toastr.error('Không thể đính kèm video sang Trợ lý AI.');
+        }
+    }
+
+    async openPlatformStudio(platform: 'facebook' | 'tiktok' | 'youtube', revealFile = true): Promise<void> {
+        const title = (this.videoShareTitle || '').trim();
+        let desc = (this.videoShareDescription || '').trim();
+        if (platform === 'youtube' && this.youtubeIsShorts && !/#shorts/i.test(title) && !/#shorts/i.test(desc)) {
+            desc = desc ? `${desc} #Shorts` : '#Shorts';
+        }
+        const combined = [title, desc].filter(Boolean).join('\n\n');
+        if (combined) {
+            try {
+                await navigator.clipboard.writeText(combined);
+            } catch (_) {}
+        }
+
+        const studioConfig: Record<'facebook' | 'tiktok' | 'youtube', { name: string; url: string }> = {
+            facebook: {
+                name: 'Facebook',
+                url: 'https://www.facebook.com/reels/create'
+            },
+            tiktok: {
+                name: 'Tiktok',
+                url: 'https://www.tiktok.com/tiktokstudio/upload'
+            },
+            youtube: {
+                name: 'YouTube Studio',
+                url: 'https://studio.youtube.com'
+            }
+        };
+
+        const target = studioConfig[platform];
+        window.dispatchEvent(
+            new CustomEvent('open-web-tool', {
+                detail: {
+                    name: target.name,
+                    url: target.url
+                }
+            })
+        );
+
+        if (revealFile && this.selectedNode) {
+            await this.openInOs(this.selectedNode, 'reveal');
+        }
+
+        this._toastr.success(
+            `Đã mở ${target.name}, sao chép sẵn nội dung bài đăng và hiển thị vị trí tệp video để kéo thả.`,
+            'Sẵn sàng đăng Video'
+        );
+    }
+
+    async submitVideoShare(platform: 'facebook' | 'tiktok' | 'youtube' = this.activeShareTab): Promise<void> {
+        if (!this.selectedNode || this.selectedNode.isDirectory) return;
+
+        const title = (this.videoShareTitle || '').trim();
+        if (!title) {
+            this._toastr.warning('Vui lòng nhập tiêu đề video trước khi đăng.');
+            return;
+        }
+
+        if (platform === 'facebook' && (!this.selectedFbPageIds || this.selectedFbPageIds.length === 0)) {
+            this._toastr.warning('Vui lòng chọn ít nhất 1 Fanpage Facebook hoặc bấm "Mở Facebook Reels" để đăng trực tiếp.');
+            return;
+        }
+
+        this.isSharingVideo = true;
+        this._cdr.markForCheck();
+
+        try {
+            const fileData = await this._readSelectedVideoBlob();
+            if (!fileData) {
+                this._toastr.error('Không thể đọc tệp video từ ổ đĩa.');
+                return;
+            }
+
+            let delayMinutes = 0;
+            if (this.videoShareScheduleTime) {
+                const selectedTime = new Date(this.videoShareScheduleTime).getTime();
+                delayMinutes = Math.max(0, Math.floor((selectedTime - Date.now()) / 60000));
+            }
+
+            const formData = new FormData();
+            let finalTitle = title;
+            let finalDesc = (this.videoShareDescription || '').trim();
+            if (platform === 'youtube' && this.youtubeIsShorts && !/#shorts/i.test(finalTitle)) {
+                finalTitle = `${finalTitle} #Shorts`;
+            }
+
+            formData.append('title', finalTitle);
+            formData.append('description', finalDesc || finalTitle);
+            formData.append('platform', platform);
+            formData.append('delay_minutes', String(delayMinutes));
+            if (this.videoShareScheduleTime) {
+                formData.append('scheduleTime', this.videoShareScheduleTime);
+            }
+            formData.append('file_0', fileData.blob, fileData.fileName);
+
+            let webhookPath = 'share-facebook';
+            if (platform === 'facebook') {
+                webhookPath = 'share-facebook';
+                const selectedPages = (this.fbPages || [])
+                    .filter(p => this.selectedFbPageIds.includes(p.id))
+                    .map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        access_token: p.access_token
+                    }));
+                formData.append('pages', JSON.stringify(selectedPages));
+            } else if (platform === 'tiktok') {
+                webhookPath = 'share-tiktok';
+                formData.append('privacy_level', this.tiktokPrivacy);
+            } else if (platform === 'youtube') {
+                webhookPath = 'share-youtube';
+                formData.append('privacyStatus', this.youtubePrivacy);
+                formData.append('isShorts', String(this.youtubeIsShorts));
+            }
+
+            const platformLabel =
+                platform === 'facebook' ? 'Facebook Fanpage' : platform === 'tiktok' ? 'TikTok' : 'YouTube';
+            this._toastr.info(
+                delayMinutes > 0
+                    ? `Đang gửi video lên ${platformLabel} (hẹn đăng sau ${delayMinutes} phút)...`
+                    : `Đang tải video lên ${platformLabel} qua n8n...`
+            );
+
+            await firstValueFrom(this._n8nService.triggerWebhook(webhookPath, formData));
+            this._toastr.success(
+                delayMinutes > 0
+                    ? `Đã lên lịch đăng video lên ${platformLabel} sau ${delayMinutes} phút.`
+                    : `Đã gửi lệnh đăng video lên ${platformLabel} thành công.`
+            );
+        } catch (err: any) {
+            console.error('[submitVideoShare] Error:', err);
+            this._toastr.warning(
+                'Không thể gửi qua n8n Webhook. Bạn có thể bấm nút "Mở Studio & Kéo thả nhanh" bên cạnh để đăng trực tiếp.',
+                'Thông báo'
+            );
+        } finally {
+            this.isSharingVideo = false;
+            this._cdr.markForCheck();
+        }
     }
 }

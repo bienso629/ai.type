@@ -1,4 +1,4 @@
-<div class="ws-layout">
+<div class="ws-layout absolute inset-0 flex flex-col min-w-0 overflow-hidden">
     <!-- HEADER CHUẨN CỦA APP -->
     <div
         class="flex flex-col lg:flex-row flex-0 lg:items-center lg:justify-between p-4 sm:py-4 sm:px-10 bg-default border-b dark:bg-transparent gap-3"
@@ -82,17 +82,6 @@
                 matTooltip="Dọn dẹp các thư mục phân tích tạm (_temp_*) trong Downloads/AI.TYPING"
             >
                 <mat-icon class="icon-size-5 text-secondary" [svgIcon]="'feather:trash-2'"></mat-icon>
-            </button>
-
-            <button
-                type="button"
-                mat-flat-button
-                color="primary"
-                (click)="addCustomWorkspaceRoot()"
-                matTooltip="Gắn thêm một thư mục bất kỳ trên máy tính vào danh sách làm việc"
-            >
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:folder-plus'"></mat-icon>
-                <mat-label class="ml-2">Thêm thư mục làm việc</mat-label>
             </button>
         </div>
     </div>
@@ -243,7 +232,28 @@
                             {{ getNodeIcon(selectedNode) }}
                         </mat-icon>
                         <div class="min-w-0 flex-1">
-                            <div class="ws-inspector-bar__name">{{ selectedNode.name }}</div>
+                            <div class="ws-breadcrumb">
+                                @for (crumb of selectedNodeBreadcrumbs; track crumb.path; let last = $last) {
+                                    @if (!last) {
+                                        <button
+                                            type="button"
+                                            class="ws-breadcrumb__link"
+                                            [title]="crumb.path"
+                                            (click)="navigateToBreadcrumb(crumb, $event)"
+                                        >
+                                            {{ crumb.name }}
+                                        </button>
+                                        <mat-icon
+                                            class="ws-breadcrumb__sep"
+                                            [svgIcon]="'heroicons_solid:chevron-right'"
+                                        ></mat-icon>
+                                    } @else {
+                                        <span class="ws-breadcrumb__current" [title]="crumb.path">
+                                            {{ crumb.name }}
+                                        </span>
+                                    }
+                                }
+                            </div>
                             <div class="ws-inspector-bar__path" [title]="selectedNode.path">{{ selectedNode.path }}</div>
                         </div>
                     </div>
@@ -374,7 +384,7 @@
                                     <tr>
                                         <th>Tên mục</th>
                                         <th class="w-40">Phân loại</th>
-                                        <th class="w-36 text-right">Kích thước / Mục</th>
+                                        <th class="w-36 text-right">SIZE</th>
                                         <th class="w-44 text-right">Cập nhật</th>
                                         <th class="w-36 text-right">Thao tác</th>
                                     </tr>
@@ -503,12 +513,335 @@
                                     <img [src]="previewData.dataUrl" [alt]="selectedNode.name" class="ws-preview-image" />
                                 </div>
                             } @else if (previewData.type === 'video' && previewData.mediaUrl) {
-                                <div class="ws-media-stage">
-                                    <video [src]="previewData.mediaUrl" controls class="ws-preview-video"></video>
+                                <div class="ws-video-workspace">
+                                    <!-- BÊN TRÁI: TRÌNH PHÁT VIDEO (AUTO HEIGHT) -->
+                                    <div class="ws-video-player-panel">
+                                        <div class="ws-video-player-box">
+                                            <video
+                                                [src]="safeMediaUrl"
+                                                controls
+                                                preload="metadata"
+                                                class="ws-preview-video"
+                                            ></video>
+                                        </div>
+
+                                        <div class="ws-video-player-footer">
+                                            <button
+                                                type="button"
+                                                class="ws-btn ws-btn--sm ws-btn--ghost"
+                                                (click)="sendVideoToAiAssistant()"
+                                                matTooltip="Đính kèm video này sang Trợ lý AI để tạo tiêu đề, mô tả và bộ hashtag chuẩn xu hướng"
+                                            >
+                                                <mat-icon [svgIcon]="'feather:cpu'"></mat-icon>
+                                                <span>AI viết Caption</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                class="ws-btn ws-btn--sm ws-btn--ghost"
+                                                (click)="openInOs(selectedNode, 'reveal')"
+                                                matTooltip="Mở thư mục chứa tệp để kéo thả nhanh vào trình duyệt"
+                                            >
+                                                <mat-icon>folder_open</mat-icon>
+                                                <span>Hiện tệp kéo thả</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                class="ws-btn ws-btn--sm ws-btn--ghost ml-auto"
+                                                (click)="copyShareCaption()"
+                                                matTooltip="Sao chép nhanh Tiêu đề & Nội dung bài đăng"
+                                            >
+                                                <mat-icon>content_copy</mat-icon>
+                                                <span>Copy Caption</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- BÊN PHẢI: CÔNG CỤ CHIA SẺ VIDEO LÊN FACEBOOK, TIKTOK, YOUTUBE -->
+                                    <div class="ws-video-share-panel">
+                                        <div class="ws-share-header">
+                                            <div class="ws-share-header__title">
+                                                Chia sẻ Video lên Mạng xã hội
+                                            </div>
+                                            <div class="ws-share-tabs">
+                                                <button
+                                                    type="button"
+                                                    class="ws-share-tab ws-share-tab--facebook"
+                                                    [class.ws-share-tab--active]="activeShareTab === 'facebook'"
+                                                    (click)="activeShareTab = 'facebook'"
+                                                >
+                                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:facebook'"></mat-icon>
+                                                    <span>Facebook</span>
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    class="ws-share-tab ws-share-tab--tiktok"
+                                                    [class.ws-share-tab--active]="activeShareTab === 'tiktok'"
+                                                    (click)="activeShareTab = 'tiktok'"
+                                                >
+                                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:video'"></mat-icon>
+                                                    <span>TikTok</span>
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    class="ws-share-tab ws-share-tab--youtube"
+                                                    [class.ws-share-tab--active]="activeShareTab === 'youtube'"
+                                                    (click)="activeShareTab = 'youtube'"
+                                                >
+                                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:youtube'"></mat-icon>
+                                                    <span>YouTube</span>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="ws-share-body">
+                                            <!-- TÙY CHỌN RIÊNG THEO NỀN TẢNG -->
+                                            @if (activeShareTab === 'facebook') {
+                                                <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                                                    <mat-label class="ml-2">Chọn Fanpage nhận video</mat-label>
+                                                    @if (selectedFbPageIds?.length > 0) {
+                                                        <img
+                                                            matPrefix
+                                                            [src]="'https://graph.facebook.com/' + selectedFbPageIds[0] + '/picture?type=normal'"
+                                                            class="w-5 h-5 rounded-full mr-2 object-cover shadow-sm bg-gray-100"
+                                                            onerror="this.src = 'assets/images/logo/facebook.png'; this.onerror = null;"
+                                                        />
+                                                    } @else {
+                                                        <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:facebook'"></mat-icon>
+                                                    }
+
+                                                    <mat-select
+                                                        multiple
+                                                        [ngModel]="selectedFbPageIds"
+                                                        (ngModelChange)="onSelectedFbPagesChange($event)"
+                                                        (opened)="searchPageTerm = ''"
+                                                    >
+                                                        <mat-select-trigger>
+                                                            <span class="truncate block w-[calc(100%-20px)] pr-2">
+                                                                {{ getSelectedPageNames() }}
+                                                            </span>
+                                                        </mat-select-trigger>
+
+                                                        <div
+                                                            class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-gray-100 flex flex-row items-center cursor-default"
+                                                            (click)="$event.stopPropagation(); $event.preventDefault()"
+                                                        >
+                                                            <div
+                                                                class="flex flex-1 overflow-hidden relative h-9 border border-gray-200 rounded-md bg-gray-50 focus-within:border-primary transition-all"
+                                                            >
+                                                                @if (!showTokenInput) {
+                                                                    <div class="flex items-center w-full h-full px-2 gap-1.5">
+                                                                        <mat-icon class="icon-size-4 text-gray-400 shrink-0" [svgIcon]="'feather:search'"></mat-icon>
+                                                                        <input
+                                                                            type="text"
+                                                                            class="flex-1 outline-none text-sm bg-transparent placeholder-gray-400 min-w-0 h-full"
+                                                                            placeholder="Tìm tên hoặc ID Fanpage..."
+                                                                            [value]="searchPageTerm"
+                                                                            (input)="searchPageTerm = $any($event.target).value"
+                                                                            (keydown)="$event.stopPropagation()"
+                                                                        />
+                                                                        <span class="text-xs font-semibold text-gray-500 shrink-0 select-none">
+                                                                            {{ selectedFbPageIds?.length ? selectedFbPageIds.length + '/' : '' }}{{ filteredFbPages.length }}
+                                                                        </span>
+                                                                        <button
+                                                                            type="button"
+                                                                            class="w-7 h-7 text-blue-600 hover:bg-blue-100/60 rounded-md flex items-center justify-center shrink-0"
+                                                                            (click)="toggleTokenInput(); $event.stopPropagation()"
+                                                                            matTooltip="Đồng bộ danh sách Fanpage bằng Access Token"
+                                                                        >
+                                                                            @if (!isFetchingPages) {
+                                                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                                                                            } @else {
+                                                                                <mat-spinner diameter="14"></mat-spinner>
+                                                                            }
+                                                                        </button>
+                                                                    </div>
+                                                                } @else {
+                                                                    <div class="flex items-center w-full h-full px-2 bg-blue-50/50 gap-1.5">
+                                                                        <mat-icon class="icon-size-4 text-blue-500 shrink-0" [svgIcon]="'feather:key'"></mat-icon>
+                                                                        <input
+                                                                            type="text"
+                                                                            class="flex-1 outline-none text-sm bg-transparent placeholder-blue-300 text-blue-700 min-w-0 h-full"
+                                                                            placeholder="Dán Token EAAC... rồi nhấn Enter"
+                                                                            [value]="fbTokenInput"
+                                                                            (input)="fbTokenInput = $any($event.target).value"
+                                                                            (keydown)="$event.stopPropagation()"
+                                                                            (keydown.enter)="fetchFacebookPages(); $event.stopPropagation(); $event.preventDefault()"
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            class="w-7 h-7 text-blue-600 hover:bg-blue-100/50 rounded-md flex items-center justify-center shrink-0"
+                                                                            (click)="fetchFacebookPages(); $event.stopPropagation()"
+                                                                        >
+                                                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:arrow-right-circle'"></mat-icon>
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            class="w-7 h-7 text-gray-400 hover:text-gray-600 rounded-md flex items-center justify-center shrink-0"
+                                                                            (click)="toggleTokenInput(); $event.stopPropagation()"
+                                                                        >
+                                                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:x'"></mat-icon>
+                                                                        </button>
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                        </div>
+
+                                                        @if (filteredFbPages.length === 0) {
+                                                            <mat-option disabled>
+                                                                Chưa có Fanpage. Nhấn biểu tượng làm mới ở trên để đồng bộ bằng Token.
+                                                            </mat-option>
+                                                        }
+                                                        @for (page of filteredFbPages; track page.id) {
+                                                            <mat-option [value]="page.id" class="h-auto py-2">
+                                                                <div class="flex items-center gap-2.5 w-full min-w-0">
+                                                                    <img
+                                                                        [src]="'https://graph.facebook.com/' + page.id + '/picture?type=normal'"
+                                                                        class="w-7 h-7 rounded-full object-cover shrink-0 bg-gray-100"
+                                                                        onerror="this.src = 'assets/images/logo/facebook.png'; this.onerror = null;"
+                                                                    />
+                                                                    <span class="truncate flex-1">
+                                                                        {{ page.name }}
+                                                                        <span class="text-xs text-secondary">({{ page.id }})</span>
+                                                                    </span>
+                                                                </div>
+                                                            </mat-option>
+                                                        }
+                                                    </mat-select>
+                                                </mat-form-field>
+                                            } @else if (activeShareTab === 'tiktok') {
+                                                <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                                                    <mat-label class="ml-2">Quyền xem video TikTok</mat-label>
+                                                    <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:lock'"></mat-icon>
+                                                    <mat-select [(ngModel)]="tiktokPrivacy">
+                                                        <mat-option value="PUBLIC_TO_EVERYONE">Công khai (Mọi người đều xem được)</mat-option>
+                                                        <mat-option value="MUTUAL_FOLLOW_FRIENDS">Bạn bè (Follow chung)</mat-option>
+                                                        <mat-option value="SELF_ONLY">Chỉ mình tôi (Riêng tư)</mat-option>
+                                                    </mat-select>
+                                                </mat-form-field>
+                                            } @else if (activeShareTab === 'youtube') {
+                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                                                    <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                                                        <mat-label class="ml-2">Chế độ hiển thị YouTube</mat-label>
+                                                        <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:eye'"></mat-icon>
+                                                        <mat-select [(ngModel)]="youtubePrivacy">
+                                                            <mat-option value="public">Công khai (Public)</mat-option>
+                                                            <mat-option value="unlisted">Không công khai (Unlisted)</mat-option>
+                                                            <mat-option value="private">Riêng tư (Private)</mat-option>
+                                                        </mat-select>
+                                                    </mat-form-field>
+
+                                                    <div class="flex items-center px-2">
+                                                        <mat-checkbox [(ngModel)]="youtubeIsShorts" color="primary">
+                                                            Đăng dưới dạng YouTube Shorts (#Shorts)
+                                                        </mat-checkbox>
+                                                    </div>
+                                                </div>
+                                            }
+
+                                            <!-- TIÊU ĐỀ VIDEO -->
+                                            <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                                                <mat-label class="ml-2">Tiêu đề video</mat-label>
+                                                <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:edit-3'"></mat-icon>
+                                                <input
+                                                    matInput
+                                                    [(ngModel)]="videoShareTitle"
+                                                    placeholder="Nhập tiêu đề thu hút cho video..."
+                                                />
+                                            </mat-form-field>
+
+                                            <!-- NỘI DUNG / CAPTION & HASHTAGS -->
+                                            <mat-form-field class="w-full custom-textarea fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                                                <mat-label class="ml-2">Nội dung bài đăng & Hashtag</mat-label>
+                                                <textarea
+                                                    matInput
+                                                    cdkTextareaAutosize
+                                                    [cdkAutosizeMinRows]="4"
+                                                    [cdkAutosizeMaxRows]="8"
+                                                    [(ngModel)]="videoShareDescription"
+                                                    placeholder="Nhập mô tả chi tiết, lời kêu gọi hành động và các hashtag..."
+                                                ></textarea>
+                                            </mat-form-field>
+
+                                            <!-- DẢI CHÈN NHANH HASHTAG -->
+                                            <div class="ws-hashtag-bar">
+                                                <span class="ws-hashtag-bar__label">Chèn nhanh:</span>
+                                                @for (tag of suggestedHashtags; track tag) {
+                                                    <button
+                                                        type="button"
+                                                        class="ws-hashtag-chip"
+                                                        (click)="insertHashtag(tag)"
+                                                    >
+                                                        {{ tag }}
+                                                    </button>
+                                                }
+                                            </div>
+
+                                            <!-- HẸN GIỜ ĐĂNG -->
+                                            <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                                                <mat-label class="ml-2">Hẹn giờ đăng (để trống nếu đăng ngay)</mat-label>
+                                                <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:clock'"></mat-icon>
+                                                <input
+                                                    #videoScheduleInput
+                                                    matInput
+                                                    type="datetime-local"
+                                                    [(ngModel)]="videoShareScheduleTime"
+                                                    (click)="videoScheduleInput.showPicker()"
+                                                />
+                                            </mat-form-field>
+
+                                            <!-- CỤM NÚT ĐĂNG & MỞ STUDIO -->
+                                            <div class="ws-share-actions">
+                                                <button
+                                                    type="button"
+                                                    mat-flat-button
+                                                    [color]="'primary'"
+                                                    class="flex-1"
+                                                    [disabled]="isSharingVideo"
+                                                    (click)="submitVideoShare(activeShareTab)"
+                                                >
+                                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
+                                                    <mat-label class="ml-2">
+                                                        @if (isSharingVideo) {
+                                                            Đang gửi video...
+                                                        } @else if (activeShareTab === 'facebook') {
+                                                            Đăng lên Fanpage (n8n)
+                                                        } @else if (activeShareTab === 'tiktok') {
+                                                            Đăng lên TikTok (n8n)
+                                                        } @else {
+                                                            Đăng lên YouTube (n8n)
+                                                        }
+                                                    </mat-label>
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    mat-stroked-button
+                                                    class="flex-1"
+                                                    (click)="openPlatformStudio(activeShareTab, true)"
+                                                    matTooltip="Mở trực tiếp trang Upload của nền tảng trong bảng WebTools bên phải, tự động copy Caption và mở sẵn vị trí file video để kéo thả"
+                                                >
+                                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:external-link'"></mat-icon>
+                                                    <mat-label class="ml-2">
+                                                        @if (activeShareTab === 'facebook') {
+                                                            Mở Facebook Reels & Kéo thả
+                                                        } @else if (activeShareTab === 'tiktok') {
+                                                            Mở TikTok Studio & Kéo thả
+                                                        } @else {
+                                                            Mở YouTube Studio & Kéo thả
+                                                        }
+                                                    </mat-label>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             } @else if (previewData.type === 'audio' && previewData.mediaUrl) {
                                 <div class="ws-media-stage">
-                                    <audio [src]="previewData.mediaUrl" controls class="w-full max-w-xl"></audio>
+                                    <audio [src]="safeMediaUrl" controls class="w-full max-w-xl"></audio>
                                 </div>
                             } @else {
                                 <div class="ws-empty-state">

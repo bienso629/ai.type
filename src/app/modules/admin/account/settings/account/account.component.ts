@@ -19,7 +19,8 @@ interface ModelGroup {
     models: string[];
 }
 
-import { getSettings, updateUserSettingsCache } from 'app/_services/user-settings.service';
+import { UserSettingsService, getSettings, updateUserSettingsCache } from 'app/_services/user-settings.service';
+import { DEFAULT_WEB_TOOLS, ToolItem } from 'app/layout/common/quick-chat/quick-chat.component';
 
 @Component({
     selector: 'settings-account',
@@ -59,6 +60,9 @@ export class SettingsAccountComponent implements OnInit {
     showN8N: boolean = false;
     showFigmaToken: boolean = false;
     showFigmaMcp: boolean = false;
+    webTools: ToolItem[] = [];
+    newWebToolName: string = '';
+    newWebToolUrl: string = '';
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     /**
@@ -95,7 +99,13 @@ export class SettingsAccountComponent implements OnInit {
             this.toastr.error('Lưu cấu hình thất bại.');
         } else {
             let currentSettings = getSettings() || {};
-            let settings: any = { ...currentSettings, ...this.accountForm.value };
+            const cleanedTools = (this.webTools || []).map((t) => ({ ...t }));
+            this.multiAccountService.setItem('tools_urls', cleanedTools);
+            let settings: any = {
+                ...currentSettings,
+                ...this.accountForm.value,
+                tools_urls: cleanedTools
+            };
             const editor = this.multiAccountService.getItem('editor');
             const following_users = this.multiAccountService.getItem('following_users');
 
@@ -271,10 +281,23 @@ export class SettingsAccountComponent implements OnInit {
         private _fuseConfigService: FuseConfigService,
         private _fuseConfirmationService: FuseConfirmationService,
         private multiAccountService: MultiAccountService,
+        private _userSettingsService: UserSettingsService,
         private cd: ChangeDetectorRef,
         private _translocoService: TranslocoService
     ) {
         this.titleService.setTitle(`cấu hình tài khoản | ai.type - công cụ tạo content`);
+
+        // Đồng bộ danh sách Web Tools khi settings trên server thay đổi
+        this._userSettingsService.settings$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((s: any) => {
+                if (Array.isArray(s?.tools_urls) && s.tools_urls.length > 0) {
+                    this.webTools = s.tools_urls
+                        .filter((t: any) => t && t.name !== 'Google Labs')
+                        .map((t: any) => ({ ...t }));
+                    this.cd.markForCheck();
+                }
+            });
 
         // Subscribe to config changes
         this._fuseConfigService.config$
@@ -499,7 +522,65 @@ export class SettingsAccountComponent implements OnInit {
         }
         this.geminiKeysVisibility = this.geminiKeys.map(() => false);
 
+        // Đồng bộ danh sách Web Tools từ settings trên Server (fallback sang local hoặc mặc định)
+        let loadedTools =
+            Array.isArray(settings.tools_urls) && settings.tools_urls.length > 0
+                ? settings.tools_urls
+                : this.multiAccountService.getItem('tools_urls');
+        if (!Array.isArray(loadedTools) || loadedTools.length === 0) {
+            loadedTools = DEFAULT_WEB_TOOLS;
+        }
+        this.webTools = loadedTools
+            .filter((t: any) => t && t.name !== 'Google Labs')
+            .map((t: any) => ({ ...t }));
+
         this.cd.markForCheck();
+    }
+
+    addWebToolFromSettings(): void {
+        const name = (this.newWebToolName || '').trim();
+        let url = (this.newWebToolUrl || '').trim();
+        if (!name || !url) {
+            this.toastr.warning('Vui lòng nhập đầy đủ Tên công cụ và Đường dẫn URL.');
+            return;
+        }
+        if (!/^https?:\/\//i.test(url)) {
+            url = 'https://' + url;
+        }
+        this.webTools.push({
+            id: Date.now().toString(),
+            name,
+            url,
+            icon: ''
+        });
+        this.newWebToolName = '';
+        this.newWebToolUrl = '';
+        this.save();
+        this.cd.markForCheck();
+    }
+
+    removeWebToolFromSettings(id: string): void {
+        this.webTools = (this.webTools || []).filter((t) => t.id !== id);
+        this.save();
+        this.cd.markForCheck();
+    }
+
+    dropWebToolInSettings(event: CdkDragDrop<ToolItem[]>): void {
+        moveItemInArray(this.webTools, event.previousIndex, event.currentIndex);
+        this.save();
+        this.cd.markForCheck();
+    }
+
+    getWebToolFavicon(tool: ToolItem): string {
+        if (tool?.icon && tool.icon.trim()) {
+            return tool.icon;
+        }
+        try {
+            const domain = new URL(tool.url).hostname;
+            return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+        } catch (e) {
+            return './assets/images/logo/favicon.svg';
+        }
     }
 
     private setupAutocompleteFilters(): void {
