@@ -9,8 +9,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatDialogModule } from '@angular/material/dialog';
 import { TranslocoModule } from '@jsverse/transloco';
 import { SharedModule } from 'app/shared.module';
+import { VideoTimelineDialogComponent } from 'app/modules/admin/content/ai-tts/tools/video-timeline-dialog.component';
 import { WorkspaceFoldersComponent } from './folders.component';
 
 const routes: Route[] = [
@@ -35,6 +37,8 @@ const routes: Route[] = [
         MatTooltipModule,
         MatFormFieldModule,
         MatInputModule,
+        MatDialogModule,
+        VideoTimelineDialogComponent,
         TranslocoModule,
         SharedModule
     ],

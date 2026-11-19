@@ -529,21 +529,11 @@
                                             <button
                                                 type="button"
                                                 class="ws-btn ws-btn--sm ws-btn--ghost"
-                                                (click)="sendVideoToAiAssistant()"
-                                                matTooltip="Đính kèm video này sang Trợ lý AI để tạo tiêu đề, mô tả và bộ hashtag chuẩn xu hướng"
+                                                (click)="openVideoEditorDialog()"
+                                                matTooltip="Mở Công cụ chỉnh sửa video bằng AI cho tệp video này"
                                             >
-                                                <mat-icon [svgIcon]="'feather:cpu'"></mat-icon>
-                                                <span>AI viết Caption</span>
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                class="ws-btn ws-btn--sm ws-btn--ghost"
-                                                (click)="openInOs(selectedNode, 'reveal')"
-                                                matTooltip="Mở thư mục chứa tệp để kéo thả nhanh vào trình duyệt"
-                                            >
-                                                <mat-icon>folder_open</mat-icon>
-                                                <span>Hiện tệp kéo thả</span>
+                                                <mat-icon>movie_edit</mat-icon>
+                                                <span>Sửa video</span>
                                             </button>
 
                                             <button
