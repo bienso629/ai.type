@@ -254,6 +254,8 @@ if (isInternalAppOrigin) contextBridge.exposeInMainWorld('electron', {
 
     // ── Terminal Current Directory Tracker ──
     getTerminalLastDirectory: () => ipcRenderer.invoke('terminal:get-last-directory'),
+    googleStealthLogin: (url) => ipcRenderer.invoke('google-stealth-login', url),
+    launchChromeAppTool: (payload) => ipcRenderer.invoke('launch-chrome-app-tool', payload),
 });
 
 // ... (Phần DREAMINA AUTO-DOWNLOAD giữ nguyên) ...
@@ -287,6 +289,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     installPlugin: (pluginId) => ipcRenderer.invoke('install-plugin', pluginId),
     uninstallPlugin: (pluginId) => ipcRenderer.invoke('uninstall-plugin', pluginId),
     googleStealthLogin: (url) => ipcRenderer.invoke('google-stealth-login', url),
+    launchChromeAppTool: (payload) => ipcRenderer.invoke('launch-chrome-app-tool', payload),
     onGoogleAuthSynced: (callback) => {
         const listener = (_event, data) => callback(data);
         ipcRenderer.on('google-auth-synced', listener);
