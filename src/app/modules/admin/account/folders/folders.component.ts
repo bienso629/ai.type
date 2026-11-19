@@ -1,13 +1,17 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { MatDialog } from '@angular/material/dialog';
 import { firstValueFrom } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
+import * as uuid from 'uuid';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { N8nService } from 'app/_services/n8n.service';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { ProjectStoreService } from 'app/_services/project-store.service';
 import { getSettings } from 'app/_services/user-settings.service';
 import { HelperService } from 'app/helper.service';
+import { VideoTimelineDialogComponent } from 'app/modules/admin/content/ai-tts/tools/video-timeline-dialog.component';
 
 export interface WorkspaceRootInfo {
     id: string;
@@ -145,7 +149,9 @@ export class WorkspaceFoldersComponent implements OnInit {
         private _sanitizer: DomSanitizer,
         private _n8nService: N8nService,
         private _multiAccountService: MultiAccountService,
-        private _helperService: HelperService
+        private _helperService: HelperService,
+        private _dialog: MatDialog,
+        private _projectStore: ProjectStoreService
     ) {}
 
     private get _electron(): any {
@@ -1122,36 +1128,128 @@ export class WorkspaceFoldersComponent implements OnInit {
         return null;
     }
 
-    async sendVideoToAiAssistant(): Promise<void> {
-        if (!this.selectedNode) return;
+    /** Mở Công cụ chỉnh sửa video bằng AI (VideoTimelineDialogComponent) cho tệp video đang chọn */
+    async openVideoEditorDialog(): Promise<void> {
+        if (!this.selectedNode || this.selectedNode.isDirectory) return;
+
         try {
-            const fileData = await this._readSelectedVideoBlob();
-            if (!fileData) {
-                this._toastr.error('Không thể đọc tệp video để gửi sang Trợ lý AI.');
-                return;
+            const rawPath = this.selectedNode.path.trim();
+            const normalizedPath = rawPath.replace(/\\/g, '/');
+            const fileUrl = normalizedPath.startsWith('file://')
+                ? normalizedPath
+                : `file://${normalizedPath.startsWith('/') ? normalizedPath : '/' + normalizedPath}`;
+
+            const rawMap = this._multiAccountService.getItem('ai_type_workspace_video_uuid_map') || {};
+            const videoMap: Record<string, string> = typeof rawMap === 'string' ? JSON.parse(rawMap) : { ...rawMap };
+            const existingUuid = videoMap[rawPath] || null;
+
+            let projectData: any = null;
+            if (existingUuid) {
+                projectData = await this._multiAccountService.getItem('ai_type_video_ready_data_' + existingUuid);
+                if (!projectData) {
+                    const parts = await this._projectStore.load(null, existingUuid);
+                    projectData = parts?.timeline || null;
+                }
             }
-            const base64Data = await new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    const result = String(reader.result || '');
-                    resolve(result.includes(',') ? result.split(',')[1] : result);
+
+            // Đo thời lượng và tỷ lệ khung hình thực tế của video
+            let actualDuration = 5;
+            let detectedAspectRatio: '9:16' | '16:9' = '16:9';
+            try {
+                if (this._electron?.getMediaDuration) {
+                    const durRes = await this._electron.getMediaDuration(fileUrl);
+                    if (durRes?.success && durRes.duration > 0) {
+                        actualDuration = Math.round(durRes.duration * 10) / 10;
+                    }
+                }
+                const meta = await new Promise<{ duration: number; width: number; height: number }>((resolve) => {
+                    const video = document.createElement('video');
+                    video.preload = 'metadata';
+                    const cleanup = () => {
+                        video.onloadedmetadata = null;
+                        video.onerror = null;
+                        video.src = '';
+                        try { video.load(); } catch (_) {}
+                    };
+                    video.onloadedmetadata = () => {
+                        const info = {
+                            duration: video.duration || 5,
+                            width: video.videoWidth || 1920,
+                            height: video.videoHeight || 1080
+                        };
+                        cleanup();
+                        resolve(info);
+                    };
+                    video.onerror = () => {
+                        cleanup();
+                        resolve({ duration: actualDuration, width: 1920, height: 1080 });
+                    };
+                    video.src = this.previewData?.mediaUrl || fileUrl;
+                });
+                if (actualDuration === 5 && meta.duration > 0) {
+                    actualDuration = Math.round(meta.duration * 10) / 10;
+                }
+                if (meta.height > meta.width) {
+                    detectedAspectRatio = '9:16';
+                }
+            } catch (_) {}
+
+            const targetUuid = existingUuid || uuid.v4();
+            if (!existingUuid) {
+                videoMap[rawPath] = targetUuid;
+                this._multiAccountService.setItem('ai_type_workspace_video_uuid_map', videoMap);
+            }
+
+            if (projectData && Array.isArray(projectData.scenes) && projectData.scenes.length > 0) {
+                const v0 = projectData.scenes[0]?.videos?.[0];
+                if (v0) {
+                    v0.videoUrl = fileUrl;
+                    if (!v0.duration || v0.duration === 5) {
+                        v0.duration = actualDuration;
+                        v0.maxDuration = actualDuration;
+                    }
+                }
+            } else {
+                projectData = {
+                    uuid: targetUuid,
+                    aspectRatio: detectedAspectRatio,
+                    scenes: [
+                        {
+                            videos: [
+                                {
+                                    id: 1,
+                                    videoUrl: fileUrl,
+                                    duration: actualDuration,
+                                    maxDuration: actualDuration
+                                }
+                            ]
+                        }
+                    ]
                 };
-                reader.onerror = reject;
-                reader.readAsDataURL(fileData.blob);
+            }
+
+            this._projectStore.save(this.selectedNode.name || null, targetUuid, { timeline: projectData });
+
+            const dialogRef = this._dialog.open(VideoTimelineDialogComponent, {
+                width: '100vw',
+                maxWidth: '100vw',
+                height: '100vh',
+                maxHeight: '100vh',
+                panelClass: ['custom-timeline-container', 'dialog-no-padding', 'overflow-hidden'],
+                data: {
+                    uuid: targetUuid,
+                    projectData,
+                    audioList: [],
+                    videoFormat: 'video'
+                },
+                disableClose: true
             });
 
-            this._helperService.openChatGPTWithSEO$.next({
-                goiy: `Hãy viết tiêu đề thu hút, mô tả chuẩn SEO và bộ hashtag xu hướng để đăng video "${this.selectedNode.name}" lên Facebook Reels, TikTok và YouTube Shorts.`,
-                attachedFile: {
-                    name: fileData.fileName,
-                    type: fileData.blob.type || 'video/mp4',
-                    path: this.selectedNode.path,
-                    base64: base64Data
-                }
+            dialogRef.afterClosed().subscribe(() => {
+                this.refreshSelectedBranch();
             });
-            this._toastr.info('Đã đính kèm video sang khung Trợ lý AI.');
-        } catch (_) {
-            this._toastr.error('Không thể đính kèm video sang Trợ lý AI.');
+        } catch (err: any) {
+            this._toastr.error('Không thể mở trình chỉnh sửa video: ' + (err?.message || err));
         }
     }
 

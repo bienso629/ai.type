@@ -1380,11 +1380,11 @@
                 </div>
             }
 
-            <!-- Hidden input để nạp tệp .GLB chứa animation rời cho đồ vật -->
+            <!-- Hidden input để nạp tệp .GLB hoặc .JSON chứa animation rời cho đồ vật -->
             <input
                 #propAnimGlbInput
                 type="file"
-                accept=".glb"
+                accept=".glb,.json"
                 class="hidden"
                 (change)="onPropAnimGlbSelected($event)"
             />
@@ -1396,9 +1396,10 @@
                     class="glb-bones-dock"
                     [class.glb-bones-dock--offset-top]="isSidebarCollapsed"
                     (mousedown)="$event.stopPropagation()"
+                    (wheel)="$event.stopPropagation()"
                 >
                     <div class="glb-pane-header">
-                        <span>Khớp xương (Rig Bones)</span>
+                        <span>Khớp xương</span>
                         <input
                             type="text"
                             [(ngModel)]="timelineBoneSearch"
@@ -1528,6 +1529,7 @@
                 <div
                     class="glb-timeline-dock"
                     (mousedown)="$event.stopPropagation()"
+                    (wheel)="$event.stopPropagation()"
                 >
                     <!-- Thanh điều khiển trên cùng -->
                     <div class="glb-timeline-dock__header">
@@ -1656,7 +1658,7 @@
                                 type="button"
                                 class="glb-tl-btn"
                                 (click)="saveTimelineToProp(false)"
-                                title="Lưu Timeline vào hồ sơ đồ vật"
+                                title="Đóng gói bộ Keyframe hiện tại thành Clip chuyển động mới trong tab Clip Chuyển động & lưu vào hồ sơ đồ vật"
                             >
                                 <mat-icon class="icon-size-4">save</mat-icon>
                                 <span>Lưu</span>
@@ -1833,9 +1835,28 @@
                                                 >
                                                     <mat-icon class="icon-size-5 text-teal-400">play_circle</mat-icon>
                                                     <div class="text-left min-w-0 flex-1">
-                                                        <div class="font-semibold text-xs text-white truncate">{{ c.name }}</div>
-                                                        <div class="text-[11px] text-slate-400">Thời lượng: {{ c.duration.toFixed(2) }}s</div>
+                                                        <div class="font-semibold text-xs text-white truncate" [title]="c.name">{{ c.name }}</div>
+                                                        <div class="text-[11px] text-slate-400">
+                                                            Thời lượng: {{ c.duration.toFixed(2) }}s
+                                                            @if (c.isCustom) {
+                                                                <span> &middot; {{ c.kfCount || 0 }} KF</span>
+                                                            }
+                                                        </div>
                                                     </div>
+                                                    @if (c.isCustom) {
+                                                        <span
+                                                            class="text-slate-400 hover:text-teal-300 px-1 flex items-center"
+                                                            title="Xuất tệp .GLB rời (lưu vào assets/anims/ và tải về máy)"
+                                                            (click)="exportTimelineCustomClip(c.name, $event)"
+                                                        >
+                                                            <mat-icon class="icon-size-3.5">download</mat-icon>
+                                                        </span>
+                                                        <span
+                                                            class="text-slate-400 hover:text-rose-400 px-1.5 text-sm font-bold"
+                                                            title="Xóa Clip chuyển động này"
+                                                            (click)="deleteTimelineCustomClip(c.name, $event)"
+                                                        >&times;</span>
+                                                    }
                                                 </button>
                                             }
                                         </div>

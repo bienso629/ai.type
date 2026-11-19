@@ -17,7 +17,8 @@ import {
   SontinhSceneService,
   GlbBoneInfo,
   GlbBoneKeyframe,
-  GlbPropTimelineData
+  GlbPropTimelineData,
+  VideoFramePoseSample
 } from './sontinh-scene.service';
 import { ProfileDataService, UserProfile } from './profile-data.service';
 import { GenaiService } from 'app/genai.service';
@@ -1886,7 +1887,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   boneRot = { x: 0, y: 0, z: 0 };
   bonePos = { x: 0, y: 0, z: 0 };
   timelineAutoKey = true;
-  timelineClips: Array<{ name: string; duration: number }> = [];
+  timelineClips: Array<{ name: string; duration: number; isCustom?: boolean; kfCount?: number }> = [];
   timelineCurrentTime = 0;
   timelineData: GlbPropTimelineData | null = null;
   private _lastUiTickMs = 0;
@@ -1970,6 +1971,10 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     const prop = this.roomProps?.find((p) => p && p.id === pid);
     this.timelinePropName = prop?.name || pid;
     this.timelineBones = this.sceneService.getPropBones(pid);
+
+    // Đồng bộ kho Clip Keyframe dùng chung từ các nhân vật khác trong phòng và từ thư mục assets/anims/
+    this.syncSharedClipsToProp(pid);
+
     this.timelineClips = this.sceneService.getPropClips(pid);
     this.timelineData = this.sceneService.getPropTimeline(pid);
     this.timelineCurrentTime = Math.round(this.sceneService.getPropCurrentTime(pid) * 100) / 100;
@@ -1980,6 +1985,49 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     this.selectTimelineBone(this.selectedBoneName);
     this.isGlbTimelineOpen = true;
     this.cdr.markForCheck();
+  }
+
+  /** Đồng bộ các Clip Keyframe đã lưu giữa các nhân vật 3D và thư mục ~/Documents/ai.type/data/profiles/{username}/assets/anims/ */
+  private async syncSharedClipsToProp(targetPropId: string): Promise<void> {
+    if (!targetPropId || !this.sceneService.hasPropRig(targetPropId)) return;
+    let changed = false;
+
+    // 1. Đồng bộ từ các đồ vật 3D khác trong cùng căn phòng
+    for (const p of this.roomProps || []) {
+      const savedList = p?.boneTimeline?.savedClips;
+      if (Array.isArray(savedList)) {
+        for (const clip of savedList) {
+          if (this.sceneService.injectSharedKeyframeClip(targetPropId, clip)) {
+            changed = true;
+          }
+        }
+      }
+    }
+
+    // 2. Đọc các tệp .glb chuyển động đã xuất trong thư mục assets/anims/
+    const electronApi = (window as any).electron;
+    if (electronApi?.listAnimations && electronApi?.readGlb) {
+      try {
+        const listRes = await electronApi.listAnimations(this.username || 'admin');
+        const animItems: any[] = Array.isArray(listRes?.data) ? listRes.data : [];
+        for (const item of animItems) {
+          if (!item?.glbPath) continue;
+          const glbRes = await electronApi.readGlb(item.glbPath);
+          if (glbRes?.success && glbRes.buffer) {
+            const parsedClip = this.sceneService.parseKeyframeClipFromBuffer(glbRes.buffer);
+            if (parsedClip && this.sceneService.injectSharedKeyframeClip(targetPropId, parsedClip)) {
+              changed = true;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (changed && this.timelinePropId === targetPropId) {
+      this.timelineClips = this.sceneService.getPropClips(targetPropId);
+      this.timelineData = this.sceneService.getPropTimeline(targetPropId);
+      this.cdr.markForCheck();
+    }
   }
 
   closePropTimeline(): void {
@@ -2189,40 +2237,157 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  onPropAnimGlbSelected(event: Event): void {
+  async onPropAnimGlbSelected(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     const file = input?.files?.[0];
     if (input) input.value = '';
     if (!file || !this.timelinePropId) return;
-    if (!/\.glb$/i.test(file.name)) {
-      this.toastr.error('Vui lòng chọn tệp định dạng .GLB chứa animation.', 'Timeline GLB');
+    if (!/\.(glb|json)$/i.test(file.name)) {
+      this.toastr.error('Vui lòng chọn tệp định dạng .GLB hoặc .JSON chứa dữ liệu chuyển động.', 'Timeline GLB');
       return;
     }
+    const rawBuffer = await file.arrayBuffer();
     const blobUrl = URL.createObjectURL(file);
-    this.sceneService.importPropAnimationGlb(this.timelinePropId, blobUrl, file.name).then((res) => {
+    this.sceneService.importPropAnimationGlb(this.timelinePropId, blobUrl, file.name, rawBuffer).then(async (res) => {
       URL.revokeObjectURL(blobUrl);
       if (res.ok) {
         this.timelineClips = this.sceneService.getPropClips(this.timelinePropId!);
         this.timelineData = this.sceneService.getPropTimeline(this.timelinePropId!);
+        // Lưu luôn tệp GLB chuyển động vừa nạp vào thư mục assets/anims/ để dùng lâu dài
+        if (/\.glb$/i.test(file.name) && (window as any).electron?.uploadAnimation) {
+          try {
+            await (window as any).electron.uploadAnimation(
+              this.username || 'admin',
+              res.clipName || file.name.replace(/\.glb$/i, ''),
+              rawBuffer
+            );
+          } catch (_) {}
+        }
         this.saveTimelineToProp(true);
-        this.toastr.success(`Đã nạp và phát chuyển động "${res.clipName}" (${res.duration?.toFixed(2)}s).`, 'Timeline GLB');
+        this.toastr.success(
+          `Đã nạp và phát chuyển động "${res.clipName}" (${res.duration?.toFixed(2)}s).`,
+          'Timeline GLB'
+        );
       } else {
-        this.toastr.error(res.error || 'Không nạp được animation từ tệp GLB.', 'Timeline GLB');
+        this.toastr.error(res.error || 'Không nạp được animation từ tệp đã chọn.', 'Timeline GLB');
       }
       this.cdr.markForCheck();
     });
   }
 
-  saveTimelineToProp(silent = false): void {
+  saveTimelineToProp(silent = false, customClipLabel?: string): void {
     if (!this.timelinePropId) return;
+    let bakedClipInfo: { name: string; duration: number; kfCount: number; isNew: boolean } | null = null;
+    const currentTl = this.sceneService.getPropTimeline(this.timelinePropId);
+
+    // Khi người dùng bấm nút Lưu (silent === false) hoặc truyền tên clip rõ ràng và trên Timeline đang có Keyframe:
+    // tự động đóng gói bộ Keyframe hiện tại thành một Clip chuyển động mới trong tab "Clip Chuyển động"
+    // đồng thời xuất tệp .glb riêng biệt vào ~/Documents/ai.type/data/profiles/{username}/assets/anims/
+    if ((!silent || customClipLabel) && currentTl && Array.isArray(currentTl.keyframes) && currentTl.keyframes.length > 0) {
+      const promptTitle = (this.aiMotionPrompt || '').trim();
+      const videoTitle = (this.aiMotionVideoName || '').replace(/\.[^.]+$/, '').trim();
+      const customCount = this.timelineClips.filter((c) => c.isCustom).length;
+      const autoTitle =
+        customClipLabel ||
+        (promptTitle ? `AI: ${promptTitle.slice(0, 36)}` : '') ||
+        (videoTitle ? `Video: ${videoTitle.slice(0, 32)}` : '') ||
+        `Clip Keyframe #${customCount + 1}`;
+      bakedClipInfo = this.sceneService.bakeKeyframesToClip(this.timelinePropId, autoTitle);
+      this.timelineClips = this.sceneService.getPropClips(this.timelinePropId);
+
+      if (bakedClipInfo) {
+        // 1. Xuất tệp nhị phân .glb chuẩn vào thư mục assets/anims/ qua Electron IPC
+        const glbBuf = this.sceneService.exportClipToGlbArrayBuffer(this.timelinePropId, bakedClipInfo.name);
+        if (glbBuf && (window as any).electron?.uploadAnimation) {
+          (window as any).electron
+            .uploadAnimation(this.username || 'admin', bakedClipInfo.name, glbBuf)
+            .catch((e: any) => console.warn('[Timeline GLB] Không ghi được file clip .glb rời:', e));
+        }
+
+        // 2. Chia sẻ ngay Clip mới sang các nhân vật 3D khác đang có trong phòng để tái sử dụng chéo
+        const savedObj = this.sceneService
+          .getPropTimeline(this.timelinePropId)
+          ?.savedClips?.find((c) => c.name === bakedClipInfo!.name);
+        if (savedObj) {
+          for (const p of this.roomProps || []) {
+            if (p && p.id !== this.timelinePropId && this.sceneService.hasPropRig(p.id)) {
+              this.sceneService.injectSharedKeyframeClip(p.id, savedObj);
+            }
+          }
+        }
+      }
+    }
+
     const tl = this.sceneService.getPropTimeline(this.timelinePropId);
     const prop = this.roomProps?.find((p) => p && p.id === this.timelinePropId);
     if (prop && tl) {
       prop.boneTimeline = JSON.parse(JSON.stringify(tl));
+      this.timelineData = tl;
       this.profileDataService.saveProps(this.roomProps).subscribe();
       if (!silent) {
-        this.toastr.success(`Đã lưu Timeline chuyển động cho "${prop.name}".`, 'Timeline GLB');
+        if (bakedClipInfo) {
+          const safeFile = bakedClipInfo.name.replace(/[^a-zA-Z0-9_\-\.]/g, '_') + '.glb';
+          this.toastr.success(
+            `Đã đóng gói Clip "${bakedClipInfo.name}" (${bakedClipInfo.kfCount} KF) và lưu tệp rời vào assets/anims/${safeFile}!`,
+            'Timeline GLB'
+          );
+        } else {
+          this.toastr.success(`Đã lưu Timeline chuyển động cho "${prop.name}".`, 'Timeline GLB');
+        }
       }
+    }
+    this.cdr.markForCheck();
+  }
+
+  /** Tải xuống / Xuất tệp .glb độc lập của một Clip Keyframe để chia sẻ hoặc nạp cho nhân vật khác */
+  exportTimelineCustomClip(clipName: string, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    if (!this.timelinePropId || !clipName) return;
+    const glbBuf = this.sceneService.exportClipToGlbArrayBuffer(this.timelinePropId, clipName);
+    if (!glbBuf) {
+      this.toastr.warning('Không tìm thấy dữ liệu Keyframe của Clip này để xuất.', 'Timeline GLB');
+      return;
+    }
+    const safeName = clipName.replace(/[^a-zA-Z0-9_\-\.]/g, '_') || 'CustomClip';
+    if ((window as any).electron?.uploadAnimation) {
+      (window as any).electron
+        .uploadAnimation(this.username || 'admin', clipName, glbBuf)
+        .catch(() => {});
+    }
+    const blob = new Blob([glbBuf], { type: 'model/gltf-binary' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${safeName}.glb`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    this.toastr.success(
+      `Đã xuất tệp "${safeName}.glb" (và đồng bộ vào thư mục assets/anims/${safeName}.glb)!`,
+      'Timeline GLB'
+    );
+  }
+
+  deleteTimelineCustomClip(clipName: string, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    if (!this.timelinePropId || !clipName) return;
+    if (this.sceneService.deletePropCustomClip(this.timelinePropId, clipName)) {
+      const safeId = clipName.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+      if ((window as any).electron?.deleteAnimation) {
+        (window as any).electron.deleteAnimation(this.username || 'admin', safeId).catch(() => {});
+      }
+      this.timelineClips = this.sceneService.getPropClips(this.timelinePropId);
+      this.timelineData = this.sceneService.getPropTimeline(this.timelinePropId);
+      this.saveTimelineToProp(true);
+      this.toastr.info(`Đã xóa Clip chuyển động "${clipName}".`, 'Timeline GLB');
+      this.cdr.markForCheck();
     }
   }
 
@@ -2241,6 +2406,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     mimeType: string;
     energy: number;
   }> = [];
+  aiMotionPoseSamples: VideoFramePoseSample[] = [];
 
   toggleAiMotionBar(): void {
     this.isAiMotionBarOpen = !this.isAiMotionBarOpen;
@@ -2251,19 +2417,45 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     this.aiMotionVideoName = '';
     this.aiMotionVideoDuration = 0;
     this.aiMotionVideoFrames = [];
+    this.aiMotionPoseSamples = [];
     this.cdr.markForCheck();
   }
 
+  /** Trích xuất an toàn đối tượng JSON từ phản hồi của AI (bất kể có thẻ <think> hay markdown bao quanh) */
+  private extractJsonFromAiText(rawText: string): any {
+    if (!rawText) return null;
+    let text = String(rawText)
+      .replace(/<think>[\s\S]*?<\/think>/gi, '')
+      .trim();
+    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenceMatch && fenceMatch[1]) {
+      text = fenceMatch[1].trim();
+    } else {
+      const firstBrace = text.indexOf('{');
+      const lastBrace = text.lastIndexOf('}');
+      if (firstBrace >= 0 && lastBrace > firstBrace) {
+        text = text.slice(firstBrace, lastBrace + 1);
+      }
+    }
+    text = text.replace(/,\s*([}\]])/g, '$1');
+    try {
+      return JSON.parse(text);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /**
-   * Trích xuất chuỗi khung hình mẫu (keyframes) phân bố đều theo thời gian từ tệp Video mẫu
-   * kèm theo độ biến thiên chuyển động (motion energy) giữa các khung hình.
+   * Trích xuất chuỗi khung hình mẫu (keyframes) và phân tích tư thế chuyển động không gian
+   * (trọng tâm cơ thể cx/cy, góc xoay hông/thân, độ nâng/gập 2 cánh tay & 2 chân) từ tệp Video mẫu.
    */
   extractKeyFramesFromVideoFile(
     file: File,
-    sampleCount = 8
+    sampleCount = 12
   ): Promise<{
     duration: number;
     frames: Array<{ time: number; dataUrl: string; base64: string; mimeType: string; energy: number }>;
+    poseSamples: VideoFramePoseSample[];
   }> {
     return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(file);
@@ -2288,7 +2480,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       const failTimeout = setTimeout(() => {
         cleanup();
         reject(new Error('Quá thời gian đọc tệp video mẫu.'));
-      }, 20000);
+      }, 25000);
 
       video.onerror = () => {
         clearTimeout(failTimeout);
@@ -2299,10 +2491,10 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       video.onloadedmetadata = async () => {
         try {
           const rawDur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 2.4;
-          const clampedDur = Math.round(Math.max(0.8, Math.min(12.0, rawDur)) * 100) / 100;
+          const clampedDur = Math.round(Math.max(0.8, Math.min(16.0, rawDur)) * 100) / 100;
           const vw = video.videoWidth || 320;
           const vh = video.videoHeight || 320;
-          const maxDim = 256;
+          const maxDim = 224;
           const scale = Math.min(1, maxDim / Math.max(vw, vh));
           const cw = Math.max(64, Math.round(vw * scale));
           const ch = Math.max(64, Math.round(vh * scale));
@@ -2314,6 +2506,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           if (!ctx) throw new Error('Không khởi tạo được Canvas trích xuất khung hình.');
 
           const frames: Array<{ time: number; dataUrl: string; base64: string; mimeType: string; energy: number }> = [];
+          const poseSamples: VideoFramePoseSample[] = [];
           let prevLuma: Float32Array | null = null;
           const rawDiffs: number[] = [];
 
@@ -2332,35 +2525,228 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
               }
             });
 
+          const totalSamples = Math.max(8, Math.min(20, sampleCount));
           const safeEnd = Math.max(0.1, Math.min(clampedDur, rawDur) - 0.04);
-          for (let i = 0; i < sampleCount; i++) {
-            const ratio = sampleCount > 1 ? i / (sampleCount - 1) : 0;
-            const t = Math.round(ratio * safeEnd * 100) / 100;
-            await seekTo(t);
+
+          for (let i = 0; i < totalSamples; i++) {
+            const ratio = totalSamples > 1 ? i / (totalSamples - 1) : 0;
+            const seekTime = Math.round(ratio * safeEnd * 100) / 100;
+            const tlTime = Math.round(ratio * clampedDur * 100) / 100;
+            await seekTo(seekTime);
             ctx.drawImage(video, 0, 0, cw, ch);
 
-            // Tính năng lượng biến thiên ánh sáng khung hình để đo nhịp chuyển động
             const imgData = ctx.getImageData(0, 0, cw, ch).data;
-            const step = 16;
-            const luma = new Float32Array(Math.ceil(imgData.length / step));
-            let diffSum = 0;
-            let idx = 0;
-            for (let p = 0; p < imgData.length; p += step) {
-              const y = 0.299 * imgData[p] + 0.587 * imgData[p + 1] + 0.114 * imgData[p + 2];
-              luma[idx] = y;
-              if (prevLuma && idx < prevLuma.length) {
-                diffSum += Math.abs(y - prevLuma[idx]);
+            const numPixels = cw * ch;
+            const luma = new Float32Array(numPixels);
+
+            // Ước lượng màu nền từ viền trái/phải của khung hình để tách silhouette nhân vật
+            let bgR = 0;
+            let bgG = 0;
+            let bgB = 0;
+            let bgCount = 0;
+            for (let y = 0; y < ch; y += 2) {
+              for (const bx of [1, 2, cw - 3, cw - 2]) {
+                if (bx >= 0 && bx < cw) {
+                  const bi = (y * cw + bx) * 4;
+                  bgR += imgData[bi];
+                  bgG += imgData[bi + 1];
+                  bgB += imgData[bi + 2];
+                  bgCount++;
+                }
               }
-              idx++;
             }
-            const avgDiff = prevLuma && idx > 0 ? diffSum / idx : 12;
+            bgR /= Math.max(1, bgCount);
+            bgG /= Math.max(1, bgCount);
+            bgB /= Math.max(1, bgCount);
+
+            let diffSum = 0;
+            let fgWeightSum = 0;
+            let sumX = 0;
+            let sumY = 0;
+            let upperSumX = 0;
+            let upperW = 0;
+            let lowerTorsSumX = 0;
+            let lowerTorsW = 0;
+            let leftFlow = 0;
+            let rightFlow = 0;
+
+            const fgMask = new Float32Array(numPixels);
+
+            for (let y = 0; y < ch; y++) {
+              const ny = y / ch;
+              for (let x = 0; x < cw; x++) {
+                const nx = x / cw;
+                const pIdx = y * cw + x;
+                const p4 = pIdx * 4;
+                const r = imgData[p4];
+                const g = imgData[p4 + 1];
+                const b = imgData[p4 + 2];
+                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                luma[pIdx] = lum;
+
+                const mDiff = prevLuma ? Math.abs(lum - prevLuma[pIdx]) : 0;
+                diffSum += mDiff;
+
+                const bgDist = Math.abs(r - bgR) * 0.35 + Math.abs(g - bgG) * 0.35 + Math.abs(b - bgB) * 0.3;
+                const centerBias = Math.max(0.15, 1 - Math.pow((nx - 0.5) * 1.65, 2));
+                const w = Math.max(0, (bgDist > 26 ? bgDist - 18 : 0) * 0.65 + mDiff * 1.85) * centerBias;
+                fgMask[pIdx] = w;
+
+                if (w > 12) {
+                  fgWeightSum += w;
+                  sumX += nx * w;
+                  sumY += ny * w;
+                  if (ny >= 0.14 && ny <= 0.36) {
+                    upperSumX += nx * w;
+                    upperW += w;
+                  } else if (ny > 0.36 && ny <= 0.58) {
+                    lowerTorsSumX += nx * w;
+                    lowerTorsW += w;
+                  }
+                  if (nx < 0.5) leftFlow += mDiff;
+                  else rightFlow += mDiff;
+                }
+              }
+            }
+
+            const avgDiff = prevLuma ? diffSum / numPixels : 10;
             rawDiffs.push(avgDiff);
             prevLuma = luma;
+
+            const cx = fgWeightSum > 10 ? Math.max(0.2, Math.min(0.8, sumX / fgWeightSum)) : 0.5;
+            const cy = fgWeightSum > 10 ? Math.max(0.25, Math.min(0.75, sumY / fgWeightSum)) : 0.5;
+            const upperCx = upperW > 5 ? upperSumX / upperW : cx;
+            const lowerCx = lowerTorsW > 5 ? lowerTorsSumX / lowerTorsW : cx;
+
+            // Đo độ rộng vai/thân và vùng tay/chân hai bên so với trục thân cx
+            let torsoSpanSum = 0;
+            let torsoSpanW = 0;
+            let screenLeftArmY = 0;
+            let screenLeftArmX = 0;
+            let screenLeftArmW = 0;
+            let screenRightArmY = 0;
+            let screenRightArmX = 0;
+            let screenRightArmW = 0;
+            let screenLeftLegY = 0;
+            let screenLeftLegW = 0;
+            let screenRightLegY = 0;
+            let screenRightLegW = 0;
+
+            for (let y = 0; y < ch; y++) {
+              const ny = y / ch;
+              for (let x = 0; x < cw; x++) {
+                const nx = x / cw;
+                const w = fgMask[y * cw + x];
+                if (w <= 14) continue;
+                const dxFromCenter = nx - cx;
+
+                if (ny >= 0.22 && ny <= 0.55 && Math.abs(dxFromCenter) < 0.25) {
+                  torsoSpanSum += Math.abs(dxFromCenter) * w;
+                  torsoSpanW += w;
+                }
+                // Vùng cánh tay (0.12 <= ny <= 0.58): chia bên trái màn hình (dx < -0.05) và bên phải màn hình (dx > 0.05)
+                if (ny >= 0.12 && ny <= 0.58) {
+                  if (dxFromCenter < -0.05) {
+                    screenLeftArmY += ny * w;
+                    screenLeftArmX += Math.abs(dxFromCenter) * w;
+                    screenLeftArmW += w;
+                  } else if (dxFromCenter > 0.05) {
+                    screenRightArmY += ny * w;
+                    screenRightArmX += Math.abs(dxFromCenter) * w;
+                    screenRightArmW += w;
+                  }
+                }
+                // Vùng hai chân (0.58 < ny <= 0.94)
+                if (ny > 0.58 && ny <= 0.94) {
+                  if (dxFromCenter < -0.01) {
+                    screenLeftLegY += ny * w;
+                    screenLeftLegW += w;
+                  } else if (dxFromCenter > 0.01) {
+                    screenRightLegY += ny * w;
+                    screenRightLegW += w;
+                  }
+                }
+              }
+            }
+
+            const avgTorsoHalfWidth = torsoSpanW > 5 ? torsoSpanSum / torsoSpanW : 0.09;
+            // Khi nhân vật xoay ngang (side profile), bề rộng thân hẹp lại (< 0.075); hướng xoay dựa theo độ lệch flow và hướng di chuyển
+            const narrowFactor = Math.max(0, Math.min(1, (0.095 - avgTorsoHalfWidth) / 0.045));
+            const flowAsym = (rightFlow - leftFlow) / Math.max(1, rightFlow + leftFlow);
+            const turnSign = Math.abs(flowAsym) > 0.04 ? Math.sign(flowAsym) : (i % 2 === 0 ? 1 : -1);
+            const torsoTurnY = Math.round(
+              Math.max(-85, Math.min(85, turnSign * narrowFactor * 72 + flowAsym * 35))
+            );
+            const torsoLeanZ = Math.round(Math.max(-28, Math.min(28, (upperCx - lowerCx) * 180)));
+            const torsoPitchX = Math.round(Math.max(-25, Math.min(32, (cy - 0.5) * 95)));
+
+            // Khi nhân vật 3D quay mặt về phía camera (+Z):
+            // Bên TRÁI màn hình video (screenLeft) tương ứng với TAY PHẢI / CHÂN PHẢI của nhân vật 3D (RightArm / RightUpLeg)
+            // Bên PHẢI màn hình video (screenRight) tương ứng với TAY TRÁI / CHÂN TRÁI của nhân vật 3D (LeftArm / LeftUpLeg)
+            const sLeftArmMeanY = screenLeftArmW > 5 ? screenLeftArmY / screenLeftArmW : 0.42;
+            const sLeftArmSpanX = screenLeftArmW > 5 ? screenLeftArmX / screenLeftArmW : 0.1;
+            const sRightArmMeanY = screenRightArmW > 5 ? screenRightArmY / screenRightArmW : 0.42;
+            const sRightArmSpanX = screenRightArmW > 5 ? screenRightArmX / screenRightArmW : 0.1;
+
+            const rightArmLift = Math.round(
+              Math.max(0, Math.min(95, (0.45 - sLeftArmMeanY) * 210 + (sLeftArmSpanX - 0.09) * 260))
+            );
+            const leftArmLift = Math.round(
+              Math.max(0, Math.min(95, (0.45 - sRightArmMeanY) * 210 + (sRightArmSpanX - 0.09) * 260))
+            );
+
+            // Nếu tay nâng cao nhưng độ vươn ngang vừa phải -> tay đang co khuỷu đưa lên phía trước ngực
+            const rightElbowBend = Math.round(
+              Math.max(12, Math.min(95, (0.46 - sLeftArmMeanY) * 220 + (0.16 - Math.min(0.16, sLeftArmSpanX)) * 320))
+            );
+            const leftElbowBend = Math.round(
+              Math.max(12, Math.min(95, (0.46 - sRightArmMeanY) * 220 + (0.16 - Math.min(0.16, sRightArmSpanX)) * 320))
+            );
+
+            const rightArmFwd = Math.round(Math.max(-25, Math.min(85, rightArmLift * 0.45 + rightElbowBend * 0.35)));
+            const leftArmFwd = Math.round(Math.max(-25, Math.min(85, leftArmLift * 0.45 + leftElbowBend * 0.35)));
+
+            const sLeftLegMeanY = screenLeftLegW > 5 ? screenLeftLegY / screenLeftLegW : 0.76;
+            const sRightLegMeanY = screenRightLegW > 5 ? screenRightLegY / screenRightLegW : 0.76;
+            const legBalance = (screenLeftLegW - screenRightLegW) / Math.max(1, screenLeftLegW + screenRightLegW);
+
+            const rightLegPitch = Math.round(
+              Math.max(-85, Math.min(40, -(0.77 - sLeftLegMeanY) * 260 + legBalance * 32))
+            );
+            const leftLegPitch = Math.round(
+              Math.max(-85, Math.min(40, -(0.77 - sRightLegMeanY) * 260 - legBalance * 32))
+            );
+            const rightKneeBend = Math.round(
+              Math.max(0, Math.min(95, Math.max(0, -rightLegPitch) * 1.15 + Math.max(0, cy - 0.48) * 180))
+            );
+            const leftKneeBend = Math.round(
+              Math.max(0, Math.min(95, Math.max(0, -leftLegPitch) * 1.15 + Math.max(0, cy - 0.48) * 180))
+            );
+
+            poseSamples.push({
+              time: tlTime,
+              cx: Math.round(cx * 1000) / 1000,
+              cy: Math.round(cy * 1000) / 1000,
+              torsoTurnY,
+              torsoLeanZ,
+              torsoPitchX,
+              leftArmLift,
+              rightArmLift,
+              leftArmFwd,
+              rightArmFwd,
+              leftElbowBend,
+              rightElbowBend,
+              leftLegPitch,
+              rightLegPitch,
+              leftKneeBend,
+              rightKneeBend,
+              energy: 1.0
+            });
 
             const dataUrl = canvas.toDataURL('image/jpeg', 0.76);
             const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
             frames.push({
-              time: Math.round(ratio * clampedDur * 100) / 100,
+              time: tlTime,
               dataUrl,
               base64,
               mimeType: 'image/jpeg',
@@ -2370,12 +2756,14 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
           const meanDiff = rawDiffs.reduce((a, b) => a + b, 0) / Math.max(1, rawDiffs.length) || 1;
           for (let i = 0; i < frames.length; i++) {
-            frames[i].energy = Math.max(0.6, Math.min(1.5, rawDiffs[i] / meanDiff));
+            const e = Math.max(0.65, Math.min(1.5, rawDiffs[i] / meanDiff));
+            frames[i].energy = e;
+            if (poseSamples[i]) poseSamples[i].energy = e;
           }
 
           clearTimeout(failTimeout);
           cleanup();
-          resolve({ duration: clampedDur, frames });
+          resolve({ duration: clampedDur, frames, poseSamples });
         } catch (err) {
           clearTimeout(failTimeout);
           cleanup();
@@ -2392,17 +2780,36 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     if (!file) return;
 
     try {
-      this.toastr.info(`Đang trích xuất khung hình chuyển động từ "${file.name}"...`, 'AI Motion Studio');
-      const res = await this.extractKeyFramesFromVideoFile(file, 8);
+      this.toastr.info(`Đang phân tích tư thế chuyển động từ "${file.name}"...`, 'AI Motion Studio');
+      const res = await this.extractKeyFramesFromVideoFile(file, 12);
       this.aiMotionVideoName = file.name;
       this.aiMotionVideoDuration = res.duration;
       this.aiMotionVideoFrames = res.frames;
+      this.aiMotionPoseSamples = res.poseSamples;
       this.isAiMotionBarOpen = true;
       if (this.timelineData) {
         this.timelineData.duration = res.duration;
       }
+
+      // Áp dụng ngay lập tức chuyển động bắt chước tư thế Video lên mô hình 3D đang chọn
+      const pid = this.timelinePropId || this.selectedPropId;
+      let appliedCount = 0;
+      if (pid && this.sceneService.hasPropRig(pid) && res.poseSamples.length > 0) {
+        appliedCount = this.sceneService.synthesizeVideoPoseBoneMotion(
+          pid,
+          res.poseSamples,
+          res.duration,
+          this.aiMotionPrompt
+        );
+        this.timelineData = this.sceneService.getPropTimeline(pid);
+        this.timelineCurrentTime = 0;
+        this.saveTimelineToProp(true);
+      }
+
       this.toastr.success(
-        `Đã trích xuất ${res.frames.length} khung hình mẫu (${res.duration}s) từ "${file.name}". Bấm "AI Thiết kế Clip" để tạo chuyển động!`,
+        appliedCount > 0
+          ? `Đã trích xuất ${res.frames.length} khung hình (${res.duration}s) từ "${file.name}" và áp dụng ngay ${appliedCount} Keyframe bắt chước Video!`
+          : `Đã trích xuất ${res.frames.length} khung hình mẫu (${res.duration}s) từ "${file.name}". Bấm "AI Thiết kế Clip" để tạo chuyển động!`,
         'AI Motion Studio'
       );
       this.cdr.markForCheck();
@@ -2412,7 +2819,11 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   }
 
   async designMotionWithAi(): Promise<void> {
-    const pid = this.timelinePropId || this.selectedPropId;
+    const pid =
+      this.timelinePropId ||
+      this.selectedPropId ||
+      this.roomProps.find((p) => p && p.visible && this.sceneService.hasPropRig(p.id))?.id ||
+      null;
     if (!pid || !this.sceneService.hasPropRig(pid)) {
       this.toastr.warning('Vui lòng chọn một nhân vật hoặc đồ vật 3D có khớp xương trước.', 'AI Motion Studio');
       return;
@@ -2435,27 +2846,74 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     try {
       this.toastr.info('AI Agent đang phân tích khớp xương và thiết kế chuỗi Keyframe...', 'AI Motion Studio', { timeOut: 2500 });
 
-      const frameMetaDesc = this.aiMotionVideoFrames.length > 0
-        ? `Người dùng đã đính kèm ${this.aiMotionVideoFrames.length} khung hình trích xuất theo trình tự thời gian từ Video mẫu "${this.aiMotionVideoName}" (tổng thời lượng ${targetDur}s): ` +
-          this.aiMotionVideoFrames.map((f, idx) => `Ảnh #${idx + 1} tại t=${f.time.toFixed(2)}s`).join(', ') +
-          `. Hãy quan sát tư thế nhân vật/vật thể qua từng khung hình ở các mốc thời gian tương ứng để ước lượng góc xoay Euler (rot: {x, y, z} tính bằng độ trong khoảng -120 đến 120) và độ dịch chuyển gốc (pos: {x, y, z}) cho các khớp xương.`
-        : `Hãy thiết kế chuỗi Keyframe chuyển động mượt mà trong thời lượng ${targetDur}s dựa trên mô tả của người dùng.`;
+      // Chọn tối đa 8 ảnh đại diện phân bố đều để gửi lên Vision LLM tránh quá tải payload
+      const maxVisionFrames = 8;
+      const visionFrames = this.aiMotionVideoFrames.length <= maxVisionFrames
+        ? this.aiMotionVideoFrames
+        : Array.from({ length: maxVisionFrames }, (_, idx) => {
+            const fIdx = Math.min(
+              this.aiMotionVideoFrames.length - 1,
+              Math.round((idx / (maxVisionFrames - 1)) * (this.aiMotionVideoFrames.length - 1))
+            );
+            return this.aiMotionVideoFrames[fIdx];
+          });
+
+      const poseTelemetrySummary = this.aiMotionPoseSamples.length > 0
+        ? `\n- Dữ liệu đo tư thế tự động qua từng thời điểm của Video mẫu: ` +
+          JSON.stringify(
+            this.aiMotionPoseSamples.map((s) => ({
+              t: s.time,
+              turnY: s.torsoTurnY,
+              leanZ: s.torsoLeanZ,
+              pitchX: s.torsoPitchX,
+              lArmLift: s.leftArmLift,
+              rArmLift: s.rightArmLift,
+              lElbow: s.leftElbowBend,
+              rElbow: s.rightElbowBend,
+              lLegRx: s.leftLegPitch,
+              rLegRx: s.rightLegPitch,
+              lKneeRx: s.leftKneeBend,
+              rKneeRx: s.rightKneeBend
+            }))
+          )
+        : '';
+
+      const frameMetaDesc = visionFrames.length > 0
+        ? `Người dùng đã đính kèm ${visionFrames.length} khung hình trích xuất theo trình tự thời gian từ Video mẫu "${this.aiMotionVideoName}" (tổng thời lượng ${targetDur}s): ` +
+          visionFrames.map((f, idx) => `Ảnh #${idx + 1} tại t=${f.time.toFixed(2)}s`).join(', ') +
+          `. Hãy quan sát kỹ tư thế người trong từng khung hình kết hợp thông số đo tư thế để tái tạo chuẩn xác động tác của video.${poseTelemetrySummary}`
+        : `Hãy thiết kế chuỗi Keyframe chuyển động mượt mà, đúng giải phẫu cơ thể người trong thời lượng ${targetDur}s dựa trên mô tả của người dùng.`;
 
       const systemPrompt = `Bạn là **Chuyên gia Diễn hoạt Khớp xương 3D (3D Skeletal Rig & Motion Capture AI Animator)**.
-Nhiệm vụ: Dựa trên danh sách khớp xương thật của mô hình 3D và các khung hình Video mẫu / mô tả hành động, hãy thiết kế một clip chuyển động Keyframe hoàn chỉnh.
+Nhiệm vụ: Thiết kế clip chuyển động Keyframe 3D chính xác trên Hệ tọa độ Chuẩn Nhân vật (Character Cardinal Space).
 
 ### DANH SÁCH KHỚP XƯƠNG CỦA MÔ HÌNH HIỆN TẠI (CHỈ ĐƯỢC DÙNG TÊN TRONG DANH SÁCH NÀY):
 ${JSON.stringify(boneNames)}
 
-### THÔNG TIN VIDEO MẪU & MÔ TẢ:
-- ${frameMetaDesc}
-- Yêu cầu từ người dùng: "${prompt || 'Tái tạo chuyển động theo đúng tư thế trong các khung hình video mẫu'}"
+### QUY ƯỚC HỆ TRỤC XOAY CHUẨN NHÂN VẬT (CHARACTER CARDINAL SPACE - BẮT BUỘC TUÂN THỦ):
+Mọi góc xoay \`rot: { "x": number, "y": number, "z": number }\` (đơn vị: độ) đã được quy chuẩn về trục không gian của nhân vật (tư thế gốc A-pose hai tay xuôi mở ~35 độ):
+1. **Trục X (Pitch - Gập trước / Ngả sau)**:
+   - Đùi (\`LeftUpLeg\`, \`RightUpLeg\`): **x ÂM (-20 đến -100)** là nâng đùi/đá chân LÊN PHÍA TRƯỚC; **x DƯƠNG (+15 đến +45)** là đưa chân RA PHÍA SAU.
+   - Đầu gối (\`LeftLeg\`, \`RightLeg\`): **x DƯƠNG (+15 đến +100)** là gập cẳng chân VỀ PHÍA SAU (TUYỆT ĐỐI KHÔNG dùng x âm cho khớp gối).
+   - Cánh tay trên (\`LeftArm\`, \`RightArm\`): **x ÂM (-20 đến -100)** là đưa cánh tay LÊN PHÍA TRƯỚC NGỰC/MẶT; **x DƯƠNG (+15 đến +50)** là đánh tay RA SAU LƯNG.
+   - Khuỷu tay / Cẳng tay (\`LeftForeArm\`, \`RightForeArm\`): **x ÂM (-20 đến -100)** là gập khuỷu tay LÊN PHÍA TRƯỚC.
+   - Cột sống & Đầu (\`Hips\`, \`Spine02\`, \`Spine01\`, \`Spine\`, \`neck\`, \`Head\`): **x DƯƠNG (+10 đến +45)** là cúi gập người/gật đầu VỀ PHÍA TRƯỚC; **x ÂM (-10 đến -30)** là ngửa ra sau.
+2. **Trục Y (Yaw - Xoay trái / Xoay phải quanh trục dọc)**:
+   - \`y DƯƠNG\` xoay thân/đầu sang phải, \`y ÂM\` xoay sang trái (Moonwalk hoặc nhìn ngang: \`Hips.rot.y\` khoảng -75 đến +75).
+3. **Trục Z (Roll - Giang ngang / Khép tay / Nghiêng lườn)**:
+   - Tay trái (\`LeftArm\`): **z DƯƠNG (+15 đến +80)** là giang và nâng cao tay trái lên trời; **z ÂM (-12 đến -25)** là khép tay trái sát vào thân người.
+   - Tay phải (\`RightArm\`): **z ÂM (-15 đến -80)** là giang và nâng cao tay phải lên trời; **z DƯƠNG (+12 đến +25)** là khép tay phải sát vào thân người.
+4. **Dịch chuyển vị trí \`pos: { "x": number, "y": number, "z": number }\` (đơn vị mét, chỉ áp dụng cho \`Hips\` hoặc \`__root__\`)**:
+   - \`pos.y\`: **+0.08 đến +0.35** khi bật nhảy lên không; **-0.08 đến -0.40** khi nhún gối / ngồi squat.
+   - \`pos.x\`: **-0.45 đến +0.45** khi bước/lướt sang ngang (như Moonwalk hoặc né người).
 
-### QUY TẮC THIẾT KẾ KEYFRAME:
-1. Tạo tối thiểu 20 đến 45 keyframes phân bố trên các khớp xương chính (như Hips, Spine/Spine01/Spine02, Head/neck, LeftArm, LeftForeArm, RightArm, RightForeArm, LeftUpLeg, LeftLeg, RightUpLeg, RightLeg, hoặc __root__ nếu mô hình ít xương) tại các mốc thời gian từ 0.0s đến ${targetDur}s.
-2. Để chuyển động lặp lại (loop) mượt mà, tư thế ở t = 0.0s và t = ${targetDur}s nên khớp nhau.
-3. Góc xoay \`rot: { "x": number, "y": number, "z": number }\` tính bằng độ (từ -120 đến 120). Dịch chuyển \`pos: { "x": 0, "y": number, "z": 0 }\` chỉ dùng nhẹ cho Hips hoặc __root__ (từ -0.3 đến 0.4).
-4. CHỈ TRẢ VỀ JSON THUẦN TÚY (không bọc markdown, không giải thích ngoài JSON) theo đúng cấu trúc:
+### THÔNG TIN VIDEO MẪU & YÊU CẦU:
+- ${frameMetaDesc}
+- Yêu cầu từ người dùng: "${prompt || 'Bắt chước chính xác chuyển động, hướng xoay thân, bước chân và cử chỉ tay trong các khung hình video mẫu'}"
+
+### YÊU CẦU ĐẦU RA:
+- Tạo từ 35 đến 90 keyframes phân bố đều trên tất cả các khớp chính (Hips, Spine02/Spine01/Spine, neck, Head, LeftArm, LeftForeArm, RightArm, RightForeArm, LeftUpLeg, LeftLeg, RightUpLeg, RightLeg) xuyên suốt từ 0.0s đến ${targetDur}s.
+- CHỈ TRẢ VỀ JSON THUẦN TÚY đúng cấu trúc sau:
 {
   "duration": ${targetDur},
   "loop": true,
@@ -2466,7 +2924,7 @@ ${JSON.stringify(boneNames)}
 }`;
 
       const parts: any[] = [{ text: systemPrompt }];
-      for (const f of this.aiMotionVideoFrames) {
+      for (const f of visionFrames) {
         parts.push({
           inlineData: {
             mimeType: f.mimeType || 'image/jpeg',
@@ -2480,14 +2938,21 @@ ${JSON.stringify(boneNames)}
       try {
         const aiRes: any = await this.genaiService.generateContent({
           model: 'gemini-3.8-flash',
-          contents: parts
+          contents: [{ role: 'user', parts }],
+          config: {
+            bypassAiAgent: true,
+            disableThinking: true,
+            temperature: 0.2
+          } as any
         });
-        if (aiRes && aiRes.text) {
-          let clean = aiRes.text.trim();
-          if (clean.startsWith('```json')) clean = clean.replace(/^```json/, '').replace(/```$/, '').trim();
-          if (clean.startsWith('```')) clean = clean.replace(/^```/, '').replace(/```$/, '').trim();
-          const parsed = JSON.parse(clean);
-          if (parsed && Array.isArray(parsed.keyframes) && parsed.keyframes.length > 0) {
+        const rawReply =
+          aiRes?.text ||
+          aiRes?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || '').join('') ||
+          '';
+        const parsed = this.extractJsonFromAiText(rawReply);
+        if (parsed && Array.isArray(parsed.keyframes) && parsed.keyframes.length >= 8) {
+          const distinctBones = new Set(parsed.keyframes.map((k: any) => k?.boneName).filter(Boolean));
+          if (distinctBones.size >= 3) {
             appliedCount = this.sceneService.applyGeneratedBoneTimeline(pid, {
               duration: Number(parsed.duration) || targetDur,
               loop: parsed.loop !== false,
@@ -2497,17 +2962,18 @@ ${JSON.stringify(boneNames)}
           }
         }
       } catch (apiErr) {
-        console.warn('[AI Motion Studio] Fallback to smart motion synthesizer:', apiErr);
+        console.warn('[AI Motion Studio] Fallback to smart motion & video pose synthesizer:', apiErr);
       }
 
-      // Nếu AI trả về thiếu keyframe hoặc lỗi kết nối, dùng bộ tổng hợp chuyển động khớp xương thông minh theo năng lượng Video + từ khóa
-      if (appliedCount === 0) {
+      // Nếu AI trả về thiếu keyframe hoặc người dùng cần bắt chước trực tiếp từ dữ liệu tư thế Video + từ khóa kịch bản
+      if (appliedCount < 8) {
         const energies = this.aiMotionVideoFrames.map((f) => f.energy);
         appliedCount = this.sceneService.generateSmartBoneMotion(
           pid,
-          prompt || this.aiMotionVideoName || 'dance',
+          prompt,
           targetDur,
-          energies
+          energies,
+          this.aiMotionPoseSamples
         );
       }
 
@@ -2515,7 +2981,7 @@ ${JSON.stringify(boneNames)}
       this.timelineCurrentTime = 0;
       this.saveTimelineToProp(true);
       this.toastr.success(
-        explanation || `AI Agent đã thiết kế xong ${appliedCount} Keyframe chuyển động trên các khớp xương và bắt đầu phát!`,
+        explanation || `Đã thiết kế xong ${appliedCount} Keyframe chuyển động trên các khớp xương và bắt đầu phát!`,
         'AI Motion Studio'
       );
     } catch (err: any) {
@@ -2575,13 +3041,14 @@ ${JSON.stringify(boneNames)}
         };
         reader.readAsDataURL(file);
       } else if (file.type.startsWith('video/') || /\.(mp4|webm|mov)$/i.test(file.name)) {
-        this.toastr.info(`Đang trích xuất khung hình chuyển động từ video "${file.name}"...`, 'Đính kèm Video mẫu');
-        this.extractKeyFramesFromVideoFile(file, 6)
+        this.toastr.info(`Đang phân tích tư thế chuyển động từ video "${file.name}"...`, 'Đính kèm Video mẫu');
+        this.extractKeyFramesFromVideoFile(file, 10)
           .then((res) => {
             this.aiMotionVideoName = file.name;
             this.aiMotionVideoDuration = res.duration;
             this.aiMotionVideoFrames = res.frames;
-            for (const f of res.frames) {
+            this.aiMotionPoseSamples = res.poseSamples;
+            for (const f of res.frames.slice(0, 6)) {
               this.attachedImages.push({
                 dataUrl: f.dataUrl,
                 base64: f.base64,
@@ -2589,7 +3056,7 @@ ${JSON.stringify(boneNames)}
               });
             }
             this.toastr.success(
-              `Đã đính kèm ${res.frames.length} khung hình chuyển động (${res.duration}s) từ "${file.name}"!`,
+              `Đã trích xuất ${res.frames.length} khung hình chuyển động (${res.duration}s) từ "${file.name}"!`,
               'Đính kèm Video mẫu'
             );
             this.cdr.markForCheck();
@@ -3015,7 +3482,7 @@ ${targetPropInstruction}
      * Script kiểu PlayCanvas Editor (pc.createScript + prototype.initialize/update, có attributes.add) cũng được CHẤP NHẬN: runtime tự chuyển đổi sang effect(fx) và attributes thành fx.params. Nếu file đính kèm có lỗi cú pháp (vd "default:," thiếu giá trị), vẫn copy nguyên văn — runtime tự sửa.
 
 8. THIẾT KẾ CLIP CHUYỂN ĐỘNG KHỚP XƯƠNG 3D TỪ VIDEO MẪU / MÔ TẢ ('designBoneAnimation'):
-   - Khi người dùng yêu cầu thiết kế/tạo chuyển động khớp xương (keyframe, vẫy tay, đá chân, cúi chào, nhảy, quyền anh, đi bộ...) hoặc đính kèm các khung hình trích xuất từ Video mẫu cho một nhân vật / đồ vật GLB có xương, trả về trường \`designBoneAnimation\`:
+   - Khi người dùng yêu cầu thiết kế/tạo chuyển động khớp xương (keyframe, moonwalk, trượt chân, vẫy tay, đá chân, cúi chào, nhảy, quyền anh, ngồi squat, xoay người, giơ tay, vỗ tay, đi bộ, chạy...) hoặc đính kèm các khung hình trích xuất từ Video mẫu cho một nhân vật / đồ vật GLB có xương, trả về trường \`designBoneAnimation\`:
      {
        "targetPropId": "id_món_đồ_GLB",
        "duration": 2.4,
@@ -3025,6 +3492,11 @@ ${targetPropInstruction}
        ]
      }
    - Chỉ sử dụng đúng tên khớp xương trong mảng \`rigBones\` của đồ vật đó ở phần TRẠNG THÁI HIỆN TẠI bên dưới.
+   - Quy ước Hệ tọa độ Chuẩn Nhân vật (Character Cardinal Space):
+     * Trục X (Pitch): Đùi (LeftUpLeg/RightUpLeg) x âm (-20..-100) nâng chân lên trước, x dương đưa ra sau; Đầu gối (LeftLeg/RightLeg) x dương (+15..+100) gập gối về sau (không dùng x âm); Cánh tay (LeftArm/RightArm) & Khuỷu tay (LeftForeArm/RightForeArm) x âm (-20..-100) đưa/gập tay lên trước ngực; Cột sống & Đầu (Hips/Spine02/Spine01/Spine/neck/Head) x dương (+10..+45) cúi về trước.
+     * Trục Y (Yaw): y dương xoay phải, y âm xoay trái.
+     * Trục Z (Roll): LeftArm z dương (+15..+80) nâng giang tay trái lên cao, z âm (-15..-25) khép sát thân; RightArm z âm (-15..-80) nâng giang tay phải lên cao, z dương (+15..+25) khép sát thân.
+     * Vị trí pos (mét, cho Hips): pos.y dương (+0.1..+0.35) bật nhảy, âm (-0.1..-0.4) nhún/ngồi; pos.x dịch ngang.
 
 ---
 ### TRẠNG THÁI HIỆN TẠI:
@@ -3100,16 +3572,21 @@ ${JSON.stringify({
 
         const aiRes: any = await this.genaiService.generateContent({
           model: 'gemini-3.8-flash',
-          contents: parts
+          contents: [{ role: 'user', parts }],
+          config: {
+            bypassAiAgent: true,
+            disableThinking: true,
+            temperature: 0.2
+          } as any
         });
 
-        if (aiRes && aiRes.text) {
-          let cleanJson = aiRes.text.trim();
-          if (cleanJson.startsWith('```json')) cleanJson = cleanJson.replace(/^```json/, '').replace(/```$/, '').trim();
-          if (cleanJson.startsWith('```')) cleanJson = cleanJson.replace(/^```/, '').replace(/```$/, '').trim();
-
+        const rawReply =
+          aiRes?.text ||
+          aiRes?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || '').join('') ||
+          '';
+        if (rawReply) {
           const hasTargetProps = targetProps && targetProps.length > 0;
-          const parsed = JSON.parse(cleanJson);
+          const parsed = this.extractJsonFromAiText(rawReply);
           if (parsed) {
             // 🎨 ĐIỀU KHIỂN MÀU MÔI TRƯỜNG SHOWROOM (background, table, cloth)
             if (parsed.environment) {
@@ -3402,7 +3879,7 @@ ${JSON.stringify({
     if (
       !updated &&
       (this.aiMotionVideoFrames.length > 0 ||
-        /keyframe|khớp xương|chuyển động|diễn hoạt|đá chân|đấm|cúi chào|vẫy tay|nhảy/.test(lower))
+        /moonwalk|trượt|keyframe|khớp xương|chuyển động|diễn hoạt|đá|kick|đấm|boxing|võ|kungfu|cúi|chào|vẫy|wave|nhảy|dance|hiphop|jump|ngồi|squat|thụt dầu|xoay người|quay người|spin|giơ tay|ăn mừng|vỗ tay|clap|gật đầu|lắc đầu|đi bộ|walk|chạy|run|thuyết trình|tạo dáng|pose/.test(lower))
     ) {
       const targetPid =
         (targetProps && targetProps[0]?.id) ||
@@ -3412,7 +3889,13 @@ ${JSON.stringify({
       if (targetPid && this.sceneService.hasPropRig(targetPid)) {
         const energies = this.aiMotionVideoFrames.map((f) => f.energy);
         const dur = this.aiMotionVideoDuration > 0 ? this.aiMotionVideoDuration : 2.4;
-        const count = this.sceneService.generateSmartBoneMotion(targetPid, text || 'dance', dur, energies);
+        const count = this.sceneService.generateSmartBoneMotion(
+          targetPid,
+          text,
+          dur,
+          energies,
+          this.aiMotionPoseSamples
+        );
         if (count > 0) {
           this.openPropTimeline(targetPid);
           this.saveTimelineToProp(true);

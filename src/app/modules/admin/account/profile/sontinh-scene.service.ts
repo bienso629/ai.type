@@ -13,6 +13,15 @@ export interface GlbBoneKeyframe {
   pos: { x: number; y: number; z: number };
 }
 
+export interface GlbSavedKeyframeClip {
+  name: string;
+  duration: number;
+  loop?: boolean;
+  speed?: number;
+  createdAt?: string;
+  keyframes: GlbBoneKeyframe[];
+}
+
 export interface GlbPropTimelineData {
   enabled: boolean;
   playing: boolean;
@@ -22,6 +31,7 @@ export interface GlbPropTimelineData {
   mode: 'keyframes' | 'clip';
   activeClipName?: string | null;
   keyframes: GlbBoneKeyframe[];
+  savedClips?: GlbSavedKeyframeClip[];
 }
 
 export interface GlbBoneInfo {
@@ -29,6 +39,26 @@ export interface GlbBoneInfo {
   label: string;
   depth: number;
   isSkinnedBone: boolean;
+}
+
+export interface VideoFramePoseSample {
+  time: number;
+  cx: number;
+  cy: number;
+  torsoTurnY: number;
+  torsoLeanZ: number;
+  torsoPitchX: number;
+  leftArmLift: number;
+  rightArmLift: number;
+  leftArmFwd: number;
+  rightArmFwd: number;
+  leftElbowBend: number;
+  rightElbowBend: number;
+  leftLegPitch: number;
+  rightLegPitch: number;
+  leftKneeBend: number;
+  rightKneeBend: number;
+  energy: number;
 }
 
 export interface RoomProp {
@@ -1845,14 +1875,24 @@ export class SontinhSceneService implements OnDestroy {
       label: string;
       depth: number;
       isSkinnedBone: boolean;
+      isRootOrHips: boolean;
       node: pc.GraphNode;
       restPos: pc.Vec3;
       restQuat: pc.Quat;
       restScale: pc.Vec3;
+      charRestQuat: pc.Quat;
+      parentCharRestQuat: pc.Quat;
+      posUnitScale: number;
       curRotDelta: { x: number; y: number; z: number };
       curPosDelta: { x: number; y: number; z: number };
     }>;
-    clips: Array<{ name: string; duration: number; resource: any }>;
+    clips: Array<{
+      name: string;
+      duration: number;
+      resource: any;
+      isCustomKeyframeClip?: boolean;
+      keyframes?: GlbBoneKeyframe[];
+    }>;
     animComp: any | null;
     timeline: GlbPropTimelineData;
     currentTime: number;
@@ -1862,16 +1902,99 @@ export class SontinhSceneService implements OnDestroy {
   private _highlightedBoneNode: pc.GraphNode | null = null;
   onTimelineTimeUpdate: ((propId: string, time: number, playing: boolean) => void) | null = null;
 
+  /** Tắt hoàn toàn AnimComponent của clip nhúng để không ghi đè tư thế khớp xương ở chế độ Keyframes */
+  private _stopRigClipAnim(rig: any): void {
+    if (!rig) return;
+    const comps = [
+      rig.animComp,
+      rig.glbEntity?.anim,
+      (rig.glbEntity as any)?.animation
+    ];
+    for (const c of comps) {
+      if (!c) continue;
+      try {
+        c.playing = false;
+        c.speed = 0;
+        c.enabled = false;
+      } catch (_) {}
+    }
+  }
+
+  /**
+   * Biến đổi góc xoay và vị trí từ Hệ tọa độ Chuẩn Nhân vật (Character Cardinal Space:
+   * +X = Trái nhân vật / Pitch, +Y = Đỉnh đầu / Yaw, +Z = Trước mặt / Roll)
+   * sang Hệ tọa độ Cục bộ (Local Bone Space) của từng khớp xương bất kể hướng trục xương gốc trong GLB/FBX.
+   */
+  private _applyCharacterSpaceBoneQuat(
+    bone: {
+      isSkinnedBone: boolean;
+      isRootOrHips: boolean;
+      node: pc.GraphNode;
+      restPos: pc.Vec3;
+      restQuat: pc.Quat;
+      charRestQuat: pc.Quat;
+      parentCharRestQuat: pc.Quat;
+      posUnitScale: number;
+      curRotDelta: { x: number; y: number; z: number };
+      curPosDelta: { x: number; y: number; z: number };
+    },
+    qCharDelta: pc.Quat,
+    rotEuler: { x: number; y: number; z: number },
+    posDelta?: { x: number; y: number; z: number }
+  ): void {
+    bone.curRotDelta = {
+      x: Number(rotEuler?.x) || 0,
+      y: Number(rotEuler?.y) || 0,
+      z: Number(rotEuler?.z) || 0
+    };
+    if (posDelta) {
+      bone.curPosDelta = {
+        x: Number(posDelta.x) || 0,
+        y: Number(posDelta.y) || 0,
+        z: Number(posDelta.z) || 0
+      };
+    }
+
+    // qLocalDelta = inv(charRestQuat) * qCharDelta * charRestQuat
+    // finalQuat = restQuat * qLocalDelta
+    const qCharInv = bone.charRestQuat.clone().invert();
+    const qTmp = new pc.Quat().mul2(qCharInv, qCharDelta);
+    const qLocalDelta = new pc.Quat().mul2(qTmp, bone.charRestQuat);
+    const finalQuat = new pc.Quat().mul2(bone.restQuat, qLocalDelta);
+    bone.node.setLocalRotation(finalQuat);
+
+    // Dịch chuyển vị trí theo đơn vị mét của nhân vật (tự động nhân hệ số cm nếu Armature scale 0.01)
+    const scale = bone.posUnitScale || 1;
+    const vChar = new pc.Vec3(
+      bone.curPosDelta.x * scale,
+      bone.curPosDelta.y * scale,
+      bone.curPosDelta.z * scale
+    );
+    const qParentInv = bone.parentCharRestQuat.clone().invert();
+    const vLocal = new pc.Vec3();
+    qParentInv.transformVector(vChar, vLocal);
+
+    bone.node.setLocalPosition(
+      bone.restPos.x + vLocal.x,
+      bone.restPos.y + vLocal.y,
+      bone.restPos.z + vLocal.z
+    );
+  }
+
   private _registerPropRig(propId: string, wrapper: pc.Entity, glbEntity: pc.Entity, container: any, prop?: any): void {
     const bonesMap = new Map<string, {
       name: string;
       label: string;
       depth: number;
       isSkinnedBone: boolean;
+      isRootOrHips: boolean;
       node: pc.GraphNode;
       restPos: pc.Vec3;
       restQuat: pc.Quat;
       restScale: pc.Vec3;
+      charRestQuat: pc.Quat;
+      parentCharRestQuat: pc.Quat;
+      posUnitScale: number;
       curRotDelta: { x: number; y: number; z: number };
       curPosDelta: { x: number; y: number; z: number };
     }>();
@@ -1894,9 +2017,18 @@ export class SontinhSceneService implements OnDestroy {
       }
     }
 
-    // 2. Duyệt cây phân cấp của glbEntity để thu thập xương và các node con
+    // 2. Duyệt cây phân cấp của glbEntity để thu thập xương và hệ trục xoay chuẩn Character Space
     const usedNames = new Set<string>();
-    const addBoneEntry = (node: pc.GraphNode, rawName: string, label: string, depth: number, isSkinned: boolean) => {
+    const addBoneEntry = (
+      node: pc.GraphNode,
+      rawName: string,
+      label: string,
+      depth: number,
+      isSkinned: boolean,
+      charRestQuat: pc.Quat,
+      parentCharRestQuat: pc.Quat,
+      parentAccumScale: number
+    ) => {
       let key = rawName || 'Bone';
       let suffix = 1;
       while (usedNames.has(key)) {
@@ -1904,40 +2036,69 @@ export class SontinhSceneService implements OnDestroy {
         key = `${rawName}_${suffix}`;
       }
       usedNames.add(key);
+      const restPos = node.getLocalPosition().clone();
+      const restQuat = node.getLocalRotation().clone();
+      const restScale = node.getLocalScale().clone();
+      const cleanCheck = label.replace(/^mixamorig:?/i, '').trim();
+      const isRootOrHips = key === '__root__' || /^(hips|pelvis|root|armature|center)$/i.test(cleanCheck);
+      const posUnitScale = parentAccumScale < 0.05
+        ? (1 / Math.max(1e-4, parentAccumScale))
+        : (isRootOrHips && restPos.length() > 25 ? 100 : 1);
+
       bonesMap.set(key, {
         name: key,
         label,
         depth,
         isSkinnedBone: isSkinned,
+        isRootOrHips,
         node,
-        restPos: node.getLocalPosition().clone(),
-        restQuat: node.getLocalRotation().clone(),
-        restScale: node.getLocalScale().clone(),
+        restPos,
+        restQuat,
+        restScale,
+        charRestQuat: charRestQuat.clone(),
+        parentCharRestQuat: parentCharRestQuat.clone(),
+        posUnitScale,
         curRotDelta: { x: 0, y: 0, z: 0 },
         curPosDelta: { x: 0, y: 0, z: 0 }
       });
     };
 
+    const identityQuat = new pc.Quat(0, 0, 0, 1);
     // Luôn thêm node gốc để kể cả GLB chỉ có 1 mesh vẫn tạo chuyển động keyframe được
-    addBoneEntry(glbEntity, '__root__', 'Toàn bộ mô hình (Root)', 0, false);
+    addBoneEntry(glbEntity, '__root__', 'Toàn bộ mô hình (Root)', 0, false, identityQuat, identityQuat, 1);
 
-    const walk = (node: any, depth: number) => {
+    const walk = (node: any, depth: number, parentCharQuat: pc.Quat, parentScale: number) => {
       if (!node) return;
       const children: any[] = node.children || [];
       for (const ch of children) {
         const nm = String(ch?.name || '').trim();
         const isSkinned = skinnedNodes.has(ch);
+        const localQuat = (ch as pc.GraphNode).getLocalRotation
+          ? (ch as pc.GraphNode).getLocalRotation().clone()
+          : new pc.Quat(0, 0, 0, 1);
+        const localScale = (ch as pc.GraphNode).getLocalScale
+          ? (ch as pc.GraphNode).getLocalScale()
+          : new pc.Vec3(1, 1, 1);
+        const charQuat = new pc.Quat().mul2(parentCharQuat, localQuat).normalize();
+        const nextScale = parentScale * Math.max(1e-4, Math.abs(localScale.y || 1));
+
         if (nm && (isSkinned || skinnedNodes.size === 0 || !nm.startsWith('Untitled'))) {
           const cleanLabel = nm.replace(/^mixamorig:?/i, '');
-          addBoneEntry(ch as pc.GraphNode, nm, cleanLabel, depth, isSkinned);
+          addBoneEntry(ch as pc.GraphNode, nm, cleanLabel, depth, isSkinned, charQuat, parentCharQuat, parentScale);
         }
-        walk(ch, depth + 1);
+        walk(ch, depth + 1, charQuat, nextScale);
       }
     };
-    walk(glbEntity, 1);
+    walk(glbEntity, 1, identityQuat, 1);
 
-    // 3. Thu thập các Animation Clip có sẵn trong file GLB
-    const clips: Array<{ name: string; duration: number; resource: any }> = [];
+    // 3. Thu thập các Animation Clip có sẵn trong file GLB và các Clip Keyframe đã lưu
+    const clips: Array<{
+      name: string;
+      duration: number;
+      resource: any;
+      isCustomKeyframeClip?: boolean;
+      keyframes?: GlbBoneKeyframe[];
+    }> = [];
     const rawAnims: any[] = Array.isArray(container?.animations) ? container.animations : [];
     for (let i = 0; i < rawAnims.length; i++) {
       const a = rawAnims[i];
@@ -1945,11 +2106,28 @@ export class SontinhSceneService implements OnDestroy {
       if (!track) continue;
       const cName = String(a?.name || track?.name || `Animation_${i + 1}`);
       const dur = Math.max(0.1, Number(track?.duration) || 2.5);
-      clips.push({ name: cName, duration: dur, resource: track });
+      clips.push({ name: cName, duration: dur, resource: track, isCustomKeyframeClip: false });
     }
 
     // 4. Khởi tạo hoặc khôi phục cấu hình Timeline từ prop.boneTimeline
     const savedTl: GlbPropTimelineData | undefined = prop?.boneTimeline;
+    const savedCustomClips: GlbSavedKeyframeClip[] = Array.isArray(savedTl?.savedClips)
+      ? JSON.parse(JSON.stringify(savedTl!.savedClips))
+      : [];
+    for (const sc of savedCustomClips) {
+      if (!sc || !sc.name || !Array.isArray(sc.keyframes)) continue;
+      const existIdx = clips.findIndex((c) => c.name === sc.name);
+      const entry = {
+        name: sc.name,
+        duration: Math.max(0.5, Number(sc.duration) || 2.4),
+        resource: null,
+        isCustomKeyframeClip: true,
+        keyframes: JSON.parse(JSON.stringify(sc.keyframes))
+      };
+      if (existIdx >= 0) clips[existIdx] = entry;
+      else clips.push(entry);
+    }
+
     const defaultMode: 'keyframes' | 'clip' = savedTl?.mode
       ? savedTl.mode
       : (clips.length > 0 ? 'clip' : 'keyframes');
@@ -1969,7 +2147,8 @@ export class SontinhSceneService implements OnDestroy {
       activeClipName: defaultClipName,
       keyframes: Array.isArray(savedTl?.keyframes)
         ? JSON.parse(JSON.stringify(savedTl!.keyframes))
-        : []
+        : [],
+      savedClips: savedCustomClips
     };
 
     const rig = {
@@ -1987,8 +2166,11 @@ export class SontinhSceneService implements OnDestroy {
     // Nếu ở chế độ clip và có clip sẵn, gắn component anim và phát ngay
     if (timeline.mode === 'clip' && matchedClip && timeline.playing) {
       this.playPropClip(propId, matchedClip.name);
-    } else if (timeline.mode === 'keyframes' && timeline.keyframes.length > 0) {
-      this.evaluatePropKeyframesAtTime(propId, 0);
+    } else if (timeline.mode === 'keyframes') {
+      this._stopRigClipAnim(rig);
+      if (timeline.keyframes.length > 0) {
+        this.evaluatePropKeyframesAtTime(propId, 0);
+      }
     }
   }
 
@@ -2012,10 +2194,15 @@ export class SontinhSceneService implements OnDestroy {
     return list;
   }
 
-  getPropClips(propId: string): Array<{ name: string; duration: number }> {
+  getPropClips(propId: string): Array<{ name: string; duration: number; isCustom?: boolean; kfCount?: number }> {
     const rig = this._propRigMap.get(propId);
     if (!rig) return [];
-    return rig.clips.map((c) => ({ name: c.name, duration: c.duration }));
+    return rig.clips.map((c) => ({
+      name: c.name,
+      duration: c.duration,
+      isCustom: !!c.isCustomKeyframeClip,
+      kfCount: Array.isArray(c.keyframes) ? c.keyframes.length : undefined
+    }));
   }
 
   getPropTimeline(propId: string): GlbPropTimelineData | null {
@@ -2092,32 +2279,16 @@ export class SontinhSceneService implements OnDestroy {
     const bone = rig?.bones.get(boneName);
     if (!bone) return;
 
-    // Nếu đang bật animComp của clip thì tạm dừng để không ghi đè pose xương thủ công
-    if (rig?.animComp && rig.timeline.mode === 'keyframes') {
-      try { rig.animComp.playing = false; } catch (_) {}
+    // Tắt hoàn toàn animComp của clip khi chỉnh sửa/đánh giá pose ở chế độ keyframes
+    if (rig && rig.timeline.mode === 'keyframes') {
+      this._stopRigClipAnim(rig);
     }
 
-    bone.curRotDelta = {
-      x: Number(rot?.x) || 0,
-      y: Number(rot?.y) || 0,
-      z: Number(rot?.z) || 0
-    };
-    if (pos) {
-      bone.curPosDelta = {
-        x: Number(pos.x) || 0,
-        y: Number(pos.y) || 0,
-        z: Number(pos.z) || 0
-      };
-    }
-
-    const qDelta = new pc.Quat().setFromEulerAngles(bone.curRotDelta.x, bone.curRotDelta.y, bone.curRotDelta.z);
-    const finalQuat = new pc.Quat().mul2(bone.restQuat, qDelta);
-    bone.node.setLocalRotation(finalQuat);
-    bone.node.setLocalPosition(
-      bone.restPos.x + bone.curPosDelta.x,
-      bone.restPos.y + bone.curPosDelta.y,
-      bone.restPos.z + bone.curPosDelta.z
-    );
+    const rx = Number(rot?.x) || 0;
+    const ry = Number(rot?.y) || 0;
+    const rz = Number(rot?.z) || 0;
+    const qCharDelta = new pc.Quat().setFromEulerAngles(rx, ry, rz);
+    this._applyCharacterSpaceBoneQuat(bone, qCharDelta, { x: rx, y: ry, z: rz }, pos);
   }
 
   resetBonePose(propId: string, boneName?: string): void {
@@ -2154,6 +2325,7 @@ export class SontinhSceneService implements OnDestroy {
     if (!rig) return null;
     rig.timeline.mode = 'keyframes';
     rig.timeline.enabled = true;
+    this._stopRigClipAnim(rig);
     const clampedTime = Math.round(Math.max(0, Math.min(rig.timeline.duration, Number(time) || 0)) * 100) / 100;
     const cleanRot = {
       x: Math.round((Number(rot?.x) || 0) * 10) / 10,
@@ -2207,10 +2379,13 @@ export class SontinhSceneService implements OnDestroy {
     this.resetBonePose(propId);
   }
 
-  /** Nội suy tư thế toàn bộ khớp xương tại thời điểm t bằng Quaternion Slerp */
+  /** Nội suy tư thế toàn bộ khớp xương tại thời điểm t bằng Quaternion Slerp trong Character Cardinal Space */
   evaluatePropKeyframesAtTime(propId: string, time: number): void {
     const rig = this._propRigMap.get(propId);
     if (!rig) return;
+    if (rig.timeline.mode === 'keyframes') {
+      this._stopRigClipAnim(rig);
+    }
     const dur = Math.max(0.1, rig.timeline.duration || 3.0);
     const t = Math.max(0, Math.min(dur, time));
     rig.currentTime = t;
@@ -2281,28 +2456,25 @@ export class SontinhSceneService implements OnDestroy {
         return;
       }
 
-      const alpha = Math.max(0, Math.min(1, localT / span));
-      // Smoothstep nhẹ giúp chuyển động khớp xương tự nhiên hơn
+      const rawAlpha = Math.max(0, Math.min(1, localT / span));
+      // Smoothstep nhẹ giúp chuyển động khớp xương mượt mà, không bị giật cục ở điểm đầu/cuối
+      const alpha = rawAlpha * rawAlpha * (3 - 2 * rawAlpha);
       const qA = new pc.Quat().setFromEulerAngles(kfA.rot.x, kfA.rot.y, kfA.rot.z);
       const qB = new pc.Quat().setFromEulerAngles(kfB.rot.x, kfB.rot.y, kfB.rot.z);
       const qInterp = new pc.Quat().slerp(qA, qB, alpha);
       const eulerInterp = qInterp.getEulerAngles();
 
       const posInterp = {
-        x: kfA.pos.x + (kfB.pos.x - kfA.pos.x) * alpha,
-        y: kfA.pos.y + (kfB.pos.y - kfA.pos.y) * alpha,
-        z: kfA.pos.z + (kfB.pos.z - kfA.pos.z) * alpha
+        x: (kfA.pos?.x || 0) + ((kfB.pos?.x || 0) - (kfA.pos?.x || 0)) * alpha,
+        y: (kfA.pos?.y || 0) + ((kfB.pos?.y || 0) - (kfA.pos?.y || 0)) * alpha,
+        z: (kfA.pos?.z || 0) + ((kfB.pos?.z || 0) - (kfA.pos?.z || 0)) * alpha
       };
 
-      bone.curRotDelta = { x: eulerInterp.x, y: eulerInterp.y, z: eulerInterp.z };
-      bone.curPosDelta = posInterp;
-
-      const finalQuat = new pc.Quat().mul2(bone.restQuat, qInterp);
-      bone.node.setLocalRotation(finalQuat);
-      bone.node.setLocalPosition(
-        bone.restPos.x + posInterp.x,
-        bone.restPos.y + posInterp.y,
-        bone.restPos.z + posInterp.z
+      this._applyCharacterSpaceBoneQuat(
+        bone,
+        qInterp,
+        { x: eulerInterp.x, y: eulerInterp.y, z: eulerInterp.z },
+        posInterp
       );
     });
   }
@@ -2312,7 +2484,8 @@ export class SontinhSceneService implements OnDestroy {
     if (!rig) return;
     const clamped = Math.max(0, Math.min(rig.timeline.duration, Number(time) || 0));
     rig.currentTime = clamped;
-    if (rig.timeline.mode === 'clip' && rig.animComp?.baseLayer) {
+    const activeClip = rig.clips.find((c) => c.name === rig.timeline.activeClipName);
+    if (rig.timeline.mode === 'clip' && !activeClip?.isCustomKeyframeClip && rig.animComp?.baseLayer) {
       try {
         rig.animComp.baseLayer.activeStateCurrentTime = clamped;
       } catch (_) {}
@@ -2326,13 +2499,16 @@ export class SontinhSceneService implements OnDestroy {
     if (!rig) return;
     rig.timeline.playing = !!playing;
     rig.timeline.enabled = true;
-    if (rig.timeline.mode === 'clip') {
+    const activeClip = rig.clips.find((c) => c.name === rig.timeline.activeClipName);
+    if (rig.timeline.mode === 'clip' && !activeClip?.isCustomKeyframeClip) {
       if (rig.timeline.playing) {
         const clipName = rig.timeline.activeClipName || rig.clips[0]?.name;
         if (clipName) this.playPropClip(propId, clipName);
       } else if (rig.animComp) {
         try { rig.animComp.speed = 0; } catch (_) {}
       }
+    } else {
+      this._stopRigClipAnim(rig);
     }
   }
 
@@ -2351,14 +2527,109 @@ export class SontinhSceneService implements OnDestroy {
     }
     if (cfg.mode === 'clip' || cfg.mode === 'keyframes') {
       rig.timeline.mode = cfg.mode;
-      if (cfg.mode === 'keyframes' && rig.animComp) {
-        try { rig.animComp.playing = false; } catch (_) {}
+      if (cfg.mode === 'keyframes') {
+        this._stopRigClipAnim(rig);
+        this.resetBonePose(propId);
         this.evaluatePropKeyframesAtTime(propId, rig.currentTime);
       } else if (cfg.mode === 'clip') {
         const clipName = rig.timeline.activeClipName || rig.clips[0]?.name;
         if (clipName) this.playPropClip(propId, clipName);
       }
     }
+  }
+
+  /**
+   * Đóng gói (bake) bộ Keyframe hiện tại trên Timeline thành một mục Clip Chuyển động mới
+   * trong danh sách Clip Chuyển động của mô hình GLB và lưu bền vững vào savedClips.
+   */
+  bakeKeyframesToClip(
+    propId: string,
+    preferredName?: string
+  ): { name: string; duration: number; kfCount: number; isNew: boolean } | null {
+    const rig = this._propRigMap.get(propId);
+    if (!rig || !Array.isArray(rig.timeline.keyframes) || rig.timeline.keyframes.length === 0) {
+      return null;
+    }
+
+    if (!Array.isArray(rig.timeline.savedClips)) {
+      rig.timeline.savedClips = [];
+    }
+
+    const customCount = rig.clips.filter((c) => c.isCustomKeyframeClip).length;
+    let clipName = (preferredName || '').trim();
+    if (!clipName) {
+      const currentActive = rig.clips.find(
+        (c) => c.name === rig.timeline.activeClipName && c.isCustomKeyframeClip
+      );
+      clipName = currentActive ? currentActive.name : `Clip Keyframe #${customCount + 1}`;
+    }
+
+    // Tránh ghi đè lên tên clip gốc nhúng sẵn trong file GLB
+    const nativeCollision = rig.clips.find((c) => c.name === clipName && !c.isCustomKeyframeClip);
+    if (nativeCollision) {
+      clipName = `${clipName} (Custom #${customCount + 1})`;
+    }
+
+    const clonedKfs: GlbBoneKeyframe[] = JSON.parse(JSON.stringify(rig.timeline.keyframes));
+    const dur = Math.max(0.5, Number(rig.timeline.duration) || 2.4);
+
+    const savedEntry: GlbSavedKeyframeClip = {
+      name: clipName,
+      duration: dur,
+      loop: rig.timeline.loop,
+      speed: rig.timeline.speed,
+      createdAt: new Date().toISOString(),
+      keyframes: clonedKfs
+    };
+
+    const existingSavedIdx = rig.timeline.savedClips.findIndex((c) => c.name === clipName);
+    const isNew = existingSavedIdx < 0;
+    if (existingSavedIdx >= 0) {
+      rig.timeline.savedClips[existingSavedIdx] = savedEntry;
+    } else {
+      rig.timeline.savedClips.push(savedEntry);
+    }
+
+    const existingClipIdx = rig.clips.findIndex((c) => c.name === clipName);
+    const rigClipEntry = {
+      name: clipName,
+      duration: dur,
+      resource: null,
+      isCustomKeyframeClip: true,
+      keyframes: JSON.parse(JSON.stringify(clonedKfs))
+    };
+    if (existingClipIdx >= 0) {
+      rig.clips[existingClipIdx] = rigClipEntry;
+    } else {
+      rig.clips.push(rigClipEntry);
+    }
+
+    rig.timeline.activeClipName = clipName;
+    return {
+      name: clipName,
+      duration: dur,
+      kfCount: clonedKfs.length,
+      isNew
+    };
+  }
+
+  /** Xóa một Clip Keyframe tùy chỉnh đã lưu khỏi danh sách Clip Chuyển động */
+  deletePropCustomClip(propId: string, clipName: string): boolean {
+    const rig = this._propRigMap.get(propId);
+    if (!rig || !clipName) return false;
+    const clipIdx = rig.clips.findIndex((c) => c.name === clipName && c.isCustomKeyframeClip);
+    if (clipIdx < 0) return false;
+    rig.clips.splice(clipIdx, 1);
+    if (Array.isArray(rig.timeline.savedClips)) {
+      rig.timeline.savedClips = rig.timeline.savedClips.filter((c) => c.name !== clipName);
+    }
+    if (rig.timeline.activeClipName === clipName) {
+      rig.timeline.activeClipName = rig.clips[0]?.name || null;
+      if (rig.timeline.mode === 'clip' && rig.timeline.activeClipName) {
+        this.playPropClip(propId, rig.timeline.activeClipName);
+      }
+    }
+    return true;
   }
 
   playPropClip(propId: string, clipName: string): boolean {
@@ -2373,11 +2644,30 @@ export class SontinhSceneService implements OnDestroy {
     rig.timeline.playing = true;
     rig.timeline.enabled = true;
 
+    // Nếu là Clip Keyframe tùy chỉnh đã lưu -> tự động ánh xạ xương giải phẫu (hỗ trợ dùng chung giữa các nhân vật khác nhau) và phát
+    if (clip.isCustomKeyframeClip && Array.isArray(clip.keyframes) && clip.keyframes.length > 0) {
+      this._stopRigClipAnim(rig);
+      this.applyGeneratedBoneTimeline(propId, {
+        duration: clip.duration,
+        loop: rig.timeline.loop,
+        speed: rig.timeline.speed,
+        keyframes: clip.keyframes
+      });
+      rig.timeline.mode = 'clip';
+      rig.timeline.activeClipName = clip.name;
+      rig.timeline.playing = true;
+      rig.currentTime = 0;
+      this.evaluatePropKeyframesAtTime(propId, 0);
+      return true;
+    }
+
     try {
+      this.resetBonePose(propId);
       if (!rig.animComp) {
         rig.animComp = rig.glbEntity.anim || (rig.glbEntity as any).animation || rig.glbEntity.addComponent('anim', { activate: true });
       }
       if (rig.animComp) {
+        rig.animComp.enabled = true;
         if (rig.animComp.assignAnimation) {
           rig.animComp.assignAnimation(clip.name, clip.resource);
           if (rig.animComp.baseLayer) {
@@ -2397,13 +2687,355 @@ export class SontinhSceneService implements OnDestroy {
     return false;
   }
 
-  importPropAnimationGlb(propId: string, blobUrl: string, fileName: string): Promise<{ ok: boolean; clipName?: string; duration?: number; error?: string }> {
-    return new Promise((resolve) => {
+  /** Nạp một Clip Keyframe dùng chung (từ thư mục assets/anims/ hoặc nhân vật khác) vào danh sách Clip của mô hình hiện tại */
+  injectSharedKeyframeClip(propId: string, clip: GlbSavedKeyframeClip): boolean {
+    const rig = this._propRigMap.get(propId);
+    if (!rig || !clip || !clip.name || !Array.isArray(clip.keyframes) || clip.keyframes.length === 0) {
+      return false;
+    }
+    const existClip = rig.clips.find((c) => c.name === clip.name);
+    if (existClip && !existClip.isCustomKeyframeClip) {
+      return false;
+    }
+    const entry = {
+      name: clip.name,
+      duration: Math.max(0.5, Number(clip.duration) || 2.4),
+      resource: null,
+      isCustomKeyframeClip: true,
+      keyframes: JSON.parse(JSON.stringify(clip.keyframes))
+    };
+    const cIdx = rig.clips.findIndex((c) => c.name === clip.name);
+    if (cIdx >= 0) rig.clips[cIdx] = entry;
+    else rig.clips.push(entry);
+
+    if (!Array.isArray(rig.timeline.savedClips)) {
+      rig.timeline.savedClips = [];
+    }
+    const sIdx = rig.timeline.savedClips.findIndex((c) => c.name === clip.name);
+    const savedCopy: GlbSavedKeyframeClip = JSON.parse(JSON.stringify(clip));
+    if (sIdx >= 0) rig.timeline.savedClips[sIdx] = savedCopy;
+    else rig.timeline.savedClips.push(savedCopy);
+    return true;
+  }
+
+  /**
+   * Đóng gói một Clip Keyframe thành tệp nhị phân chuẩn glTF 2.0 (.glb) chứa cả:
+   * 1. Hệ thống Node xương và Animation Track chuẩn glTF 2.0 (samplers/channels VEC4 Quaternion & VEC3 Translation)
+   * 2. Siêu dữ liệu portable `asset.extras.aitypeKeyframeClip` để tái ánh xạ (retarget) chính xác sang mọi nhân vật 3D khác.
+   */
+  exportClipToGlbArrayBuffer(propId: string, clipName?: string): ArrayBuffer | null {
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return null;
+
+    const targetName = clipName || rig.timeline.activeClipName || 'CustomClip';
+    const savedClip = rig.timeline.savedClips?.find((c) => c.name === targetName);
+    const kfs: GlbBoneKeyframe[] = savedClip?.keyframes?.length
+      ? savedClip.keyframes
+      : rig.timeline.keyframes;
+    if (!Array.isArray(kfs) || kfs.length === 0) return null;
+
+    const dur = Math.max(0.5, Number(savedClip?.duration || rig.timeline.duration) || 2.4);
+    const clipPayload: GlbSavedKeyframeClip = {
+      name: targetName,
+      duration: dur,
+      loop: savedClip?.loop ?? rig.timeline.loop,
+      speed: savedClip?.speed ?? rig.timeline.speed,
+      createdAt: savedClip?.createdAt || new Date().toISOString(),
+      keyframes: JSON.parse(JSON.stringify(kfs))
+    };
+
+    // Nhóm keyframes theo boneName
+    const byBone = new Map<string, GlbBoneKeyframe[]>();
+    for (const kf of kfs) {
+      if (!kf || !kf.boneName) continue;
+      if (!byBone.has(kf.boneName)) byBone.set(kf.boneName, []);
+      byBone.get(kf.boneName)!.push(kf);
+    }
+
+    const nodes: any[] = [{ name: 'Armature_Root', children: [] as number[] }];
+    const samplers: any[] = [];
+    const channels: any[] = [];
+    const accessors: any[] = [];
+    const bufferViews: any[] = [];
+    const floatChunks: Float32Array[] = [];
+    let byteOffset = 0;
+
+    const appendFloatArray = (arr: Float32Array, type: 'SCALAR' | 'VEC3' | 'VEC4', computeMinMax = false): number => {
+      const byteLen = arr.byteLength;
+      const bvIdx = bufferViews.length;
+      bufferViews.push({
+        buffer: 0,
+        byteOffset,
+        byteLength: byteLen
+      });
+      byteOffset += byteLen;
+      floatChunks.push(arr);
+
+      const comps = type === 'SCALAR' ? 1 : type === 'VEC3' ? 3 : 4;
+      const count = Math.floor(arr.length / comps);
+      const acc: any = {
+        bufferView: bvIdx,
+        byteOffset: 0,
+        componentType: 5126, // FLOAT
+        count,
+        type
+      };
+      if (computeMinMax && count > 0) {
+        const minV = new Array(comps).fill(Infinity);
+        const maxV = new Array(comps).fill(-Infinity);
+        for (let i = 0; i < count; i++) {
+          for (let c = 0; c < comps; c++) {
+            const v = arr[i * comps + c];
+            if (v < minV[c]) minV[c] = v;
+            if (v > maxV[c]) maxV[c] = v;
+          }
+        }
+        acc.min = minV;
+        acc.max = maxV;
+      }
+      const accIdx = accessors.length;
+      accessors.push(acc);
+      return accIdx;
+    };
+
+    byBone.forEach((list, boneName) => {
+      list.sort((a, b) => a.time - b.time);
+      const bone = rig.bones.get(boneName);
+      const nodeIdx = nodes.length;
+      nodes[0].children.push(nodeIdx);
+      nodes.push({
+        name: bone ? bone.label : boneName,
+        translation: bone ? [bone.restPos.x, bone.restPos.y, bone.restPos.z] : [0, 0, 0],
+        rotation: bone ? [bone.restQuat.x, bone.restQuat.y, bone.restQuat.z, bone.restQuat.w] : [0, 0, 0, 1]
+      });
+
+      const n = list.length;
+      const times = new Float32Array(n);
+      const rots = new Float32Array(n * 4);
+      const trans = new Float32Array(n * 3);
+      let hasTranslation = false;
+
+      for (let i = 0; i < n; i++) {
+        const item = list[i];
+        times[i] = Math.max(0, Number(item.time) || 0);
+        const qChar = new pc.Quat().setFromEulerAngles(
+          Number(item.rot?.x) || 0,
+          Number(item.rot?.y) || 0,
+          Number(item.rot?.z) || 0
+        );
+        let finalQuat = qChar;
+        if (bone) {
+          const qCharInv = bone.charRestQuat.clone().invert();
+          const qTmp = new pc.Quat().mul2(qCharInv, qChar);
+          const qLocalDelta = new pc.Quat().mul2(qTmp, bone.charRestQuat);
+          finalQuat = new pc.Quat().mul2(bone.restQuat, qLocalDelta).normalize();
+        }
+        rots[i * 4] = finalQuat.x;
+        rots[i * 4 + 1] = finalQuat.y;
+        rots[i * 4 + 2] = finalQuat.z;
+        rots[i * 4 + 3] = finalQuat.w;
+
+        const px = Number(item.pos?.x) || 0;
+        const py = Number(item.pos?.y) || 0;
+        const pz = Number(item.pos?.z) || 0;
+        if (Math.abs(px) > 1e-4 || Math.abs(py) > 1e-4 || Math.abs(pz) > 1e-4) {
+          hasTranslation = true;
+        }
+        if (bone) {
+          const scale = bone.posUnitScale || 1;
+          const vChar = new pc.Vec3(px * scale, py * scale, pz * scale);
+          const vLocal = new pc.Vec3();
+          bone.parentCharRestQuat.clone().invert().transformVector(vChar, vLocal);
+          trans[i * 3] = bone.restPos.x + vLocal.x;
+          trans[i * 3 + 1] = bone.restPos.y + vLocal.y;
+          trans[i * 3 + 2] = bone.restPos.z + vLocal.z;
+        } else {
+          trans[i * 3] = px;
+          trans[i * 3 + 1] = py;
+          trans[i * 3 + 2] = pz;
+        }
+      }
+
+      const timeAccIdx = appendFloatArray(times, 'SCALAR', true);
+      const rotAccIdx = appendFloatArray(rots, 'VEC4', false);
+      const rotSamplerIdx = samplers.length;
+      samplers.push({
+        input: timeAccIdx,
+        interpolation: 'LINEAR',
+        output: rotAccIdx
+      });
+      channels.push({
+        sampler: rotSamplerIdx,
+        target: { node: nodeIdx, path: 'rotation' }
+      });
+
+      if (hasTranslation) {
+        const transAccIdx = appendFloatArray(trans, 'VEC3', false);
+        const transSamplerIdx = samplers.length;
+        samplers.push({
+          input: timeAccIdx,
+          interpolation: 'LINEAR',
+          output: transAccIdx
+        });
+        channels.push({
+          sampler: transSamplerIdx,
+          target: { node: nodeIdx, path: 'translation' }
+        });
+      }
+    });
+
+    const binPad = (4 - (byteOffset % 4)) % 4;
+    const totalBinBytes = byteOffset + binPad;
+
+    const gltfJson = {
+      asset: {
+        version: '2.0',
+        generator: 'AI.Type 3D Motion Studio',
+        extras: {
+          _aitypeSanitized: 2,
+          aitypeKeyframeClip: clipPayload
+        }
+      },
+      scene: 0,
+      scenes: [{ nodes: [0] }],
+      nodes,
+      animations: [
+        {
+          name: targetName,
+          samplers,
+          channels
+        }
+      ],
+      accessors,
+      bufferViews,
+      buffers: [{ byteLength: byteOffset }]
+    };
+
+    const encoder = new TextEncoder();
+    const jsonBytes = encoder.encode(JSON.stringify(gltfJson));
+    const jsonPad = (4 - (jsonBytes.byteLength % 4)) % 4;
+    const totalJsonBytes = jsonBytes.byteLength + jsonPad;
+
+    const totalGlbBytes = 12 + 8 + totalJsonBytes + 8 + totalBinBytes;
+    const outBuffer = new ArrayBuffer(totalGlbBytes);
+    const dv = new DataView(outBuffer);
+    const u8 = new Uint8Array(outBuffer);
+
+    // 1. GLB Header (12 bytes)
+    dv.setUint32(0, 0x46546c67, true); // 'glTF'
+    dv.setUint32(4, 2, true); // version 2
+    dv.setUint32(8, totalGlbBytes, true);
+
+    // 2. JSON Chunk Header (8 bytes) + JSON Payload
+    dv.setUint32(12, totalJsonBytes, true);
+    dv.setUint32(16, 0x4e4f534a, true); // 'JSON'
+    u8.set(jsonBytes, 20);
+    for (let p = 0; p < jsonPad; p++) {
+      u8[20 + jsonBytes.byteLength + p] = 0x20; // space padding
+    }
+
+    // 3. BIN Chunk Header (8 bytes) + Binary Float32 Payload
+    const binHeaderOffset = 20 + totalJsonBytes;
+    dv.setUint32(binHeaderOffset, totalBinBytes, true);
+    dv.setUint32(binHeaderOffset + 4, 0x004e4942, true); // 'BIN\0'
+    let cursor = binHeaderOffset + 8;
+    for (const chunk of floatChunks) {
+      u8.set(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength), cursor);
+      cursor += chunk.byteLength;
+    }
+
+    return outBuffer;
+  }
+
+  /** Đọc dữ liệu GlbSavedKeyframeClip từ tệp .glb (chứa aitypeKeyframeClip) hoặc tệp .json */
+  parseKeyframeClipFromBuffer(rawBuffer: ArrayBuffer): GlbSavedKeyframeClip | null {
+    if (!rawBuffer || rawBuffer.byteLength < 16) return null;
+    try {
+      const dv = new DataView(rawBuffer);
+      const magic = dv.getUint32(0, true);
+      const decoder = new TextDecoder('utf-8');
+      if (magic === 0x46546c67 && rawBuffer.byteLength >= 20) {
+        const jsonLen = dv.getUint32(12, true);
+        const jsonType = dv.getUint32(16, true);
+        if (jsonType === 0x4e4f534a && 20 + jsonLen <= rawBuffer.byteLength) {
+          const jsonStr = decoder.decode(new Uint8Array(rawBuffer, 20, jsonLen));
+          const gltf = JSON.parse(jsonStr);
+          const embedded: GlbSavedKeyframeClip | undefined =
+            gltf?.asset?.extras?.aitypeKeyframeClip || gltf?.extras?.aitypeKeyframeClip;
+          if (embedded && Array.isArray(embedded.keyframes) && embedded.keyframes.length > 0) {
+            return embedded;
+          }
+        }
+        return null;
+      }
+      // Thử parse dưới dạng tệp JSON (.clip.json / .json)
+      const txt = decoder.decode(new Uint8Array(rawBuffer)).trim();
+      if (txt.startsWith('{')) {
+        const parsed = JSON.parse(txt);
+        const clip = parsed?.aitypeKeyframeClip || parsed;
+        if (clip && Array.isArray(clip.keyframes) && clip.keyframes.length > 0) {
+          return {
+            name: String(clip.name || 'Imported_Clip'),
+            duration: Math.max(0.5, Number(clip.duration) || 2.4),
+            loop: clip.loop !== false,
+            speed: Number(clip.speed) || 1.0,
+            createdAt: clip.createdAt || new Date().toISOString(),
+            keyframes: clip.keyframes
+          };
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  importPropAnimationGlb(
+    propId: string,
+    blobUrl: string,
+    fileName: string,
+    rawBuffer?: ArrayBuffer
+  ): Promise<{ ok: boolean; clipName?: string; duration?: number; isKeyframeClip?: boolean; error?: string }> {
+    return new Promise(async (resolve) => {
       const rig = this._propRigMap.get(propId);
       if (!rig || !this.app) {
         resolve({ ok: false, error: 'Đồ vật GLB chưa sẵn sàng trên canvas.' });
         return;
       }
+
+      const baseLabel = String(fileName || 'CustomAnim').replace(/\.(clip\.json|json|glb)$/i, '');
+
+      // 1. Kiểm tra nếu tệp .glb hoặc .json chứa bộ Keyframe chuẩn AI.Type -> tự động tái ánh xạ (retarget) sang khớp xương nhân vật hiện tại
+      try {
+        let buf = rawBuffer;
+        if (!buf && blobUrl) {
+          const resp = await fetch(blobUrl);
+          buf = await resp.arrayBuffer();
+        }
+        if (buf) {
+          const kfClip = this.parseKeyframeClipFromBuffer(buf);
+          if (kfClip && Array.isArray(kfClip.keyframes) && kfClip.keyframes.length > 0) {
+            const count = this.applyGeneratedBoneTimeline(propId, {
+              duration: kfClip.duration,
+              loop: kfClip.loop,
+              speed: kfClip.speed,
+              keyframes: kfClip.keyframes
+            });
+            if (count > 0) {
+              const baked = this.bakeKeyframesToClip(propId, kfClip.name || baseLabel);
+              const finalName = baked?.name || kfClip.name || baseLabel;
+              this.playPropClip(propId, finalName);
+              resolve({
+                ok: true,
+                clipName: finalName,
+                duration: kfClip.duration,
+                isKeyframeClip: true
+              });
+              return;
+            }
+          }
+        }
+      } catch (_) {}
+
+      // 2. Nếu là tệp .glb animation thuần từ Mixamo / Blender / Meshy
       this.app.assets.loadFromUrl(blobUrl, 'container', (err: any, asset?: pc.Asset) => {
         if (err || !asset?.resource) {
           resolve({ ok: false, error: 'Không đọc được tệp GLB chuyển động.' });
@@ -2414,7 +3046,6 @@ export class SontinhSceneService implements OnDestroy {
           resolve({ ok: false, error: 'Tệp GLB này không chứa dữ liệu chuyển động (animation track) nào.' });
           return;
         }
-        const baseLabel = String(fileName || 'CustomAnim').replace(/\.glb$/i, '');
         let firstAddedName = '';
         let firstDur = 2.5;
         for (let i = 0; i < rawAnims.length; i++) {
@@ -2441,69 +3072,190 @@ export class SontinhSceneService implements OnDestroy {
     });
   }
 
+  /** Phân giải chính xác bộ khung xương giải phẫu (Hips, Spine02/01/Spine, Neck, Head, Arms, Legs) cho cả Meshy, Mixamo, VRM & Blender Rig */
+  private _resolveRigAnatomy(rig: {
+    bones: Map<string, { name: string; label: string; depth: number; isSkinnedBone: boolean }>;
+  }): {
+    hips: string;
+    lowerSpine: string;
+    midSpine: string;
+    chest: string;
+    neck: string;
+    head: string;
+    lShoulder: string;
+    lArm: string;
+    lForeArm: string;
+    lHand: string;
+    rShoulder: string;
+    rArm: string;
+    rForeArm: string;
+    rHand: string;
+    lUpLeg: string;
+    lLeg: string;
+    lFoot: string;
+    rUpLeg: string;
+    rLeg: string;
+    rFoot: string;
+  } {
+    const entries = Array.from(rig.bones.values()).filter((b) => b.name !== '__root__');
+    const findExactOrRegex = (exactList: RegExp[], fallback = '__root__'): string => {
+      for (const re of exactList) {
+        const hit = entries.find((b) => re.test(b.label.trim()));
+        if (hit) return hit.name;
+      }
+      return fallback;
+    };
+
+    const hips = findExactOrRegex([/^(hips|pelvis|hip|c_pos|root_bone)$/i, /hips|pelvis/i], '__root__');
+
+    // Thu thập chuỗi xương sống theo thứ tự cây phân cấp (từ gần Hips lên tới ngực)
+    const spineChain = entries
+      .filter((b) => /^(spine|spine\d+|chest|upperchest|torso)$/i.test(b.label.trim()))
+      .sort((a, b) => a.depth - b.depth);
+
+    const lowerSpine = spineChain[0]?.name || findExactOrRegex([/spine02|spine_01|spine1|^spine$/i], hips);
+    const midSpine = spineChain[1]?.name || spineChain[0]?.name || lowerSpine;
+    const chest = spineChain[spineChain.length - 1]?.name || midSpine;
+
+    const neck = findExactOrRegex([/^neck$/i, /neck/i], chest);
+    const head = findExactOrRegex([/^head$/i, /^head_01$/i], neck);
+
+    const lShoulder = findExactOrRegex([/^leftshoulder$/i, /shoulder.*l|l.*shoulder|clavicle.*l/i], chest);
+    const lArm = findExactOrRegex([/^leftarm$/i, /^upperarm_l$/i, /leftarm|upperarm.*l|arm_l|l_arm/i], lShoulder);
+    const lForeArm = findExactOrRegex([/^leftforearm$/i, /^lowerarm_l$/i, /leftforearm|forearm.*l|lowerarm.*l/i], lArm);
+    const lHand = findExactOrRegex([/^lefthand$/i, /lefthand|hand_l|l_hand/i], lForeArm);
+
+    const rShoulder = findExactOrRegex([/^rightshoulder$/i, /shoulder.*r|r.*shoulder|clavicle.*r/i], chest);
+    const rArm = findExactOrRegex([/^rightarm$/i, /^upperarm_r$/i, /rightarm|upperarm.*r|arm_r|r_arm/i], rShoulder);
+    const rForeArm = findExactOrRegex([/^rightforearm$/i, /^lowerarm_r$/i, /rightforearm|forearm.*r|lowerarm.*r/i], rArm);
+    const rHand = findExactOrRegex([/^righthand$/i, /righthand|hand_r|r_hand/i], rForeArm);
+
+    const lUpLeg = findExactOrRegex([/^leftupleg$/i, /^thigh_l$/i, /leftupleg|thigh.*l|upleg.*l/i], hips);
+    const lLeg = findExactOrRegex([/^leftleg$/i, /^calf_l$/i, /^shin_l$/i, /leftleg|calf.*l|shin.*l|lowerleg.*l/i], lUpLeg);
+    const lFoot = findExactOrRegex([/^leftfoot$/i, /leftfoot|foot_l|l_foot/i], lLeg);
+
+    const rUpLeg = findExactOrRegex([/^rightupleg$/i, /^thigh_r$/i, /rightupleg|thigh.*r|upleg.*r/i], hips);
+    const rLeg = findExactOrRegex([/^rightleg$/i, /^calf_r$/i, /^shin_r$/i, /rightleg|calf.*r|shin.*r|lowerleg.*r/i], rUpLeg);
+    const rFoot = findExactOrRegex([/^rightfoot$/i, /rightfoot|foot_r|r_foot/i], rLeg);
+
+    return {
+      hips,
+      lowerSpine,
+      midSpine,
+      chest,
+      neck,
+      head,
+      lShoulder,
+      lArm,
+      lForeArm,
+      lHand,
+      rShoulder,
+      rArm,
+      rForeArm,
+      rHand,
+      lUpLeg,
+      lLeg,
+      lFoot,
+      rUpLeg,
+      rLeg,
+      rFoot
+    };
+  }
+
   /** Tạo nhanh bộ Keyframe mẫu tự động cho các khớp xương của GLB (Thở, Vẫy tay, Nhún nhảy, Nhìn quanh) */
   applyProceduralBonePreset(propId: string, preset: 'breathe' | 'wave' | 'bounce' | 'look_around'): boolean {
     const rig = this._propRigMap.get(propId);
     if (!rig) return false;
+    this._stopRigClipAnim(rig);
     this.resetBonePose(propId);
     rig.timeline.keyframes = [];
     rig.timeline.mode = 'keyframes';
     rig.timeline.duration = 2.4;
     rig.timeline.loop = true;
 
-    const findBoneByRegex = (re: RegExp): string | null => {
-      for (const b of rig.bones.values()) {
-        if (b.name !== '__root__' && re.test(b.label)) return b.name;
-      }
-      return null;
-    };
-
-    const spineBone = findBoneByRegex(/spine1|spine2|chest|upperchest|spine/i) || '__root__';
-    const headBone = findBoneByRegex(/head|neck/i) || spineBone;
-    const rightArmBone = findBoneByRegex(/rightarm|arm_r|r_arm|rightforearm|hand_r/i) || spineBone;
-    const hipsBone = findBoneByRegex(/hips|pelvis|root/i) || '__root__';
-
-    const addKf = (boneName: string, time: number, rx: number, ry: number, rz: number, py = 0) => {
-      this.upsertBoneKeyframe(propId, boneName, time, { x: rx, y: ry, z: rz }, { x: 0, y: py, z: 0 });
+    const anat = this._resolveRigAnatomy(rig);
+    const addKf = (boneName: string, time: number, rx: number, ry: number, rz: number, py = 0, px = 0) => {
+      if (!boneName) return;
+      this.upsertBoneKeyframe(propId, boneName, time, { x: rx, y: ry, z: rz }, { x: px, y: py, z: 0 });
     };
 
     if (preset === 'breathe') {
-      addKf(spineBone, 0.0, 0, 0, 0);
-      addKf(spineBone, 1.2, 6, 0, 0);
-      addKf(spineBone, 2.4, 0, 0, 0);
-      if (headBone !== spineBone) {
-        addKf(headBone, 0.0, 0, 0, 0);
-        addKf(headBone, 1.2, -4, 3, 0);
-        addKf(headBone, 2.4, 0, 0, 0);
+      for (const t of [0.0, 2.4]) {
+        addKf(anat.hips, t, 0, 0, 0, 0);
+        addKf(anat.lowerSpine, t, 0, 0, 0);
+        addKf(anat.chest, t, 0, 0, 0);
+        addKf(anat.head, t, 0, 0, 0);
+        addKf(anat.lArm, t, 0, 0, -18);
+        addKf(anat.rArm, t, 0, 0, 18);
       }
+      addKf(anat.hips, 1.2, 0, 0, 0, 0.02);
+      addKf(anat.lowerSpine, 1.2, -3, 0, 0);
+      addKf(anat.chest, 1.2, -5, 0, 0);
+      addKf(anat.head, 1.2, -4, 3, 0);
+      addKf(anat.lArm, 1.2, -4, 0, -14);
+      addKf(anat.rArm, 1.2, -4, 0, 14);
     } else if (preset === 'wave') {
-      addKf(rightArmBone, 0.0, 0, 0, 0);
-      addKf(rightArmBone, 0.6, -35, 0, -45);
-      addKf(rightArmBone, 1.2, -35, 0, -15);
-      addKf(rightArmBone, 1.8, -35, 0, -45);
-      addKf(rightArmBone, 2.4, 0, 0, 0);
-      if (headBone !== rightArmBone) {
-        addKf(headBone, 0.0, 0, 0, 0);
-        addKf(headBone, 1.2, 0, 8, 5);
-        addKf(headBone, 2.4, 0, 0, 0);
+      for (const t of [0.0, 2.4]) {
+        addKf(anat.hips, t, 0, 0, 0, 0);
+        addKf(anat.chest, t, 0, 0, 0);
+        addKf(anat.head, t, 0, 0, 0);
+        addKf(anat.lArm, t, 0, 0, -18);
+        addKf(anat.rArm, t, 0, 0, 18);
+        addKf(anat.rForeArm, t, 0, 0, 0);
       }
+      addKf(anat.chest, 0.5, 0, -6, 4);
+      addKf(anat.chest, 1.2, 0, -8, 5);
+      addKf(anat.chest, 1.9, 0, -6, 4);
+      addKf(anat.head, 0.6, -5, 8, -6);
+      addKf(anat.head, 1.2, -5, 10, 6);
+      addKf(anat.head, 1.8, -5, 8, -6);
+      // Giơ cao tay phải lên ngang đầu và vẫy cẳng tay qua lại
+      addKf(anat.rArm, 0.45, -35, 0, -65);
+      addKf(anat.rArm, 0.9, -35, 0, -75);
+      addKf(anat.rArm, 1.4, -35, 0, -58);
+      addKf(anat.rArm, 1.9, -35, 0, -75);
+      addKf(anat.rForeArm, 0.45, -55, 0, -25);
+      addKf(anat.rForeArm, 0.9, -55, 0, 20);
+      addKf(anat.rForeArm, 1.4, -55, 0, -30);
+      addKf(anat.rForeArm, 1.9, -55, 0, 20);
     } else if (preset === 'bounce') {
-      addKf(hipsBone, 0.0, 0, 0, 0, 0);
-      addKf(hipsBone, 0.6, 5, -8, 0, 0.25);
-      addKf(hipsBone, 1.2, 0, 0, 0, 0);
-      addKf(hipsBone, 1.8, 5, 8, 0, 0.25);
-      addKf(hipsBone, 2.4, 0, 0, 0, 0);
+      const steps = [0.0, 0.4, 0.8, 1.2, 1.6, 2.0, 2.4];
+      steps.forEach((t, idx) => {
+        const isPeak = idx % 2 === 1;
+        const side = idx === 1 ? -1 : idx === 3 ? 1 : idx === 5 ? -1 : 0;
+        addKf(anat.hips, t, isPeak ? -5 : 8, side * 12, side * 4, isPeak ? 0.16 : -0.1, side * 0.06);
+        addKf(anat.lowerSpine, t, isPeak ? -4 : 10, -side * 10, -side * 4);
+        addKf(anat.head, t, isPeak ? -6 : 6, side * 8, 0);
+        addKf(anat.lUpLeg, t, isPeak ? -15 : -38, 0, 0);
+        addKf(anat.rUpLeg, t, isPeak ? -15 : -38, 0, 0);
+        addKf(anat.lLeg, t, isPeak ? 10 : 48, 0, 0);
+        addKf(anat.rLeg, t, isPeak ? 10 : 48, 0, 0);
+        addKf(anat.lArm, t, isPeak ? -45 : -15, 0, isPeak ? 25 : -15);
+        addKf(anat.rArm, t, isPeak ? -45 : -15, 0, isPeak ? -25 : 15);
+        addKf(anat.lForeArm, t, isPeak ? -40 : -20, 0, 0);
+        addKf(anat.rForeArm, t, isPeak ? -40 : -20, 0, 0);
+      });
     } else if (preset === 'look_around') {
-      addKf(headBone, 0.0, 0, 0, 0);
-      addKf(headBone, 0.7, -5, -28, 0);
-      addKf(headBone, 1.7, -5, 28, 0);
-      addKf(headBone, 2.4, 0, 0, 0);
-      if (spineBone !== headBone) {
-        addKf(spineBone, 0.0, 0, 0, 0);
-        addKf(spineBone, 0.7, 0, -10, 0);
-        addKf(spineBone, 1.7, 0, 10, 0);
-        addKf(spineBone, 2.4, 0, 0, 0);
+      for (const t of [0.0, 2.4]) {
+        addKf(anat.hips, t, 0, 0, 0, 0);
+        addKf(anat.lowerSpine, t, 0, 0, 0);
+        addKf(anat.chest, t, 0, 0, 0);
+        addKf(anat.neck, t, 0, 0, 0);
+        addKf(anat.head, t, 0, 0, 0);
+        addKf(anat.lArm, t, 0, 0, -18);
+        addKf(anat.rArm, t, 0, 0, 18);
       }
+      addKf(anat.hips, 0.75, 0, -12, 0);
+      addKf(anat.lowerSpine, 0.75, 0, -15, 0);
+      addKf(anat.chest, 0.75, -3, -18, 0);
+      addKf(anat.neck, 0.75, -3, -15, 0);
+      addKf(anat.head, 0.75, -5, -32, -4);
+
+      addKf(anat.hips, 1.65, 0, 12, 0);
+      addKf(anat.lowerSpine, 1.65, 0, 15, 0);
+      addKf(anat.chest, 1.65, -3, 18, 0);
+      addKf(anat.neck, 1.65, -3, 15, 0);
+      addKf(anat.head, 1.65, -5, 32, 4);
     }
 
     rig.currentTime = 0;
@@ -2533,6 +3285,7 @@ export class SontinhSceneService implements OnDestroy {
     const rig = this._propRigMap.get(propId);
     if (!rig || !spec || !Array.isArray(spec.keyframes)) return 0;
 
+    this._stopRigClipAnim(rig);
     this.resetBonePose(propId);
     rig.timeline.keyframes = [];
     rig.timeline.mode = 'keyframes';
@@ -2544,15 +3297,68 @@ export class SontinhSceneService implements OnDestroy {
       rig.timeline.speed = spec.speed;
     }
 
+    const anat = this._resolveRigAnatomy(rig);
+    const aliasMap: Record<string, string> = {
+      hips: anat.hips,
+      pelvis: anat.hips,
+      root: anat.hips,
+      spine: anat.lowerSpine,
+      spine1: anat.midSpine,
+      spine01: anat.midSpine,
+      spine2: anat.chest,
+      spine02: anat.lowerSpine,
+      chest: anat.chest,
+      upperchest: anat.chest,
+      torso: anat.chest,
+      neck: anat.neck,
+      head: anat.head,
+      leftshoulder: anat.lShoulder,
+      rightshoulder: anat.rShoulder,
+      leftarm: anat.lArm,
+      leftupperarm: anat.lArm,
+      upperarm_l: anat.lArm,
+      rightarm: anat.rArm,
+      rightupperarm: anat.rArm,
+      upperarm_r: anat.rArm,
+      leftforearm: anat.lForeArm,
+      leftlowerarm: anat.lForeArm,
+      lowerarm_l: anat.lForeArm,
+      rightforearm: anat.rForeArm,
+      rightlowerarm: anat.rForeArm,
+      lowerarm_r: anat.rForeArm,
+      lefthand: anat.lHand,
+      righthand: anat.rHand,
+      leftupleg: anat.lUpLeg,
+      leftthigh: anat.lUpLeg,
+      thigh_l: anat.lUpLeg,
+      rightupleg: anat.rUpLeg,
+      rightthigh: anat.rUpLeg,
+      thigh_r: anat.rUpLeg,
+      leftleg: anat.lLeg,
+      leftcalf: anat.lLeg,
+      leftshin: anat.lLeg,
+      calf_l: anat.lLeg,
+      rightleg: anat.rLeg,
+      rightcalf: anat.rLeg,
+      rightshin: anat.rLeg,
+      calf_r: anat.rLeg,
+      leftfoot: anat.lFoot,
+      rightfoot: anat.rFoot
+    };
+
     const resolveBoneName = (raw: string): string | null => {
       if (!raw) return null;
       const trimmed = String(raw).trim();
       if (rig.bones.has(trimmed)) return trimmed;
-      const clean = trimmed.replace(/^mixamorig:?/i, '').toLowerCase();
+      const clean = trimmed.replace(/^mixamorig:?/i, '').replace(/[\s_.-]+/g, '').toLowerCase();
       for (const b of rig.bones.values()) {
-        if (b.name.toLowerCase() === clean || b.label.toLowerCase() === clean) {
+        const bClean = b.label.replace(/[\s_.-]+/g, '').toLowerCase();
+        if (b.name.toLowerCase() === clean || bClean === clean) {
           return b.name;
         }
+      }
+      if (aliasMap[clean] && rig.bones.has(aliasMap[clean])) {
+        return aliasMap[clean];
       }
       for (const b of rig.bones.values()) {
         if (b.label.toLowerCase().includes(clean) || clean.includes(b.label.toLowerCase())) {
@@ -2571,11 +3377,16 @@ export class SontinhSceneService implements OnDestroy {
       const resolved = resolveBoneName(kf.boneName);
       if (!resolved) continue;
       const t = Math.max(0, Math.min(rig.timeline.duration, Number(kf.time) || 0));
-      const rot = {
-        x: clampAngle(kf.rot?.x),
-        y: clampAngle(kf.rot?.y),
-        z: clampAngle(kf.rot?.z)
-      };
+      let rx = clampAngle(kf.rot?.x);
+      const ry = clampAngle(kf.rot?.y);
+      const rz = clampAngle(kf.rot?.z);
+
+      // Ràng buộc giải phẫu khớp gối: khớp gối (LeftLeg / RightLeg) chỉ gập về phía sau (rx >= 0 trong Character Space)
+      if ((resolved === anat.lLeg || resolved === anat.rLeg) && resolved !== anat.lUpLeg && resolved !== anat.rUpLeg) {
+        if (rx < -5) rx = Math.abs(rx);
+      }
+
+      const rot = { x: rx, y: ry, z: rz };
       const pos = {
         x: clampOffset(kf.pos?.x),
         y: clampOffset(kf.pos?.y),
@@ -2595,168 +3406,543 @@ export class SontinhSceneService implements OnDestroy {
   }
 
   /**
-   * Bộ tổng hợp chuyển động khớp xương thông minh dựa trên từ khóa kịch bản + nhịp năng lượng khung hình Video mẫu.
-   * Dùng làm bộ sinh dự phòng hoặc kết hợp khi người dùng yêu cầu thiết kế chuyển động cho mọi Rig xương.
+   * Chuyển đổi trực tiếp chuỗi dữ liệu tư thế khung hình Video (VideoFramePoseSample[])
+   * sang hệ thống Keyframe 3D trên toàn bộ khớp xương nhân vật (Motion Retargeting).
+   */
+  synthesizeVideoPoseBoneMotion(
+    propId: string,
+    samples: VideoFramePoseSample[],
+    duration: number,
+    promptHint = ''
+  ): number {
+    const rig = this._propRigMap.get(propId);
+    if (!rig || !Array.isArray(samples) || samples.length === 0) return 0;
+
+    const anat = this._resolveRigAnatomy(rig);
+    const dur = Math.max(0.8, Math.min(60, Number(duration) || 3.0));
+    const kfs: Array<{
+      time: number;
+      boneName: string;
+      rot: { x: number; y: number; z: number };
+      pos?: { x: number; y: number; z: number };
+    }> = [];
+
+    const push = (boneName: string, time: number, rx: number, ry: number, rz: number, px = 0, py = 0, pz = 0) => {
+      if (!boneName) return;
+      kfs.push({
+        time: Math.round(time * 100) / 100,
+        boneName,
+        rot: {
+          x: Math.round(Math.max(-135, Math.min(135, rx)) * 10) / 10,
+          y: Math.round(Math.max(-150, Math.min(150, ry)) * 10) / 10,
+          z: Math.round(Math.max(-135, Math.min(135, rz)) * 10) / 10
+        },
+        pos: {
+          x: Math.round(Math.max(-1.2, Math.min(1.2, px)) * 100) / 100,
+          y: Math.round(Math.max(-0.65, Math.min(0.65, py)) * 100) / 100,
+          z: Math.round(Math.max(-1.2, Math.min(1.2, pz)) * 100) / 100
+        }
+      });
+    };
+
+    const baseCx = samples[0]?.cx ?? 0.5;
+    const baseCy = samples[0]?.cy ?? 0.5;
+    const lowerHint = (promptHint || '').toLowerCase();
+    const isHighEnergyHint = /nhảy|dance|hiphop|võ|đá|kick|đấm|boxing/.test(lowerHint);
+    const ampScale = isHighEnergyHint ? 1.25 : 1.05;
+
+    for (let i = 0; i < samples.length; i++) {
+      const s = samples[i];
+      const t = Math.max(0, Math.min(dur, Number(s.time) || (i / Math.max(1, samples.length - 1)) * dur));
+
+      // Dịch chuyển Hips theo chuyển động ngang (cx) và độ nhún/bật dọc (cy) của chủ thể trong video
+      const dx = (s.cx - baseCx) * 1.15;
+      const dy = (baseCy - s.cy) * 0.75;
+      const turnY = (s.torsoTurnY || 0) * ampScale;
+      const leanZ = (s.torsoLeanZ || 0) * ampScale;
+      const pitchX = (s.torsoPitchX || 0) * ampScale;
+
+      push(anat.hips, t, pitchX * 0.35, turnY * 0.55, leanZ * 0.35, dx, dy, 0);
+      if (anat.lowerSpine !== anat.hips) {
+        push(anat.lowerSpine, t, pitchX * 0.35, turnY * 0.25, leanZ * 0.35);
+      }
+      if (anat.midSpine !== anat.lowerSpine && anat.midSpine !== anat.hips) {
+        push(anat.midSpine, t, pitchX * 0.2, turnY * 0.15, leanZ * 0.2);
+      }
+      if (anat.chest !== anat.midSpine && anat.chest !== anat.lowerSpine) {
+        push(anat.chest, t, pitchX * 0.2, turnY * 0.15, leanZ * 0.2);
+      }
+      if (anat.neck !== anat.chest) {
+        push(anat.neck, t, -pitchX * 0.15, -turnY * 0.12, -leanZ * 0.15);
+      }
+      if (anat.head !== anat.neck) {
+        push(anat.head, t, pitchX * 0.25 - 3, -turnY * 0.2, -leanZ * 0.2);
+      }
+
+      // Cánh tay & Khuỷu tay (tư thế gốc A-pose ~35 độ, khép nhẹ vào thân khi hạ tay, mở rộng khi vung tay)
+      const lArmRz = (s.leftArmLift - 22) * ampScale;
+      const rArmRz = -(s.rightArmLift - 22) * ampScale;
+      const lArmRx = -(s.leftArmFwd || 0) * ampScale;
+      const rArmRx = -(s.rightArmFwd || 0) * ampScale;
+
+      push(anat.lArm, t, lArmRx, (s.leftElbowBend > 35 ? -15 : 8), lArmRz);
+      push(anat.rArm, t, rArmRx, (s.rightElbowBend > 35 ? 15 : -8), rArmRz);
+
+      if (anat.lForeArm !== anat.lArm) {
+        const lElbow = Math.max(0, s.leftElbowBend || 0) * ampScale;
+        push(anat.lForeArm, t, -lElbow, 0, -lElbow * 0.28);
+      }
+      if (anat.rForeArm !== anat.rArm) {
+        const rElbow = Math.max(0, s.rightElbowBend || 0) * ampScale;
+        push(anat.rForeArm, t, -rElbow, 0, rElbow * 0.28);
+      }
+
+      // Đùi, Đầu gối & Bàn chân
+      const lThighRx = (s.leftLegPitch || 0) * ampScale;
+      const rThighRx = (s.rightLegPitch || 0) * ampScale;
+      const lKneeRx = Math.max(0, (s.leftKneeBend || 0) * ampScale);
+      const rKneeRx = Math.max(0, (s.rightKneeBend || 0) * ampScale);
+
+      push(anat.lUpLeg, t, lThighRx, 0, Math.max(-18, Math.min(18, leanZ * 0.25)));
+      push(anat.rUpLeg, t, rThighRx, 0, Math.max(-18, Math.min(18, leanZ * 0.25)));
+
+      if (anat.lLeg !== anat.lUpLeg) {
+        push(anat.lLeg, t, lKneeRx, 0, 0);
+      }
+      if (anat.rLeg !== anat.rUpLeg) {
+        push(anat.rLeg, t, rKneeRx, 0, 0);
+      }
+      if (anat.lFoot !== anat.lLeg) {
+        push(anat.lFoot, t, -(lThighRx + lKneeRx) * 0.35, 0, 0);
+      }
+      if (anat.rFoot !== anat.rLeg) {
+        push(anat.rFoot, t, -(rThighRx + rKneeRx) * 0.35, 0, 0);
+      }
+    }
+
+    return this.applyGeneratedBoneTimeline(propId, {
+      duration: dur,
+      loop: true,
+      keyframes: kfs
+    });
+  }
+
+  /**
+   * Bộ tổng hợp chuyển động khớp xương thông minh dựa trên từ khóa kịch bản tiếng Việt/Anh
+   * (hỗ trợ cả chuỗi hành động liên tiếp nhau như "vẫy tay rồi cúi chào", phân biệt trái/phải)
+   * kết hợp dữ liệu khung hình Video mẫu (VideoFramePoseSample[]).
    */
   generateSmartBoneMotion(
     propId: string,
     promptText: string,
     duration = 2.4,
-    frameEnergies: number[] = []
+    frameEnergies: number[] = [],
+    poseSamples: VideoFramePoseSample[] = []
   ): number {
     const rig = this._propRigMap.get(propId);
     if (!rig) return 0;
 
-    const findBone = (re: RegExp, fallback = '__root__'): string => {
-      for (const b of rig.bones.values()) {
-        if (b.name !== '__root__' && re.test(b.label)) return b.name;
-      }
-      return fallback;
-    };
+    const cleanPrompt = (promptText || '').trim();
+    const lower = cleanPrompt.toLowerCase();
 
-    const hips = findBone(/^(hips|pelvis|root)$/i, '__root__');
-    const spine = findBone(/spine01|spine1|spine/i, hips);
-    const chest = findBone(/spine02|spine2|chest|upperchest/i, spine);
-    const neck = findBone(/neck/i, chest);
-    const head = findBone(/head/i, neck);
-    const lArm = findBone(/leftarm|arm_l|l_arm|upperarm_l/i, chest);
-    const lForeArm = findBone(/leftforearm|forearm_l|lowerarm_l/i, lArm);
-    const rArm = findBone(/rightarm|arm_r|r_arm|upperarm_r/i, chest);
-    const rForeArm = findBone(/rightforearm|forearm_r|lowerarm_r/i, rArm);
-    const lUpLeg = findBone(/leftupleg|thigh_l|upleg_l/i, hips);
-    const lLeg = findBone(/^(leftleg|calf_l|shin_l|leg_l)$/i, lUpLeg);
-    const rUpLeg = findBone(/rightupleg|thigh_r|upleg_r/i, hips);
-    const rLeg = findBone(/^(rightleg|calf_r|shin_r|leg_r)$/i, rUpLeg);
+    // Nếu có dữ liệu trích xuất tư thế từ Video mẫu và người dùng không ép một động tác đơn lẻ đối lập,
+    // ưu tiên tái tạo chuyển động bám sát từng khung hình của Video mẫu
+    const hasSpecificActionKeyword =
+      /moonwalk|trượt|đá|kick|taekwondo|karate|đấm|boxing|punch|võ|kungfu|vẫy|wave|cúi|chào|bow|bật nhảy|nhảy cao|jump|ngồi|squat|thụt dầu|xoay người|quay người|spin|giơ tay|ăn mừng|cheer|vỗ tay|clap|gật đầu|nod|lắc đầu|shake|đi bộ|walk|chạy|run|thuyết trình|nói chuyện|tạo dáng|pose|nhảy|dance|hiphop/.test(
+        lower
+      );
+    if (poseSamples && poseSamples.length >= 3 && (!cleanPrompt || /video|bắt chước|mẫu|\.mp4|\.webm|\.mov/i.test(cleanPrompt) || !hasSpecificActionKeyword)) {
+      return this.synthesizeVideoPoseBoneMotion(propId, poseSamples, duration, cleanPrompt);
+    }
 
-    const dur = Math.max(1.0, Math.min(12.0, Number(duration) || 2.4));
-    const lower = (promptText || '').toLowerCase();
-    const kfs: Array<{ time: number; boneName: string; rot: { x: number; y: number; z: number }; pos?: { x: number; y: number; z: number } }> = [];
-    const push = (boneName: string, time: number, rx: number, ry: number, rz: number, py = 0) => {
+    const anat = this._resolveRigAnatomy(rig);
+    const dur = Math.max(1.0, Math.min(20.0, Number(duration) || 2.4));
+    const kfs: Array<{
+      time: number;
+      boneName: string;
+      rot: { x: number; y: number; z: number };
+      pos?: { x: number; y: number; z: number };
+    }> = [];
+
+    const push = (boneName: string, time: number, rx: number, ry: number, rz: number, py = 0, px = 0, pz = 0) => {
+      if (!boneName) return;
       kfs.push({
         time: Math.round(time * 100) / 100,
         boneName,
-        rot: { x: Math.round(rx), y: Math.round(ry), z: Math.round(rz) },
-        pos: { x: 0, y: Math.round(py * 100) / 100, z: 0 }
+        rot: { x: Math.round(rx * 10) / 10, y: Math.round(ry * 10) / 10, z: Math.round(rz * 10) / 10 },
+        pos: {
+          x: Math.round(px * 100) / 100,
+          y: Math.round(py * 100) / 100,
+          z: Math.round(pz * 100) / 100
+        }
       });
     };
 
-    // Hệ số biên độ nhịp theo năng lượng chuyển động của video mẫu (nếu có)
+    const setRestPoseAt = (t: number) => {
+      push(anat.hips, t, 0, 0, 0, 0, 0, 0);
+      push(anat.lowerSpine, t, 0, 0, 0);
+      if (anat.midSpine !== anat.lowerSpine) push(anat.midSpine, t, 0, 0, 0);
+      if (anat.chest !== anat.midSpine) push(anat.chest, t, 0, 0, 0);
+      if (anat.neck !== anat.chest) push(anat.neck, t, 0, 0, 0);
+      if (anat.head !== anat.neck) push(anat.head, t, 0, 0, 0);
+      push(anat.lArm, t, 0, 0, -18);
+      push(anat.rArm, t, 0, 0, 18);
+      if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, t, -10, 0, 0);
+      if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, t, -10, 0, 0);
+      push(anat.lUpLeg, t, 0, 0, 0);
+      push(anat.rUpLeg, t, 0, 0, 0);
+      if (anat.lLeg !== anat.lUpLeg) push(anat.lLeg, t, 0, 0, 0);
+      if (anat.rLeg !== anat.rUpLeg) push(anat.rLeg, t, 0, 0, 0);
+      if (anat.lFoot !== anat.lLeg) push(anat.lFoot, t, 0, 0, 0);
+      if (anat.rFoot !== anat.rLeg) push(anat.rFoot, t, 0, 0, 0);
+    };
+
     const energyBoost = frameEnergies.length > 0
-      ? Math.max(0.75, Math.min(1.45, frameEnergies.reduce((a, b) => a + b, 0) / frameEnergies.length))
+      ? Math.max(0.85, Math.min(1.35, frameEnergies.reduce((a, b) => a + b, 0) / frameEnergies.length))
       : 1.0;
 
-    if (/đá|kick|võ|karate|taekwondo/.test(lower)) {
-      const steps = [0, dur * 0.25, dur * 0.5, dur * 0.75, dur];
-      push(hips, steps[0], 0, 0, 0, 0);
-      push(hips, steps[1], -8, 18, 0, 0.05);
-      push(hips, steps[2], -15, 28, 6, 0.12);
-      push(hips, steps[3], -6, 10, 0, 0.04);
-      push(hips, steps[4], 0, 0, 0, 0);
+    // Tách chuỗi hành động nếu người dùng mô tả nhiều bước liên tiếp ("vẫy tay rồi cúi chào", "đấm sau đó đá")
+    const rawClauses = lower
+      .split(/\s+(?:rồi|sau đó|tiếp theo|xong|và|then|and then)\s+|[,;]+/i)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    const clauses = rawClauses.length > 0 ? rawClauses : [lower];
 
-      push(rUpLeg, steps[0], 0, 0, 0);
-      push(rUpLeg, steps[1], -45 * energyBoost, 0, -8);
-      push(rUpLeg, steps[2], -82 * energyBoost, -10, -12);
-      push(rUpLeg, steps[3], -30, 0, -4);
-      push(rUpLeg, steps[4], 0, 0, 0);
+    const buildClauseSegment = (clause: string, tStart: number, tEnd: number) => {
+      const segDur = Math.max(0.4, tEnd - tStart);
+      const at = (r: number) => tStart + segDur * r;
+      const useLeftOnly = /trái|left/.test(clause) && !/phải|right|hai|cả/.test(clause);
+      const useRightOnly = /phải|right/.test(clause) && !/trái|left|hai|cả/.test(clause);
+      const useBothSides = /hai|2|cả hai|both/.test(clause);
 
-      if (rLeg !== rUpLeg) {
-        push(rLeg, steps[0], 0, 0, 0);
-        push(rLeg, steps[1], 55, 0, 0);
-        push(rLeg, steps[2], 5, 0, 0);
-        push(rLeg, steps[3], 35, 0, 0);
-        push(rLeg, steps[4], 0, 0, 0);
-      }
-      push(lArm, steps[0], -20, 0, 25);
-      push(lArm, steps[2], -45, 20, 35);
-      push(lArm, steps[4], -20, 0, 25);
-      push(rArm, steps[0], -20, 0, -25);
-      push(rArm, steps[2], 25, -20, -35);
-      push(rArm, steps[4], -20, 0, -25);
-    } else if (/đấm|boxing|punch|chiến đấu|combat/.test(lower)) {
-      const steps = [0, dur * 0.25, dur * 0.5, dur * 0.75, dur];
-      push(spine, steps[0], 8, -15, 0);
-      push(spine, steps[1], 12, 28 * energyBoost, 0);
-      push(spine, steps[2], 8, -22 * energyBoost, 0);
-      push(spine, steps[3], 14, 32 * energyBoost, 0);
-      push(spine, steps[4], 8, -15, 0);
+      setRestPoseAt(tStart);
 
-      push(lArm, steps[0], -35, 20, 18);
-      push(lArm, steps[1], -78 * energyBoost, 35, 8);
-      push(lArm, steps[2], -35, 20, 18);
-      push(lArm, steps[3], -30, 15, 22);
-      push(lArm, steps[4], -35, 20, 18);
+      if (/moonwalk|trượt|michael jackson|glide/.test(clause)) {
+        // Moonwalk: xoay ngang thân 78 độ, lướt lùi từ phải qua trái kèm miết mũi chân & gập gối luân phiên
+        const steps = 6;
+        for (let i = 1; i < steps; i++) {
+          const r = i / steps;
+          const t = at(r);
+          const phase = r * Math.PI * 2;
+          const s = Math.sin(phase);
+          const slideX = 0.28 - r * 0.56;
+          push(anat.hips, t, 4, -78, 0, -0.03 * Math.abs(s), slideX, 0);
+          push(anat.lowerSpine, t, 6, 0, 0);
+          push(anat.chest, t, 8, 0, 0);
+          push(anat.head, t, 18, 0, 0);
+          push(anat.lUpLeg, t, s * 28, 0, 0);
+          push(anat.rUpLeg, t, -s * 28, 0, 0);
+          if (anat.lLeg !== anat.lUpLeg) push(anat.lLeg, t, s > 0 ? 45 * s : 5, 0, 0);
+          if (anat.rLeg !== anat.rUpLeg) push(anat.rLeg, t, s < 0 ? 45 * -s : 5, 0, 0);
+          if (anat.lFoot !== anat.lLeg) push(anat.lFoot, t, s > 0 ? 25 * s : -10, 0, 0);
+          if (anat.rFoot !== anat.rLeg) push(anat.rFoot, t, s < 0 ? 25 * -s : -10, 0, 0);
+          push(anat.lArm, t, -s * 22, 0, -16);
+          push(anat.rArm, t, s * 22, 0, 16);
+          if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, t, -25, 0, 0);
+          if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, t, -25, 0, 0);
+        }
+      } else if (/đá|kick|taekwondo|karate|vung chân/.test(clause)) {
+        const kickLeft = useLeftOnly;
+        const kickUpLeg = kickLeft ? anat.lUpLeg : anat.rUpLeg;
+        const kickKnee = kickLeft ? anat.lLeg : anat.rLeg;
+        const supportUpLeg = kickLeft ? anat.rUpLeg : anat.lUpLeg;
+        const supportKnee = kickLeft ? anat.rLeg : anat.lLeg;
+        const turnSign = kickLeft ? -1 : 1;
 
-      push(rArm, steps[0], -35, -20, -18);
-      push(rArm, steps[1], -30, -15, -22);
-      push(rArm, steps[2], -82 * energyBoost, -35, -8);
-      push(rArm, steps[3], -35, -20, -18);
-      push(rArm, steps[4], -35, -20, -18);
-    } else if (/cúi|chào|bow|cảm ơn|xin chào/.test(lower)) {
-      const steps = [0, dur * 0.3, dur * 0.55, dur * 0.8, dur];
-      push(spine, steps[0], 0, 0, 0);
-      push(spine, steps[1], 32 * energyBoost, 0, 0);
-      push(spine, steps[2], 38 * energyBoost, 0, 0);
-      push(spine, steps[3], 12, 0, 0);
-      push(spine, steps[4], 0, 0, 0);
+        // 1. Co gối lấy đà (chamber)
+        push(anat.hips, at(0.25), -10, turnSign * 18, -turnSign * 8, -0.05);
+        push(anat.lowerSpine, at(0.25), -8, -turnSign * 10, -turnSign * 6);
+        push(kickUpLeg, at(0.25), -65 * energyBoost, 0, 0);
+        if (kickKnee !== kickUpLeg) push(kickKnee, at(0.25), 85, 0, 0);
+        push(supportUpLeg, at(0.25), -12, 0, 0);
+        if (supportKnee !== supportUpLeg) push(supportKnee, at(0.25), 18, 0, 0);
+        push(anat.lArm, at(0.25), -45, 15, -10);
+        push(anat.rArm, at(0.25), -45, -15, 10);
+        if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, at(0.25), -75, 0, 0);
+        if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, at(0.25), -75, 0, 0);
 
-      push(head, steps[0], 0, 0, 0);
-      push(head, steps[1], 22, 0, 0);
-      push(head, steps[2], 25, 0, 0);
-      push(head, steps[4], 0, 0, 0);
+        // 2. Tung cú đá thẳng lên cao (extension peak)
+        push(anat.hips, at(0.52), -22, turnSign * 32, -turnSign * 14, 0.08);
+        push(anat.lowerSpine, at(0.52), -16, -turnSign * 18, -turnSign * 10);
+        push(anat.chest, at(0.52), -10, -turnSign * 12, 0);
+        push(kickUpLeg, at(0.52), -98 * energyBoost, -turnSign * 12, turnSign * 15);
+        if (kickKnee !== kickUpLeg) push(kickKnee, at(0.52), 6, 0, 0);
+        push(supportUpLeg, at(0.52), 10, 0, 0);
+        if (supportKnee !== supportUpLeg) push(supportKnee, at(0.52), 12, 0, 0);
+        push(anat.lArm, at(0.52), kickLeft ? 25 : -55, 20, 15);
+        push(anat.rArm, at(0.52), kickLeft ? -55 : 25, -20, -15);
 
-      push(rArm, steps[0], 0, 0, 0);
-      push(rArm, steps[1], -35, 0, -45);
-      push(rArm, steps[2], -35, 0, -15);
-      push(rArm, steps[3], -35, 0, -45);
-      push(rArm, steps[4], 0, 0, 0);
-    } else if (/đi bộ|walk|chạy|run|bước/.test(lower)) {
-      const isRun = /chạy|run/.test(lower);
-      const swing = (isRun ? 48 : 30) * energyBoost;
-      const steps = [0, dur * 0.25, dur * 0.5, dur * 0.75, dur];
-      for (let i = 0; i < steps.length; i++) {
-        const phase = (i / 4) * Math.PI * 2;
-        const s = Math.sin(phase);
-        const c = Math.abs(Math.cos(phase));
-        push(hips, steps[i], isRun ? 8 : 2, s * 6, 0, c * (isRun ? 0.18 : 0.08));
-        push(spine, steps[i], isRun ? 12 : 4, -s * 8, 0);
-        push(lUpLeg, steps[i], s * swing, 0, 0);
-        push(rUpLeg, steps[i], -s * swing, 0, 0);
-        if (lLeg !== lUpLeg) push(lLeg, steps[i], Math.max(0, -s) * (swing * 0.85), 0, 0);
-        if (rLeg !== rUpLeg) push(rLeg, steps[i], Math.max(0, s) * (swing * 0.85), 0, 0);
-        push(lArm, steps[i], -s * (swing * 0.7), 0, 12);
-        push(rArm, steps[i], s * (swing * 0.7), 0, -12);
-      }
-    } else {
-      // Chuyển động nhảy / biểu diễn theo nhịp khung hình Video mẫu (Dance / Dynamic Motion)
-      const numSamples = Math.max(5, Math.min(9, frameEnergies.length > 1 ? frameEnergies.length : 5));
-      for (let i = 0; i < numSamples; i++) {
-        const ratio = i / (numSamples - 1);
-        const t = ratio * dur;
-        const isLoopEnd = i === 0 || i === numSamples - 1;
-        const e = frameEnergies[i] !== undefined ? Math.max(0.6, Math.min(1.5, frameEnergies[i])) : energyBoost;
-        const sign = i % 2 === 1 ? 1 : -1;
-        if (isLoopEnd) {
-          push(hips, t, 0, 0, 0, 0);
-          push(spine, t, 0, 0, 0);
-          push(head, t, 0, 0, 0);
-          push(lArm, t, 0, 0, 15);
-          push(rArm, t, 0, 0, -15);
-          push(lUpLeg, t, 0, 0, 0);
-          push(rUpLeg, t, 0, 0, 0);
-        } else {
-          push(hips, t, 6 * e, sign * 16 * e, sign * 6, 0.16 * e);
-          push(spine, t, 8 * e, -sign * 18 * e, -sign * 8);
-          push(head, t, -6, sign * 20 * e, sign * 6);
-          push(lArm, t, -35 * e, sign * 22, 25 + (sign > 0 ? 30 * e : -10));
-          push(rArm, t, -35 * e, sign * 22, -25 + (sign < 0 ? -30 * e : 10));
-          if (lForeArm !== lArm) push(lForeArm, t, -25 * e, 0, 15);
-          if (rForeArm !== rArm) push(rForeArm, t, -25 * e, 0, -15);
-          push(lUpLeg, t, sign > 0 ? -24 * e : 8, 0, -5);
-          push(rUpLeg, t, sign < 0 ? -24 * e : 8, 0, 5);
-          if (lLeg !== lUpLeg) push(lLeg, t, sign > 0 ? 28 * e : 0, 0, 0);
-          if (rLeg !== rUpLeg) push(rLeg, t, sign < 0 ? 28 * e : 0, 0, 0);
+        // 3. Thu chân hạ thế (rechamber)
+        push(anat.hips, at(0.78), -8, turnSign * 12, 0, -0.03);
+        push(kickUpLeg, at(0.78), -45, 0, 0);
+        if (kickKnee !== kickUpLeg) push(kickKnee, at(0.78), 60, 0, 0);
+      } else if (/đấm|boxing|punch|chiến đấu|combat|võ|kungfu/.test(clause)) {
+        // Thủ thế võ thuật + tung liên hoàn đấm trái (Jab) & đấm phải (Cross)
+        push(anat.hips, at(0.15), 6, -18, 0, -0.06);
+        push(anat.lowerSpine, at(0.15), 10, -12, 0);
+        push(anat.lUpLeg, at(0.15), -22, 0, 0, 0);
+        push(anat.rUpLeg, at(0.15), 16, 0, 0, 0);
+        if (anat.lLeg !== anat.lUpLeg) push(anat.lLeg, at(0.15), 28, 0, 0);
+        if (anat.rLeg !== anat.rUpLeg) push(anat.rLeg, at(0.15), 22, 0, 0);
+        push(anat.lArm, at(0.15), -45, 15, -15);
+        push(anat.rArm, at(0.15), -45, -15, 15);
+        if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, at(0.15), -85, 0, -15);
+        if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, at(0.15), -85, 0, 15);
+
+        // Đấm thẳng tay trái (Left Jab)
+        if (!useRightOnly) {
+          push(anat.hips, at(0.4), 8, 22, 0, -0.04, 0, 0.06);
+          push(anat.lowerSpine, at(0.4), 12, 26, 0);
+          push(anat.chest, at(0.4), 8, 20, 0);
+          push(anat.head, at(0.4), 5, -25, 0);
+          push(anat.lArm, at(0.4), -88 * energyBoost, -18, 10);
+          if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, at(0.4), -8, 0, 0);
+          push(anat.rArm, at(0.4), -40, -18, 18);
+          if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, at(0.4), -90, 0, 20);
+        }
+
+        // Đấm móc/thẳng tay phải (Right Cross)
+        if (!useLeftOnly) {
+          push(anat.hips, at(0.72), 10, -28, 0, -0.05, 0, 0.08);
+          push(anat.lowerSpine, at(0.72), 14, -32, 0);
+          push(anat.chest, at(0.72), 10, -24, 0);
+          push(anat.head, at(0.72), 5, 28, 0);
+          push(anat.rArm, at(0.72), -92 * energyBoost, 18, -10);
+          if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, at(0.72), -8, 0, 0);
+          push(anat.lArm, at(0.72), -40, 18, -18);
+          if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, at(0.72), -90, 0, -20);
+        }
+      } else if (/vẫy|wave|tạm biệt|bye|hi\b|hello/.test(clause)) {
+        const waveLeft = useLeftOnly || useBothSides;
+        const waveRight = !useLeftOnly || useBothSides;
+        const times = [at(0.25), at(0.45), at(0.65), at(0.85)];
+        times.forEach((t, idx) => {
+          const swing = idx % 2 === 0 ? 1 : -1;
+          push(anat.chest, t, -3, waveLeft && !waveRight ? 6 : -6, swing * 4);
+          push(anat.head, t, -5, swing * 8, swing * 6);
+          if (waveRight) {
+            push(anat.rArm, t, -35, 0, -68 + swing * 12);
+            if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, t, -58, 0, swing * 28);
+          }
+          if (waveLeft) {
+            push(anat.lArm, t, -35, 0, 68 + swing * 12);
+            if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, t, -58, 0, swing * 28);
+          }
+        });
+      } else if (/cúi|chào|bow|cảm ơn|kính lễ/.test(clause)) {
+        push(anat.hips, at(0.35), 18, 0, 0, -0.04, 0, -0.06);
+        push(anat.lowerSpine, at(0.35), 22 * energyBoost, 0, 0);
+        push(anat.midSpine, at(0.35), 18 * energyBoost, 0, 0);
+        push(anat.chest, at(0.35), 16 * energyBoost, 0, 0);
+        push(anat.neck, at(0.35), 12, 0, 0);
+        push(anat.head, at(0.35), 18, 0, 0);
+        push(anat.lArm, at(0.35), -15, 10, -22);
+        push(anat.rArm, at(0.35), -25, -20, 24);
+        if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, at(0.35), -65, 0, 35);
+
+        push(anat.hips, at(0.62), 20, 0, 0, -0.04, 0, -0.06);
+        push(anat.lowerSpine, at(0.62), 25 * energyBoost, 0, 0);
+        push(anat.midSpine, at(0.62), 20 * energyBoost, 0, 0);
+        push(anat.chest, at(0.62), 18 * energyBoost, 0, 0);
+        push(anat.head, at(0.62), 22, 0, 0);
+        push(anat.rArm, at(0.62), -25, -20, 24);
+        if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, at(0.62), -65, 0, 35);
+      } else if (/bật nhảy|nhảy cao|nhảy lên|jump|jumping jack/.test(clause)) {
+        // 1. Nhún gối lấy đà (Anticipation crouch)
+        push(anat.hips, at(0.22), 16, 0, 0, -0.22);
+        push(anat.lowerSpine, at(0.22), 18, 0, 0);
+        push(anat.lUpLeg, at(0.22), -55, 0, 0);
+        push(anat.rUpLeg, at(0.22), -55, 0, 0);
+        if (anat.lLeg !== anat.lUpLeg) push(anat.lLeg, at(0.22), 72, 0, 0);
+        if (anat.rLeg !== anat.rUpLeg) push(anat.rLeg, at(0.22), 72, 0, 0);
+        push(anat.lArm, at(0.22), 25, 0, -15);
+        push(anat.rArm, at(0.22), 25, 0, 15);
+
+        // 2. Bật tung lên không trung, vung 2 tay lên cao (Airborne peak)
+        push(anat.hips, at(0.5), -8, 0, 0, 0.34 * energyBoost);
+        push(anat.lowerSpine, at(0.5), -10, 0, 0);
+        push(anat.head, at(0.5), -12, 0, 0);
+        push(anat.lUpLeg, at(0.5), -18, 0, 14);
+        push(anat.rUpLeg, at(0.5), -18, 0, -14);
+        if (anat.lLeg !== anat.lUpLeg) push(anat.lLeg, at(0.5), 22, 0, 0);
+        if (anat.rLeg !== anat.rUpLeg) push(anat.rLeg, at(0.5), 22, 0, 0);
+        push(anat.lArm, at(0.5), -40, 0, 72);
+        push(anat.rArm, at(0.5), -40, 0, -72);
+        if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, at(0.5), -25, 0, 0);
+        if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, at(0.5), -25, 0, 0);
+
+        // 3. Tiếp đất nhún giảm chấn (Landing absorb)
+        push(anat.hips, at(0.78), 14, 0, 0, -0.18);
+        push(anat.lowerSpine, at(0.78), 15, 0, 0);
+        push(anat.lUpLeg, at(0.78), -48, 0, 0);
+        push(anat.rUpLeg, at(0.78), -48, 0, 0);
+        if (anat.lLeg !== anat.lUpLeg) push(anat.lLeg, at(0.78), 64, 0, 0);
+        if (anat.rLeg !== anat.rUpLeg) push(anat.rLeg, at(0.78), 64, 0, 0);
+        push(anat.lArm, at(0.78), -20, 0, 5);
+        push(anat.rArm, at(0.78), -20, 0, -5);
+      } else if (/ngồi|squat|thụt dầu|nhún sâu|cúi nhặt/.test(clause)) {
+        for (const r of [0.35, 0.65]) {
+          push(anat.hips, at(r), 15, 0, 0, -0.34, 0, -0.05);
+          push(anat.lowerSpine, at(r), 20, 0, 0);
+          push(anat.chest, at(r), 12, 0, 0);
+          push(anat.head, at(r), -14, 0, 0);
+          push(anat.lUpLeg, at(r), -82, 0, 8);
+          push(anat.rUpLeg, at(r), -82, 0, -8);
+          if (anat.lLeg !== anat.lUpLeg) push(anat.lLeg, at(r), 88, 0, 0);
+          if (anat.rLeg !== anat.rUpLeg) push(anat.rLeg, at(r), 88, 0, 0);
+          if (anat.lFoot !== anat.lLeg) push(anat.lFoot, at(r), -18, 0, 0);
+          if (anat.rFoot !== anat.rLeg) push(anat.rFoot, at(r), -18, 0, 0);
+          push(anat.lArm, at(r), -68, 0, -10);
+          push(anat.rArm, at(r), -68, 0, 10);
+          if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, at(r), -25, 0, 0);
+          if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, at(r), -25, 0, 0);
+        }
+      } else if (/xoay người|quay người|xoay vòng|quay vòng|spin|turn/.test(clause)) {
+        const dir = useLeftOnly ? -1 : 1;
+        const angles = [0, 90 * dir, 180 * dir, -90 * dir, 0];
+        angles.forEach((ang, idx) => {
+          if (idx === 0 || idx === angles.length - 1) return;
+          const r = idx / (angles.length - 1);
+          const t = at(r);
+          push(anat.hips, t, 0, ang, 0, 0.05);
+          push(anat.lowerSpine, t, -4, dir * 15, 0);
+          push(anat.lArm, t, -25, 0, 22);
+          push(anat.rArm, t, -25, 0, -22);
+          push(anat.lUpLeg, t, idx % 2 === 1 ? -22 : 10, 0, 0);
+          push(anat.rUpLeg, t, idx % 2 === 0 ? -22 : 10, 0, 0);
+          if (anat.lLeg !== anat.lUpLeg) push(anat.lLeg, t, idx % 2 === 1 ? 30 : 5, 0, 0);
+          if (anat.rLeg !== anat.rUpLeg) push(anat.rLeg, t, idx % 2 === 0 ? 30 : 5, 0, 0);
+        });
+      } else if (/vỗ tay|clap/.test(clause)) {
+        const beats = [0.2, 0.35, 0.5, 0.65, 0.8];
+        beats.forEach((r, idx) => {
+          const isClap = idx % 2 === 0;
+          const t = at(r);
+          push(anat.hips, t, 0, isClap ? 4 : -4, 0, isClap ? 0.03 : 0);
+          push(anat.chest, t, 5, 0, 0);
+          push(anat.head, t, isClap ? 4 : -3, 0, 0);
+          push(anat.lArm, t, -55, isClap ? -28 : -8, isClap ? -28 : -10);
+          push(anat.rArm, t, -55, isClap ? 28 : 8, isClap ? 28 : 10);
+          if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, t, -65, 0, isClap ? -25 : -5);
+          if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, t, -65, 0, isClap ? 25 : 5);
+        });
+      } else if (/giơ tay|ăn mừng|chiến thắng|cheer|victory|hô vang/.test(clause)) {
+        const leftUp = !useRightOnly;
+        const rightUp = !useLeftOnly;
+        for (const [r, bounce] of [[0.25, 0.1], [0.5, 0.02], [0.75, 0.12]] as Array<[number, number]>) {
+          const t = at(r);
+          push(anat.hips, t, -6, 0, 0, bounce);
+          push(anat.lowerSpine, t, -8, 0, 0);
+          push(anat.chest, t, -10, 0, 0);
+          push(anat.head, t, -12, 0, 0);
+          if (leftUp) {
+            push(anat.lArm, t, -35, 0, 78 + bounce * 80);
+            if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, t, -30, 0, 15);
+          }
+          if (rightUp) {
+            push(anat.rArm, t, -35, 0, -78 - bounce * 80);
+            if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, t, -30, 0, -15);
+          }
+        }
+      } else if (/gật đầu|nod|đồng ý/.test(clause)) {
+        for (const [r, pitch] of [[0.25, 22], [0.45, -6], [0.68, 24], [0.85, -4]] as Array<[number, number]>) {
+          const t = at(r);
+          push(anat.chest, t, pitch * 0.2, 0, 0);
+          push(anat.neck, t, pitch * 0.4, 0, 0);
+          push(anat.head, t, pitch, 0, 0);
+        }
+      } else if (/lắc đầu|shake head|từ chối/.test(clause)) {
+        for (const [r, yaw] of [[0.22, -28], [0.45, 28], [0.68, -28], [0.85, 22]] as Array<[number, number]>) {
+          const t = at(r);
+          push(anat.chest, t, 0, yaw * 0.18, 0);
+          push(anat.neck, t, 0, yaw * 0.4, 0);
+          push(anat.head, t, 0, yaw, 0);
+        }
+      } else if (/đi bộ|walk|chạy|run|bước|dạo/.test(clause)) {
+        const isRun = /chạy|run/.test(clause);
+        const swing = (isRun ? 48 : 32) * energyBoost;
+        const numSteps = 8;
+        for (let i = 1; i < numSteps; i++) {
+          const r = i / numSteps;
+          const t = at(r);
+          const phase = r * Math.PI * 2;
+          const s = Math.sin(phase);
+          const c = Math.cos(phase);
+          push(anat.hips, t, isRun ? 10 : 3, s * 8, c * 3, Math.abs(c) * (isRun ? 0.14 : 0.05));
+          push(anat.lowerSpine, t, isRun ? 8 : 3, -s * 10, 0);
+          push(anat.chest, t, isRun ? 6 : 2, -s * 8, 0);
+          push(anat.head, t, isRun ? -6 : 0, s * 5, 0);
+          push(anat.lUpLeg, t, -s * swing, 0, 0);
+          push(anat.rUpLeg, t, s * swing, 0, 0);
+          if (anat.lLeg !== anat.lUpLeg) push(anat.lLeg, t, (s < 0 ? -s : 0.2) * (swing * 1.05), 0, 0);
+          if (anat.rLeg !== anat.rUpLeg) push(anat.rLeg, t, (s > 0 ? s : 0.2) * (swing * 1.05), 0, 0);
+          push(anat.lArm, t, s * (swing * 0.75), 0, -16);
+          push(anat.rArm, t, -s * (swing * 0.75), 0, 16);
+          if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, t, isRun ? -65 : -28, 0, 0);
+          if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, t, isRun ? -65 : -28, 0, 0);
+        }
+      } else if (/thuyết trình|nói|talk|present|tạo dáng|pose|mẫu|khoác/.test(clause)) {
+        // Tạo dáng người mẫu / thuyết trình tự nhiên (tay co trước ngực, xoay hông & vai nhẹ nhàng)
+        const poses = [
+          { r: 0.22, hy: -12, sy: 10, hyOff: 0.02, lArmRx: -32, rArmRx: -38, lElb: -68, rElb: -74, headY: 10 },
+          { r: 0.48, hy: 14, sy: -12, hyOff: -0.02, lArmRx: -42, rArmRx: -28, lElb: -78, rElb: -58, headY: -12 },
+          { r: 0.75, hy: -8, sy: 8, hyOff: 0.02, lArmRx: -35, rArmRx: -35, lElb: -72, rElb: -72, headY: 6 }
+        ];
+        for (const p of poses) {
+          const t = at(p.r);
+          push(anat.hips, t, 2, p.hy, p.hy > 0 ? 4 : -4, p.hyOff, p.hy * 0.003);
+          push(anat.lowerSpine, t, -3, p.sy * 0.6, 0);
+          push(anat.chest, t, -4, p.sy, 0);
+          push(anat.head, t, -4, p.headY, p.headY * 0.3);
+          push(anat.lArm, t, p.lArmRx, -12, -16);
+          push(anat.rArm, t, p.rArmRx, 12, 16);
+          if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, t, p.lElb, 0, -22);
+          if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, t, p.rElb, 0, 22);
+          push(anat.lUpLeg, t, p.hy > 0 ? -12 : 4, 0, 0);
+          push(anat.rUpLeg, t, p.hy < 0 ? -12 : 4, 0, 0);
+          if (anat.lLeg !== anat.lUpLeg) push(anat.lLeg, t, p.hy > 0 ? 18 : 4, 0, 0);
+          if (anat.rLeg !== anat.rUpLeg) push(anat.rLeg, t, p.hy < 0 ? 18 : 4, 0, 0);
+        }
+      } else {
+        // Vũ đạo Nhảy múa / Hiphop / Dance năng động đa nhịp
+        const numBeats = Math.max(6, Math.min(12, Math.round(segDur * 2.5)));
+        for (let i = 1; i < numBeats; i++) {
+          const r = i / numBeats;
+          const t = at(r);
+          const e = frameEnergies[i % Math.max(1, frameEnergies.length)] ?? energyBoost;
+          const sign = i % 2 === 1 ? 1 : -1;
+          const subPhase = i % 4;
+
+          push(anat.hips, t, 6 * e, sign * 24 * e, sign * 7, (i % 2 === 1 ? 0.11 : -0.07) * e, sign * 0.08);
+          push(anat.lowerSpine, t, 6 * e, -sign * 14 * e, -sign * 5);
+          push(anat.chest, t, -4, -sign * 16 * e, -sign * 5);
+          push(anat.head, t, -6, sign * 18 * e, sign * 6);
+
+          if (subPhase === 1 || subPhase === 3) {
+            push(anat.lArm, t, -48 * e, -15, sign > 0 ? 45 * e : -12);
+            push(anat.rArm, t, -48 * e, 15, sign < 0 ? -45 * e : 12);
+            if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, t, -65 * e, 0, -18);
+            if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, t, -65 * e, 0, 18);
+          } else {
+            push(anat.lArm, t, -28 * e, 12, -10);
+            push(anat.rArm, t, -28 * e, -12, 10);
+            if (anat.lForeArm !== anat.lArm) push(anat.lForeArm, t, -78 * e, 0, -25);
+            if (anat.rForeArm !== anat.rArm) push(anat.rForeArm, t, -78 * e, 0, 25);
+          }
+
+          push(anat.lUpLeg, t, sign > 0 ? -36 * e : -8, 0, sign > 0 ? 10 : 0);
+          push(anat.rUpLeg, t, sign < 0 ? -36 * e : -8, 0, sign < 0 ? -10 : 0);
+          if (anat.lLeg !== anat.lUpLeg) push(anat.lLeg, t, sign > 0 ? 48 * e : 12, 0, 0);
+          if (anat.rLeg !== anat.rUpLeg) push(anat.rLeg, t, sign < 0 ? 48 * e : 12, 0, 0);
         }
       }
+
+      setRestPoseAt(tEnd);
+    };
+
+    const sliceDur = dur / clauses.length;
+    for (let cIdx = 0; cIdx < clauses.length; cIdx++) {
+      buildClauseSegment(clauses[cIdx], cIdx * sliceDur, (cIdx + 1) * sliceDur);
     }
 
     return this.applyGeneratedBoneTimeline(propId, {
@@ -2783,6 +3969,26 @@ export class SontinhSceneService implements OnDestroy {
       if (!tl || !tl.enabled) return;
 
       if (tl.mode === 'clip') {
+        const activeClip = rig.clips.find((c) => c.name === tl.activeClipName);
+        if (activeClip?.isCustomKeyframeClip) {
+          if (tl.playing && tl.keyframes.length > 0) {
+            const dur = Math.max(0.1, tl.duration || 3.0);
+            rig.currentTime += dt * (tl.speed || 1.0);
+            if (rig.currentTime >= dur) {
+              if (tl.loop) {
+                rig.currentTime = rig.currentTime % dur;
+              } else {
+                rig.currentTime = dur;
+                tl.playing = false;
+              }
+            }
+            this.evaluatePropKeyframesAtTime(rig.propId, rig.currentTime);
+            if (this.onTimelineTimeUpdate) {
+              this.onTimelineTimeUpdate(rig.propId, rig.currentTime, tl.playing);
+            }
+          }
+          return;
+        }
         if (rig.animComp?.baseLayer && tl.playing) {
           const cur = Number(rig.animComp.baseLayer.activeStateCurrentTime) || 0;
           const dur = Math.max(0.1, tl.duration || 2.5);
@@ -4409,6 +5615,8 @@ export class SontinhSceneService implements OnDestroy {
       try { app.mouse.disableContextMenu(); } catch (e) { /* ignore */ }
 
       app.mouse.on(pc.EVENT_MOUSEDOWN, (e: pc.MouseEvent) => {
+        const domTarget = (e as any)?.event?.target as HTMLElement | null;
+        if (domTarget && domTarget !== canvas) return;
         if (e.button === pc.MOUSEBUTTON_RIGHT || e.button === pc.MOUSEBUTTON_MIDDLE) {
           mouseDownPos.x = e.x;
           mouseDownPos.y = e.y;
@@ -4435,6 +5643,10 @@ export class SontinhSceneService implements OnDestroy {
       });
     
       app.mouse.on(pc.EVENT_MOUSEUP, (e: pc.MouseEvent) => {
+        const domTarget = (e as any)?.event?.target as HTMLElement | null;
+        if (!isDragging && !isPanning && !propDragCandidate && !propDragActive && domTarget && domTarget !== canvas) {
+          return;
+        }
         if (e.button === pc.MOUSEBUTTON_RIGHT || e.button === pc.MOUSEBUTTON_MIDDLE || isPanning) {
           isPanning = false;
           try { canvas.style.cursor = ''; } catch (err) { /* ignore */ }
@@ -4488,6 +5700,8 @@ export class SontinhSceneService implements OnDestroy {
       });
     
       app.mouse.on(pc.EVENT_MOUSEWHEEL, (e: pc.MouseEvent) => {
+        const domTarget = (e as any)?.event?.target as HTMLElement | null;
+        if (domTarget && domTarget !== canvas) return;
         let delta = e.wheelDelta || 0;
         if (Math.abs(delta) > 10) delta = Math.sign(delta) * 2;
         // Zoom theo tỷ lệ khoảng cách hiện tại: camera càng xa cuộn càng nhanh, càng gần càng tinh

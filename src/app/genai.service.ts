@@ -2115,6 +2115,22 @@ export class GenaiService {
     ): Promise<GenerateContentResponse> {
         this.syncConfigFromStorage();
 
+        // Chuẩn hóa params.contents nếu caller truyền mảng Part phẳng [{ text }, { inlineData }] thay vì [{ role: 'user', parts: [...] }]
+        if (Array.isArray(params.contents) && params.contents.length > 0) {
+            const firstItem: any = params.contents[0];
+            if (
+                firstItem &&
+                typeof firstItem === 'object' &&
+                !Array.isArray(firstItem.parts) &&
+                (firstItem.text !== undefined || firstItem.inlineData !== undefined || firstItem.fileData !== undefined)
+            ) {
+                params = {
+                    ...params,
+                    contents: [{ role: 'user', parts: params.contents as any }]
+                };
+            }
+        }
+
         // Chuẩn hóa toàn bộ tệp đính kèm (PDF văn bản, PDF scan/ảnh, DOCX, TXT/MD/CSV/JSON, ảnh thiếu MIME)
         // ngay phía client để cả Mì Tôm AI (OpenAI/Anthropic/Gemini proxy) lẫn Gemini API Key đều đọc đầy đủ.
         const isMediaGenOnly =
