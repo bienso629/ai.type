@@ -19,6 +19,9 @@
     "productName": "AI.Type",
     "appId": "ai.type.vn",
     "asar": true,
+    "electronDownload": {
+      "mirror": "https://github.com/castlabs/electron-releases/releases/download/"
+    },
     "files": [
       "dist/main.js",
       "dist/mcp-client.js",
@@ -181,7 +184,7 @@
     "@electron/rebuild": "^3.7.2",
     "babel-cli": "^6.26.0",
     "cross-env": "^7.0.3",
-    "electron": "^35.6.0",
+    "electron": "github:castlabs/electron-releases#v35.7.5+wvcus",
     "electron-builder": "^26.0.12",
     "electron-installer-dmg": "^5.0.1",
     "electron-packager": "^17.1.2",

@@ -16,12 +16,14 @@ const {
     desktopCapturer,
     net,
     safeStorage,
-    shell
+    shell,
+    components
 } = require("electron");
 
 app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-setuid-sandbox');
 app.commandLine.appendSwitch('disable-gpu-sandbox');
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 const { registerExportImportHandlers } = require("./export-import-project");
 const { registerLocalArticlesHandlers } = require("./local-articles");
@@ -1915,6 +1917,7 @@ function createMainWindow() {
             enableRemoteModule: false,
             webSecurity: false,
             webviewTag: true,
+            plugins: true,
             devTools: true,
             nodeIntegration: false,
             nodeIntegrationInSubFrames: false,
@@ -5938,6 +5941,55 @@ app.whenReady().then(async () => {
     session.defaultSession.webRequest.onBeforeSendHeaders(filter, setupHeaders);
     session.fromPartition("persist:gemini-webview").webRequest.onBeforeSendHeaders({ urls: ["*://*/*"] }, setupHeaders);
 
+    // Chờ nạp Widevine CDM (Castlabs Electron for Content Security) trước khi mở cửa sổ
+    if (components && typeof components.whenReady === "function") {
+        try {
+            await Promise.race([
+                components.whenReady(),
+                new Promise((resolve) => setTimeout(resolve, 12000))
+            ]);
+            const cdmStatus = typeof components.status === "function" ? components.status() : null;
+            console.log("[Widevine-ECS] components ready:", JSON.stringify(cdmStatus));
+        } catch (e) {
+            console.error("[Widevine-ECS] components.whenReady error:", e);
+        }
+    }
+
+    // Cấp quyền Protected Content (EME / Widevine DRM), Media, Fullscreen, Clipboard cho WebTools
+    const ALLOWED_WEBVIEW_PERMISSIONS = new Set([
+        "media",
+        "mediaKeySystem",
+        "protected-media-identifier",
+        "fullscreen",
+        "notifications",
+        "geolocation",
+        "clipboard-read",
+        "clipboard-sanitized-write",
+        "storage-access",
+        "top-level-storage-access",
+        "window-management",
+        "idle-detection",
+        "midi",
+        "midiSysex"
+    ]);
+
+    for (const targetSess of [session.defaultSession, session.fromPartition("persist:gemini-webview")]) {
+        try {
+            targetSess.setPermissionRequestHandler((_webContents, permission, callback) => {
+                if (ALLOWED_WEBVIEW_PERMISSIONS.has(permission)) {
+                    return callback(true);
+                }
+                return callback(true);
+            });
+            targetSess.setPermissionCheckHandler((_webContents, permission) => {
+                if (ALLOWED_WEBVIEW_PERMISSIONS.has(permission)) {
+                    return true;
+                }
+                return true;
+            });
+        } catch (e) {}
+    }
+
     // =========================================================================
     // ĐỒNG BỘ & KHÔI PHỤC COOKIE GOOGLE / WEB TOOLS CHÍNH XÁC (HOST-ONLY VS DOMAIN)
     // =========================================================================
@@ -6392,6 +6444,21 @@ app.whenReady().then(async () => {
         return await launchStealthLogin(loginUrl, null);
     });
 
+    const launchChromeAppTool = async (payload) => {
+        try {
+            const rawUrl = typeof payload === "string" ? payload : (payload && payload.url ? payload.url : "");
+            const targetUrl = rawUrl && /^https?:\/\//i.test(rawUrl) ? rawUrl : "https://www.google.com";
+            await shell.openExternal(targetUrl);
+            return { success: true, mode: "external", url: targetUrl };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    };
+
+    ipcMain.handle("launch-chrome-app-tool", async (_event, payload) => {
+        return await launchChromeAppTool(payload);
+    });
+
     // Chạy hàm load ngay khi khởi tạo
     loadBinaries();
 
@@ -6493,6 +6560,8 @@ app.whenReady().then(async () => {
                 const preloadPath = resolvePreload();
                 webPreferences.preload = preloadPath;
                 webPreferences.contextIsolation = true;
+                webPreferences.plugins = true;
+                webPreferences.autoplayPolicy = "no-user-gesture-required";
                 console.log(`[Zalo Webview] Đã tiêm preload script vào webview: ${preloadPath}`);
             });
         }

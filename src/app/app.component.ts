@@ -51,6 +51,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // ===== UI Gemini Popup State =====
     isWebviewVisible = false;
+    isWebviewMinimized = false;
+    isWebviewMaximized = false;
     popupTitle = 'Gemini';
     popupFavicon =
         'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64';
@@ -61,6 +63,60 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     // Toggle webview: ẩn/hiện nhanh
     toggleWebview() {
         this.isWebviewVisible = !this.isWebviewVisible;
+        if (this.isWebviewVisible) {
+            this.isWebviewMinimized = false;
+        }
+    }
+
+    // Thu nhỏ / Khôi phục khung Popup WebTools xuống góc dưới bên phải màn hình
+    toggleMinimizeWebview() {
+        this.isWebviewMinimized = !this.isWebviewMinimized;
+        const popupEl = document.querySelector('.gemini-popup') as HTMLElement;
+        if (!popupEl) return;
+
+        if (this.isWebviewMinimized) {
+            popupEl.style.transform = 'none';
+            popupEl.style.height = '40px';
+            popupEl.style.minHeight = '40px';
+            popupEl.style.width = '340px';
+            popupEl.style.top = 'calc(100vh - 54px)';
+            popupEl.style.left = 'calc(100vw - 360px)';
+        } else if (this.isWebviewMaximized) {
+            this.applyMaximizedWebviewStyles(popupEl, true);
+        } else {
+            this.applyMaximizedWebviewStyles(popupEl, false);
+        }
+    }
+
+    // Phóng to toàn màn hình / Khôi phục kích thước chuẩn 600px bên phải của khung Popup WebTools
+    toggleMaximizeWebview() {
+        this.isWebviewMinimized = false;
+        this.isWebviewMaximized = !this.isWebviewMaximized;
+        const popupEl = document.querySelector('.gemini-popup') as HTMLElement;
+        if (!popupEl) return;
+        this.applyMaximizedWebviewStyles(popupEl, this.isWebviewMaximized);
+    }
+
+    private applyMaximizedWebviewStyles(
+        popupEl: HTMLElement,
+        maximized: boolean,
+    ) {
+        popupEl.style.transform = 'none';
+        popupEl.style.minHeight = '400px';
+        if (maximized) {
+            popupEl.style.top = '12px';
+            popupEl.style.left = '16px';
+            popupEl.style.width = 'calc(100vw - 32px)';
+            popupEl.style.height = 'calc(100vh - 24px)';
+        } else {
+            const w = this.isWebviewMobileMode
+                ? 414
+                : this._savedDesktopPopupWidth || 600;
+            popupEl.style.top = '20px';
+            popupEl.style.left = `calc(100vw - ${w + 20}px)`;
+            popupEl.style.width = `${w}px`;
+            popupEl.style.height = 'calc(100vh - 40px)';
+        }
     }
 
     // Chuyển đổi chế độ Giả lập Điện thoại (Thu nhỏ khung cửa sổ Popup + Mobile UA + m.facebook.com) cho WebTools
@@ -194,6 +250,62 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 webview.reload();
             }
         }
+    }
+
+    // Mở trang WebTool hiện tại trong khung Google Chrome App Mode (hỗ trợ DRM Widevine VMP như Netflix/Spotify và vượt chặn bảo mật)
+    async openInChromeApp() {
+        const webview = this.getActiveWebview();
+        let currentUrl = this.popupHomeUrl || '';
+        if (webview) {
+            try {
+                currentUrl =
+                    typeof webview.getURL === 'function'
+                        ? webview.getURL()
+                        : webview.getAttribute('src') || this.popupHomeUrl || '';
+            } catch (_) {
+                currentUrl = webview.getAttribute('src') || this.popupHomeUrl || '';
+            }
+        }
+
+        const popupEl = document.querySelector('.gemini-popup') as HTMLElement;
+        let bounds: {
+            offsetLeft?: number;
+            offsetTop?: number;
+            width?: number;
+            height?: number;
+        } | null = null;
+        if (popupEl) {
+            const rect = popupEl.getBoundingClientRect();
+            if (rect.width >= 300 && rect.height >= 350) {
+                bounds = {
+                    offsetLeft: Math.round(rect.left),
+                    offsetTop: Math.round(rect.top),
+                    width: Math.round(rect.width),
+                    height: Math.round(rect.height),
+                };
+            }
+        }
+
+        // Ẩn ngay khung <webview> nội bộ để cửa sổ Chrome App thế chỗ đúng tại vị trí Popup đó
+        this.isWebviewVisible = false;
+        this.cdr.detectChanges();
+
+        const electron = (window as any).electron || (window as any).electronAPI;
+        if (electron?.launchChromeAppTool) {
+            await electron.launchChromeAppTool({
+                url: currentUrl,
+                bounds,
+            });
+            return;
+        }
+        if ((window as any).electron?.invoke) {
+            await (window as any).electron.invoke('launch-chrome-app-tool', {
+                url: currentUrl,
+                bounds,
+            });
+            return;
+        }
+        window.open(currentUrl, '_blank');
     }
 
     // Kiểm tra xem công cụ hiện tại có phải công cụ thuộc hệ sinh thái Google hay không
@@ -447,12 +559,20 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 if (data && data.action === 'toggle-gemini-webview') {
                     this.toggleWebview();
                     this.cdr.detectChanges();
+                } else if (data && data.action === 'hide-gemini-webview') {
+                    this.isWebviewVisible = false;
+                    this.cdr.detectChanges();
                 }
             });
         }
 
         // Lắng nghe sự kiện qua DOM event từ chuỗi button bên Layout
         window.addEventListener('toggle-gemini', (e: any) => {
+            if (e && e.detail && e.detail.forceClose) {
+                this.isWebviewVisible = false;
+                this.cdr.detectChanges();
+                return;
+            }
             if (e && e.detail && e.detail.forceOpen) {
                 this.isWebviewVisible = true;
                 if (e.detail.title) {
@@ -1188,6 +1308,15 @@ if tunnel_url:
                     'https://gemini.google.com/app?hl=vi',
                 );
                 webview.setAttribute('allowpopups', 'true');
+                webview.setAttribute('plugins', 'true');
+                webview.setAttribute(
+                    'webpreferences',
+                    'plugins=yes, autoplayPolicy=no-user-gesture-required',
+                );
+                webview.setAttribute(
+                    'allow',
+                    'encrypted-media; autoplay; fullscreen; picture-in-picture; clipboard-read; clipboard-write; microphone; camera; geolocation; midi',
+                );
                 // Không ghi đè thuộc tính useragent bằng navigator.userAgent của Electron
                 // để webview kế thừa nguyên vẹn User-Agent của Chrome thật từ partition persist:gemini-webview
 

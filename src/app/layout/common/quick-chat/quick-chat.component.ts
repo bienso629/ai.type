@@ -328,6 +328,15 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                 webview.setAttribute('partition', 'persist:gemini-webview');
                 webview.setAttribute('src', tool.url);
                 webview.setAttribute('allowpopups', 'true');
+                webview.setAttribute('plugins', 'true');
+                webview.setAttribute(
+                    'webpreferences',
+                    'plugins=yes, autoplayPolicy=no-user-gesture-required',
+                );
+                webview.setAttribute(
+                    'allow',
+                    'encrypted-media; autoplay; fullscreen; picture-in-picture; clipboard-read; clipboard-write; microphone; camera; geolocation; midi',
+                );
                 webview.style.width = '100%';
                 webview.style.height = '100%';
                 webview.style.border = 'none';

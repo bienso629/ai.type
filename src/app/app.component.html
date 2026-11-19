@@ -271,9 +271,70 @@
                     <span>Đăng nhập</span>
                 </button>
             }
+            <!-- Nút Thu nhỏ (Minimize) -->
+            <button
+                (click)="toggleMinimizeWebview()"
+                [title]="isWebviewMinimized ? 'Khôi phục cửa sổ Popup' : 'Thu nhỏ cửa sổ Popup xuống góc dưới'"
+                style="
+                    background: none;
+                    border: none;
+                    color: #aaa;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 4px;
+                    border-radius: 4px;
+                    margin-right: 2px;
+                "
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    style="width: 15px; height: 15px"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </button>
+            <!-- Nút Phóng to / Khôi phục (Maximize / Restore) -->
+            <button
+                (click)="toggleMaximizeWebview()"
+                [title]="isWebviewMaximized ? 'Khôi phục kích thước Popup (600px)' : 'Phóng to toàn màn hình'"
+                style="
+                    background: none;
+                    border: none;
+                    color: #aaa;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 4px;
+                    border-radius: 4px;
+                    margin-right: 2px;
+                "
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    style="width: 15px; height: 15px"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                </svg>
+            </button>
             <!-- Nút đóng -->
             <button
                 (click)="toggleWebview()"
+                title="Đóng cửa sổ"
                 style="
                     background: none;
                     border: none;
@@ -305,11 +366,11 @@
         <!-- Container cho webview -->
         <div
             id="webview-container-div"
+            [style.display]="isWebviewMinimized ? 'none' : 'flex'"
             style="
                 width: 100%;
                 flex: 1;
                 border: none;
-                display: flex;
                 background: #1a1a1a;
                 position: relative;
             "
