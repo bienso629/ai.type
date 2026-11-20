@@ -18,7 +18,10 @@ import {
   GlbBoneInfo,
   GlbBoneKeyframe,
   GlbPropTimelineData,
-  VideoFramePoseSample
+  VideoFramePoseSample,
+  StudioLightingConfig,
+  DEFAULT_STUDIO_LIGHTING,
+  STUDIO_LIGHTING_PRESETS
 } from './sontinh-scene.service';
 import { ProfileDataService, UserProfile } from './profile-data.service';
 import { GenaiService } from 'app/genai.service';
@@ -304,6 +307,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
       // 4. Khởi động 3D scene
       await this.sceneService.initScene(this.canvasRef.nativeElement, this.profile, charGlbObjectUrl);
+      this.lightingConfig = this.sceneService.getStudioLighting();
       this.sceneService.rerunAllFxEffects();
 
       // 4a. Phát ngay hành động mặc định nếu đã chọn
@@ -368,6 +372,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           if (this.isGlbTimelineOpen && this.sceneService.hasPropRig(propId)) {
             this.openPropTimeline(propId);
           }
+          if (this.isTextureStudioOpen && this.texStudioPropId !== propId) {
+            this.openPropTextureStudio(propId);
+          }
         }
         if (!propId) {
           this.selectedPropRot = null;
@@ -411,14 +418,22 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
             this.selectedPropRot = null;
             this.selectedPropScl = null;
           }
+          if (this.texStudioPropId === pid) {
+            this.isTextureStudioOpen = false;
+            this.texStudioPropId = null;
+          }
           const delMsg = (prop as any)?.hiddenFromList
             ? 'Đã xóa bản sao khỏi canvas'
             : 'Đã gỡ khỏi canvas (vẫn còn trong menu ĐỒ VẬT)';
           this.toastr.info(delMsg, 'Xóa đồ vật');
         } else if (action === 'duplicate' && newId) {
-          // Idempotent: service đã push newProp (đúng vị trí cạnh bản gốc, mang cờ
-          // hiddenFromList) vào profile.props. KHÔNG push vào roomProps để không thêm
-          // mục trong menu ĐỒ VẬT — bản sao liệt kê riêng ở panel TRÊN CANVAS.
+          // Bảo đảm bản sao luôn có mặt trong roomProps ngay cả khi tham chiếu mảng từng bị tách sau thao tác xóa
+          if (!this.roomProps.some(p => p && p.id === newId)) {
+            const dupProp = this.sceneService.getProfilePropById(newId);
+            if (dupProp) {
+              this.roomProps.push(dupProp);
+            }
+          }
         }
         (this.profile as any).props = this.roomProps;
         this.profileDataService.saveProps(this.roomProps).subscribe();
@@ -753,7 +768,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     if (cloned.emissiveIntensity === undefined) cloned.emissiveIntensity = 0.0;
     if (cloned.metalness === undefined) cloned.metalness = 0.0;
     if (cloned.roughness === undefined) cloned.roughness = 0.5;
-    if (cloned.castShadow === undefined) cloned.castShadow = false;
+    if (cloned.castShadow === undefined) cloned.castShadow = true;
     if (cloned.interactive === undefined) cloned.interactive = true;
     if (!cloned.clickAction) cloned.clickAction = 'focus';
     if (!cloned.floorLevel) cloned.floorLevel = 3;
@@ -1895,6 +1910,1262 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   get selectedPropHasRig(): boolean {
     const pid = this.selectedPropId || this.propActionAnchor.propId;
     return !!(pid && this.sceneService.hasPropRig(pid));
+  }
+
+  // =========================================================================
+  // STUDIO TẠO VIDEO AI TỪ CHUYỂN ĐỘNG NHÂN VẬT 3D + ẢNH MẪU (MÌ TÔM AI)
+  // =========================================================================
+  isAiVideo3dOpen = false;
+  aiVideo3dCapturing = false;
+  aiVideo3dGenerating = false;
+  aiVideo3dStatusText = '';
+  aiVideo3dCaptureSec = 0;
+  aiVideo3dRefImages: Array<{ name: string; dataUrl: string; mimeType: string }> = [];
+  aiVideo3dPrompt = '';
+  aiVideo3dDuration = 5;
+  aiVideo3dAspectRatio: '16:9' | '9:16' | '1:1' | '3:4' | '4:3' = '16:9';
+  aiVideo3dResolution: '720p' | '1080p' = '720p';
+  aiVideo3dHideGrid = true;
+  aiVideo3dAutoFrame = true;
+  aiVideo3dCapturedMp4Base64: string | null = null;
+  aiVideo3dCapturedPreviewUrl: string | null = null;
+  aiVideo3dCapturedFilePath: string | null = null;
+  aiVideo3dResultPreviewUrl: string | null = null;
+  aiVideo3dResultFilePath: string | null = null;
+  aiVideo3dResultBase64: string | null = null;
+
+  readonly aiVideo3dDurationOptions: number[] = [5, 6, 8, 10, 12];
+  readonly aiVideo3dRatioOptions: Array<'16:9' | '9:16' | '1:1' | '3:4' | '4:3'> = ['16:9', '9:16', '1:1', '3:4', '4:3'];
+
+  get aiVideo3dMitomEnabled(): boolean {
+    return this.genaiService.isUModelverseEnabled();
+  }
+
+  get aiVideo3dConfiguredModel(): string {
+    return this.genaiService.umodelverseVideoModel || 'doubao-seedance-2-0';
+  }
+
+  /** Kiểm tra model video đang cấu hình trong Mì Tôm AI có hỗ trợ native reference_video hay không */
+  get aiVideo3dConfiguredSupportsRefVideo(): boolean {
+    const m = this.aiVideo3dConfiguredModel.toLowerCase();
+    return (
+      m.includes('seedance-2') ||
+      m.includes('seedance2') ||
+      m.includes('motion-control') ||
+      m.includes('kling-v3') ||
+      m.includes('r2v') ||
+      m.includes('v2v')
+    );
+  }
+
+  focusCharacterForAiVideo(): void {
+    const activePid = this.timelinePropId || this.selectedPropId || this.sceneService.getFirstRiggedPropId();
+    const ok = this.sceneService.autoFramePropForCapture(activePid, 0.68);
+    if (!ok) {
+      this.toastr.info('Chưa tìm thấy nhân vật 3D đang hiển thị trên canvas.', 'AI Video 3D');
+    }
+  }
+
+  onAiVideo3dFormatChanged(): void {
+    // Xóa bản ghi cũ nếu đổi tỷ lệ khung hình hoặc thời lượng để lần tạo tiếp theo tự ghi đúng chuẩn mới
+    if (this.aiVideo3dCapturedMp4Base64) {
+      this.clearCaptured3dMotionVideo();
+    }
+  }
+
+  toggleAiVideo3dStudio(): void {
+    if (this.isAiVideo3dOpen) {
+      this.closeAiVideo3dStudio();
+    } else {
+      this.openAiVideo3dStudio();
+    }
+  }
+
+  openAiVideo3dStudio(): void {
+    this.isLightingStudioOpen = false;
+    this.isTextureStudioOpen = false;
+    // Tự gợi ý thời lượng theo clip 3D đang chạy (kẹp trong 5..12s)
+    const activePid = this.timelinePropId || this.selectedPropId;
+    if (activePid) {
+      const tl = this.sceneService.getPropTimeline(activePid);
+      if (tl && typeof tl.duration === 'number' && tl.duration >= 4) {
+        const best = this.aiVideo3dDurationOptions.reduce((prev, curr) =>
+          Math.abs(curr - tl.duration) < Math.abs(prev - tl.duration) ? curr : prev
+        );
+        this.aiVideo3dDuration = best;
+      }
+    }
+    this.isAiVideo3dOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeAiVideo3dStudio(): void {
+    this.isAiVideo3dOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  onAiVideo3dRefFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input?.files || []);
+    input.value = '';
+    for (const f of files) {
+      if (f.type.startsWith('image/')) {
+        this._addAiVideo3dRefFile(f);
+      }
+    }
+  }
+
+  onAiVideo3dDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const files = Array.from(event.dataTransfer?.files || []);
+    for (const f of files) {
+      if (f.type.startsWith('image/')) {
+        this._addAiVideo3dRefFile(f);
+      }
+    }
+  }
+
+  onAiVideo3dPaste(event: ClipboardEvent): void {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.type && it.type.startsWith('image/')) {
+        const file = it.getAsFile();
+        if (file) {
+          event.preventDefault();
+          this._addAiVideo3dRefFile(file);
+          return;
+        }
+      }
+    }
+  }
+
+  private _addAiVideo3dRefFile(file: File): void {
+    if (this.aiVideo3dRefImages.length >= 4) {
+      this.toastr.warning('Tối đa 4 ảnh tham chiếu nhân vật / trang phục / bối cảnh.', 'AI Video 3D');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        const dataUrl = reader.result;
+        const mimeMatch = dataUrl.match(/^data:([^;]+);base64,/);
+        this.aiVideo3dRefImages.push({
+          name: file.name || `anh_mau_${this.aiVideo3dRefImages.length + 1}.png`,
+          dataUrl,
+          mimeType: mimeMatch ? mimeMatch[1] : (file.type || 'image/png')
+        });
+        this.cdr.markForCheck();
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removeAiVideo3dRefImage(idx: number): void {
+    if (idx < 0 || idx >= this.aiVideo3dRefImages.length) return;
+    this.aiVideo3dRefImages.splice(idx, 1);
+    this.cdr.markForCheck();
+  }
+
+  clearCaptured3dMotionVideo(): void {
+    if (this.aiVideo3dCapturedPreviewUrl && this.aiVideo3dCapturedPreviewUrl.startsWith('blob:')) {
+      try { URL.revokeObjectURL(this.aiVideo3dCapturedPreviewUrl); } catch (_) {}
+    }
+    this.aiVideo3dCapturedMp4Base64 = null;
+    this.aiVideo3dCapturedPreviewUrl = null;
+    this.aiVideo3dCapturedFilePath = null;
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Ghi trực tiếp chuyển động của nhân vật 3D trên Canvas theo đúng thời lượng và tỷ lệ khung hình,
+   * tạm ẩn vòng chọn & lưới sàn (nếu bật) rồi chuyển sang chuẩn H.264 MP4 qua FFmpeg tích hợp.
+   */
+  async capture3dMotionVideo(): Promise<string | null> {
+    if (this.aiVideo3dCapturing) return null;
+    const canvas = this.canvasRef?.nativeElement;
+    if (!canvas || !(canvas as any).captureStream || typeof MediaRecorder === 'undefined') {
+      this.toastr.error('Trình duyệt / Canvas 3D không hỗ trợ ghi luồng video trực tiếp.', 'AI Video 3D');
+      return null;
+    }
+    const electronWin = typeof window !== 'undefined' ? (window as any) : null;
+    if (!electronWin?.electron?.convertExportWebmToMp4) {
+      this.toastr.error('Cần chạy trên ứng dụng Desktop (Electron) có FFmpeg để xuất video chuyển động MP4.', 'AI Video 3D');
+      return null;
+    }
+
+    const durSec = Math.max(3, Math.min(15, Number(this.aiVideo3dDuration) || 5));
+    this.aiVideo3dCapturing = true;
+    this.aiVideo3dCaptureSec = 0;
+    this.aiVideo3dStatusText = `Đang ghi chuyển động 3D (0/${durSec}s)...`;
+    this.cdr.markForCheck();
+
+    // Lưu góc camera + ánh sáng hiện tại để phục hồi nguyên vẹn ngay sau khi ghi xong
+    const prevCameraSnap = this.aiVideo3dAutoFrame ? this.sceneService.getCameraSnapshot() : null;
+    const prevLighting = this.sceneService.getStudioLighting();
+    const shouldTempHideGrid = this.aiVideo3dHideGrid && prevLighting.showGrid;
+    const bgHex = String(prevLighting.bgColor || '').trim().toLowerCase();
+    const shouldTempContrastBg = this.aiVideo3dHideGrid && (bgHex === '#ffffff' || bgHex === '#f8fafc' || bgHex === '#f1f5f9');
+    const lightingTempPatch: any = {};
+    if (shouldTempHideGrid) lightingTempPatch.showGrid = false;
+    // Nền trắng tinh khiến tay/chân mô hình gỗ màu sáng bị hòa nền -> chuyển tạm nền xám studio dịu để AI bám đường nét khớp rõ hơn
+    if (shouldTempContrastBg) lightingTempPatch.bgColor = '#dce2ec';
+
+    this.sceneService.setSelectionRingTempHidden(true);
+    if (Object.keys(lightingTempPatch).length > 0) {
+      this.sceneService.applyStudioLighting(lightingTempPatch);
+    }
+
+    // Tự động chọn đúng nhân vật có khớp xương đang ở trên canvas, tua về t=0 rồi phóng cận vừa khung (~68% chiều cao)
+    const activePid = this.timelinePropId || this.selectedPropId || this.sceneService.getFirstRiggedPropId();
+    if (activePid && this.sceneService.hasPropRig(activePid)) {
+      try {
+        this.sceneService.seekPropTimeline(activePid, 0);
+        this.sceneService.setPropTimelinePlaying(activePid, true);
+      } catch (_) {}
+    }
+    if (this.aiVideo3dAutoFrame) {
+      this.sceneService.autoFramePropForCapture(activePid, 0.68);
+    }
+
+    let timer: any = null;
+    try {
+      // Đợi 3 frame để camera auto-frame + tắt lưới/ring + pose t=0 render ổn định trước khi mở MediaRecorder
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r))));
+
+      const stream: MediaStream = (canvas as any).captureStream(30);
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
+        : (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
+            ? 'video/webm;codecs=vp8'
+            : (MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : ''));
+
+      const chunks: Blob[] = [];
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType, videoBitsPerSecond: 6_000_000 } : undefined);
+      recorder.ondataavailable = (ev: any) => {
+        if (ev?.data && ev.data.size > 0) chunks.push(ev.data);
+      };
+
+      const stopped = new Promise<void>((resolve) => {
+        recorder.onstop = () => resolve();
+      });
+
+      const startedAt = Date.now();
+      recorder.start(120);
+
+      timer = setInterval(() => {
+        const elapsed = Math.min(durSec, Math.floor((Date.now() - startedAt) / 1000));
+        this.aiVideo3dCaptureSec = elapsed;
+        this.aiVideo3dStatusText = `Đang ghi chuyển động 3D (${elapsed}/${durSec}s)...`;
+        this.cdr.markForCheck();
+      }, 250);
+
+      await new Promise((r) => setTimeout(r, durSec * 1000 + 180));
+      if (recorder.state !== 'inactive') {
+        recorder.stop();
+      }
+      await stopped;
+      stream.getTracks().forEach((t) => { try { t.stop(); } catch (_) {} });
+
+      if (timer) { clearInterval(timer); timer = null; }
+
+      const webmBlob = new Blob(chunks, { type: mimeType || 'video/webm' });
+      if (webmBlob.size < 1024) {
+        throw new Error('Dữ liệu video 3D ghi được quá nhỏ hoặc trống.');
+      }
+
+      this.aiVideo3dStatusText = 'Đang chuyển đổi sang chuẩn H.264 MP4 cho Mì Tôm AI...';
+      this.cdr.markForCheck();
+
+      const arrBuf = await webmBlob.arrayBuffer();
+      const conv = await electronWin.electron.convertExportWebmToMp4(
+        this.username || 'admin',
+        arrBuf,
+        this.aiVideo3dAspectRatio,
+        durSec
+      );
+      if (!conv?.success || !conv.base64) {
+        throw new Error(conv?.error || 'Không thể chuyển đổi WebM sang MP4 qua FFmpeg.');
+      }
+
+      // Tạo blob preview MP4 để người dùng xem lại video 3D vừa ghi
+      if (this.aiVideo3dCapturedPreviewUrl && this.aiVideo3dCapturedPreviewUrl.startsWith('blob:')) {
+        try { URL.revokeObjectURL(this.aiVideo3dCapturedPreviewUrl); } catch (_) {}
+      }
+      const bin = atob(conv.base64);
+      const u8 = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      const mp4Blob = new Blob([u8], { type: 'video/mp4' });
+
+      this.aiVideo3dCapturedMp4Base64 = conv.base64;
+      this.aiVideo3dCapturedPreviewUrl = URL.createObjectURL(mp4Blob);
+      this.aiVideo3dCapturedFilePath = conv.filePath || null;
+      this.aiVideo3dStatusText = '';
+      this.cdr.markForCheck();
+      return conv.base64;
+    } catch (err: any) {
+      console.error('[Profile] capture3dMotionVideo error:', err);
+      this.toastr.error(err?.message || 'Lỗi ghi chuyển động 3D.', 'AI Video 3D');
+      return null;
+    } finally {
+      if (timer) { clearInterval(timer); timer = null; }
+      this.sceneService.setSelectionRingTempHidden(false);
+      if (prevCameraSnap) {
+        this.sceneService.restoreCameraSnapshot(prevCameraSnap);
+      }
+      const restorePatch: any = {};
+      if (shouldTempHideGrid) restorePatch.showGrid = true;
+      if (shouldTempContrastBg) restorePatch.bgColor = prevLighting.bgColor;
+      if (Object.keys(restorePatch).length > 0) {
+        this.sceneService.applyStudioLighting(restorePatch);
+      }
+      this.aiVideo3dCapturing = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  /**
+   * Tạo Video AI bằng Mì Tôm AI: lấy video chuyển động 3D của nhân vật trên canvas (tự ghi nếu chưa có)
+   * kết hợp ảnh mẫu nhân vật/trang phục do người dùng đưa vào để AI "đắp" nhân vật thật lên đúng chuyển động 3D.
+   */
+  async generateAiVideoFrom3dMotion(): Promise<void> {
+    if (this.aiVideo3dGenerating || this.aiVideo3dCapturing) return;
+
+    if (!this.genaiService.isUModelverseEnabled()) {
+      this.toastr.warning('Vui lòng bật Mì Tôm AI và cấu hình API Key + Model Video trong Cài đặt trước.', 'Mì Tôm AI');
+      return;
+    }
+    if (this.aiVideo3dRefImages.length === 0) {
+      this.toastr.warning('Vui lòng chọn hoặc dán ít nhất 1 ảnh mẫu nhân vật để AI đắp lên chuyển động 3D.', 'AI Video 3D');
+      return;
+    }
+
+    this.aiVideo3dGenerating = true;
+    this.cdr.markForCheck();
+
+    try {
+      // 1. Tự động ghi chuyển động 3D trên canvas nếu chưa có bản ghi sẵn
+      let mp4Base64 = this.aiVideo3dCapturedMp4Base64;
+      if (!mp4Base64) {
+        mp4Base64 = await this.capture3dMotionVideo();
+        if (!mp4Base64) {
+          return;
+        }
+      }
+
+      // Luôn sử dụng đúng model video đã cấu hình sẵn trong Mì Tôm AI
+      const targetModel = this.aiVideo3dConfiguredModel;
+      const isMotionModel = this.aiVideo3dConfiguredSupportsRefVideo;
+
+      this.aiVideo3dStatusText = `Đang gửi sang Mì Tôm AI (${targetModel}) — quá trình render video thường mất 1-3 phút...`;
+      this.cdr.markForCheck();
+
+      // 2. Đóng gói danh sách tham chiếu: Ảnh nhân vật (CHARACTER_REFERENCE) + Video 3D (REFERENCE_VIDEO)
+      // KHÔNG trộn START_FRAME để tương thích chuẩn Volcengine Seedance 2.0/2.5 lẫn Kling V3 Motion Control!
+      const referenceImages: any[] = [];
+      for (let i = 0; i < this.aiVideo3dRefImages.length; i++) {
+        const img = this.aiVideo3dRefImages[i];
+        const rawB64 = img.dataUrl.includes(',') ? img.dataUrl.split(',')[1] : img.dataUrl;
+        referenceImages.push({
+          image: {
+            imageBytes: rawB64,
+            mimeType: img.mimeType || 'image/png'
+          },
+          referenceType: 'CHARACTER_REFERENCE',
+          characterName: img.name || `Character_${i + 1}`
+        });
+      }
+
+      if (isMotionModel) {
+        referenceImages.push({
+          image: {
+            imageBytes: mp4Base64,
+            mimeType: 'video/mp4'
+          },
+          referenceType: 'REFERENCE_VIDEO'
+        });
+      }
+
+      const userPrompt = (this.aiVideo3dPrompt || '').trim();
+      const lowerTargetModel = targetModel.toLowerCase();
+      const isSeedanceTarget = lowerTargetModel.includes('seedance');
+      const isKlingMotionTarget = lowerTargetModel.includes('motion-control') || lowerTargetModel.includes('kling-v3');
+
+      const imgTags = this.aiVideo3dRefImages.map((_, idx) => `@Image ${idx + 1}`).join(', ');
+      let finalPrompt = '';
+
+      if (isSeedanceTarget) {
+        // Volcengine Seedance 2.0 / 2.5 bắt buộc nhắc rõ thẻ @Video 1 và @Image 1 trong prompt mới bám chuẩn chuyển động 1:1
+        const sceneDesc = userPrompt
+          ? `Scene & visual style: ${userPrompt}.`
+          : 'Clean minimalist studio background matching the lighting and camera framing of @Video 1.';
+        finalPrompt =
+          `STRICT 1:1 MOTION TRANSFER FROM @Video 1 TO ${imgTags}: ` +
+          `Reproduce the EXACT frame-by-frame full-body motion, skeleton pose, limb angles, torso facing direction (profile/front/back), stride timing, speed, and camera angle from @Video 1. ` +
+          `Completely replace the wooden 3D mannequin in @Video 1 with the exact character, face, hair, body build, and clothing from ${imgTags}. ` +
+          `${sceneDesc} ` +
+          `CRITICAL RULES: Keep the exact same character orientation and motion trajectory as @Video 1 at every single second — do NOT invent different actions, do NOT rotate the character to face the camera if @Video 1 faces sideways, and do NOT render the wooden mannequin.`;
+      } else {
+        const sceneDesc = userPrompt
+          ? `${userPrompt}. `
+          : 'Clean cinematic studio lighting, natural realistic shadows. ';
+        finalPrompt =
+          `${sceneDesc}` +
+          `Strictly replicate 100% of the exact full-body motion, joint angles, facing orientation, arm/leg trajectory, timing, and camera perspective from the reference driving video onto the character from the reference image. ` +
+          `Replace the 3D mannequin completely with the realistic character, face, hair, and outfit from the reference image. No wooden mannequin, no wireframe, no extra invented poses.`;
+      }
+
+      this.toastr.info(
+        `Đã gửi video chuyển động 3D + ${this.aiVideo3dRefImages.length} ảnh mẫu tới Mì Tôm AI (${targetModel})...`,
+        'AI Video 3D',
+        { timeOut: 6000 }
+      );
+
+      const outMeta: { url?: string | null; duration?: number; characterOrientation?: 'video' | 'image' } = {
+        characterOrientation: isKlingMotionTarget ? 'video' : undefined
+      };
+      const resultBase64 = await this.genaiService.generateVideoUModelverse(
+        finalPrompt,
+        this.aiVideo3dAspectRatio,
+        referenceImages,
+        this.aiVideo3dDuration,
+        undefined,
+        targetModel,
+        this.aiVideo3dResolution,
+        outMeta
+      );
+
+      if (!resultBase64 && !outMeta.url) {
+        throw new Error('Mì Tôm AI không trả về dữ liệu video đầu ra.');
+      }
+
+      // 3. Lưu video MP4 đầu ra xuống đĩa & phát xem trước ngay trong panel
+      if (this.aiVideo3dResultPreviewUrl && this.aiVideo3dResultPreviewUrl.startsWith('blob:')) {
+        try { URL.revokeObjectURL(this.aiVideo3dResultPreviewUrl); } catch (_) {}
+      }
+
+      if (resultBase64) {
+        const cleanB64 = resultBase64.includes(',') ? resultBase64.split(',')[1] : resultBase64;
+        this.aiVideo3dResultBase64 = cleanB64;
+        const bin = atob(cleanB64);
+        const u8 = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        const outBlob = new Blob([u8], { type: 'video/mp4' });
+        this.aiVideo3dResultPreviewUrl = URL.createObjectURL(outBlob);
+
+        const electronWin = typeof window !== 'undefined' ? (window as any) : null;
+        if (electronWin?.electron?.saveAiExportVideo) {
+          const saved = await electronWin.electron.saveAiExportVideo(
+            this.username || 'admin',
+            cleanB64,
+            `ai_video_3d_${Date.now()}.mp4`
+          );
+          if (saved?.success && saved.filePath) {
+            this.aiVideo3dResultFilePath = saved.filePath;
+          }
+        }
+      } else if (outMeta.url) {
+        this.aiVideo3dResultPreviewUrl = outMeta.url;
+      }
+
+      this.aiVideo3dStatusText = '';
+      this.toastr.success('Mì Tôm AI đã tạo Video từ chuyển động 3D thành công!', 'AI Video 3D');
+    } catch (err: any) {
+      console.error('[Profile] generateAiVideoFrom3dMotion error:', err);
+      this.aiVideo3dStatusText = '';
+      this.toastr.error(err?.message || 'Không thể tạo Video AI lúc này.', 'Lỗi AI Video 3D');
+    } finally {
+      this.aiVideo3dGenerating = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  openAiVideoExportsFolder(): void {
+    const electronWin = typeof window !== 'undefined' ? (window as any) : null;
+    if (electronWin?.electron?.openExportsFolder) {
+      electronWin.electron.openExportsFolder(this.username || 'admin');
+    }
+  }
+
+  downloadAiVideoResult(): void {
+    if (!this.aiVideo3dResultPreviewUrl) return;
+    const a = document.createElement('a');
+    a.href = this.aiVideo3dResultPreviewUrl;
+    a.download = `ai_video_3d_${Date.now()}.mp4`;
+    a.click();
+  }
+
+  // =========================================================================
+  // STUDIO ÁNH SÁNG & MÔI TRƯỜNG 3D (3-POINT LIGHTING + IBL + BÓNG ĐỔ)
+  // =========================================================================
+  isLightingStudioOpen = false;
+  lightingSaving = false;
+  lightingConfig: StudioLightingConfig = { ...DEFAULT_STUDIO_LIGHTING };
+  readonly lightingPresets = STUDIO_LIGHTING_PRESETS;
+  readonly lightingBgPresets: Array<{ name: string; hex: string }> = [
+    { name: 'Trắng Studio', hex: '#ffffff' },
+    { name: 'Xám Nhạt', hex: '#f1f5f9' },
+    { name: 'Bạc Dịu', hex: '#e2e8f0' },
+    { name: 'Kem Ấm', hex: '#fdf3e7' },
+    { name: 'Xanh Trời Nhạt', hex: '#eef5ff' },
+    { name: 'Xám Xanh Đậm', hex: '#1e293b' },
+    { name: 'Đêm Studio', hex: '#0f172a' },
+    { name: 'Đen Tuyền', hex: '#05070c' }
+  ];
+
+  toggleLightingStudio(): void {
+    this.isLightingStudioOpen = !this.isLightingStudioOpen;
+    if (this.isLightingStudioOpen) {
+      this.isTextureStudioOpen = false;
+      this.isAiVideo3dOpen = false;
+      this.lightingConfig = this.sceneService.getStudioLighting();
+    }
+    this.cdr.markForCheck();
+  }
+
+  closeLightingStudio(): void {
+    this.isLightingStudioOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  onLightingPresetSelect(presetId: string): void {
+    this.lightingConfig = this.sceneService.applyStudioLightingPreset(presetId);
+    this.cdr.markForCheck();
+  }
+
+  onLightingConfigChange(): void {
+    this.lightingConfig.preset = 'custom';
+    this.lightingConfig = this.sceneService.applyStudioLighting(this.lightingConfig);
+    this.cdr.markForCheck();
+  }
+
+  onLightingBgSelect(hex: string): void {
+    this.lightingConfig.bgColor = hex || '#ffffff';
+    this.onLightingConfigChange();
+  }
+
+  onLightingToneMapChange(mode: 'neutral' | 'aces2' | 'filmic' | 'linear'): void {
+    this.lightingConfig.toneMapping = mode;
+    this.onLightingConfigChange();
+  }
+
+  onLightingShadowSoftnessChange(mode: 'soft' | 'crisp'): void {
+    this.lightingConfig.shadowSoftness = mode;
+    this.onLightingConfigChange();
+  }
+
+  onLightingReset(): void {
+    this.lightingConfig = this.sceneService.resetStudioLighting();
+    this.toastr.info('Đã khôi phục cấu hình ánh sáng Studio mặc định.', 'Ánh sáng 3D');
+    this.cdr.markForCheck();
+  }
+
+  async saveLightingConfig(): Promise<void> {
+    if (this.lightingSaving) return;
+    this.lightingSaving = true;
+    this.cdr.markForCheck();
+    try {
+      const payload = { ...this.lightingConfig };
+      if (this.profile) {
+        this.profile.scene = {
+          ...(this.profile.scene || { cameraPreset: 'default', lightsOn: true }),
+          lighting: payload
+        };
+      }
+      await this.profileDataService.saveScene({ lighting: payload }).toPromise();
+      this.toastr.success('Đã lưu cấu hình ánh sáng & môi trường 3D.', 'Ánh sáng 3D');
+    } catch (err) {
+      console.error('[Profile] saveLightingConfig error:', err);
+      this.toastr.error('Không thể lưu cấu hình ánh sáng.', 'Lỗi');
+    } finally {
+      this.lightingSaving = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  // =========================================================================
+  // STUDIO MÀU SẮC & AI TẠO TEXTURE 3D TỪ ẢNH MẪU (UV-AWARE + DÁN LOGO)
+  // =========================================================================
+  isTextureStudioOpen = false;
+  texStudioPropId: string | null = null;
+  texStudioPropName = '';
+  texStudioColor = '#ffffff';
+  texStudioMetalness = 0.25;
+  texStudioRoughness = 0.35;
+  texStudioRepeatX = 1;
+  texStudioRepeatY = 1;
+  texStudioOffsetX = 0;
+  texStudioOffsetY = 0;
+  texStudioRotation = 0;
+  texStudioUvMode: 'cylindrical' | 'box' | 'original' = 'cylindrical';
+  texStudioHasNativeUv = false;
+  texStudioCylindricalAspect = 1.6;
+  texStudioRefImageDataUrl: string | null = null;
+  texStudioRefImageName = '';
+  texStudioPrompt = '';
+  texStudioOriginalUvDataUrl: string | null = null;
+  texStudioOriginalAtlasDataUrl: string | null = null;
+  texStudioHasOriginalDiffuse = false;
+  texStudioGeneratedDataUrl: string | null = null;
+  texStudioTextureChanged = false;
+  texStudioGenerating = false;
+  texStudioSaving = false;
+  texStudioShowUvControls = false;
+
+  // Chế độ Dán Logo lên thân đồ vật (tự ghép canvas 1024x1024 chống méo tỷ lệ)
+  texStudioLogoMode = false;
+  texStudioLogoScale = 0.56;
+  texStudioLogoOffsetX = 0;
+  texStudioLogoOffsetY = 0;
+  texStudioLogoBothSides = true;
+  texStudioLogoMetallicRims = true;
+  texStudioLogoMatchBg = true;
+  private _texStudioLogoTimer: any = null;
+
+  readonly texStudioColorPresets: Array<{ name: string; hex: string }> = [
+    { name: 'Trắng gốc', hex: '#ffffff' },
+    { name: 'Đỏ Coca', hex: '#dc2626' },
+    { name: 'Xanh Pepsi', hex: '#1d4ed8' },
+    { name: 'Xanh Sprite', hex: '#16a34a' },
+    { name: 'Vàng Gold', hex: '#eab308' },
+    { name: 'Cam Fanta', hex: '#f97316' },
+    { name: 'Tím Nho', hex: '#9333ea' },
+    { name: 'Hồng Đào', hex: '#ec4899' },
+    { name: 'Bạc Nhôm', hex: '#cbd5e1' },
+    { name: 'Đen Nhám', hex: '#1e293b' },
+  ];
+
+  openPropTextureStudio(propId?: string | null, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    const pid = propId || this.selectedPropId || this.propActionAnchor.propId;
+    if (!pid) return;
+
+    this.isGlbTimelineOpen = false;
+    this.isLightingStudioOpen = false;
+    this.isAiVideo3dOpen = false;
+    this.texStudioPropId = pid;
+    const prop = this.roomProps?.find((p) => p && p.id === pid);
+    this.texStudioPropName = prop?.name || pid;
+    this.texStudioColor = prop?._customColorSet && prop?.color ? prop.color : '#ffffff';
+    this.texStudioMetalness = typeof prop?.metalness === 'number' ? prop.metalness : 0.25;
+    this.texStudioRoughness = typeof prop?.roughness === 'number' ? prop.roughness : 0.35;
+    this.texStudioRepeatX = typeof prop?.textureRepeatX === 'number' ? prop.textureRepeatX : 1;
+    this.texStudioRepeatY = typeof prop?.textureRepeatY === 'number' ? prop.textureRepeatY : 1;
+    this.texStudioOffsetX = typeof prop?.textureOffsetX === 'number' ? prop.textureOffsetX : 0;
+    this.texStudioOffsetY = typeof prop?.textureOffsetY === 'number' ? prop.textureOffsetY : 0;
+    this.texStudioRotation = typeof prop?.textureRotation === 'number' ? prop.textureRotation : 0;
+    this.texStudioGeneratedDataUrl = null;
+    this.texStudioTextureChanged = false;
+    this.texStudioShowUvControls = false;
+    this.texStudioLogoMode = false;
+
+    const savedUvMode: 'auto' | 'cylindrical' | 'box' | 'original' =
+      prop?.textureUvMode === 'cylindrical' || prop?.textureUvMode === 'box' || prop?.textureUvMode === 'original'
+        ? prop.textureUvMode
+        : 'auto';
+
+    const extracted = this.sceneService.extractPropTextureAtlas(pid, savedUvMode);
+    this.texStudioHasOriginalDiffuse = extracted.hasDiffuseMap;
+    this.texStudioHasNativeUv = extracted.hasNativeUv;
+    this.texStudioUvMode = extracted.activeUvMode;
+    this.texStudioCylindricalAspect = extracted.cylindricalAspect || 1.6;
+    this.texStudioOriginalAtlasDataUrl = extracted.atlasDataUrl;
+    this.texStudioOriginalUvDataUrl = extracted.uvGuideDataUrl || extracted.atlasDataUrl;
+
+    // Nạp lại bản xem trước của texture tùy chỉnh nếu đồ vật đã từng lưu trước đó
+    const electronWin = typeof window !== 'undefined' ? (window as any) : null;
+    if (prop?.customTexturePath && electronWin?.electron?.readPropTexture) {
+      electronWin.electron.readPropTexture(prop.customTexturePath).then((res: any) => {
+        if (res?.success && res.dataUrl && this.texStudioPropId === pid && !this.texStudioGeneratedDataUrl) {
+          this.texStudioGeneratedDataUrl = res.dataUrl;
+          this.cdr.markForCheck();
+        }
+      }).catch(() => {});
+    }
+
+    this.isTextureStudioOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closePropTextureStudio(): void {
+    if (this._texStudioLogoTimer) {
+      clearTimeout(this._texStudioLogoTimer);
+      this._texStudioLogoTimer = null;
+    }
+    this.isTextureStudioOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  onTexStudioUvModeChange(mode: 'cylindrical' | 'box' | 'original'): void {
+    if (!this.texStudioPropId) return;
+    if (mode === 'original' && !this.texStudioHasNativeUv) {
+      this.toastr.info('Mô hình GLB này không có lưới UV gốc. Hãy dùng UV Trụ hoặc UV Khối.', 'Bản đồ UV');
+      return;
+    }
+    const pid = this.texStudioPropId;
+    const extracted = this.sceneService.extractPropTextureAtlas(pid, mode);
+    this.texStudioUvMode = extracted.activeUvMode;
+    this.texStudioCylindricalAspect = extracted.cylindricalAspect || 1.6;
+    this.texStudioOriginalAtlasDataUrl = extracted.atlasDataUrl;
+    this.texStudioOriginalUvDataUrl = extracted.uvGuideDataUrl || extracted.atlasDataUrl;
+
+    if (this.texStudioLogoMode && this.texStudioRefImageDataUrl) {
+      this._scheduleLogoRecompose(0);
+    } else if (this.texStudioGeneratedDataUrl) {
+      this.sceneService.applyPropCustomTexture(pid, this.texStudioGeneratedDataUrl, {
+        sourceKey: `uvswitch_${Date.now()}`,
+        uvMode: this.texStudioUvMode,
+        tintHex: null,
+        repeatX: this.texStudioRepeatX,
+        repeatY: this.texStudioRepeatY,
+        offsetX: this.texStudioOffsetX,
+        offsetY: this.texStudioOffsetY,
+        rotationDeg: this.texStudioRotation
+      });
+    }
+    this.cdr.markForCheck();
+  }
+
+  onTexStudioColorChange(hex: string): void {
+    if (!this.texStudioPropId) return;
+    this.texStudioColor = hex || '#ffffff';
+    // Nếu đang ở chế độ dán Logo: đổi màu nền thân vật thể trong canvas để không nhuộm hỏng màu Logo!
+    if (this.texStudioLogoMode && this.texStudioRefImageDataUrl) {
+      this.texStudioLogoMatchBg = false;
+      this._scheduleLogoRecompose(30);
+    } else {
+      this.sceneService.applyPropLiveMaterial(this.texStudioPropId, {
+        color: this.texStudioColor
+      });
+    }
+    this.cdr.markForCheck();
+  }
+
+  onTexStudioPbrChange(): void {
+    if (!this.texStudioPropId) return;
+    this.sceneService.applyPropLiveMaterial(this.texStudioPropId, {
+      metalness: Number(this.texStudioMetalness),
+      roughness: Number(this.texStudioRoughness)
+    });
+    this.cdr.markForCheck();
+  }
+
+  onTexStudioUvTransformChange(): void {
+    if (!this.texStudioPropId) return;
+    this.sceneService.applyPropLiveMaterial(this.texStudioPropId, {
+      repeatX: Number(this.texStudioRepeatX) || 1,
+      repeatY: Number(this.texStudioRepeatY) || 1,
+      offsetX: Number(this.texStudioOffsetX) || 0,
+      offsetY: Number(this.texStudioOffsetY) || 0,
+      rotationDeg: Number(this.texStudioRotation) || 0
+    });
+    this.cdr.markForCheck();
+  }
+
+  onTexStudioLogoControlChange(): void {
+    if (!this.texStudioLogoMode || !this.texStudioRefImageDataUrl) return;
+    this._scheduleLogoRecompose(35);
+    this.cdr.markForCheck();
+  }
+
+  private _scheduleLogoRecompose(delayMs = 35): void {
+    if (this._texStudioLogoTimer) {
+      clearTimeout(this._texStudioLogoTimer);
+      this._texStudioLogoTimer = null;
+    }
+    if (delayMs <= 0) {
+      void this._applyComposedLogoTexture(false);
+      return;
+    }
+    this._texStudioLogoTimer = setTimeout(() => {
+      this._texStudioLogoTimer = null;
+      void this._applyComposedLogoTexture(false);
+    }, delayMs);
+  }
+
+  onTexStudioRefFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    if (!file) return;
+    this._readTexStudioRefFile(file);
+    input.value = '';
+  }
+
+  onTexStudioDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const file = event.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      this._readTexStudioRefFile(file);
+    }
+  }
+
+  onTexStudioPaste(event: ClipboardEvent): void {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.type && it.type.startsWith('image/')) {
+        const file = it.getAsFile();
+        if (file) {
+          event.preventDefault();
+          this._readTexStudioRefFile(file);
+          return;
+        }
+      }
+    }
+  }
+
+  private _readTexStudioRefFile(file: File): void {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        this.texStudioRefImageDataUrl = reader.result;
+        this.texStudioRefImageName = file.name || 'anh_mau.png';
+        this.cdr.markForCheck();
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  clearTexStudioRefImage(): void {
+    this.texStudioRefImageDataUrl = null;
+    this.texStudioRefImageName = '';
+    this.texStudioLogoMode = false;
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Ghép ảnh Logo / nhãn sản phẩm lên bản đồ Texture 1024x1024 có bù tỷ lệ chu vi/chiều cao vật thể 3D,
+   * tự khớp màu viền ảnh (hoặc dùng màu người dùng chọn) và giữ nắp trên / đáy màu bạc kim loại.
+   */
+  private _composeLogoLabelTexture(logoDataUrl: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const SIZE = 1024;
+          const isCyl = this.texStudioUvMode === 'cylindrical';
+
+          // Tự lấy mẫu màu nền từ 4 góc + 4 cạnh ngoài của ảnh logo (bỏ qua nếu góc trong suốt PNG)
+          let sampledBg: string | null = null;
+          try {
+            const sc = document.createElement('canvas');
+            sc.width = 48;
+            sc.height = 48;
+            const sctx = sc.getContext('2d');
+            if (sctx) {
+              sctx.drawImage(img, 0, 0, 48, 48);
+              const px = sctx.getImageData(0, 0, 48, 48).data;
+              const pts = [
+                [1, 1], [46, 1], [1, 46], [46, 46],
+                [24, 1], [24, 46], [1, 24], [46, 24]
+              ];
+              let rSum = 0, gSum = 0, bSum = 0, count = 0;
+              for (const [x, y] of pts) {
+                const idx = (y * 48 + x) * 4;
+                if (px[idx + 3] >= 200) {
+                  rSum += px[idx];
+                  gSum += px[idx + 1];
+                  bSum += px[idx + 2];
+                  count++;
+                }
+              }
+              if (count >= 4) {
+                const rr = Math.round(rSum / count);
+                const gg = Math.round(gSum / count);
+                const bb = Math.round(bSum / count);
+                sampledBg = `rgb(${rr}, ${gg}, ${bb})`;
+              }
+            }
+          } catch (_) {}
+
+          const bodyBg = this.texStudioLogoMatchBg
+            ? (sampledBg || (this.texStudioColor && this.texStudioColor.toLowerCase() !== '#ffffff' ? this.texStudioColor : '#e2e8f0'))
+            : (this.texStudioColor || '#ffffff');
+
+          const cv = document.createElement('canvas');
+          cv.width = SIZE;
+          cv.height = SIZE;
+          const ctx = cv.getContext('2d');
+          if (!ctx) {
+            resolve(null);
+            return;
+          }
+
+          // 1. Phủ màu nền toàn thân vật thể
+          ctx.fillStyle = bodyBg;
+          ctx.fillRect(0, 0, SIZE, SIZE);
+
+          const rimH = (isCyl && this.texStudioLogoMetallicRims) ? Math.round(SIZE * 0.115) : 0;
+          const bodyTop = rimH;
+          const bodyBottom = SIZE - rimH;
+          const bodyH = Math.max(128, bodyBottom - bodyTop);
+
+          // 2. Vẽ Logo giữ đúng tỷ lệ thật trên bề mặt 3D (bù tỷ lệ chu vi / chiều cao cho UV trụ)
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, bodyTop, SIZE, bodyH);
+          ctx.clip();
+
+          const imgW = img.naturalWidth || img.width || 512;
+          const imgH = img.naturalHeight || img.height || 512;
+          const imgAspect = imgW / Math.max(1, imgH);
+          const cylAspect = Math.max(0.4, Number(this.texStudioCylindricalAspect) || 1.6);
+          const uvAspect = isCyl ? (imgAspect / cylAspect) : imgAspect;
+
+          const scale = Math.max(0.12, Math.min(1.0, Number(this.texStudioLogoScale) || 0.56));
+          let drawH = bodyH * scale;
+          let drawW = drawH * uvAspect;
+          const maxDrawW = isCyl && this.texStudioLogoBothSides ? SIZE * 0.46 : SIZE * 0.92;
+          if (drawW > maxDrawW) {
+            drawW = maxDrawW;
+            drawH = drawW / Math.max(0.08, uvAspect);
+          }
+
+          const cy = (bodyTop + bodyBottom) * 0.5 + (Number(this.texStudioLogoOffsetY) || 0) * bodyH;
+          const normOffX = (((0.5 + (Number(this.texStudioLogoOffsetX) || 0)) % 1) + 1) % 1;
+          const cxMain = normOffX * SIZE;
+
+          const drawWrappedLogo = (centerX: number) => {
+            const xLeft = centerX - drawW * 0.5;
+            const yTop = cy - drawH * 0.5;
+            ctx.drawImage(img, xLeft, yTop, drawW, drawH);
+            if (xLeft < 0) {
+              ctx.drawImage(img, xLeft + SIZE, yTop, drawW, drawH);
+            }
+            if (xLeft + drawW > SIZE) {
+              ctx.drawImage(img, xLeft - SIZE, yTop, drawW, drawH);
+            }
+          };
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          drawWrappedLogo(cxMain);
+          if (isCyl && this.texStudioLogoBothSides) {
+            drawWrappedLogo((cxMain + SIZE * 0.5) % SIZE);
+          }
+          ctx.restore();
+
+          // 3. Nắp trên & đáy lon màu bạc nhôm kim loại sắc nét (chế độ UV trụ)
+          if (rimH > 0) {
+            const topGrad = ctx.createLinearGradient(0, 0, 0, rimH);
+            topGrad.addColorStop(0.0, '#d8dee9');
+            topGrad.addColorStop(0.45, '#f1f5f9');
+            topGrad.addColorStop(0.82, '#cbd5e1');
+            topGrad.addColorStop(1.0, '#94a3b8');
+            ctx.fillStyle = topGrad;
+            ctx.fillRect(0, 0, SIZE, rimH);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+            ctx.fillRect(0, rimH - 3, SIZE, 2);
+
+            const botGrad = ctx.createLinearGradient(0, bodyBottom, 0, SIZE);
+            botGrad.addColorStop(0.0, '#94a3b8');
+            botGrad.addColorStop(0.25, '#e2e8f0');
+            botGrad.addColorStop(0.65, '#cbd5e1');
+            botGrad.addColorStop(1.0, '#94a3b8');
+            ctx.fillStyle = botGrad;
+            ctx.fillRect(0, bodyBottom, SIZE, rimH);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.fillRect(0, bodyBottom + 1, SIZE, 2);
+          }
+
+          resolve(cv.toDataURL('image/png'));
+        } catch (err) {
+          console.error('[Profile] _composeLogoLabelTexture error:', err);
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = logoDataUrl;
+    });
+  }
+
+  private async _applyComposedLogoTexture(showToast: boolean): Promise<void> {
+    if (!this.texStudioPropId || !this.texStudioRefImageDataUrl) return;
+    const pid = this.texStudioPropId;
+    const composed = await this._composeLogoLabelTexture(this.texStudioRefImageDataUrl);
+    if (!composed) {
+      if (showToast) this.toastr.error('Không thể ghép ảnh Logo lên bề mặt 3D.', 'Lỗi Texture');
+      return;
+    }
+
+    const ok = await this.sceneService.applyPropCustomTexture(pid, composed, {
+      sourceKey: `logo_${Date.now()}`,
+      uvMode: this.texStudioUvMode,
+      tintHex: null,
+      repeatX: this.texStudioRepeatX,
+      repeatY: this.texStudioRepeatY,
+      offsetX: this.texStudioOffsetX,
+      offsetY: this.texStudioOffsetY,
+      rotationDeg: this.texStudioRotation
+    });
+
+    if (ok) {
+      this.texStudioGeneratedDataUrl = composed;
+      this.texStudioTextureChanged = true;
+      // Cập nhật lại lưới UV nếu vừa chuyển chế độ UV
+      const extracted = this.sceneService.extractPropTextureAtlas(pid, this.texStudioUvMode);
+      this.texStudioOriginalUvDataUrl = extracted.uvGuideDataUrl || extracted.atlasDataUrl;
+      if (showToast) {
+        this.toastr.success(
+          'Đã dán Logo lên đồ vật 3D! Bạn có thể kéo thanh Cỡ Logo / Xoay ngang rồi bấm "Lưu".',
+          'Dán Logo 3D'
+        );
+      }
+    } else if (showToast) {
+      this.toastr.error('Không thể áp dụng ảnh Logo lên vật thể 3D.', 'Lỗi Texture');
+    }
+    this.cdr.markForCheck();
+  }
+
+  /** Dán ảnh mẫu / Logo trực tiếp lên thân đồ vật 3D (tự tạo UV trụ, bù méo tỷ lệ và không cần AI) */
+  async applyReferenceDirectlyAsTexture(): Promise<void> {
+    if (!this.texStudioPropId || !this.texStudioRefImageDataUrl) {
+      this.toastr.warning('Vui lòng chọn hoặc dán một ảnh mẫu / Logo trước.', 'Texture 3D');
+      return;
+    }
+    // Nếu vật thể đang ở UV gốc rời rạc mà người dùng muốn dán Logo trực tiếp, ưu tiên UV Trụ
+    if (this.texStudioUvMode === 'original' && !this.texStudioHasOriginalDiffuse) {
+      this.texStudioUvMode = 'cylindrical';
+    }
+    // Nếu người dùng đã chủ động chọn màu nền khác trắng trước khi bấm Dán Logo, giữ màu đó làm màu thân lon
+    this.texStudioLogoMatchBg = !this.texStudioColor || this.texStudioColor.toLowerCase() === '#ffffff';
+    this.texStudioLogoMode = true;
+    await this._applyComposedLogoTexture(true);
+  }
+
+  /**
+   * Dùng AI Image Editing tạo bản đồ UV Texture 1024x1024 khớp đúng hình học của mô hình 3D
+   * dựa trên Bản đồ UV hiện tại + Ảnh mẫu người dùng cung cấp + Prompt tuỳ chọn.
+   */
+  async generateAiTextureFromReference(): Promise<void> {
+    if (!this.texStudioPropId || this.texStudioGenerating) return;
+    if (!this.texStudioRefImageDataUrl && !this.texStudioPrompt.trim()) {
+      this.toastr.warning('Hãy tải ảnh mẫu hoặc nhập mô tả màu sắc / chất liệu mong muốn.', 'AI Tạo Texture 3D');
+      return;
+    }
+
+    this.texStudioGenerating = true;
+    this.cdr.markForCheck();
+
+    try {
+      const pid = this.texStudioPropId;
+      const extracted = this.sceneService.extractPropTextureAtlas(pid, this.texStudioUvMode);
+      const baseUvDataUrl = extracted.uvGuideDataUrl || extracted.atlasDataUrl;
+      this.texStudioUvMode = extracted.activeUvMode;
+      this.texStudioOriginalAtlasDataUrl = extracted.atlasDataUrl;
+      this.texStudioOriginalUvDataUrl = baseUvDataUrl;
+
+      const splitDataUrl = (du: string): { mimeType: string; data: string } => {
+        const m = du.match(/^data:([^;]+);base64,(.+)$/);
+        return m ? { mimeType: m[1], data: m[2] } : { mimeType: 'image/png', data: du };
+      };
+
+      const parts: any[] = [];
+      if (baseUvDataUrl) {
+        const uvPart = splitDataUrl(baseUvDataUrl);
+        parts.push({ inlineData: { mimeType: uvPart.mimeType, data: uvPart.data } });
+      }
+      if (this.texStudioRefImageDataUrl) {
+        const refPart = splitDataUrl(this.texStudioRefImageDataUrl);
+        parts.push({ inlineData: { mimeType: refPart.mimeType, data: refPart.data } });
+      }
+
+      const userExtra = this.texStudioPrompt.trim();
+      const propLabel = this.texStudioPropName || '3D object';
+      const uvLayoutHint = this.texStudioUvMode === 'cylindrical'
+        ? 'IMAGE 1 IS A CYLINDRICAL 360-DEGREE UV WRAP MAP: top 11% cyan band = metallic top lid/pull-tab rim, middle 78% green/light band = 360-degree cylindrical side body (horizontal center X=50% is the front face facing the viewer), bottom 11% yellow band = metallic bottom rim/base.'
+        : 'IMAGE 1 IS THE EXACT UV TEXTURE ATLAS LAYOUT OF THIS 3D MESH (green lines = main body UV islands, cyan lines = top cap/lid islands, yellow lines = bottom base islands).';
+
+      const instruction = `TASK: GENERATE A 1024x1024 FLAT UNLIT 3D UV ALBEDO DIFFUSE TEXTURE MAP FOR THE 3D OBJECT "${propLabel}".
+${baseUvDataUrl ? uvLayoutHint : ''}
+${this.texStudioRefImageDataUrl ? `IMAGE ${baseUvDataUrl ? '2' : '1'} IS THE USER'S REFERENCE PRODUCT / LOGO / COLOR / LABEL STYLE IMAGE.` : ''}
+
+MANDATORY TECHNICAL RULES FOR 3D UV TEXTURE OUTPUT:
+1. OUTPUT MUST BE A FLAT 2D UV TEXTURE ATLAS IMAGE (1:1 SQUARE) — NEVER render a 3D perspective product photo, never draw a background studio scene, never draw cast shadows or studio highlights.
+2. STRICT UV LAYOUT PRESERVATION: Follow the EXACT UV zones from Image 1 so the texture wraps cleanly onto the 3D mesh without distortion. DO NOT draw any colored wireframe lines, cyan/yellow/green guide overlays, or grid lines in the final output.
+3. STYLE, LOGO & COLOR TRANSFER: Transfer the exact colors, brand logo, label graphics, typography, patterns, and surface design from the reference image cleanly onto the main body band (center the main logo cleanly at horizontal X=50%, upright, crisp and legible). Keep the top cap/lid band (top 11%) and bottom base band (bottom 11%) realistic clean brushed silver/metallic aluminum unless requested otherwise.
+4. SEAMLESS HORIZONTAL WRAP: Make left edge (X=0%) and right edge (X=100%) match seamlessly in color and pattern so there is no visible vertical seam on the back of the 3D object.
+${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
+
+      parts.push({ text: instruction });
+
+      const response: any = await this.genaiService.generateContent({
+        model: 'gemini-3.1-flash-image-preview',
+        contents: [{ role: 'user', parts }],
+        config: {
+          responseModalities: ['TEXT', 'IMAGE'],
+          imageConfig: {
+            aspectRatio: '1:1'
+          },
+          isImageEdit: true
+        } as any
+      });
+
+      let outBase64 = '';
+      let outMime = 'image/png';
+      const respParts = response?.candidates?.[0]?.content?.parts || [];
+      for (const p of respParts) {
+        if (p?.inlineData?.data) {
+          outBase64 = p.inlineData.data;
+          outMime = p.inlineData.mimeType || 'image/png';
+          break;
+        }
+        if ((p as any)?.image?.data) {
+          outBase64 = (p as any).image.data;
+          outMime = (p as any).image.mimeType || 'image/png';
+          break;
+        }
+      }
+
+      if (!outBase64) {
+        throw new Error('AI không trả về dữ liệu ảnh Texture. Hãy kiểm tra lại cấu hình Model tạo ảnh trong Cài đặt.');
+      }
+
+      const generatedDataUrl = `data:${outMime};base64,${outBase64}`;
+      this.texStudioGeneratedDataUrl = generatedDataUrl;
+      this.texStudioTextureChanged = true;
+      this.texStudioLogoMode = false;
+      this.texStudioColor = '#ffffff';
+
+      const ok = await this.sceneService.applyPropCustomTexture(pid, generatedDataUrl, {
+        sourceKey: `ai_${Date.now()}`,
+        uvMode: this.texStudioUvMode,
+        tintHex: null,
+        repeatX: this.texStudioRepeatX,
+        repeatY: this.texStudioRepeatY,
+        offsetX: this.texStudioOffsetX,
+        offsetY: this.texStudioOffsetY,
+        rotationDeg: this.texStudioRotation
+      });
+
+      if (ok) {
+        this.toastr.success('AI đã tạo và bọc Texture 3D thành công! Bấm "Lưu Texture & Màu sắc" để lưu vĩnh viễn.', 'AI Tạo Texture 3D');
+      } else {
+        this.toastr.warning('AI đã sinh ảnh Texture nhưng không áp dụng được lên mesh.', 'Texture 3D');
+      }
+    } catch (err: any) {
+      console.error('[Profile] generateAiTextureFromReference error:', err);
+      this.toastr.error(err?.message || 'Không thể tạo Texture AI lúc này.', 'Lỗi AI Texture');
+    } finally {
+      this.texStudioGenerating = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  /** Khôi phục màu sắc, chất liệu và Texture gốc ban đầu của file GLB */
+  async resetTextureStudioToOriginal(): Promise<void> {
+    if (!this.texStudioPropId) return;
+    const pid = this.texStudioPropId;
+    this.sceneService.resetPropMaterialToOriginal(pid);
+    this.texStudioColor = '#ffffff';
+    this.texStudioMetalness = 0.0;
+    this.texStudioRoughness = 0.5;
+    this.texStudioRepeatX = 1;
+    this.texStudioRepeatY = 1;
+    this.texStudioOffsetX = 0;
+    this.texStudioOffsetY = 0;
+    this.texStudioRotation = 0;
+    this.texStudioGeneratedDataUrl = null;
+    this.texStudioTextureChanged = false;
+    this.texStudioLogoMode = false;
+
+    const extracted = this.sceneService.extractPropTextureAtlas(pid, 'auto');
+    this.texStudioUvMode = extracted.activeUvMode;
+    this.texStudioOriginalAtlasDataUrl = extracted.atlasDataUrl;
+    this.texStudioOriginalUvDataUrl = extracted.uvGuideDataUrl || extracted.atlasDataUrl;
+
+    const idx = this.roomProps.findIndex((p) => p && p.id === pid);
+    if (idx >= 0) {
+      const target = this.roomProps[idx];
+      target.color = '#ffffff';
+      target._customColorSet = false;
+      target._customMetalnessSet = false;
+      target._customRoughnessSet = false;
+      delete target.customTexturePath;
+      delete target.customTextureDataUrl;
+      delete target.textureUvMode;
+      delete target.textureRepeatX;
+      delete target.textureRepeatY;
+      delete target.textureOffsetX;
+      delete target.textureOffsetY;
+      delete target.textureRotation;
+      (this.profile as any).props = this.roomProps;
+      try {
+        await this.profileDataService.saveProps(this.roomProps).toPromise();
+      } catch (_) {}
+    }
+
+    this.toastr.info('Đã khôi phục màu sắc và Texture gốc của đồ vật.', 'Màu sắc & Texture 3D');
+    this.cdr.markForCheck();
+  }
+
+  /** Lưu Texture PNG xuống thư mục assets/textures/ và ghi cấu hình màu sắc/PBR vào props.json */
+  async saveTextureStudioChanges(): Promise<void> {
+    if (!this.texStudioPropId || this.texStudioSaving) return;
+    const pid = this.texStudioPropId;
+    const idx = this.roomProps.findIndex((p) => p && p.id === pid);
+    if (idx < 0) return;
+
+    this.texStudioSaving = true;
+    this.cdr.markForCheck();
+
+    try {
+      const target = this.roomProps[idx];
+      // Khi màu đã được ghép trực tiếp vào ảnh PNG (chế độ Logo hoặc AI Texture), lưu tint = #ffffff
+      // để khi tải lại ứng dụng không bị nhân chồng màu làm tối ảnh logo.
+      const colorBakedInTexture = Boolean(this.texStudioLogoMode || this.texStudioGeneratedDataUrl);
+      target.color = colorBakedInTexture ? '#ffffff' : (this.texStudioColor || '#ffffff');
+      target._customColorSet = !colorBakedInTexture && target.color.toLowerCase() !== '#ffffff';
+      target.metalness = Number(this.texStudioMetalness);
+      target._customMetalnessSet = true;
+      target.roughness = Number(this.texStudioRoughness);
+      target._customRoughnessSet = true;
+      target.textureUvMode = this.texStudioUvMode;
+      target.textureRepeatX = Number(this.texStudioRepeatX) || 1;
+      target.textureRepeatY = Number(this.texStudioRepeatY) || 1;
+      target.textureOffsetX = Number(this.texStudioOffsetX) || 0;
+      target.textureOffsetY = Number(this.texStudioOffsetY) || 0;
+      target.textureRotation = Number(this.texStudioRotation) || 0;
+
+      if (this.texStudioTextureChanged && this.texStudioGeneratedDataUrl) {
+        const electronWin = typeof window !== 'undefined' ? (window as any) : null;
+        const username = this.profileDataService.username || this.profile?.username || 'admin';
+        if (electronWin?.electron?.savePropTexture) {
+          const saved = await electronWin.electron.savePropTexture(
+            username,
+            pid,
+            this.texStudioGeneratedDataUrl
+          );
+          if (saved?.success && saved.filePath) {
+            target.customTexturePath = saved.filePath;
+            delete target.customTextureDataUrl;
+          }
+        } else {
+          target.customTextureDataUrl = this.texStudioGeneratedDataUrl;
+        }
+        this.texStudioTextureChanged = false;
+      }
+
+      (this.profile as any).props = this.roomProps;
+      await this.profileDataService.saveProps(this.roomProps).toPromise();
+      this.toastr.success(`Đã lưu màu sắc & Texture cho "${target.name}"!`, 'Màu sắc & AI Texture 3D');
+    } catch (err: any) {
+      console.error('[Profile] saveTextureStudioChanges error:', err);
+      this.toastr.error('Không thể lưu Texture của đồ vật.', 'Lỗi');
+    } finally {
+      this.texStudioSaving = false;
+      this.cdr.markForCheck();
+    }
   }
 
   get filteredTimelineBones(): GlbBoneInfo[] {

@@ -16,6 +16,7 @@ export interface CharacterProfile {
 export interface SceneProfile {
     cameraPreset: string;
     lightsOn: boolean;
+    lighting?: Record<string, any>;
 }
 
 export interface ProfileAsset {
@@ -141,6 +142,9 @@ export class ProfileDataService {
                 const copy = { ...p };
                 delete (copy as any)._inserting;
                 delete (copy as any)._glbLoaded;
+                if ((copy as any).customTexturePath) {
+                    delete (copy as any).customTextureDataUrl;
+                }
                 return copy;
             })
             : props;

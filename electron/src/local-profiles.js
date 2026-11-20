@@ -83,7 +83,7 @@ const DEFAULT_PROPS = [];
 
 // ── IPC Handlers ───────────────────────────────────────────────────────────────
 
-function registerProfileHandlers() {
+function registerProfileHandlers(binaries = null) {
 
     // ─────────────────────────────────────────────────────────────
     // PROFILE (thông tin cơ bản)
@@ -420,6 +420,97 @@ function registerProfileHandlers() {
         } catch (e) { return { success: false, error: e.message }; }
     });
 
+    // Chuyển WebM ghi từ Canvas 3D sang chuẩn H.264 MP4 (yuv420p, CFR 24fps, faststart) để gửi Mì Tôm AI (Seedance / Kling Motion Control)
+    ipcMain.handle('exports:convert-webm-to-mp4', async (_event, { username, buffer, aspectRatio, maxDurationSec } = {}) => {
+        const { spawn } = require('child_process');
+        let tmpWebm = '';
+        try {
+            if (!buffer) return { success: false, error: 'Thiếu dữ liệu video WebM.' };
+            const exportsDir = getExportsDir(username);
+            const stamp = Date.now();
+            tmpWebm = path.join(exportsDir, `_tmp_motion3d_${stamp}.webm`);
+            const outMp4 = path.join(exportsDir, `motion3d_${stamp}.mp4`);
+            fs.writeFileSync(tmpWebm, Buffer.from(buffer));
+
+            const ratioMap = {
+                '16:9': [1280, 720],
+                '9:16': [720, 1280],
+                '1:1':  [720, 720],
+                '3:4':  [720, 960],
+                '4:3':  [960, 720]
+            };
+            const [w, h] = ratioMap[String(aspectRatio || '16:9')] || [1280, 720];
+            const ffmpegBin = (binaries && binaries.ffmpeg) ? binaries.ffmpeg : 'ffmpeg';
+            const vf = `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},setsar=1`;
+            const args = [
+                '-y',
+                '-i', tmpWebm
+            ];
+            if (typeof maxDurationSec === 'number' && maxDurationSec > 0) {
+                args.push('-t', String(Math.min(30, Math.max(2, maxDurationSec))));
+            }
+            args.push(
+                '-vf', vf,
+                '-r', '24',
+                '-c:v', 'libx264',
+                '-pix_fmt', 'yuv420p',
+                '-preset', 'fast',
+                '-crf', '22',
+                '-an',
+                '-movflags', '+faststart',
+                outMp4
+            );
+
+            await new Promise((resolve, reject) => {
+                const child = spawn(ffmpegBin, args, { windowsHide: true });
+                let stderr = '';
+                child.stderr.on('data', (chunk) => {
+                    stderr += chunk.toString();
+                    if (stderr.length > 4000) stderr = stderr.slice(-4000);
+                });
+                child.on('error', (err) => reject(err));
+                child.on('close', (code) => {
+                    if (code === 0) resolve();
+                    else reject(new Error(`FFmpeg thoát với mã ${code}: ${stderr.slice(-400)}`));
+                });
+            });
+
+            try { if (tmpWebm && fs.existsSync(tmpWebm)) fs.unlinkSync(tmpWebm); } catch (_) {}
+
+            if (!fs.existsSync(outMp4)) {
+                return { success: false, error: 'Không tạo được tệp MP4 đầu ra.' };
+            }
+            const mp4Buf = fs.readFileSync(outMp4);
+            return {
+                success: true,
+                filePath: outMp4,
+                exportsDir,
+                sizeBytes: mp4Buf.length,
+                base64: mp4Buf.toString('base64')
+            };
+        } catch (e) {
+            try { if (tmpWebm && fs.existsSync(tmpWebm)) fs.unlinkSync(tmpWebm); } catch (_) {}
+            return { success: false, error: e.message || String(e) };
+        }
+    });
+
+    // Lưu video MP4 do Mì Tôm AI sinh ra xuống thư mục exports của profile
+    ipcMain.handle('exports:save-ai-video', async (_event, { username, base64, filename } = {}) => {
+        try {
+            if (!base64 || typeof base64 !== 'string') {
+                return { success: false, error: 'Thiếu dữ liệu base64 video.' };
+            }
+            const exportsDir = getExportsDir(username);
+            const cleanB64 = base64.includes(',') ? base64.split(',')[1] : base64;
+            const rawName = (filename || `ai_video_3d_${Date.now()}.mp4`).replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+            const outPath = path.join(exportsDir, rawName.endsWith('.mp4') ? rawName : `${rawName}.mp4`);
+            fs.writeFileSync(outPath, Buffer.from(cleanB64, 'base64'));
+            return { success: true, filePath: outPath, exportsDir };
+        } catch (e) {
+            return { success: false, error: e.message || String(e) };
+        }
+    });
+
     // ─────────────────────────────────────────────────────────────
     // PROPS (đồ vật trong phòng)
     // ─────────────────────────────────────────────────────────────
@@ -473,6 +564,42 @@ function registerProfileHandlers() {
             writeJson(p, list);
             return { success: true };
         } catch (e) { return { success: false, error: e.message }; }
+    });
+
+    /** Lưu ảnh texture tuỳ chỉnh (do AI tạo hoặc người dùng tải lên) cho đồ vật 3D */
+    ipcMain.handle('props:save-texture', async (_event, { username, propId, dataUrl } = {}) => {
+        try {
+            if (!dataUrl || typeof dataUrl !== 'string') {
+                return { success: false, error: 'Thiếu dữ liệu ảnh texture' };
+            }
+            const texDir = getAssetsDir(username, 'textures');
+            const safeProp = String(propId || 'prop').replace(/[^a-zA-Z0-9_\-]/g, '_').slice(0, 60);
+            const match = dataUrl.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.+)$/);
+            const extRaw = match ? match[1].toLowerCase() : 'png';
+            const ext = extRaw === 'jpeg' ? 'jpg' : (extRaw === 'webp' ? 'webp' : 'png');
+            const base64Body = match ? match[2] : dataUrl.replace(/^data:[^;]+;base64,/, '');
+            const fileName = `tex_${safeProp}_${Date.now()}.${ext}`;
+            const filePath = path.join(texDir, fileName);
+            fs.writeFileSync(filePath, Buffer.from(base64Body, 'base64'));
+            return { success: true, filePath };
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
+    });
+
+    /** Đọc tệp ảnh texture đã lưu cho đồ vật 3D thành dataUrl */
+    ipcMain.handle('props:read-texture', async (_event, { filePath } = {}) => {
+        try {
+            if (!filePath || !fs.existsSync(filePath)) {
+                return { success: false, error: 'Không tìm thấy tệp texture: ' + filePath };
+            }
+            const buf = fs.readFileSync(filePath);
+            const ext = path.extname(filePath).toLowerCase().replace('.', '');
+            const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : (ext === 'webp' ? 'image/webp' : 'image/png');
+            return { success: true, dataUrl: `data:${mime};base64,${buf.toString('base64')}` };
+        } catch (e) {
+            return { success: false, error: e.message };
+        }
     });
 
     // ─────────────────────────────────────────────────────────────

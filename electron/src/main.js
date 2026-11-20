@@ -5822,7 +5822,7 @@ app.whenReady().then(async () => {
     registerExportImportHandlers();
     registerProjectStoreHandlers();
     registerLocalArticlesHandlers();
-    registerProfileHandlers();
+    registerProfileHandlers(binaries);
     registerDesignPresetHandlers();
     registerFontsHandlers();
     registerWorkspaceFoldersHandlers();

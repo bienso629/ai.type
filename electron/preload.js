@@ -234,15 +234,19 @@ if (isInternalAppOrigin) contextBridge.exposeInMainWorld('electron', {
     getAvatar:          (username)               => ipcRenderer.invoke('avatar:get',                  { username }),
 
     // ── Export Video & Frames ──
-    saveExportVideo:   (username, buffer, filename)                  => ipcRenderer.invoke('exports:save-video',  { username, buffer, filename }),
-    saveExportFrame:   (username, sessionFolder, frameIndex, buffer) => ipcRenderer.invoke('exports:save-frame',  { username, sessionFolder, frameIndex, buffer }),
-    openExportsFolder: (username)                                   => ipcRenderer.invoke('exports:open-folder', { username }),
+    saveExportVideo:        (username, buffer, filename)                         => ipcRenderer.invoke('exports:save-video',         { username, buffer, filename }),
+    saveExportFrame:        (username, sessionFolder, frameIndex, buffer)        => ipcRenderer.invoke('exports:save-frame',         { username, sessionFolder, frameIndex, buffer }),
+    openExportsFolder:      (username)                                           => ipcRenderer.invoke('exports:open-folder',        { username }),
+    convertExportWebmToMp4: (username, buffer, aspectRatio, maxDurationSec)      => ipcRenderer.invoke('exports:convert-webm-to-mp4', { username, buffer, aspectRatio, maxDurationSec }),
+    saveAiExportVideo:      (username, base64, filename)                         => ipcRenderer.invoke('exports:save-ai-video',      { username, base64, filename }),
 
     // ── Props ──
     listProps:          (username)               => ipcRenderer.invoke('props:list',                 { username }),
     saveProps:          (username, props)        => ipcRenderer.invoke('props:save',                 { username, props }),
     uploadProp:         (username, name, position, scale, buffer) => ipcRenderer.invoke('props:upload', { username, name, position, scale, buffer }),
     deleteProp:         (username, id)           => ipcRenderer.invoke('props:delete',               { username, id }),
+    savePropTexture:    (username, propId, dataUrl) => ipcRenderer.invoke('props:save-texture',      { username, propId, dataUrl }),
+    readPropTexture:    (filePath)               => ipcRenderer.invoke('props:read-texture',         { filePath }),
 
     // ── Inventory ──
     getInventory:       (username)               => ipcRenderer.invoke('inventory:get',              { username }),

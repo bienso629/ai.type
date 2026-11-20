@@ -4495,6 +4495,7 @@ export class GenaiService {
             duration?: number;
             avatarDialogueText?: string;
             _isInternalAvatarSegment?: boolean;
+            characterOrientation?: 'video' | 'image';
         }
     ): Promise<string> {
         this.syncConfigFromStorage();
@@ -4950,7 +4951,7 @@ export class GenaiService {
                     },
                     parameters: {
                         kling_v3_type: 'motion_control',
-                        character_orientation: 'image',
+                        character_orientation: outMeta?.characterOrientation || 'image',
                         mode: normalizedResolution === '1080p' || normalizedResolution === '4k' ? 'pro' : 'std',
                         duration: Math.ceil(duration || 10),
                         aspect_ratio: aspectRatio || '16:9'
