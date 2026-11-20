@@ -107,6 +107,231 @@ export interface RoomProp {
  * Wraps the full PlayCanvas 3D "Căn phòng của Yên" scene
  * from /yenai.vn/sontinh as an Angular Injectable service.
  */
+export interface StudioLightingConfig {
+  preset: string;
+  exposure: number;
+  toneMapping: 'neutral' | 'aces2' | 'filmic' | 'linear';
+  envIntensity: number;
+  ambientColor: string;
+  ambientIntensity: number;
+  keyEnabled: boolean;
+  keyColor: string;
+  keyIntensity: number;
+  keyPitch: number;
+  keyYaw: number;
+  fillEnabled: boolean;
+  fillColor: string;
+  fillIntensity: number;
+  rimEnabled: boolean;
+  rimColor: string;
+  rimIntensity: number;
+  shadowsEnabled: boolean;
+  shadowIntensity: number;
+  shadowSoftness: 'soft' | 'crisp';
+  bgColor: string;
+  showGrid: boolean;
+  showFloorShadow: boolean;
+}
+
+export interface StudioLightingPreset {
+  id: string;
+  name: string;
+  swatchA: string;
+  swatchB: string;
+  config: Partial<StudioLightingConfig>;
+}
+
+export const DEFAULT_STUDIO_LIGHTING: StudioLightingConfig = {
+  preset: 'studio_bright',
+  exposure: 1.15,
+  toneMapping: 'neutral',
+  envIntensity: 0.95,
+  ambientColor: '#e2e8f0',
+  ambientIntensity: 0.62,
+  keyEnabled: true,
+  keyColor: '#fff9f0',
+  keyIntensity: 1.55,
+  keyPitch: 48,
+  keyYaw: 36,
+  fillEnabled: true,
+  fillColor: '#e0eeff',
+  fillIntensity: 0.58,
+  rimEnabled: true,
+  rimColor: '#ffffff',
+  rimIntensity: 0.65,
+  shadowsEnabled: true,
+  shadowIntensity: 0.45,
+  shadowSoftness: 'soft',
+  bgColor: '#ffffff',
+  showGrid: true,
+  showFloorShadow: true
+};
+
+export const STUDIO_LIGHTING_PRESETS: StudioLightingPreset[] = [
+  {
+    id: 'studio_bright',
+    name: 'Studio Sáng',
+    swatchA: '#ffffff',
+    swatchB: '#fde68a',
+    config: { ...DEFAULT_STUDIO_LIGHTING }
+  },
+  {
+    id: 'soft_daylight',
+    name: 'Ban Ngày',
+    swatchA: '#e0f2fe',
+    swatchB: '#fef08a',
+    config: {
+      preset: 'soft_daylight',
+      exposure: 1.18,
+      toneMapping: 'neutral',
+      envIntensity: 1.1,
+      ambientColor: '#dbeafe',
+      ambientIntensity: 0.58,
+      keyEnabled: true,
+      keyColor: '#fff7e0',
+      keyIntensity: 1.9,
+      keyPitch: 55,
+      keyYaw: 45,
+      fillEnabled: true,
+      fillColor: '#bae6fd',
+      fillIntensity: 0.68,
+      rimEnabled: true,
+      rimColor: '#f8fafc',
+      rimIntensity: 0.55,
+      shadowsEnabled: true,
+      shadowIntensity: 0.52,
+      shadowSoftness: 'soft',
+      bgColor: '#f0f7ff',
+      showGrid: true,
+      showFloorShadow: true
+    }
+  },
+  {
+    id: 'golden_hour',
+    name: 'Hoàng Hôn',
+    swatchA: '#fde68a',
+    swatchB: '#fb923c',
+    config: {
+      preset: 'golden_hour',
+      exposure: 1.12,
+      toneMapping: 'aces2',
+      envIntensity: 0.85,
+      ambientColor: '#fed7aa',
+      ambientIntensity: 0.42,
+      keyEnabled: true,
+      keyColor: '#ffb35c',
+      keyIntensity: 2.35,
+      keyPitch: 18,
+      keyYaw: 62,
+      fillEnabled: true,
+      fillColor: '#c7d2fe',
+      fillIntensity: 0.45,
+      rimEnabled: true,
+      rimColor: '#fde047',
+      rimIntensity: 1.25,
+      shadowsEnabled: true,
+      shadowIntensity: 0.62,
+      shadowSoftness: 'soft',
+      bgColor: '#fdf3e7',
+      showGrid: true,
+      showFloorShadow: true
+    }
+  },
+  {
+    id: 'dark_studio',
+    name: 'Studio Tối',
+    swatchA: '#0f172a',
+    swatchB: '#38bdf8',
+    config: {
+      preset: 'dark_studio',
+      exposure: 1.2,
+      toneMapping: 'aces2',
+      envIntensity: 1.05,
+      ambientColor: '#334155',
+      ambientIntensity: 0.28,
+      keyEnabled: true,
+      keyColor: '#ffffff',
+      keyIntensity: 2.1,
+      keyPitch: 42,
+      keyYaw: 32,
+      fillEnabled: true,
+      fillColor: '#60a5fa',
+      fillIntensity: 0.48,
+      rimEnabled: true,
+      rimColor: '#38bdf8',
+      rimIntensity: 1.45,
+      shadowsEnabled: true,
+      shadowIntensity: 0.72,
+      shadowSoftness: 'soft',
+      bgColor: '#0f172a',
+      showGrid: true,
+      showFloorShadow: true
+    }
+  },
+  {
+    id: 'dramatic',
+    name: 'Điện Ảnh',
+    swatchA: '#18181b',
+    swatchB: '#f59e0b',
+    config: {
+      preset: 'dramatic',
+      exposure: 1.1,
+      toneMapping: 'filmic',
+      envIntensity: 0.72,
+      ambientColor: '#1e293b',
+      ambientIntensity: 0.22,
+      keyEnabled: true,
+      keyColor: '#ffd199',
+      keyIntensity: 2.45,
+      keyPitch: 30,
+      keyYaw: -48,
+      fillEnabled: true,
+      fillColor: '#0ea5e9',
+      fillIntensity: 0.55,
+      rimEnabled: true,
+      rimColor: '#fbbf24',
+      rimIntensity: 1.65,
+      shadowsEnabled: true,
+      shadowIntensity: 0.8,
+      shadowSoftness: 'crisp',
+      bgColor: '#14171f',
+      showGrid: true,
+      showFloorShadow: true
+    }
+  },
+  {
+    id: 'neon_cyber',
+    name: 'Neon Cyber',
+    swatchA: '#1e1b4b',
+    swatchB: '#ec4899',
+    config: {
+      preset: 'neon_cyber',
+      exposure: 1.22,
+      toneMapping: 'aces2',
+      envIntensity: 0.9,
+      ambientColor: '#312e81',
+      ambientIntensity: 0.34,
+      keyEnabled: true,
+      keyColor: '#f472b6',
+      keyIntensity: 2.15,
+      keyPitch: 36,
+      keyYaw: 40,
+      fillEnabled: true,
+      fillColor: '#22d3ee',
+      fillIntensity: 1.15,
+      rimEnabled: true,
+      rimColor: '#a78bfa',
+      rimIntensity: 1.85,
+      shadowsEnabled: true,
+      shadowIntensity: 0.72,
+      shadowSoftness: 'soft',
+      bgColor: '#0b091a',
+      showGrid: true,
+      showFloorShadow: true
+    }
+  }
+];
+
 @Injectable()
 export class SontinhSceneService implements OnDestroy {
 
@@ -179,9 +404,41 @@ export class SontinhSceneService implements OnDestroy {
     }
   }
 
-    private _setCharacterTransformFn: ((options: { position?: { x: number; y: number; z: number }; facingAngle?: number; scale?: number }) => void) | null = null;
+  private _setCharacterTransformFn: ((options: { position?: { x: number; y: number; z: number }; facingAngle?: number; scale?: number }) => void) | null = null;
   private _setCharacterVisibilityFn: ((visible: boolean) => void) | null = null;
   private _setEnvironmentColorsFn: ((options: { bg?: string; table?: string; cloth?: string }) => void) | null = null;
+  private _applyStudioLightingFn: ((cfg: StudioLightingConfig) => void) | null = null;
+  private _studioLighting: StudioLightingConfig = { ...DEFAULT_STUDIO_LIGHTING };
+  private _lastAppliedProfileLightingKey = '';
+
+  getStudioLighting(): StudioLightingConfig {
+    return { ...this._studioLighting };
+  }
+
+  applyStudioLighting(patch: Partial<StudioLightingConfig>): StudioLightingConfig {
+    this._studioLighting = {
+      ...this._studioLighting,
+      ...patch
+    };
+    if (this._applyStudioLightingFn) {
+      this.ngZone.runOutsideAngular(() => {
+        try { this._applyStudioLightingFn!(this._studioLighting); } catch (e) {
+          console.warn('[SontinhScene] applyStudioLighting warning:', e);
+        }
+      });
+    }
+    return { ...this._studioLighting };
+  }
+
+  applyStudioLightingPreset(presetId: string): StudioLightingConfig {
+    const found = STUDIO_LIGHTING_PRESETS.find((p) => p.id === presetId);
+    if (!found) return this.getStudioLighting();
+    return this.applyStudioLighting({ ...DEFAULT_STUDIO_LIGHTING, ...found.config, preset: found.id });
+  }
+
+  resetStudioLighting(): StudioLightingConfig {
+    return this.applyStudioLighting({ ...DEFAULT_STUDIO_LIGHTING });
+  }
 
   setCharacterTransform(options: { position?: { x: number; y: number; z: number }; facingAngle?: number; scale?: number }): void {
     if (this._setCharacterTransformFn) {
@@ -574,9 +831,17 @@ export class SontinhSceneService implements OnDestroy {
         this.setCameraPreset(profile.scene.cameraPreset);
       }
 
-      // 2. Room Lighting
+      // 2. Room Lighting & Studio Lighting Config
       if (profile.scene && this._toggleRoomLights) {
         this._toggleRoomLights(profile.scene.lightsOn);
+      }
+      const savedLighting = (profile.scene as any)?.lighting;
+      if (savedLighting && typeof savedLighting === 'object' && this._applyStudioLightingFn) {
+        const key = JSON.stringify(savedLighting);
+        if (!opts?.skipCamera || key !== this._lastAppliedProfileLightingKey) {
+          this._lastAppliedProfileLightingKey = key;
+          this.applyStudioLighting(savedLighting);
+        }
       }
 
       // 3. Character transform
@@ -1813,16 +2078,37 @@ export class SontinhSceneService implements OnDestroy {
   private _propIdToGlbKey = new Map<string, string>();
   private _propIdToSoloAsset = new Map<string, pc.Asset>();
 
-  /** Giải phóng pc.Asset của propId khi xóa đồ vật nếu không còn bản sao nào khác tham chiếu */
+  /** Giải phóng pc.Asset, Rig và Texture tùy chỉnh của propId khi xóa đồ vật nếu không còn bản sao nào khác tham chiếu */
   releasePropGlbAsset(propId: string): void {
     if (!propId) return;
+
+    // Dọn dẹp Rig/Timeline đang chạy để không tick zombie mỗi frame sau khi xóa
+    const rig = this._propRigMap.get(propId);
+    if (rig) {
+      this._stopRigClipAnim(rig);
+      this._propRigMap.delete(propId);
+    }
+
+    // Dọn dẹp Texture tùy chỉnh trong VRAM của riêng propId này
+    const customTex = this._propCustomTextures.get(propId);
+    if (customTex) {
+      this._propCustomTextures.delete(propId);
+      try { customTex.texture?.destroy?.(); } catch (_) {}
+    }
+
     const solo = this._propIdToSoloAsset.get(propId);
     if (solo) {
       this._propIdToSoloAsset.delete(propId);
-      try {
-        solo.unload();
-        this.app?.assets?.remove(solo);
-      } catch (_) {}
+      let soloStillUsed = false;
+      this._propIdToSoloAsset.forEach((a) => {
+        if (a === solo) soloStillUsed = true;
+      });
+      if (!soloStillUsed) {
+        try {
+          solo.unload();
+          this.app?.assets?.remove(solo);
+        } catch (_) {}
+      }
     }
     const key = this._propIdToGlbKey.get(propId);
     if (!key) return;
@@ -4026,6 +4312,1174 @@ export class SontinhSceneService implements OnDestroy {
     return !!(asset && asset.resource);
   }
 
+  private _propCustomTextures = new Map<string, { texture: pc.Texture; sourceKey: string }>();
+
+  private _findPropEntity(propId: string): pc.Entity | null {
+    if (!this.app || !propId) return null;
+    const glb = this.app.root.findByName(`PropGLB_${propId}`) as pc.Entity | null;
+    if (glb) return glb;
+    return this.app.root.findByName(propId) as pc.Entity | null;
+  }
+
+  private _collectPropMeshInstances(ent: pc.Entity | null): any[] {
+    if (!ent) return [];
+    const compSet = new Set<any>();
+    if ((ent as any).render) compSet.add((ent as any).render);
+    if ((ent as any).model) compSet.add((ent as any).model);
+    for (const r of (ent.findComponents('render') as any[]) || []) compSet.add(r);
+    for (const m of (ent.findComponents('model') as any[]) || []) compSet.add(m);
+    const out: any[] = [];
+    compSet.forEach((comp) => {
+      const mis: any[] = comp?.meshInstances || [];
+      for (const mi of mis) {
+        if (mi) out.push(mi);
+      }
+    });
+    return out;
+  }
+
+  private _ensurePropClonedMaterial(mi: any): pc.StandardMaterial | null {
+    const srcMat = mi?.material as pc.StandardMaterial | undefined;
+    if (!srcMat) return null;
+    if ((srcMat as any)._isClonedInstance) {
+      return srcMat;
+    }
+    const cloned = srcMat.clone() as pc.StandardMaterial;
+    (cloned as any)._isClonedInstance = true;
+    (cloned as any)._baseBlendType = (srcMat as any)._baseBlendType ?? srcMat.blendType;
+    (cloned as any)._baseDepthWrite = (srcMat as any)._baseDepthWrite ?? srcMat.depthWrite;
+    (cloned as any)._baseOpacity = (srcMat as any)._baseOpacity ?? srcMat.opacity;
+    (cloned as any)._origDiffuseMap = ('_origDiffuseMap' in (srcMat as any))
+      ? (srcMat as any)._origDiffuseMap
+      : (srcMat.diffuseMap ?? null);
+    (cloned as any)._origDiffuseColor = (srcMat as any)._origDiffuseColor
+      ? (srcMat as any)._origDiffuseColor.clone()
+      : (srcMat.diffuse ? srcMat.diffuse.clone() : new pc.Color(1, 1, 1));
+    (cloned as any)._origDiffuseTint = (srcMat as any)._origDiffuseTint ?? Boolean((srcMat as any).diffuseTint);
+    (cloned as any)._origMetalness = (srcMat as any)._origMetalness ?? srcMat.metalness;
+    (cloned as any)._origGloss = (srcMat as any)._origGloss ?? srcMat.gloss;
+    (cloned as any)._origUseMetalness = (srcMat as any)._origUseMetalness ?? Boolean(srcMat.useMetalness);
+    (cloned as any)._origEmissive = (srcMat as any)._origEmissive
+      ? (srcMat as any)._origEmissive.clone()
+      : (srcMat.emissive ? srcMat.emissive.clone() : new pc.Color(0, 0, 0));
+    (cloned as any)._origDiffuseMapTiling = (srcMat as any)._origDiffuseMapTiling
+      ? (srcMat as any)._origDiffuseMapTiling.clone()
+      : (srcMat.diffuseMapTiling ? srcMat.diffuseMapTiling.clone() : new pc.Vec2(1, 1));
+    (cloned as any)._origDiffuseMapOffset = (srcMat as any)._origDiffuseMapOffset
+      ? (srcMat as any)._origDiffuseMapOffset.clone()
+      : (srcMat.diffuseMapOffset ? srcMat.diffuseMapOffset.clone() : new pc.Vec2(0, 0));
+    (cloned as any)._origDiffuseMapRotation = (srcMat as any)._origDiffuseMapRotation ?? (Number((srcMat as any).diffuseMapRotation) || 0);
+    mi.material = cloned;
+    return cloned;
+  }
+
+  private _getMaterialOriginalDiffuseMap(mat: any): pc.Texture | null {
+    if (!mat) return null;
+    if ('_origDiffuseMap' in mat) return mat._origDiffuseMap ?? null;
+    return mat.diffuseMap ?? null;
+  }
+
+  /**
+   * Khảo sát hình học và trạng thái UV gốc của đồ vật 3D (có TEXCOORD0 gốc hay không,
+   * kích thước bao AABB và tỷ lệ chu vi/chiều cao để dán logo không bị kéo giãn).
+   */
+  inspectPropMeshGeometry(propId: string): {
+    meshCount: number;
+    hasNativeUv: boolean;
+    activeUvMode: 'original' | 'cylindrical' | 'box';
+    spanX: number;
+    spanY: number;
+    spanZ: number;
+    cylindricalAspect: number;
+  } {
+    const empty = {
+      meshCount: 0,
+      hasNativeUv: false,
+      activeUvMode: 'cylindrical' as const,
+      spanX: 1,
+      spanY: 1,
+      spanZ: 1,
+      cylindricalAspect: 1.6
+    };
+    const ent = this._findPropEntity(propId);
+    if (!ent) return empty;
+    const mis = this._collectPropMeshInstances(ent);
+    if (mis.length === 0) return empty;
+
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    let minZ = Infinity, maxZ = -Infinity;
+    let hasNativeUv = false;
+    let synthMode: 'cylindrical' | 'box' | null = null;
+
+    const seenMeshes = new Set<any>();
+    for (const mi of mis) {
+      const mesh = mi?.mesh as any;
+      if (!mesh || seenMeshes.has(mesh)) continue;
+      seenMeshes.add(mesh);
+
+      if (mesh._synthesizedUvMode === 'cylindrical' || mesh._synthesizedUvMode === 'box') {
+        synthMode = mesh._synthesizedUvMode;
+      }
+
+      const srcVb = mesh._origVertexBuffer || mesh.vertexBuffer;
+      if (!srcVb) continue;
+      const fmt = srcVb.getFormat?.();
+      const els: any[] = fmt?.elements || [];
+      const posEl = els.find((e: any) => e.name === pc.SEMANTIC_POSITION);
+      const uvEl = els.find((e: any) => e.name === pc.SEMANTIC_TEXCOORD0);
+
+      if (typeof mesh._hasNativeUv === 'boolean') {
+        if (mesh._hasNativeUv) hasNativeUv = true;
+      } else if (uvEl) {
+        // Kiểm tra xem UV gốc có thực sự hợp lệ (không bị suy biến về 1 điểm)
+        let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+        const raw = srcVb.lock?.();
+        if (raw) {
+          const bytes = ArrayBuffer.isView(raw)
+            ? new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength)
+            : new Uint8Array(raw as ArrayBuffer);
+          const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+          const n = srcVb.getNumVertices?.() || 0;
+          const step = Math.max(1, Math.floor(n / 2000));
+          for (let v = 0; v < n; v += step) {
+            const off = v * uvEl.stride + uvEl.offset;
+            if (off + 8 > bytes.byteLength) break;
+            const u = dv.getFloat32(off, true);
+            const tv = dv.getFloat32(off + 4, true);
+            if (Number.isFinite(u) && Number.isFinite(tv)) {
+              if (u < minU) minU = u;
+              if (u > maxU) maxU = u;
+              if (tv < minV) minV = tv;
+              if (tv > maxV) maxV = tv;
+            }
+          }
+          srcVb.unlock?.();
+        }
+        const valid = (maxU - minU > 0.02) || (maxV - minV > 0.02);
+        mesh._hasNativeUv = valid;
+        if (valid) hasNativeUv = true;
+      } else {
+        mesh._hasNativeUv = false;
+      }
+
+      if (posEl) {
+        const raw = srcVb.lock?.();
+        if (raw) {
+          const bytes = ArrayBuffer.isView(raw)
+            ? new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength)
+            : new Uint8Array(raw as ArrayBuffer);
+          const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+          const n = srcVb.getNumVertices?.() || 0;
+          for (let v = 0; v < n; v++) {
+            const off = v * posEl.stride + posEl.offset;
+            if (off + 12 > bytes.byteLength) break;
+            const px = dv.getFloat32(off, true);
+            const py = dv.getFloat32(off + 4, true);
+            const pz = dv.getFloat32(off + 8, true);
+            if (Number.isFinite(px) && Number.isFinite(py) && Number.isFinite(pz)) {
+              if (px < minX) minX = px; if (px > maxX) maxX = px;
+              if (py < minY) minY = py; if (py > maxY) maxY = py;
+              if (pz < minZ) minZ = pz; if (pz > maxZ) maxZ = pz;
+            }
+          }
+          srcVb.unlock?.();
+        }
+      }
+    }
+
+    const spanX = Number.isFinite(maxX - minX) ? Math.max(1e-4, maxX - minX) : 1;
+    const spanY = Number.isFinite(maxY - minY) ? Math.max(1e-4, maxY - minY) : 1;
+    const spanZ = Number.isFinite(maxZ - minZ) ? Math.max(1e-4, maxZ - minZ) : 1;
+    const avgDiam = (spanX + spanZ) * 0.5;
+    const cylindricalAspect = (Math.PI * avgDiam) / spanY;
+
+    return {
+      meshCount: seenMeshes.size,
+      hasNativeUv,
+      activeUvMode: synthMode || (hasNativeUv ? 'original' : 'cylindrical'),
+      spanX,
+      spanY,
+      spanZ,
+      cylindricalAspect
+    };
+  }
+
+  /**
+   * Đảm bảo mọi mesh của đồ vật đều có tọa độ UV (SEMANTIC_TEXCOORD0) chuẩn để PlayCanvas 2.5
+   * bật lấy mẫu DiffuseMap trong shader. Hỗ trợ:
+   * - 'auto': giữ nguyên UV gốc nếu GLB đã có, tự động tạo UV trụ (cylindrical) kèm tách đường seam nếu GLB chưa có UV.
+   * - 'cylindrical': ép tạo bản đồ UV trụ sạch (có tách seam phía sau -Z để không bị vệt sọc kéo giãn), lý tưởng cho lon/chai/cốc/dán logo.
+   * - 'box': chiếu UV 6 mặt theo pháp tuyến đỉnh, phù hợp đồ vật dạng hộp/bàn/tường.
+   * - 'original': khôi phục bộ đệm UV nguyên bản của GLB (nếu có).
+   */
+  ensurePropMeshUvs(
+    propId: string,
+    mode: 'auto' | 'cylindrical' | 'box' | 'original' = 'auto'
+  ): { appliedMode: 'original' | 'cylindrical' | 'box'; synthesized: boolean } {
+    if (!this.app || this._destroyed || !propId) {
+      return { appliedMode: 'original', synthesized: false };
+    }
+    const ent = this._findPropEntity(propId);
+    if (!ent) return { appliedMode: 'original', synthesized: false };
+    const mis = this._collectPropMeshInstances(ent);
+    if (mis.length === 0) return { appliedMode: 'original', synthesized: false };
+
+    const device = this.app.graphicsDevice;
+    const geomInfo = this.inspectPropMeshGeometry(propId);
+
+    let targetMode: 'original' | 'cylindrical' | 'box';
+    if (mode === 'original') {
+      targetMode = geomInfo.hasNativeUv ? 'original' : 'cylindrical';
+    } else if (mode === 'auto') {
+      targetMode = geomInfo.hasNativeUv ? 'original' : 'cylindrical';
+    } else {
+      targetMode = mode;
+    }
+
+    // Gom các mesh duy nhất cùng danh sách meshInstances trỏ tới chúng
+    const meshToMis = new Map<any, any[]>();
+    for (const mi of mis) {
+      const mesh = mi?.mesh;
+      if (!mesh) continue;
+      let arr = meshToMis.get(mesh);
+      if (!arr) { arr = []; meshToMis.set(mesh, arr); }
+      arr.push(mi);
+    }
+
+    // Tính AABB chung toàn vật thể từ buffer gốc để UV liên tục trên mọi sub-mesh
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    let minZ = Infinity, maxZ = -Infinity;
+    meshToMis.forEach((_, mesh) => {
+      const srcVb = mesh._origVertexBuffer || mesh.vertexBuffer;
+      if (!srcVb) return;
+      const fmt = srcVb.getFormat?.();
+      const posEl = (fmt?.elements || []).find((e: any) => e.name === pc.SEMANTIC_POSITION);
+      if (!posEl) return;
+      const raw = srcVb.lock?.();
+      if (!raw) return;
+      const bytes = ArrayBuffer.isView(raw)
+        ? new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength)
+        : new Uint8Array(raw as ArrayBuffer);
+      const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      const n = srcVb.getNumVertices?.() || 0;
+      for (let v = 0; v < n; v++) {
+        const off = v * posEl.stride + posEl.offset;
+        if (off + 12 > bytes.byteLength) break;
+        const px = dv.getFloat32(off, true);
+        const py = dv.getFloat32(off + 4, true);
+        const pz = dv.getFloat32(off + 8, true);
+        if (Number.isFinite(px) && Number.isFinite(py) && Number.isFinite(pz)) {
+          if (px < minX) minX = px; if (px > maxX) maxX = px;
+          if (py < minY) minY = py; if (py > maxY) maxY = py;
+          if (pz < minZ) minZ = pz; if (pz > maxZ) maxZ = pz;
+        }
+      }
+      srcVb.unlock?.();
+    });
+
+    const cx = (minX + maxX) * 0.5;
+    const cz = (minZ + maxZ) * 0.5;
+    const spanX = Math.max(1e-4, maxX - minX);
+    const spanY = Math.max(1e-4, maxY - minY);
+    const spanZ = Math.max(1e-4, maxZ - minZ);
+
+    let anySynthesized = false;
+
+    meshToMis.forEach((miList, mesh) => {
+      // Khôi phục UV gốc nếu người dùng yêu cầu và mesh có UV gốc
+      if (targetMode === 'original') {
+        if (mesh._synthesizedUvMode && mesh._origVertexBuffer) {
+          const oldSynthVb = mesh.vertexBuffer;
+          const oldSynthIb = mesh.indexBuffer?.[0];
+          mesh.vertexBuffer = mesh._origVertexBuffer;
+          if (mesh._origIndexBuffer !== undefined && mesh.indexBuffer) {
+            mesh.indexBuffer[0] = mesh._origIndexBuffer;
+          }
+          const prim = mesh.primitive?.[0];
+          if (prim && typeof mesh._origPrimCount === 'number') {
+            prim.base = mesh._origPrimBase ?? 0;
+            prim.count = mesh._origPrimCount;
+            prim.indexed = Boolean(mesh._origPrimIndexed);
+          }
+          mesh._synthesizedUvMode = null;
+          if (oldSynthVb && oldSynthVb !== mesh._origVertexBuffer) {
+            try { oldSynthVb.destroy?.(); } catch (_) {}
+          }
+          if (oldSynthIb && oldSynthIb !== mesh._origIndexBuffer) {
+            try { oldSynthIb.destroy?.(); } catch (_) {}
+          }
+          for (const mi of miList) {
+            try { mi.clearShaders?.(); } catch (_) {}
+          }
+        }
+        return;
+      }
+
+      // Đã ở đúng chế độ UV yêu cầu -> bỏ qua tái tạo thừa
+      if (mesh._synthesizedUvMode === targetMode) {
+        anySynthesized = true;
+        return;
+      }
+
+      // Lưu bản sao dự phòng của VB/IB nguyên bản lần đầu tiên
+      if (!mesh._origVertexBuffer && mesh.vertexBuffer) {
+        mesh._origVertexBuffer = mesh.vertexBuffer;
+        mesh._origIndexBuffer = mesh.indexBuffer?.[0] ?? null;
+        const prim0 = mesh.primitive?.[0];
+        mesh._origPrimBase = prim0?.base ?? 0;
+        mesh._origPrimCount = prim0?.count ?? 0;
+        mesh._origPrimIndexed = Boolean(prim0?.indexed);
+      }
+
+      const srcVb = mesh._origVertexBuffer || mesh.vertexBuffer;
+      if (!srcVb) return;
+      const srcFmt = srcVb.getFormat?.();
+      const srcEls: any[] = srcFmt?.elements || [];
+      const posEl = srcEls.find((e: any) => e.name === pc.SEMANTIC_POSITION);
+      const normEl = srcEls.find((e: any) => e.name === pc.SEMANTIC_NORMAL);
+      if (!posEl) return;
+
+      const rawVb = srcVb.lock?.();
+      if (!rawVb) return;
+      const srcBytes = ArrayBuffer.isView(rawVb)
+        ? new Uint8Array(rawVb.buffer, rawVb.byteOffset, rawVb.byteLength)
+        : new Uint8Array(rawVb as ArrayBuffer);
+      const srcDv = new DataView(srcBytes.buffer, srcBytes.byteOffset, srcBytes.byteLength);
+      const numVerts = srcVb.getNumVertices?.() || 0;
+      if (numVerts <= 0) {
+        srcVb.unlock?.();
+        return;
+      }
+
+      const baseU = new Float32Array(numVerts);
+      const baseV = new Float32Array(numVerts);
+      const TWO_PI = Math.PI * 2;
+
+      for (let v = 0; v < numVerts; v++) {
+        const pOff = v * posEl.stride + posEl.offset;
+        const px = srcDv.getFloat32(pOff, true);
+        const py = srcDv.getFloat32(pOff + 4, true);
+        const pz = srcDv.getFloat32(pOff + 8, true);
+        const normY = Math.max(0, Math.min(1, (py - minY) / spanY));
+
+        if (targetMode === 'box') {
+          let nx = 0, ny = 0, nz = 1;
+          if (normEl) {
+            const nOff = v * normEl.stride + normEl.offset;
+            nx = srcDv.getFloat32(nOff, true);
+            ny = srcDv.getFloat32(nOff + 4, true);
+            nz = srcDv.getFloat32(nOff + 8, true);
+          }
+          const ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz);
+          if (ay >= ax && ay >= az) {
+            baseU[v] = (px - minX) / spanX;
+            baseV[v] = (pz - minZ) / spanZ;
+          } else if (az >= ax && az >= ay) {
+            baseU[v] = nz >= 0 ? (px - minX) / spanX : 1 - (px - minX) / spanX;
+            baseV[v] = 1 - normY;
+          } else {
+            baseU[v] = nx >= 0 ? 1 - (pz - minZ) / spanZ : (pz - minZ) / spanZ;
+            baseV[v] = 1 - normY;
+          }
+        } else {
+          // UV Trụ chuẩn glTF: u = 0.5 tại mặt trước (+Z), text đọc xuôi từ trái (-X) sang phải (+X),
+          // đường seam nằm gọn phía sau (-Z); v = 0 ở đỉnh (nắp trên), v = 1 ở đáy.
+          const dx = px - cx;
+          const dz = pz - cz;
+          const theta = Math.atan2(dx, dz); // [-PI, PI], 0 tại +Z
+          let u = 0.5 + theta / TWO_PI;
+          if (u < 0) u += 1;
+          if (u > 1) u -= 1;
+          baseU[v] = u;
+          baseV[v] = 1 - normY;
+        }
+      }
+
+      // Đọc chỉ số tam giác nguyên bản để tách sạch đỉnh tại đường nối seam (chế độ trụ)
+      const prim = mesh.primitive?.[0];
+      const origIb = mesh._origIndexBuffer ?? mesh.indexBuffer?.[0] ?? null;
+      const origBase = typeof mesh._origPrimBase === 'number' ? mesh._origPrimBase : (prim?.base || 0);
+      const origIndexed = typeof mesh._origPrimIndexed === 'boolean' ? mesh._origPrimIndexed : Boolean(prim?.indexed && origIb);
+      let indices: Uint32Array | null = null;
+
+      if (origIndexed && origIb) {
+        const rawIb = origIb.lock?.();
+        if (rawIb) {
+          const ibBytes = ArrayBuffer.isView(rawIb)
+            ? new Uint8Array(rawIb.buffer, rawIb.byteOffset, rawIb.byteLength)
+            : new Uint8Array(rawIb as ArrayBuffer);
+          const ibDv = new DataView(ibBytes.buffer, ibBytes.byteOffset, ibBytes.byteLength);
+          const idxFmt = origIb.getFormat?.();
+          const count = (typeof mesh._origPrimCount === 'number' && mesh._origPrimCount > 0)
+            ? mesh._origPrimCount
+            : (prim?.count || origIb.getNumIndices?.() || 0);
+          indices = new Uint32Array(count);
+          for (let i = 0; i < count; i++) {
+            const k = origBase + i;
+            if (idxFmt === pc.INDEXFORMAT_UINT8) indices[i] = ibDv.getUint8(k);
+            else if (idxFmt === pc.INDEXFORMAT_UINT32) indices[i] = ibDv.getUint32(k * 4, true);
+            else indices[i] = ibDv.getUint16(k * 2, true);
+          }
+          origIb.unlock?.();
+        }
+      }
+
+      // Tách đỉnh cắt ngang seam (-Z) ở chế độ UV trụ để không bao giờ xuất hiện sọc kéo giãn mặt sau
+      const dupSourceVerts: number[] = [];
+      const dupUValues: number[] = [];
+      let indicesModified = false;
+
+      if (targetMode === 'cylindrical' && indices && indices.length >= 3) {
+        const seamDupMap = new Map<number, number>();
+        const triCount = Math.floor(indices.length / 3);
+        for (let t = 0; t < triCount; t++) {
+          const i0 = indices[t * 3];
+          const i1 = indices[t * 3 + 1];
+          const i2 = indices[t * 3 + 2];
+          if (i0 >= numVerts || i1 >= numVerts || i2 >= numVerts) continue;
+          const u0 = baseU[i0], u1 = baseU[i1], u2 = baseU[i2];
+          const maxU = Math.max(u0, u1, u2);
+          const minU = Math.min(u0, u1, u2);
+          if (maxU - minU > 0.5) {
+            const tri = [i0, i1, i2];
+            for (let c = 0; c < 3; c++) {
+              const vi = tri[c];
+              if (baseU[vi] < 0.5) {
+                let dupIdx = seamDupMap.get(vi);
+                if (dupIdx === undefined) {
+                  dupIdx = numVerts + dupSourceVerts.length;
+                  seamDupMap.set(vi, dupIdx);
+                  dupSourceVerts.push(vi);
+                  dupUValues.push(baseU[vi] + 1.0);
+                }
+                indices[t * 3 + c] = dupIdx;
+                indicesModified = true;
+              }
+            }
+          }
+        }
+      }
+
+      const totalVerts = numVerts + dupSourceVerts.length;
+
+      // Dựng VertexFormat mới bảo toàn toàn bộ thuộc tính cũ + đảm bảo có SEMANTIC_TEXCOORD0 (FLOAT32 x 2)
+      const desc: any[] = [];
+      let hasTex0InDesc = false;
+      for (const el of srcEls) {
+        if (el.name === pc.SEMANTIC_TEXCOORD0) {
+          desc.push({
+            semantic: pc.SEMANTIC_TEXCOORD0,
+            components: 2,
+            type: pc.TYPE_FLOAT32,
+            normalize: false
+          });
+          hasTex0InDesc = true;
+        } else {
+          desc.push({
+            semantic: el.name,
+            components: el.numComponents,
+            type: el.dataType,
+            normalize: !!el.normalize,
+            asInt: !!el.asInt
+          });
+        }
+      }
+      if (!hasTex0InDesc) {
+        desc.push({
+          semantic: pc.SEMANTIC_TEXCOORD0,
+          components: 2,
+          type: pc.TYPE_FLOAT32,
+          normalize: false
+        });
+      }
+
+      const newFmt = new pc.VertexFormat(device, desc);
+      const newVb = new pc.VertexBuffer(device, newFmt, totalVerts, {
+        usage: srcVb.getUsage?.() ?? pc.BUFFER_STATIC
+      });
+      const newRaw = newVb.lock();
+      const dstBytes = ArrayBuffer.isView(newRaw)
+        ? new Uint8Array(newRaw.buffer, newRaw.byteOffset, newRaw.byteLength)
+        : new Uint8Array(newRaw as ArrayBuffer);
+      const dstDv = new DataView(dstBytes.buffer, dstBytes.byteOffset, dstBytes.byteLength);
+      const dstEls: any[] = (newFmt as any).elements || [];
+
+      // Sao chép toàn bộ thuộc tính gốc (POSITION, NORMAL, TANGENT, SKIN...) cho cả đỉnh gốc & đỉnh tách seam
+      for (const sEl of srcEls) {
+        if (sEl.name === pc.SEMANTIC_TEXCOORD0) continue;
+        const dEl = dstEls.find((e) => e.name === sEl.name);
+        if (!dEl) continue;
+        const copyBytes = Math.min(sEl.size, dEl.size);
+        for (let v = 0; v < numVerts; v++) {
+          const sOff = v * sEl.stride + sEl.offset;
+          const dOff = v * dEl.stride + dEl.offset;
+          for (let b = 0; b < copyBytes; b++) {
+            dstBytes[dOff + b] = srcBytes[sOff + b];
+          }
+        }
+        for (let d = 0; d < dupSourceVerts.length; d++) {
+          const sv = dupSourceVerts[d];
+          const dvIdx = numVerts + d;
+          const sOff = sv * sEl.stride + sEl.offset;
+          const dOff = dvIdx * dEl.stride + dEl.offset;
+          for (let b = 0; b < copyBytes; b++) {
+            dstBytes[dOff + b] = srcBytes[sOff + b];
+          }
+        }
+      }
+
+      // Ghi tọa độ UV mới vào SEMANTIC_TEXCOORD0
+      const dstUvEl = dstEls.find((e) => e.name === pc.SEMANTIC_TEXCOORD0);
+      if (dstUvEl) {
+        for (let v = 0; v < numVerts; v++) {
+          const uOff = v * dstUvEl.stride + dstUvEl.offset;
+          dstDv.setFloat32(uOff, baseU[v], true);
+          dstDv.setFloat32(uOff + 4, baseV[v], true);
+        }
+        for (let d = 0; d < dupSourceVerts.length; d++) {
+          const sv = dupSourceVerts[d];
+          const dvIdx = numVerts + d;
+          const uOff = dvIdx * dstUvEl.stride + dstUvEl.offset;
+          dstDv.setFloat32(uOff, dupUValues[d], true);
+          dstDv.setFloat32(uOff + 4, baseV[sv], true);
+        }
+      }
+
+      srcVb.unlock?.();
+      newVb.unlock();
+
+      // Dựng IndexBuffer mới nếu có tách đỉnh seam
+      const prevSynthVb = mesh.vertexBuffer;
+      const prevSynthIb = mesh.indexBuffer?.[0];
+
+      mesh.vertexBuffer = newVb;
+
+      if (indices && indicesModified) {
+        const useUint32 = totalVerts > 65535;
+        const idxFormat = useUint32 ? pc.INDEXFORMAT_UINT32 : pc.INDEXFORMAT_UINT16;
+        const newIb = new pc.IndexBuffer(device, idxFormat, indices.length, pc.BUFFER_STATIC);
+        const ibRaw = newIb.lock();
+        if (useUint32) {
+          const u32 = new Uint32Array(ibRaw as ArrayBuffer);
+          u32.set(indices);
+        } else {
+          const u16 = new Uint16Array(ibRaw as ArrayBuffer);
+          for (let i = 0; i < indices.length; i++) u16[i] = indices[i];
+        }
+        newIb.unlock();
+        if (mesh.indexBuffer) {
+          mesh.indexBuffer[0] = newIb;
+        }
+        if (prim) {
+          prim.base = 0;
+          prim.count = indices.length;
+          prim.indexed = true;
+        }
+      } else if (mesh._origIndexBuffer !== undefined && mesh.indexBuffer) {
+        mesh.indexBuffer[0] = mesh._origIndexBuffer;
+        if (prim && typeof mesh._origPrimCount === 'number') {
+          prim.base = mesh._origPrimBase ?? 0;
+          prim.count = mesh._origPrimCount;
+          prim.indexed = Boolean(mesh._origPrimIndexed);
+        }
+      }
+
+      mesh._synthesizedUvMode = targetMode;
+      anySynthesized = true;
+
+      // Dọn bộ nhớ VRAM của buffer tổng hợp trước đó (không bao giờ hủy buffer gốc)
+      if (prevSynthVb && prevSynthVb !== mesh._origVertexBuffer && prevSynthVb !== newVb) {
+        try { prevSynthVb.destroy?.(); } catch (_) {}
+      }
+      if (prevSynthIb && prevSynthIb !== mesh._origIndexBuffer && prevSynthIb !== mesh.indexBuffer?.[0]) {
+        try { prevSynthIb.destroy?.(); } catch (_) {}
+      }
+
+      // Ép PlayCanvas 2.5 biên dịch lại shader với uvMask mới (bật vUv0!)
+      for (const mi of miList) {
+        try { mi.clearShaders?.(); } catch (_) {}
+      }
+    });
+
+    return { appliedMode: targetMode, synthesized: anySynthesized };
+  }
+
+  /**
+   * Trích xuất bản đồ Texture gốc (DiffuseMap) và Bản đồ lưới UV (UV Island Layout) 1024x1024
+   * của đồ vật 3D hiện tại để AI vẽ lại Texture khớp chính xác từng vùng UV (thân lon, nắp, đáy...).
+   * Nếu GLB chưa có UV gốc (ví dụ bản hình khối Meshy _generate_), tự động tạo UV trụ trước khi vẽ lưới.
+   */
+  extractPropTextureAtlas(
+    propId: string,
+    uvMode: 'auto' | 'cylindrical' | 'box' | 'original' = 'auto'
+  ): {
+    hasDiffuseMap: boolean;
+    hasUv: boolean;
+    hasNativeUv: boolean;
+    activeUvMode: 'original' | 'cylindrical' | 'box';
+    cylindricalAspect: number;
+    atlasDataUrl: string | null;
+    uvGuideDataUrl: string | null;
+    meshCount: number;
+    materialNames: string[];
+  } {
+    const empty = {
+      hasDiffuseMap: false,
+      hasUv: false,
+      hasNativeUv: false,
+      activeUvMode: 'cylindrical' as const,
+      cylindricalAspect: 1.6,
+      atlasDataUrl: null,
+      uvGuideDataUrl: null,
+      meshCount: 0,
+      materialNames: [] as string[]
+    };
+    const ent = this._findPropEntity(propId);
+    if (!ent) return empty;
+
+    // Tự động đảm bảo đồ vật có tọa độ UV trước khi trích xuất lưới UV
+    const uvRes = this.ensurePropMeshUvs(propId, uvMode);
+    const geomInfo = this.inspectPropMeshGeometry(propId);
+
+    const mis = this._collectPropMeshInstances(ent);
+    if (mis.length === 0) return empty;
+
+    const SIZE = 1024;
+    let hasDiffuseMap = false;
+    let atlasDataUrl: string | null = null;
+    let origFlipY = false;
+    const matNames = new Set<string>();
+
+    // 1. Trích xuất ảnh DiffuseMap gốc của GLB (dùng _getMaterialOriginalDiffuseMap để không nhầm với texture custom!)
+    const useOrigDiffuseAsBg = uvRes.appliedMode === 'original';
+    for (const mi of mis) {
+      const mat = mi?.material as any;
+      if (!mat) continue;
+      if (mat.name) matNames.add(String(mat.name));
+      const baseTex = this._getMaterialOriginalDiffuseMap(mat);
+      if (!baseTex || hasDiffuseMap) continue;
+      origFlipY = uvRes.synthesized ? false : Boolean(baseTex.flipY);
+      const src = baseTex.getSource?.(0) ?? baseTex._levels?.[0];
+      const isDrawable =
+        (typeof HTMLImageElement !== 'undefined' && src instanceof HTMLImageElement) ||
+        (typeof ImageBitmap !== 'undefined' && src instanceof ImageBitmap) ||
+        (typeof HTMLCanvasElement !== 'undefined' && src instanceof HTMLCanvasElement) ||
+        (typeof OffscreenCanvas !== 'undefined' && src instanceof OffscreenCanvas);
+      if (isDrawable) {
+        try {
+          const cv = document.createElement('canvas');
+          cv.width = SIZE;
+          cv.height = SIZE;
+          const ctx = cv.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#d4d4d8';
+            ctx.fillRect(0, 0, SIZE, SIZE);
+            ctx.drawImage(src as CanvasImageSource, 0, 0, SIZE, SIZE);
+            atlasDataUrl = cv.toDataURL('image/png');
+            hasDiffuseMap = true;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 2. Vẽ bản đồ lưới UV (UV Island Layout) phân vùng theo chiều cao 3D (Nắp trên / Thân giữa / Đáy dưới)
+    let hasUv = false;
+    let uvGuideDataUrl: string | null = null;
+    try {
+      const uvCv = document.createElement('canvas');
+      uvCv.width = SIZE;
+      uvCv.height = SIZE;
+      const ctx = uvCv.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#18181b';
+        ctx.fillRect(0, 0, SIZE, SIZE);
+
+        // Nếu đang ở chế độ UV gốc và GLB có DiffuseMap gốc, vẽ nền mờ ảnh gốc để AI bám sát chi tiết AO
+        if (useOrigDiffuseAsBg && hasDiffuseMap && atlasDataUrl) {
+          for (const mi of mis) {
+            const mat = mi?.material as any;
+            const baseTex = this._getMaterialOriginalDiffuseMap(mat);
+            const src = baseTex?.getSource?.(0) ?? baseTex?._levels?.[0];
+            if (src && (src instanceof HTMLImageElement || src instanceof ImageBitmap || src instanceof HTMLCanvasElement)) {
+              ctx.globalAlpha = 0.72;
+              ctx.drawImage(src as CanvasImageSource, 0, 0, SIZE, SIZE);
+              ctx.globalAlpha = 1.0;
+              break;
+            }
+          }
+        }
+
+        // Tìm khoảng Y thực tế của toàn bộ mesh để phân biệt vùng Nắp trên / Thân / Đáy
+        let minY = Infinity;
+        let maxY = -Infinity;
+        for (const mi of mis) {
+          const mesh = mi?.mesh as any;
+          const vb = mesh?.vertexBuffer;
+          if (!vb) continue;
+          const fmt = vb.getFormat?.();
+          const els: any[] = fmt?.elements || [];
+          const posEl = els.find((e: any) => e.name === pc.SEMANTIC_POSITION);
+          if (!posEl) continue;
+          const raw = vb.lock?.();
+          if (!raw) continue;
+          const bytes = ArrayBuffer.isView(raw)
+            ? new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength)
+            : new Uint8Array(raw as ArrayBuffer);
+          const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+          const n = vb.getNumVertices?.() || 0;
+          for (let v = 0; v < n; v++) {
+            const off = v * posEl.stride + posEl.offset;
+            if (off + 12 > bytes.byteLength) break;
+            const py = dv.getFloat32(off + 4, true);
+            if (Number.isFinite(py)) {
+              if (py < minY) minY = py;
+              if (py > maxY) maxY = py;
+            }
+          }
+          vb.unlock?.();
+        }
+        const spanY = Math.max(1e-4, maxY - minY);
+
+        for (const mi of mis) {
+          const mesh = mi?.mesh as any;
+          const vb = mesh?.vertexBuffer;
+          if (!vb) continue;
+          const fmt = vb.getFormat?.();
+          const els: any[] = fmt?.elements || [];
+          const uvEl = els.find((e: any) => e.name === pc.SEMANTIC_TEXCOORD0);
+          const posEl = els.find((e: any) => e.name === pc.SEMANTIC_POSITION);
+          if (!uvEl) continue;
+
+          const rawVb = vb.lock?.();
+          if (!rawVb) continue;
+          const vbBytes = ArrayBuffer.isView(rawVb)
+            ? new Uint8Array(rawVb.buffer, rawVb.byteOffset, rawVb.byteLength)
+            : new Uint8Array(rawVb as ArrayBuffer);
+          const vbDv = new DataView(vbBytes.buffer, vbBytes.byteOffset, vbBytes.byteLength);
+          const numVerts = vb.getNumVertices?.() || 0;
+          const uvs = new Float32Array(numVerts * 2);
+          const normYs = new Float32Array(numVerts);
+
+          for (let v = 0; v < numVerts; v++) {
+            const uOff = v * uvEl.stride + uvEl.offset;
+            if (uOff + 8 <= vbBytes.byteLength) {
+              uvs[v * 2] = vbDv.getFloat32(uOff, true);
+              uvs[v * 2 + 1] = vbDv.getFloat32(uOff + 4, true);
+            }
+            if (posEl) {
+              const pOff = v * posEl.stride + posEl.offset;
+              if (pOff + 12 <= vbBytes.byteLength) {
+                const py = vbDv.getFloat32(pOff + 4, true);
+                normYs[v] = (py - minY) / spanY;
+              }
+            }
+          }
+          vb.unlock?.();
+
+          const prim = mesh.primitive?.[0];
+          const ib = mesh.indexBuffer?.[0];
+          let indices: Uint32Array | null = null;
+          if (prim?.indexed && ib) {
+            const rawIb = ib.lock?.();
+            if (rawIb) {
+              const ibBytes = ArrayBuffer.isView(rawIb)
+                ? new Uint8Array(rawIb.buffer, rawIb.byteOffset, rawIb.byteLength)
+                : new Uint8Array(rawIb as ArrayBuffer);
+              const idxFmt = ib.getFormat?.();
+              const count = prim.count || ib.getNumIndices?.() || 0;
+              const base = prim.base || 0;
+              indices = new Uint32Array(count);
+              const ibDv = new DataView(ibBytes.buffer, ibBytes.byteOffset, ibBytes.byteLength);
+              for (let i = 0; i < count; i++) {
+                const k = base + i;
+                if (idxFmt === pc.INDEXFORMAT_UINT8) indices[i] = ibDv.getUint8(k);
+                else if (idxFmt === pc.INDEXFORMAT_UINT32) indices[i] = ibDv.getUint32(k * 4, true);
+                else indices[i] = ibDv.getUint16(k * 2, true);
+              }
+              ib.unlock?.();
+            }
+          } else {
+            const count = prim?.count || numVerts;
+            indices = new Uint32Array(count);
+            for (let i = 0; i < count; i++) indices[i] = (prim?.base || 0) + i;
+          }
+
+          if (!indices || indices.length < 3) continue;
+          hasUv = true;
+
+          const triCount = Math.floor(indices.length / 3);
+          const step = triCount > 18000 ? Math.ceil(triCount / 18000) : 1;
+
+          const mapUv = (u: number, v: number): [number, number] => {
+            const uu = ((u % 1) + 1) % 1;
+            const vv = ((v % 1) + 1) % 1;
+            const x = uu * SIZE;
+            const y = origFlipY ? (1 - vv) * SIZE : vv * SIZE;
+            return [x, y];
+          };
+
+          for (let t = 0; t < triCount; t += step) {
+            const i0 = indices[t * 3];
+            const i1 = indices[t * 3 + 1];
+            const i2 = indices[t * 3 + 2];
+            if (i0 >= numVerts || i1 >= numVerts || i2 >= numVerts) continue;
+            const [x0, y0] = mapUv(uvs[i0 * 2], uvs[i0 * 2 + 1]);
+            const [x1, y1] = mapUv(uvs[i1 * 2], uvs[i1 * 2 + 1]);
+            const [x2, y2] = mapUv(uvs[i2 * 2], uvs[i2 * 2 + 1]);
+
+            if (Math.abs(x0 - x1) > SIZE * 0.5 || Math.abs(x1 - x2) > SIZE * 0.5 || Math.abs(x2 - x0) > SIZE * 0.5) {
+              continue;
+            }
+            const avgY = (normYs[i0] + normYs[i1] + normYs[i2]) / 3;
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            ctx.lineTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.closePath();
+
+            if (!useOrigDiffuseAsBg || !hasDiffuseMap) {
+              if (avgY > 0.88) ctx.fillStyle = 'rgba(125, 211, 252, 0.72)'; // Nắp trên
+              else if (avgY < 0.11) ctx.fillStyle = 'rgba(253, 224, 71, 0.62)'; // Đáy dưới
+              else ctx.fillStyle = 'rgba(226, 232, 240, 0.88)'; // Thân chính
+              ctx.fill();
+            }
+            ctx.strokeStyle = avgY > 0.88
+              ? 'rgba(14, 165, 233, 0.45)'
+              : (avgY < 0.11 ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.3)');
+            ctx.lineWidth = 0.7;
+            ctx.stroke();
+          }
+        }
+
+        if (hasUv || hasDiffuseMap) {
+          uvGuideDataUrl = uvCv.toDataURL('image/png');
+        }
+      }
+    } catch (err) {
+      console.warn('[SontinhSceneService] extractPropTextureAtlas UV guide warning:', err);
+    }
+
+    return {
+      hasDiffuseMap,
+      hasUv,
+      hasNativeUv: geomInfo.hasNativeUv,
+      activeUvMode: uvRes.appliedMode,
+      cylindricalAspect: geomInfo.cylindricalAspect,
+      atlasDataUrl,
+      uvGuideDataUrl,
+      meshCount: mis.length,
+      materialNames: Array.from(matNames)
+    };
+  }
+
+  /**
+   * Bọc ảnh Texture (từ AI sinh ra hoặc ảnh logo đã ghép) trực tiếp lên vật thể 3D trong PlayCanvas.
+   * Tự động tạo UV nếu GLB gốc chưa có TEXCOORD0, ép nạp lại shader để bật lấy mẫu ảnh và dọn VRAM cũ.
+   */
+  applyPropCustomTexture(
+    propId: string,
+    imageDataUrl: string,
+    opts?: {
+      sourceKey?: string;
+      uvMode?: 'auto' | 'cylindrical' | 'box' | 'original';
+      tintHex?: string | null;
+      repeatX?: number;
+      repeatY?: number;
+      offsetX?: number;
+      offsetY?: number;
+      rotationDeg?: number;
+    }
+  ): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (!this.app || this._destroyed || !propId || !imageDataUrl) {
+        resolve(false);
+        return;
+      }
+      const ent = this._findPropEntity(propId);
+      if (!ent) {
+        resolve(false);
+        return;
+      }
+
+      // 1. Đảm bảo mesh có UV hợp lệ TRƯỚC khi áp DiffuseMap (khắc phục hoàn toàn lỗi GLB không có TEXCOORD0)
+      const uvRes = this.ensurePropMeshUvs(propId, opts?.uvMode ?? 'auto');
+
+      const mis = this._collectPropMeshInstances(ent);
+      if (mis.length === 0) {
+        resolve(false);
+        return;
+      }
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        if (!this.app || this._destroyed) {
+          resolve(false);
+          return;
+        }
+        try {
+          // Xác định flipY chuẩn: UV tổng hợp luôn theo chuẩn glTF (flipY = false, v=0 trên cùng)
+          let targetFlipY = uvRes.synthesized ? false : !ent.tags?.has('prop_glb');
+          if (!uvRes.synthesized) {
+            for (const mi of mis) {
+              const origTex = this._getMaterialOriginalDiffuseMap(mi?.material);
+              if (origTex && typeof origTex.flipY === 'boolean') {
+                targetFlipY = origTex.flipY;
+                break;
+              }
+            }
+          }
+
+          const device = this.app.graphicsDevice;
+          const maxAniso = Math.min(8, Math.max(1, Number((device as any)?.maxAnisotropy) || 4));
+          const tex = new pc.Texture(device, {
+            width: img.naturalWidth || img.width || 1024,
+            height: img.naturalHeight || img.height || 1024,
+            format: pc.PIXELFORMAT_RGBA8,
+            mipmaps: true,
+            minFilter: pc.FILTER_LINEAR_MIPMAP_LINEAR,
+            magFilter: pc.FILTER_LINEAR,
+            addressU: pc.ADDRESS_REPEAT,
+            addressV: pc.ADDRESS_REPEAT,
+            anisotropy: maxAniso,
+            flipY: targetFlipY
+          });
+          (tex as any).srgb = true;
+          tex.setSource(img);
+          try { tex.upload(); } catch (_) {}
+
+          const prev = this._propCustomTextures.get(propId);
+          this._propCustomTextures.set(propId, {
+            texture: tex,
+            sourceKey: opts?.sourceKey || imageDataUrl.slice(0, 128)
+          });
+
+          const repX = typeof opts?.repeatX === 'number' && opts.repeatX > 0 ? opts.repeatX : 1;
+          const repY = typeof opts?.repeatY === 'number' && opts.repeatY > 0 ? opts.repeatY : 1;
+          const offX = typeof opts?.offsetX === 'number' ? opts.offsetX : 0;
+          const offY = typeof opts?.offsetY === 'number' ? opts.offsetY : 0;
+          const rotDeg = typeof opts?.rotationDeg === 'number' ? opts.rotationDeg : 0;
+          const hasTint = Boolean(opts?.tintHex && opts.tintHex.toLowerCase() !== '#ffffff');
+
+          for (const mi of mis) {
+            const mat = this._ensurePropClonedMaterial(mi);
+            if (!mat) continue;
+            mat.diffuseMap = tex;
+            (mat as any).diffuseMapUv = 0;
+            (mat as any).diffuseMapChannel = 'rgb';
+            mat.diffuseMapTiling = new pc.Vec2(repX, repY);
+            mat.diffuseMapOffset = new pc.Vec2(offX, offY);
+            (mat as any).diffuseMapRotation = rotDeg;
+            if (hasTint && opts?.tintHex) {
+              mat.diffuse = new pc.Color().fromString(opts.tintHex);
+              (mat as any).diffuseTint = true;
+            } else {
+              mat.diffuse = new pc.Color(1, 1, 1);
+              (mat as any).diffuseTint = false;
+            }
+            try { mi.clearShaders?.(); } catch (_) {}
+            mat.update();
+          }
+
+          if (prev && prev.texture && prev.texture !== tex) {
+            try { prev.texture.destroy(); } catch (_) {}
+          }
+          resolve(true);
+        } catch (err) {
+          console.error('[SontinhSceneService] applyPropCustomTexture error:', err);
+          resolve(false);
+        }
+      };
+      img.onerror = () => resolve(false);
+      img.src = imageDataUrl;
+    });
+  }
+
+  /** Cập nhật màu sắc, Metalness, Roughness, UV Tiling trực tiếp theo thời gian thực trên Canvas 3D */
+  applyPropLiveMaterial(
+    propId: string,
+    patch: {
+      color?: string | null;
+      metalness?: number;
+      roughness?: number;
+      opacity?: number;
+      emissiveColor?: string;
+      emissiveIntensity?: number;
+      repeatX?: number;
+      repeatY?: number;
+      offsetX?: number;
+      offsetY?: number;
+      rotationDeg?: number;
+    }
+  ): boolean {
+    const ent = this._findPropEntity(propId);
+    if (!ent) return false;
+    const mis = this._collectPropMeshInstances(ent);
+    if (mis.length === 0) return false;
+
+    for (const mi of mis) {
+      const mat = this._ensurePropClonedMaterial(mi);
+      if (!mat) continue;
+      let changed = false;
+
+      if (patch.color !== undefined) {
+        if (patch.color && typeof patch.color === 'string' && patch.color.toLowerCase() !== '#ffffff') {
+          mat.diffuse = new pc.Color().fromString(patch.color);
+          (mat as any).diffuseTint = true;
+        } else {
+          mat.diffuse = (mat as any)._origDiffuseColor
+            ? (mat as any)._origDiffuseColor.clone()
+            : new pc.Color(1, 1, 1);
+          (mat as any).diffuseTint = Boolean((mat as any)._origDiffuseTint);
+        }
+        changed = true;
+      }
+
+      if (typeof patch.metalness === 'number') {
+        mat.useMetalness = true;
+        mat.metalness = Math.max(0, Math.min(1, patch.metalness));
+        changed = true;
+      }
+
+      if (typeof patch.roughness === 'number') {
+        mat.useMetalness = true;
+        mat.gloss = Math.max(0, Math.min(1, 1.0 - patch.roughness));
+        changed = true;
+      }
+
+      if (typeof patch.opacity === 'number') {
+        if (patch.opacity < 0.99) {
+          mat.opacity = Math.max(0, Math.min(1, patch.opacity));
+          mat.blendType = pc.BLEND_NORMAL;
+          mat.depthWrite = false;
+        } else {
+          mat.opacity = (mat as any)._baseOpacity ?? 1.0;
+          mat.blendType = (mat as any)._baseBlendType ?? pc.BLEND_NONE;
+          mat.depthWrite = (mat as any)._baseDepthWrite ?? true;
+        }
+        changed = true;
+      }
+
+      if (patch.emissiveColor !== undefined || patch.emissiveIntensity !== undefined) {
+        const c = new pc.Color().fromString(patch.emissiveColor || '#000000');
+        const intensity = Math.max(0, Number(patch.emissiveIntensity) || 0);
+        mat.emissive = new pc.Color(c.r * intensity, c.g * intensity, c.b * intensity);
+        changed = true;
+      }
+
+      if (typeof patch.repeatX === 'number' || typeof patch.repeatY === 'number') {
+        const curT = mat.diffuseMapTiling || new pc.Vec2(1, 1);
+        mat.diffuseMapTiling = new pc.Vec2(
+          typeof patch.repeatX === 'number' && patch.repeatX > 0 ? patch.repeatX : curT.x,
+          typeof patch.repeatY === 'number' && patch.repeatY > 0 ? patch.repeatY : curT.y
+        );
+        changed = true;
+      }
+
+      if (typeof patch.offsetX === 'number' || typeof patch.offsetY === 'number') {
+        const curO = mat.diffuseMapOffset || new pc.Vec2(0, 0);
+        mat.diffuseMapOffset = new pc.Vec2(
+          typeof patch.offsetX === 'number' ? patch.offsetX : curO.x,
+          typeof patch.offsetY === 'number' ? patch.offsetY : curO.y
+        );
+        changed = true;
+      }
+
+      if (typeof patch.rotationDeg === 'number') {
+        (mat as any).diffuseMapRotation = patch.rotationDeg;
+        changed = true;
+      }
+
+      if (changed) mat.update();
+    }
+    return true;
+  }
+
+  /** Khôi phục toàn bộ màu sắc, Texture, UV và PBR của đồ vật 3D về nguyên bản ban đầu của file GLB */
+  resetPropMaterialToOriginal(propId: string): boolean {
+    const ent = this._findPropEntity(propId);
+    if (!ent) return false;
+    // Khôi phục UV gốc nếu GLB vốn có UV nguyên bản
+    try {
+      const info = this.inspectPropMeshGeometry(propId);
+      if (info.hasNativeUv) {
+        this.ensurePropMeshUvs(propId, 'original');
+      }
+    } catch (_) {}
+
+    const mis = this._collectPropMeshInstances(ent);
+    const prev = this._propCustomTextures.get(propId);
+    this._propCustomTextures.delete(propId);
+
+    for (const mi of mis) {
+      const mat = mi?.material as any;
+      if (!mat || !mat._isClonedInstance) continue;
+      mat.diffuseMap = this._getMaterialOriginalDiffuseMap(mat);
+      mat.diffuse = mat._origDiffuseColor ? mat._origDiffuseColor.clone() : new pc.Color(1, 1, 1);
+      mat.diffuseTint = Boolean(mat._origDiffuseTint);
+      if (typeof mat._origUseMetalness === 'boolean') mat.useMetalness = mat._origUseMetalness;
+      if (typeof mat._origMetalness === 'number') mat.metalness = mat._origMetalness;
+      if (typeof mat._origGloss === 'number') mat.gloss = mat._origGloss;
+      mat.emissive = mat._origEmissive ? mat._origEmissive.clone() : new pc.Color(0, 0, 0);
+      mat.opacity = mat._baseOpacity ?? 1.0;
+      mat.blendType = mat._baseBlendType ?? pc.BLEND_NONE;
+      mat.depthWrite = mat._baseDepthWrite ?? true;
+      mat.diffuseMapTiling = mat._origDiffuseMapTiling ? mat._origDiffuseMapTiling.clone() : new pc.Vec2(1, 1);
+      mat.diffuseMapOffset = mat._origDiffuseMapOffset ? mat._origDiffuseMapOffset.clone() : new pc.Vec2(0, 0);
+      mat.diffuseMapRotation = mat._origDiffuseMapRotation ?? 0;
+      try { mi.clearShaders?.(); } catch (_) {}
+      mat.update();
+    }
+
+    if (prev?.texture) {
+      try { prev.texture.destroy(); } catch (_) {}
+    }
+    return true;
+  }
+
+  /** Tự động nạp lại ảnh customTexturePath / customTextureDataUrl từ đĩa lên vật thể khi load lại scene */
+  private _hydratePropCustomTexture(propId: string, prop: any): void {
+    const texPath = typeof prop?.customTexturePath === 'string' ? prop.customTexturePath.trim() : '';
+    const texData = typeof prop?.customTextureDataUrl === 'string' ? prop.customTextureDataUrl.trim() : '';
+    const sourceKey = texPath || (texData ? texData.slice(0, 128) : '');
+    if (!sourceKey) return;
+
+    const existing = this._propCustomTextures.get(propId);
+    if (existing && existing.sourceKey === sourceKey) return;
+
+    const uvMode: 'auto' | 'cylindrical' | 'box' | 'original' =
+      prop?.textureUvMode === 'cylindrical' || prop?.textureUvMode === 'box' || prop?.textureUvMode === 'original'
+        ? prop.textureUvMode
+        : 'auto';
+
+    const opts = {
+      sourceKey,
+      uvMode,
+      tintHex: prop?._customColorSet && prop?.color ? prop.color : null,
+      repeatX: prop?.textureRepeatX ?? 1,
+      repeatY: prop?.textureRepeatY ?? 1,
+      offsetX: prop?.textureOffsetX ?? 0,
+      offsetY: prop?.textureOffsetY ?? 0,
+      rotationDeg: prop?.textureRotation ?? 0
+    };
+
+    if (texData) {
+      this.applyPropCustomTexture(propId, texData, opts);
+      return;
+    }
+
+    const electronWin = typeof window !== 'undefined' ? (window as any) : null;
+    if (texPath && electronWin?.electron?.readPropTexture) {
+      electronWin.electron.readPropTexture(texPath).then((res: any) => {
+        if (res?.success && res.dataUrl && !this._destroyed) {
+          this.applyPropCustomTexture(propId, res.dataUrl, opts);
+        }
+      }).catch(() => {});
+    }
+  }
+
   /**
    * Load GLB đồ vật do người dùng upload vào scene (blob URL hoặc từ cache glbPath).
    * Wrapper đặt tên PropGLB_<id> để _applyProps tìm và cập nhật transform sau này.
@@ -4398,6 +5852,51 @@ export class SontinhSceneService implements OnDestroy {
   }
 
   /** Nhân bản đồ vật đang chọn ra bản sao đặt cạnh (nút Duplicate cạnh ring): trả về id mới */
+  private _setSelectionRingTempHidden: ((hidden: boolean) => void) | null = null;
+  private _getCameraSnapshotFn: (() => { pivot: { x: number; y: number; z: number }; yaw: number; pitch: number; distance: number }) | null = null;
+  private _restoreCameraSnapshotFn: ((snap: { pivot: { x: number; y: number; z: number }; yaw: number; pitch: number; distance: number }) => void) | null = null;
+  private _autoFramePropForCaptureFn: ((propId?: string | null, fillRatio?: number) => boolean) | null = null;
+
+  /** Ẩn/hiện tạm thời vòng tròn chọn màu xanh khi ghi video 3D để không dính vòng chọn vào video AI */
+  setSelectionRingTempHidden(hidden: boolean): void {
+    this._setSelectionRingTempHidden?.(hidden);
+  }
+
+  /** Lưu nhanh góc camera hiện tại để phục hồi ngay sau khi ghi video 3D */
+  getCameraSnapshot(): { pivot: { x: number; y: number; z: number }; yaw: number; pitch: number; distance: number } | null {
+    return this._getCameraSnapshotFn ? this._getCameraSnapshotFn() : null;
+  }
+
+  /** Khôi phục ngay lập tức góc camera đã lưu (không trễ lerp) */
+  restoreCameraSnapshot(snap: { pivot: { x: number; y: number; z: number }; yaw: number; pitch: number; distance: number } | null): void {
+    if (snap && this._restoreCameraSnapshotFn) {
+      this._restoreCameraSnapshotFn(snap);
+    }
+  }
+
+  /**
+   * Tự động căn camera cận toàn thân vào nhân vật/đồ vật 3D chiếm ~68% chiều cao khung hình
+   * (giữ nguyên góc xoay Yaw/Pitch người dùng đang chọn) để AI Motion Transfer đọc rõ từng khớp tay chân.
+   */
+  autoFramePropForCapture(propId?: string | null, fillRatio = 0.68): boolean {
+    return this._autoFramePropForCaptureFn ? this._autoFramePropForCaptureFn(propId, fillRatio) : false;
+  }
+
+  /** Tìm ID nhân vật có khung xương đầu tiên đang hiển thị trên canvas (nếu người dùng chưa chọn cụ thể) */
+  getFirstRiggedPropId(): string | null {
+    for (const [pid, rig] of this._propRigMap.entries()) {
+      if (rig?.wrapper?.enabled) return pid;
+    }
+    return null;
+  }
+
+  /** Lấy bản ghi prop mới nhất trong _profile (dùng để đồng bộ lại roomProps sau duplicate) */
+  getProfilePropById(propId: string): any | null {
+    const arr = (this._profile as any)?.props;
+    if (!Array.isArray(arr) || !propId) return null;
+    return arr.find((p: any) => p && p.id === propId) || null;
+  }
+
   duplicatePropById(propId: string): string | null {
     if (!propId) return null;
     const newId = this._duplicatePropById?.(propId) ?? null;
@@ -4529,6 +6028,18 @@ export class SontinhSceneService implements OnDestroy {
       // (false !== true) va phat lenh an nut dung mot lan duy nhat.
       selRingPropId = null;
     }
+
+    let _selRingWasEnabledBeforeTempHide = false;
+    self._setSelectionRingTempHidden = (hidden: boolean) => {
+      if (!selRing) return;
+      if (hidden) {
+        _selRingWasEnabledBeforeTempHide = Boolean(selRing.enabled);
+        selRing.enabled = false;
+      } else if (_selRingWasEnabledBeforeTempHide && selRingPropId) {
+        selRing.enabled = true;
+        _selRingWasEnabledBeforeTempHide = false;
+      }
+    };
 
     // ── Chỉnh tọa độ theo trục X/Y/Z từ nút mũi tên trên UI ─────────────────────
     // (gizmo 3D gắn vào đồ vật hay bị model che khuất, chuyển thành nút kéo trên UI)
@@ -4727,6 +6238,7 @@ export class SontinhSceneService implements OnDestroy {
         return false;
       }
       self.releasePropGlbAsset(propId);
+      if (propAnimMap.has(ent.name)) propAnimMap.delete(ent.name);
       if (propAnimMap.has(propId)) propAnimMap.delete(propId);
       if (selRingPropId === propId || tScrubPropId === propId) hideSelRing();
       hideSelRing();
@@ -4734,33 +6246,39 @@ export class SontinhSceneService implements OnDestroy {
       return true;
     };
 
-    // Nhân bản đồ vật đang chọn: bản sao đặt cạnh phải, tự gán id mới
+    // Nhân bản đồ vật/nhân vật đang chọn: bản sao đặt cạnh phải, tự khởi tạo lại rig khớp xương +
+    // chuyển động + chất liệu/texture độc lập để hoạt động NGAY lập tức không cần F5.
     self._duplicatePropById = (propId: string): string | null => {
       if (!propId || !app) return null;
       const src = findPropEntityById(propId);
       if (!src) return null;
       try {
         const newId = `${propId}_${Date.now()}`;
-        const clone = src.clone() as pc.Entity;
-        clone.name = `PropGLB_${newId}`;
-        if (!(clone as any).tags?.has('user_prop')) (clone as any).tags?.add('user_prop');
-        if (!(clone as any).tags?.has('prop_glb')) (clone as any).tags?.add('prop_glb');
 
         // Vị trí bản sao: cạnh phải món gốc theo bounding box, lề 0.5
-        let aabb = collectAabb(src);
+        const aabb = collectAabb(src);
         let off = 1.2;
         if (aabb) off = aabb.halfExtents.x * 2 + 0.5;
         const sp = src.getPosition();
         const np = { x: sp.x + off, y: sp.y, z: sp.z };
-        clone.setPosition(np.x, np.y, np.z);
+        const sr = src.getEulerAngles();
+        const ss = src.getLocalScale();
 
-        app.root.addChild(clone);
-
-        // Đưa bản sao vào danh sách roomProps để sync không dọn nhầm + lưu đĩa
         const srcProp = (_svc._profile as any)?.props?.find((pr: any) => pr?.id === propId);
+        const srcRig = self._propRigMap.get(propId) || null;
         const name0 = srcProp?.name || propId;
         const cnt = ((_svc._profile as any)?.props || []).filter((pr: any) => pr?.name?.startsWith(name0)).length;
-        const newProp = {
+
+        // Sao chép trọn bộ cấu hình Timeline sống (ưu tiên trạng thái đang phát trên canvas)
+        let clonedBoneTimeline: GlbPropTimelineData | undefined = undefined;
+        if (srcRig?.timeline) {
+          clonedBoneTimeline = JSON.parse(JSON.stringify(srcRig.timeline));
+        } else if (srcProp?.boneTimeline) {
+          clonedBoneTimeline = JSON.parse(JSON.stringify(srcProp.boneTimeline));
+        }
+
+        // Xây dựng record bản sao giữ đầy đủ thuộc tính transform, PBR, texture, animation & timeline
+        const newProp: any = {
           id: newId,
           name: cnt > 0 ? `${name0} ${cnt + 1}` : name0,
           type: srcProp?.type || 'model',
@@ -4769,9 +6287,26 @@ export class SontinhSceneService implements OnDestroy {
           glbPath: srcProp?.glbPath || '',
           thumbnail: srcProp?.thumbnail || null,
           position: { x: Math.round(np.x * 100) / 100, y: Math.round(np.y * 100) / 100, z: Math.round(np.z * 100) / 100 },
-          rotation: srcProp?.rotation ? { ...srcProp.rotation } : { x: 0, y: 0, z: 0 },
-          scale: srcProp?.scale ? { ...srcProp.scale } : { x: 1, y: 1, z: 1 },
+          _customPositionSet: true,
+          rotation: {
+            x: Math.round((srcProp?.rotation?.x ?? sr.x) * 10) / 10,
+            y: Math.round((srcProp?.rotation?.y ?? sr.y) * 10) / 10,
+            z: Math.round((srcProp?.rotation?.z ?? sr.z) * 10) / 10
+          },
+          _customRotationSet: true,
+          scale: {
+            x: Math.round(ss.x * 1000) / 1000,
+            y: Math.round(ss.y * 1000) / 1000,
+            z: Math.round(ss.z * 1000) / 1000
+          },
+          _customScaleSet: true,
+          _groundedAtScale: {
+            x: Math.round(ss.x * 1000) / 1000,
+            y: Math.round(ss.y * 1000) / 1000,
+            z: Math.round(ss.z * 1000) / 1000
+          },
           color: srcProp?.color ?? null,
+          _customColorSet: Boolean(srcProp?._customColorSet),
           visible: true,
           interactive: srcProp?.interactive ?? true,
           clickAction: srcProp?.clickAction || 'focus',
@@ -4779,10 +6314,202 @@ export class SontinhSceneService implements OnDestroy {
           // Bản sao chỉ tồn tại trên canvas 3D: không thêm mục mới trong menu ĐỒ VẬT
           hiddenFromList: true
         };
-        const arr = ((_svc._profile as any).props = ((_svc._profile as any).props || []));
-        arr.push(newProp);
 
-        // Chọn luôn bản sao mới (ring ôm bản sao)
+        if (srcProp) {
+          if (srcProp.castShadow !== undefined) newProp.castShadow = srcProp.castShadow;
+          if (typeof srcProp.metalness === 'number') newProp.metalness = srcProp.metalness;
+          if (srcProp._customMetalnessSet) newProp._customMetalnessSet = true;
+          if (typeof srcProp.roughness === 'number') newProp.roughness = srcProp.roughness;
+          if (srcProp._customRoughnessSet) newProp._customRoughnessSet = true;
+          if (typeof srcProp.opacity === 'number') newProp.opacity = srcProp.opacity;
+          if (srcProp._customOpacitySet) newProp._customOpacitySet = true;
+          if (srcProp.emissiveColor !== undefined) newProp.emissiveColor = srcProp.emissiveColor;
+          if (srcProp.emissiveIntensity !== undefined) newProp.emissiveIntensity = srcProp.emissiveIntensity;
+          if (srcProp._customEmissiveSet) newProp._customEmissiveSet = true;
+          if (srcProp.customTexturePath) newProp.customTexturePath = srcProp.customTexturePath;
+          if (srcProp.customTextureDataUrl) newProp.customTextureDataUrl = srcProp.customTextureDataUrl;
+          if (srcProp.textureUvMode) newProp.textureUvMode = srcProp.textureUvMode;
+          if (typeof srcProp.textureRepeatX === 'number') newProp.textureRepeatX = srcProp.textureRepeatX;
+          if (typeof srcProp.textureRepeatY === 'number') newProp.textureRepeatY = srcProp.textureRepeatY;
+          if (typeof srcProp.textureOffsetX === 'number') newProp.textureOffsetX = srcProp.textureOffsetX;
+          if (typeof srcProp.textureOffsetY === 'number') newProp.textureOffsetY = srcProp.textureOffsetY;
+          if (typeof srcProp.textureRotation === 'number') newProp.textureRotation = srcProp.textureRotation;
+          if (srcProp.animation) newProp.animation = JSON.parse(JSON.stringify(srcProp.animation));
+        }
+        if (clonedBoneTimeline) {
+          newProp.boneTimeline = clonedBoneTimeline;
+        }
+
+        // Tìm pc.Asset container đã lưu trong RAM để instantiate mới hoàn toàn (SkinInstance + xương + anim độc lập)
+        const cacheKey = self._propIdToGlbKey.get(propId) || (srcProp?.glbPath ? String(srcProp.glbPath).trim() : null);
+        const cachedAsset =
+          (cacheKey ? self._glbAssetCache.get(cacheKey) : null) ||
+          self._propIdToSoloAsset.get(propId) ||
+          null;
+
+        let clone: pc.Entity;
+
+        if (cachedAsset?.resource && (src.tags?.has('prop_glb') || src.name.startsWith('PropGLB_'))) {
+          // Ghi nhận tham chiếu cache cho bản sao để xóa bản gốc không hủy nhầm GPU asset của bản sao
+          if (cacheKey && self._glbAssetCache.has(cacheKey)) {
+            self._propIdToGlbKey.set(newId, cacheKey);
+          } else {
+            self._propIdToSoloAsset.set(newId, cachedAsset);
+          }
+
+          const container = cachedAsset.resource as any;
+          const glbEntity = (container.instantiateRenderEntity?.() ?? container.instantiateModelEntity?.()) as pc.Entity;
+          if (!glbEntity) return null;
+          self._sanitizeGlbEntity(glbEntity, app.graphicsDevice);
+
+          const wrapper = new pc.Entity(`PropGLB_${newId}`);
+          wrapper.tags.add('user_prop');
+          wrapper.tags.add('prop_glb');
+          (wrapper as any)._bottomLocalY = (src as any)._bottomLocalY ?? null;
+
+          wrapper.setLocalScale(ss.x, ss.y, ss.z);
+          wrapper.setRotation(src.getRotation().clone());
+          wrapper.setPosition(np.x, np.y, np.z);
+          wrapper.addChild(glbEntity);
+          glbEntity.setLocalPosition(0, 0, 0);
+          app.root.addChild(wrapper);
+          clone = wrapper;
+
+          // Đồng bộ mảng profile.props trước khi áp material & rig
+          const arr = ((_svc._profile as any).props = ((_svc._profile as any).props || []));
+          arr.push(newProp);
+
+          // Áp PBR & custom texture đã lưu
+          if (self._applyProps) {
+            try { self._applyProps([newProp]); } catch (_) {}
+          }
+
+          // Nếu bản gốc có texture tùy chỉnh chưa kịp lưu ra đĩa, sao chép ảnh trực tiếp từ RAM sang bản sao
+          const srcCustomTex = self._propCustomTextures.get(propId);
+          if (srcCustomTex && !newProp.customTexturePath && !newProp.customTextureDataUrl) {
+            try {
+              const rawImg: any = srcCustomTex.texture?.getSource?.(0) ?? (srcCustomTex.texture as any)?._levels?.[0];
+              let liveDataUrl: string | null = null;
+              if (rawImg && typeof rawImg.src === 'string' && rawImg.src.startsWith('data:')) {
+                liveDataUrl = rawImg.src;
+              } else if (rawImg && (rawImg instanceof HTMLImageElement || rawImg instanceof HTMLCanvasElement || (typeof ImageBitmap !== 'undefined' && rawImg instanceof ImageBitmap))) {
+                const cv = document.createElement('canvas');
+                cv.width = (rawImg as any).naturalWidth || (rawImg as any).width || 1024;
+                cv.height = (rawImg as any).naturalHeight || (rawImg as any).height || 1024;
+                const ctx = cv.getContext('2d');
+                if (ctx) {
+                  ctx.drawImage(rawImg, 0, 0, cv.width, cv.height);
+                  liveDataUrl = cv.toDataURL('image/png');
+                }
+              }
+              if (liveDataUrl) {
+                const geomInfo = self.inspectPropMeshGeometry(propId);
+                newProp.customTextureDataUrl = liveDataUrl;
+                newProp.textureUvMode = newProp.textureUvMode || geomInfo.activeUvMode;
+                void self.applyPropCustomTexture(newId, liveDataUrl, {
+                  sourceKey: `dup_${Date.now()}`,
+                  uvMode: newProp.textureUvMode || 'auto',
+                  tintHex: newProp._customColorSet && newProp.color ? newProp.color : null,
+                  repeatX: newProp.textureRepeatX ?? 1,
+                  repeatY: newProp.textureRepeatY ?? 1,
+                  offsetX: newProp.textureOffsetX ?? 0,
+                  offsetY: newProp.textureOffsetY ?? 0,
+                  rotationDeg: newProp.textureRotation ?? 0
+                });
+              }
+            } catch (_) {}
+          }
+
+          // Đăng ký khung xương (Rig), chép cả các clip animation nạp ngoài từ bản gốc và kích hoạt chuyển động NGAY
+          try {
+            self._registerPropRig(newId, wrapper, glbEntity, container, newProp);
+            const newRig = self._propRigMap.get(newId);
+            if (srcRig && newRig) {
+              // Sao chép các clip .glb animation rời đã nạp thêm vào bản gốc (không có sẵn trong container gốc)
+              for (const c of srcRig.clips) {
+                if (!c || c.isCustomKeyframeClip || !c.resource) continue;
+                if (!newRig.clips.some((nc) => nc.name === c.name)) {
+                  newRig.clips.push({
+                    name: c.name,
+                    duration: c.duration,
+                    resource: c.resource,
+                    isCustomKeyframeClip: false
+                  });
+                }
+              }
+              // Đồng bộ chính xác clip đang phát / thời điểm đang chạy hoặc đang tạm dừng theo trạng thái sống của srcRig
+              const srcTl = srcRig.timeline;
+              const tl = newRig.timeline;
+              tl.enabled = srcTl.enabled;
+              tl.playing = srcTl.playing;
+              tl.loop = srcTl.loop;
+              tl.speed = srcTl.speed;
+              tl.mode = srcTl.mode;
+              const desiredClipName = srcTl.activeClipName || tl.activeClipName;
+              const startTime = Number(srcRig.currentTime) || 0;
+              if (srcTl.mode === 'clip' && desiredClipName) {
+                const targetClip = newRig.clips.find((c) => c.name === desiredClipName) || newRig.clips[0];
+                if (targetClip) {
+                  tl.activeClipName = targetClip.name;
+                  tl.duration = targetClip.duration;
+                  if (srcTl.playing) {
+                    self.playPropClip(newId, targetClip.name);
+                    if (targetClip.isCustomKeyframeClip) {
+                      newRig.currentTime = startTime % Math.max(0.1, tl.duration || 3.0);
+                      self.evaluatePropKeyframesAtTime(newId, newRig.currentTime);
+                    } else if (newRig.animComp?.baseLayer) {
+                      try {
+                        newRig.animComp.baseLayer.transition(targetClip.name, 0);
+                        newRig.animComp.baseLayer.activeStateCurrentTime = startTime % Math.max(0.1, targetClip.duration || 2.5);
+                        newRig.animComp.speed = tl.speed || 1.0;
+                        newRig.animComp.playing = true;
+                      } catch (_) {}
+                    }
+                  } else {
+                    self.playPropClip(newId, targetClip.name);
+                    self.setPropTimelinePlaying(newId, false);
+                    self.seekPropTimeline(newId, startTime);
+                  }
+                }
+              } else if (srcTl.mode === 'keyframes' && tl.keyframes.length > 0) {
+                self._stopRigClipAnim(newRig);
+                newRig.currentTime = startTime % Math.max(0.1, tl.duration || 3.0);
+                self.evaluatePropKeyframesAtTime(newId, newRig.currentTime);
+              }
+            }
+          } catch (rigErr) {
+            console.warn('[SontinhScene] Duplicate rig registration warning:', rigErr);
+          }
+        } else {
+          // Fallback cho đồ vật primitive / hình khối không dùng GLB container
+          clone = src.clone() as pc.Entity;
+          clone.name = src.name.startsWith('PropGLB_') ? `PropGLB_${newId}` : newId;
+          if (!(clone as any).tags?.has('user_prop')) (clone as any).tags?.add('user_prop');
+          if (src.tags?.has('prop_glb') && !(clone as any).tags?.has('prop_glb')) {
+            (clone as any).tags?.add('prop_glb');
+          }
+          clone.setPosition(np.x, np.y, np.z);
+          app.root.addChild(clone);
+
+          const arr = ((_svc._profile as any).props = ((_svc._profile as any).props || []));
+          arr.push(newProp);
+          if (self._applyProps) {
+            try { self._applyProps([newProp]); } catch (_) {}
+          }
+        }
+
+        // Sao chép chuyển động procedural (nổi/xoay/nhịp) nếu bản gốc đang có trong propAnimMap
+        const srcProcAnim = propAnimMap.get(src.name) || propAnimMap.get(propId);
+        if (srcProcAnim) {
+          propAnimMap.set(clone.name, {
+            type: srcProcAnim.type,
+            speed: srcProcAnim.speed,
+            basePos: new pc.Vec3(np.x, np.y, np.z),
+            baseScale: clone.getLocalScale().clone()
+          });
+        }
+
+        // Chọn luôn bản sao mới (ring ôm bản sao) — gọi SAU khi đăng ký rig để nút Timeline sáng ngay
         showSelRing(clone);
         const p2 = clone.getPosition();
         const pos2 = { x: Math.round(p2.x * 100) / 100, y: Math.round(p2.y * 100) / 100, z: Math.round(p2.z * 100) / 100 };
@@ -5024,6 +6751,10 @@ export class SontinhSceneService implements OnDestroy {
     this._setEnvironmentColorsFn = (opts) => {
       if (opts.bg && camera.camera) {
         camera.camera.clearColor = new pc.Color().fromString(opts.bg);
+        this._studioLighting.bgColor = opts.bg;
+        if (this._applyStudioLightingFn) {
+          try { this._applyStudioLightingFn(this._studioLighting); } catch (_) {}
+        }
       }
       if (opts.table) {
         const table = app.root.findByName("Showroom_TableTop");
@@ -5260,6 +6991,59 @@ export class SontinhSceneService implements OnDestroy {
     let targetYaw = DESK_VIEW.yaw;
     let targetPitch = DESK_VIEW.pitch;
     let targetDistance = DESK_VIEW.distance;
+
+    self._getCameraSnapshotFn = () => ({
+      pivot: { x: currentPivot.x, y: currentPivot.y, z: currentPivot.z },
+      yaw: orbitYaw,
+      pitch: orbitPitch,
+      distance: orbitDistance
+    });
+
+    self._restoreCameraSnapshotFn = (snap) => {
+      if (!snap) return;
+      targetPivot.set(snap.pivot.x, snap.pivot.y, snap.pivot.z);
+      currentPivot.copy(targetPivot);
+      targetYaw = orbitYaw = snap.yaw;
+      targetPitch = orbitPitch = snap.pitch;
+      targetDistance = orbitDistance = snap.distance;
+    };
+
+    self._autoFramePropForCaptureFn = (propId?: string | null, fillRatio = 0.68): boolean => {
+      let targetEnt: pc.Entity | null = propId ? findPropEntityById(propId) : null;
+      if (!targetEnt || !targetEnt.enabled) {
+        const firstRigId = self.getFirstRiggedPropId();
+        if (firstRigId) targetEnt = findPropEntityById(firstRigId);
+      }
+      if (!targetEnt || !targetEnt.enabled) {
+        const allProps = (app.root.findByTag('user_prop') as pc.Entity[]) || [];
+        targetEnt = allProps.find((e) => e && e.enabled) || null;
+      }
+      if (!targetEnt) return false;
+
+      const bb = collectAabb(targetEnt);
+      if (!bb) return false;
+
+      const height = Math.max(0.4, bb.halfExtents.y * 2);
+      const width = Math.max(bb.halfExtents.x, bb.halfExtents.z) * 2;
+      const fovDeg = Number(camera.camera?.fov) || 52;
+      const tanHalfFov = Math.tan((fovDeg * 0.5) * pc.math.DEG_TO_RAD);
+      const clampedFill = Math.max(0.4, Math.min(0.85, Number(fillRatio) || 0.68));
+      const fitDist = Math.max(1.2, (Math.max(height, width * 0.9) * 0.5) / (tanHalfFov * clampedFill));
+
+      isWindowViewActive = false;
+      isPictureViewActive = false;
+      isAquariumViewActive = false;
+      isPropCameraActive = true;
+
+      targetPivot.copy(bb.center);
+      currentPivot.copy(bb.center);
+      // Giữ góc xoay ngang người dùng đang chọn, điều tiết pitch vừa tầm mắt nếu đang nhìn quá chúc từ trên xuống
+      const cleanPitch = Math.max(4, Math.min(26, orbitPitch));
+      targetPitch = orbitPitch = cleanPitch;
+      targetYaw = orbitYaw;
+      targetDistance = orbitDistance = fitDist;
+      return true;
+    };
     
     let isDragging = false;
     let mouseDownPos = { x: 0, y: 0 };
@@ -6877,6 +8661,26 @@ export class SontinhSceneService implements OnDestroy {
             (cloned as any)._baseBlendType = (srcMat as any)._baseBlendType ?? srcMat.blendType;
             (cloned as any)._baseDepthWrite = (srcMat as any)._baseDepthWrite ?? srcMat.depthWrite;
             (cloned as any)._baseOpacity = (srcMat as any)._baseOpacity ?? srcMat.opacity;
+            (cloned as any)._origDiffuseMap = ('_origDiffuseMap' in (srcMat as any))
+              ? (srcMat as any)._origDiffuseMap
+              : (srcMat.diffuseMap ?? null);
+            (cloned as any)._origDiffuseColor = (srcMat as any)._origDiffuseColor
+              ? (srcMat as any)._origDiffuseColor.clone()
+              : (srcMat.diffuse ? srcMat.diffuse.clone() : new pc.Color(1, 1, 1));
+            (cloned as any)._origDiffuseTint = (srcMat as any)._origDiffuseTint ?? Boolean((srcMat as any).diffuseTint);
+            (cloned as any)._origMetalness = (srcMat as any)._origMetalness ?? srcMat.metalness;
+            (cloned as any)._origGloss = (srcMat as any)._origGloss ?? srcMat.gloss;
+            (cloned as any)._origUseMetalness = (srcMat as any)._origUseMetalness ?? Boolean(srcMat.useMetalness);
+            (cloned as any)._origEmissive = (srcMat as any)._origEmissive
+              ? (srcMat as any)._origEmissive.clone()
+              : (srcMat.emissive ? srcMat.emissive.clone() : new pc.Color(0, 0, 0));
+            (cloned as any)._origDiffuseMapTiling = (srcMat as any)._origDiffuseMapTiling
+              ? (srcMat as any)._origDiffuseMapTiling.clone()
+              : (srcMat.diffuseMapTiling ? srcMat.diffuseMapTiling.clone() : new pc.Vec2(1, 1));
+            (cloned as any)._origDiffuseMapOffset = (srcMat as any)._origDiffuseMapOffset
+              ? (srcMat as any)._origDiffuseMapOffset.clone()
+              : (srcMat.diffuseMapOffset ? srcMat.diffuseMapOffset.clone() : new pc.Vec2(0, 0));
+            (cloned as any)._origDiffuseMapRotation = (srcMat as any)._origDiffuseMapRotation ?? (Number((srcMat as any).diffuseMapRotation) || 0);
             return cloned;
           };
           const customizeMat = (origMat: pc.StandardMaterial, assignMat: (m: pc.StandardMaterial) => void) => {
@@ -6893,6 +8697,11 @@ export class SontinhSceneService implements OnDestroy {
             if (prop._customColorSet && prop.color && typeof prop.color === 'string' && prop.color.toLowerCase() !== '#ffffff') {
               ensureClone();
               mat.diffuse = new pc.Color().fromString(prop.color);
+              (mat as any).diffuseTint = true;
+              changed = true;
+            } else if ((mat as any)._isClonedInstance && (!prop._customColorSet || !prop.color || prop.color.toLowerCase() === '#ffffff')) {
+              mat.diffuse = (mat as any)._origDiffuseColor ? (mat as any)._origDiffuseColor.clone() : new pc.Color(1, 1, 1);
+              (mat as any).diffuseTint = Boolean((mat as any)._origDiffuseTint);
               changed = true;
             }
 
@@ -6939,10 +8748,21 @@ export class SontinhSceneService implements OnDestroy {
           const applyToMesh = (node: any) => {
             const comp = node.render || node.model;
             if (comp) {
-              if (prop.castShadow !== undefined) {
-                comp.castShadows = prop.castShadow;
-              } else {
-                comp.castShadows = false;
+              const shouldCast = EMPTY_SCENE
+                ? Boolean(this._studioLighting.shadowsEnabled)
+                : (prop.castShadow !== undefined ? Boolean(prop.castShadow) : Boolean(this._studioLighting.shadowsEnabled));
+              comp.castShadows = shouldCast;
+              if ('receiveShadows' in comp) {
+                comp.receiveShadows = true;
+              }
+              const misShadow: any[] | undefined = comp.meshInstances;
+              if (misShadow && misShadow.length > 0) {
+                for (const mi of misShadow) {
+                  if (mi) {
+                    mi.castShadow = shouldCast;
+                    mi.receiveShadow = true;
+                  }
+                }
               }
               const mis: any[] | undefined = comp.meshInstances;
               if (mis && mis.length > 0) {
@@ -6962,6 +8782,9 @@ export class SontinhSceneService implements OnDestroy {
             }
           };
           applyToMesh(ent);
+          if (prop.customTexturePath || prop.customTextureDataUrl) {
+            this._hydratePropCustomTexture(propId, prop);
+          }
         };
 
         const cfg = PROP_ENTITY_CONFIG[propId];
@@ -9097,6 +10920,11 @@ export class SontinhSceneService implements OnDestroy {
     familyFrameBacklight.setPosition(ROOM_WIDTH_X / 2 - 1.2, 16.0, 28.5);
     app.root.addChild(familyFrameBacklight);
     
+    // Khai báo biến lưới studio TRƯỚC khi gọi buildStudioLights()/buildStudioGrid() để tránh lỗi TDZ
+    let studioGridLayer: pc.Layer | null = null;
+    let studioGridMinorMat: pc.StandardMaterial | null = null;
+    let studioGridMajorMat: pc.StandardMaterial | null = null;
+
     // -------------------------------------------------------------
     // 🧹 EMPTY SCENE: tắt mọi entity dựng sẵn (giữ camera + đèn mặt trời)
     // -------------------------------------------------------------
@@ -9113,78 +10941,224 @@ export class SontinhSceneService implements OnDestroy {
     }
 
     // -------------------------------------------------------------
-    // STUDIO TRẮNG (mặc định khi scene trống) — KHÔNG còn bàn trưng bày.
-    // Nền trắng trơn + 2 đèn studio: đèn nắng chính có cookie bóng lá,
-    // đèn phụ mềm phía trước. Người dùng tự thêm đồ vật của họ.
+    // STUDIO 3-ĐIỂM + IBL + BÓNG ĐỔ SÀN KHÔNG VIỀN (SHADOW CATCHER)
+    // Cho phép tinh chỉnh toàn bộ ánh sáng (Key/Fill/Rim, hướng chiếu,
+    // độ phơi sáng, Tone Mapping, IBL, bóng đổ, màu nền, lưới) theo thời gian thực.
     // -------------------------------------------------------------
+
     function buildStudioLights() {
-      const WALL_Z = -16;
-
-      app.scene.ambientLight = new pc.Color(0.82, 0.82, 0.82);
-      camera.camera!.clearColor = new pc.Color(1, 1, 1);
-
       const root = new pc.Entity('Showroom_Lights');
       app.root.addChild(root);
 
-      const canvasTex = (cv: HTMLCanvasElement) => {
-        const t = new pc.Texture(app.graphicsDevice, { width: cv.width, height: cv.height, format: pc.PIXELFORMAT_RGBA8, mipmaps: true });
-        t.setSource(cv);
-        return t;
-      };
+      // 1. Đèn chính (Key Light — Directional 2K 2-Cascade soft shadow)
+      const keyLight = new pc.Entity('Studio_KeyLight');
+      keyLight.addComponent('light', {
+        type: 'directional',
+        color: new pc.Color(1.0, 0.97, 0.94),
+        intensity: 1.55,
+        castShadows: true,
+        shadowResolution: 2048,
+        shadowDistance: 120,
+        numCascades: 2,
+        cascadeDistribution: 0.5,
+        shadowType: (pc as any).SHADOW_PCF5 ?? pc.SHADOW_PCF3,
+        shadowBias: 0.08,
+        normalOffsetBias: 0.05,
+        shadowIntensity: 0.45
+      });
+      root.addChild(keyLight);
 
-      // --- Bóng lá in lên tường: cookie texture cho đèn spot ---
-      const leafCv = document.createElement('canvas');
-      leafCv.width = leafCv.height = 512;
-      const lctx = leafCv.getContext('2d')!;
-      lctx.fillStyle = '#fff';
-      lctx.fillRect(0, 0, 512, 512);
-      lctx.filter = 'blur(7px)';
-      lctx.fillStyle = 'rgba(70,70,70,0.75)';
-      const branch = (x0: number, y0: number, ang: number, len: number) => {
-        for (let s = 0; s < len; s += 22) {
-          const x = x0 + Math.cos(ang) * s, y = y0 + Math.sin(ang) * s;
-          for (const side of [-1, 1]) {
-            lctx.save();
-            lctx.translate(x, y);
-            lctx.rotate(ang + side * (0.7 + Math.random() * 0.4));
-            lctx.beginPath();
-            lctx.ellipse(18, 0, 18 + Math.random() * 8, 7, 0, 0, Math.PI * 2);
-            lctx.fill();
-            lctx.restore();
-          }
+      // 2. Đèn phụ mềm (Fill Light — cân bằng vùng tối đối diện đèn chính, không đổ bóng cứng)
+      const fillLight = new pc.Entity('Studio_FillLight');
+      fillLight.addComponent('light', {
+        type: 'directional',
+        color: new pc.Color(0.88, 0.93, 1.0),
+        intensity: 0.58,
+        castShadows: false
+      });
+      root.addChild(fillLight);
+
+      // 3. Đèn viền tách chủ thể (Rim / Back Light — tạo đường viền sáng nổi bật khối 3D & kim loại)
+      const rimLight = new pc.Entity('Studio_RimLight');
+      rimLight.addComponent('light', {
+        type: 'directional',
+        color: new pc.Color(1.0, 1.0, 1.0),
+        intensity: 0.65,
+        castShadows: false
+      });
+      root.addChild(rimLight);
+
+      // 4. Sàn hứng bóng tàng hình gốc của PlayCanvas 2.23 (shadowCatcher = true + BLEND_MULTIPLICATIVE):
+      // Vùng ngoài bóng xuất vec3(1.0) -> nhân nền giữ nguyên 100% không viền; vùng có bóng đổ tối mềm tự nhiên.
+      let shadowFloor: pc.Entity | null = null;
+      try {
+        shadowFloor = new pc.Entity('Studio_ShadowFloor');
+        const floorGeom = new pc.PlaneGeometry({ halfExtents: new pc.Vec2(90, 90), widthSegments: 1, lengthSegments: 1 });
+        const floorMesh = pc.Mesh.fromGeometry(app.graphicsDevice, floorGeom);
+        const shadowFloorMat = new pc.StandardMaterial();
+        (shadowFloorMat as any).shadowCatcher = true;
+        shadowFloorMat.blendType = pc.BLEND_MULTIPLICATIVE;
+        shadowFloorMat.depthWrite = false;
+        shadowFloorMat.useSkybox = false;
+        shadowFloorMat.useFog = false;
+        shadowFloorMat.update();
+
+        const floorMi = new pc.MeshInstance(floorMesh, shadowFloorMat);
+        floorMi.pick = false;
+        floorMi.castShadow = false;
+        floorMi.receiveShadow = true;
+        shadowFloor.addComponent('render', {
+          meshInstances: [floorMi],
+          castShadows: false,
+          receiveShadows: true
+        });
+        shadowFloor.setLocalPosition(0, -0.002, 0);
+        root.addChild(shadowFloor);
+      } catch (e) {
+        console.warn('[SontinhScene] Shadow floor init warning:', e);
+      }
+
+      const safeColor = (hex: string | undefined, fallback: string): pc.Color => {
+        try {
+          return new pc.Color().fromString(hex || fallback);
+        } catch (_) {
+          return new pc.Color().fromString(fallback);
         }
       };
-      branch(-20, 40, 0.55, 300);
-      branch(60, -20, 0.95, 280);
-      branch(330, -10, 1.9, 260);
-      branch(520, 160, 2.6, 240);
-      const leafTex = canvasTex(leafCv);
-      leafTex.addressU = pc.ADDRESS_CLAMP_TO_EDGE;
-      leafTex.addressV = pc.ADDRESS_CLAMP_TO_EDGE;
 
-      // Đèn nắng chính: chiếu chéo từ trên-trái-trước, có bóng lá
-      const sun = new pc.Entity('Showroom_SunSpot');
-      sun.addComponent('light', {
-        type: 'spot', color: new pc.Color(1.0, 0.96, 0.9), intensity: 1.6, range: 140,
-        innerConeAngle: 30, outerConeAngle: 48,
-        castShadows: true, shadowResolution: 2048, shadowBias: 0.05, normalOffsetBias: 0.05,
-        cookie: leafTex, cookieIntensity: 0.85
-      });
-      sun.setLocalPosition(-30, 50, 40);
-      root.addChild(sun);
-      sun.lookAt(4, 10, WALL_Z);
-      sun.rotateLocal(90, 0, 0); // spot chiếu theo trục -Y, lookAt hướng trục -Z
+      const applyLightingNow = (cfg: StudioLightingConfig) => {
+        // 1. Exposure, Tone Mapping & IBL Environment
+        app.scene.exposure = Math.max(0.2, Math.min(3.0, Number(cfg.exposure) || 1.15));
+        (app.scene as any).skyboxIntensity = Math.max(0, Math.min(3.0, Number(cfg.envIntensity) ?? 0.95));
 
-      // Đèn phụ mềm phía trước
-      const fill = new pc.Entity('Showroom_Fill');
-      fill.addComponent('light', { type: 'omni', color: new pc.Color(1.0, 0.98, 0.95), intensity: 0.45, range: 70, castShadows: false });
-      fill.setLocalPosition(8, 14, 28);
-      root.addChild(fill);
+        const tmMap: Record<string, number> = {
+          linear: (pc as any).TONEMAP_LINEAR ?? 0,
+          filmic: (pc as any).TONEMAP_FILMIC ?? 1,
+          aces2: (pc as any).TONEMAP_ACES2 ?? (pc as any).TONEMAP_ACES ?? 4,
+          neutral: (pc as any).TONEMAP_NEUTRAL ?? 5
+        };
+        const tmVal = tmMap[cfg.toneMapping || 'neutral'] ?? ((pc as any).TONEMAP_NEUTRAL ?? 5);
+        if (camera.camera) {
+          (camera.camera as any).toneMapping = tmVal;
+        }
+        try { (app.scene as any).toneMapping = tmVal; } catch (_) {}
+
+        // 2. Ambient Light
+        const ambCol = safeColor(cfg.ambientColor, '#e2e8f0');
+        const ambInt = Math.max(0, Math.min(2.0, Number(cfg.ambientIntensity) ?? 0.62));
+        app.scene.ambientLight = new pc.Color(ambCol.r * ambInt, ambCol.g * ambInt, ambCol.b * ambInt);
+
+        // 3. Backdrop & Adaptive Grid
+        const bgCol = safeColor(cfg.bgColor, '#ffffff');
+        if (camera.camera) {
+          camera.camera.clearColor = bgCol;
+        }
+        if (studioGridLayer) {
+          studioGridLayer.enabled = cfg.showGrid !== false;
+        }
+        const bgLum = bgCol.r * 0.299 + bgCol.g * 0.587 + bgCol.b * 0.114;
+        const isDarkBg = bgLum < 0.35;
+        if (studioGridMinorMat) {
+          studioGridMinorMat.emissive = isDarkBg ? new pc.Color(0.55, 0.62, 0.74) : new pc.Color(0.75, 0.75, 0.75);
+          studioGridMinorMat.opacity = isDarkBg ? 0.12 : 0.16;
+          studioGridMinorMat.update();
+        }
+        if (studioGridMajorMat) {
+          studioGridMajorMat.emissive = isDarkBg ? new pc.Color(0.65, 0.75, 0.88) : new pc.Color(0.6, 0.6, 0.6);
+          studioGridMajorMat.opacity = isDarkBg ? 0.28 : 0.45;
+          studioGridMajorMat.update();
+        }
+
+        // 4. Key Light (Pitch: 5..85 deg elevation from horizon -> PlayCanvas tiltX = 90 - pitch)
+        const keyPitch = Math.max(5, Math.min(85, Number(cfg.keyPitch) || 48));
+        const keyYaw = Number(cfg.keyYaw) || 0;
+        const keyCol = safeColor(cfg.keyColor, '#fff9f0');
+        const keyInt = Math.max(0, Math.min(5.0, Number(cfg.keyIntensity) ?? 1.55));
+        const shadowInt = Math.max(0, Math.min(1.0, Number(cfg.shadowIntensity) ?? 0.45));
+        keyLight.enabled = cfg.keyEnabled !== false;
+        keyLight.setEulerAngles(90 - keyPitch, keyYaw, 0);
+        if (keyLight.light) {
+          keyLight.light.color = keyCol;
+          keyLight.light.intensity = keyInt;
+          keyLight.light.castShadows = Boolean(cfg.shadowsEnabled);
+          keyLight.light.shadowIntensity = shadowInt;
+          keyLight.light.shadowType =
+            cfg.shadowSoftness === 'crisp'
+              ? pc.SHADOW_PCF3
+              : ((pc as any).SHADOW_PCF5 ?? pc.SHADOW_PCF3);
+        }
+
+        // 5. Fill Light (đối diện đèn chính +135°)
+        fillLight.enabled = cfg.fillEnabled !== false;
+        fillLight.setEulerAngles(58, keyYaw + 135, 0);
+        if (fillLight.light) {
+          fillLight.light.color = safeColor(cfg.fillColor, '#e0eeff');
+          fillLight.light.intensity = Math.max(0, Math.min(4.0, Number(cfg.fillIntensity) ?? 0.58));
+        }
+
+        // 6. Rim / Back Light (phía sau chủ thể -155°)
+        rimLight.enabled = cfg.rimEnabled !== false;
+        rimLight.setEulerAngles(64, keyYaw - 155, 0);
+        if (rimLight.light) {
+          rimLight.light.color = safeColor(cfg.rimColor, '#ffffff');
+          rimLight.light.intensity = Math.max(0, Math.min(4.0, Number(cfg.rimIntensity) ?? 0.65));
+        }
+
+        // 7. Đồng bộ sàn hứng bóng tàng hình (Shadow Catcher) & cờ castShadows của mọi đồ vật trên canvas
+        if (shadowFloor) {
+          const floorActive =
+            Boolean(cfg.shadowsEnabled) &&
+            cfg.showFloorShadow !== false &&
+            cfg.keyEnabled !== false &&
+            keyInt > 0.01 &&
+            shadowInt > 0.01;
+          shadowFloor.enabled = floorActive;
+        }
+
+        // Cập nhật castShadows / receiveShadows trên mọi đồ vật & nhân vật người dùng đang ở trên canvas
+        try {
+          const shouldCast = Boolean(cfg.shadowsEnabled);
+          for (const ent of (app.root.findByTag('user_prop') as pc.Entity[])) {
+            const comps = [
+              ...((ent.findComponents('render') as any[]) || []),
+              ...((ent.findComponents('model') as any[]) || [])
+            ];
+            if ((ent as any).render) comps.push((ent as any).render);
+            if ((ent as any).model) comps.push((ent as any).model);
+            for (const c of comps) {
+              c.castShadows = shouldCast;
+              if ('receiveShadows' in c) c.receiveShadows = true;
+              const mis: any[] = c.meshInstances || [];
+              for (const mi of mis) {
+                if (mi) {
+                  mi.castShadow = shouldCast;
+                  mi.receiveShadow = true;
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      };
+
+      self._applyStudioLightingFn = applyLightingNow;
+
+      // Nạp cấu hình ánh sáng đã lưu trong profile (nếu có) hoặc dùng mặc định Studio Sáng
+      const savedInitLighting = (self._profile?.scene as any)?.lighting;
+      if (savedInitLighting && typeof savedInitLighting === 'object') {
+        self._studioLighting = { ...DEFAULT_STUDIO_LIGHTING, ...savedInitLighting };
+        self._lastAppliedProfileLightingKey = JSON.stringify(savedInitLighting);
+      } else {
+        self._studioLighting = { ...DEFAULT_STUDIO_LIGHTING };
+      }
+      try {
+        applyLightingNow(self._studioLighting);
+      } catch (lightErr) {
+        console.warn('[SontinhScene] Initial applyLightingNow warning:', lightErr);
+      }
 
       self._applyCameraPreset?.('default');
       currentPivot.copy(targetPivot);
       orbitYaw = targetYaw; orbitPitch = targetPitch; orbitDistance = targetDistance;
-
     }
 
     // -------------------------------------------------------------
@@ -9195,7 +11169,8 @@ export class SontinhSceneService implements OnDestroy {
     // -------------------------------------------------------------
     function buildStudioGrid() {
       const GRID_HALF = 80; // phu 160x160m quanh goc toa do
-      const gridLayer = new pc.Layer({ name: 'GridLayer', enabled: true });
+      const gridLayer = new pc.Layer({ name: 'GridLayer', enabled: self._studioLighting.showGrid !== false });
+      studioGridLayer = gridLayer;
       app.scene.layers.push(gridLayer);
       // cho camera hien thi them layer grid
       camera.camera!.layers = camera.camera!.layers.concat([gridLayer.id]);
@@ -9203,7 +11178,7 @@ export class SontinhSceneService implements OnDestroy {
       // CHU Y: pc.createMesh mac dinh tao PRIMITIVE_TRIANGLES. Day chi 2 dinh moi doan
       // se bien GPU doc dia chi rac va sinh tam giac khong lo phu man hinh.
       // Giai phap: no moi doan ke thanh 1 dai chu nhat mong (2 tam giac, 4 dinh).
-      const makeLines = (segments: number[], col: pc.Color, opacity: number, name: string, width = 0.04) => {
+      const makeLines = (segments: number[], col: pc.Color, opacity: number, name: string, width = 0.04): pc.StandardMaterial => {
         const mat = new pc.StandardMaterial();
         mat.diffuse = new pc.Color(0, 0, 0);
         mat.emissive = col.clone();
@@ -9238,6 +11213,7 @@ export class SontinhSceneService implements OnDestroy {
         mi.node = new pc.GraphNode();
         mi.node.setLocalPosition(0, 0.01, 0);
         gridLayer.addMeshInstances([mi]);
+        return mat;
       };
 
       const minor: number[] = [];
@@ -9248,10 +11224,14 @@ export class SontinhSceneService implements OnDestroy {
         arr.push(-GRID_HALF, 0, i, GRID_HALF, 0, i);
         arr.push(i, 0, -GRID_HALF, i, 0, GRID_HALF);
       }
-      makeLines(minor, new pc.Color(0.75, 0.75, 0.75), 0.16, 'Studio_Grid_Minor');
-      makeLines(major, new pc.Color(0.6, 0.6, 0.6), 0.45, 'Studio_Grid_Major');
+      studioGridMinorMat = makeLines(minor, new pc.Color(0.75, 0.75, 0.75), 0.16, 'Studio_Grid_Minor');
+      studioGridMajorMat = makeLines(major, new pc.Color(0.6, 0.6, 0.6), 0.45, 'Studio_Grid_Major');
       makeLines([-GRID_HALF, 0, 0, GRID_HALF, 0, 0], new pc.Color(0.85, 0.15, 0.15), 0.9, 'Studio_Grid_AxisX');
       makeLines([0, 0, -GRID_HALF, 0, 0, GRID_HALF], new pc.Color(0.15, 0.3, 0.9), 0.9, 'Studio_Grid_AxisZ');
+      // Đồng bộ lại màu lưới theo màu nền đang chọn (sáng/tối) ngay sau khi dựng lưới
+      if (self._applyStudioLightingFn) {
+        try { self._applyStudioLightingFn(self._studioLighting); } catch (_) {}
+      }
     }
 
     // 👤 3D HUMAN CHARACTER (YÊN) — REBUILT WITH CORRECT PROPORTIONS

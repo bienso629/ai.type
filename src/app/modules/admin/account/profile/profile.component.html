@@ -1123,6 +1123,28 @@
 
             <!-- Floating Scene Toolbar (Top-Right) -->
             <div class="scene-floating-toolbar">
+                <!-- 0a. AI Video from 3D Motion (Mì Tôm AI) -->
+                <button
+                    mat-icon-button
+                    (click)="toggleAiVideo3dStudio()"
+                    class="scene-toolbar-btn"
+                    [class.scene-toolbar-btn--active]="isAiVideo3dOpen"
+                    matTooltip="Tạo Video AI từ chuyển động nhân vật 3D (Mì Tôm AI)"
+                >
+                    <mat-icon>movie_filter</mat-icon>
+                </button>
+
+                <!-- 0b. Studio Lighting & Environment -->
+                <button
+                    mat-icon-button
+                    (click)="toggleLightingStudio()"
+                    class="scene-toolbar-btn"
+                    [class.scene-toolbar-btn--active]="isLightingStudioOpen"
+                    matTooltip="Tinh chỉnh ánh sáng & môi trường 3D"
+                >
+                    <mat-icon>wb_sunny</mat-icon>
+                </button>
+
                 <!-- 1. Full Screen -->
                 <button
                     mat-icon-button
@@ -1211,6 +1233,15 @@
                             <mat-icon>movie</mat-icon>
                         </button>
                     }
+                    <button
+                        type="button"
+                        class="sontinh-prop-actions__btn sontinh-prop-actions__btn--tex"
+                        [class.sontinh-prop-actions__btn--tex-active]="isTextureStudioOpen && texStudioPropId === propActionAnchor.propId"
+                        title="Chỉnh màu sắc & Tạo Texture AI từ ảnh mẫu"
+                        (pointerdown)="openPropTextureStudio(propActionAnchor.propId, $event)"
+                    >
+                        <mat-icon>palette</mat-icon>
+                    </button>
                     <button
                         type="button"
                         class="sontinh-prop-actions__btn sontinh-prop-actions__btn--lock"
@@ -1367,6 +1398,14 @@
                         </button>
                     </div>
                     <div class="sontinh-axes-info__hint">Kéo nút mũi tên để chỉnh &middot; thả ra để lưu</div>
+                    <button
+                        type="button"
+                        class="sontinh-axes-info__texture-btn"
+                        (click)="openPropTextureStudio(selectedPropId, $event)"
+                    >
+                        <mat-icon class="icon-size-4">palette</mat-icon>
+                        <span>Màu sắc & AI Texture</span>
+                    </button>
                     @if (selectedPropHasRig) {
                         <button
                             type="button"
@@ -1377,6 +1416,937 @@
                             <span>Timeline & Khớp xương</span>
                         </button>
                     }
+                </div>
+            }
+
+            <!-- STUDIO TẠO VIDEO AI TỪ CHUYỂN ĐỘNG 3D (MÌ TÔM AI) -->
+            @if (isAiVideo3dOpen) {
+                <div
+                    class="prop-texture-studio studio-lighting-panel ai-video-3d-panel"
+                    (mousedown)="$event.stopPropagation()"
+                    (wheel)="$event.stopPropagation()"
+                    (paste)="onAiVideo3dPaste($event)"
+                >
+                    <div class="prop-texture-studio__head">
+                        <div class="prop-texture-studio__title-wrap">
+                            <mat-icon>movie_filter</mat-icon>
+                            <div class="min-w-0">
+                                <div class="prop-texture-studio__title">Tạo Video AI từ 3D</div>
+                                <div class="prop-texture-studio__sub" [title]="aiVideo3dConfiguredModel">
+                                    Mì Tôm AI &middot; {{ aiVideo3dConfiguredModel }}
+                                </div>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            class="prop-texture-studio__close"
+                            title="Đóng"
+                            (click)="closeAiVideo3dStudio()"
+                        >
+                            <mat-icon>close</mat-icon>
+                        </button>
+                    </div>
+
+                    <div class="prop-texture-studio__body">
+                        <!-- Trạng thái cấu hình Mì Tôm AI -->
+                        @if (!aiVideo3dMitomEnabled) {
+                            <div class="ai-video-3d__warn">
+                                Mì Tôm AI chưa được bật trong Cài đặt. Vui lòng bật proxy Mì Tôm AI và chọn Model Video trước khi tạo.
+                            </div>
+                        } @else {
+                            <div class="ai-video-3d__model-bar">
+                                <span class="ai-video-3d__model-label">Model Video đang bật</span>
+                                <strong class="ai-video-3d__model-name" [title]="aiVideo3dConfiguredModel">{{ aiVideo3dConfiguredModel }}</strong>
+                            </div>
+                            @if (!aiVideo3dConfiguredSupportsRefVideo) {
+                                <div class="ai-video-3d__warn">
+                                    Model {{ aiVideo3dConfiguredModel }} không hỗ trợ video tham chiếu (reference_video). Nên chọn Seedance 2.0/2.5 hoặc Kling Motion Control trong Cài đặt Mì Tôm AI để bám chuyển động 3D.
+                                </div>
+                            }
+                        }
+
+                        <!-- 1. Ảnh mẫu nhân vật để đắp lên nhân vật 3D -->
+                        <div class="prop-texture-studio__sec">
+                            <div class="prop-texture-studio__sec-head">
+                                <span>Ảnh mẫu đắp lên 3D ({{ aiVideo3dRefImages.length }}/4)</span>
+                            </div>
+
+                            <input
+                                #aiVideo3dRefInput
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                class="hidden"
+                                (change)="onAiVideo3dRefFileSelected($event)"
+                            />
+
+                            <div
+                                class="prop-texture-studio__dropzone"
+                                (click)="aiVideo3dRefInput.click()"
+                                (dragover)="$event.preventDefault()"
+                                (drop)="onAiVideo3dDrop($event)"
+                            >
+                                <mat-icon class="prop-texture-studio__drop-icon">add_photo_alternate</mat-icon>
+                                <div class="prop-texture-studio__drop-text">
+                                    Chọn, kéo thả hoặc <strong>Ctrl+V</strong> dán ảnh nhân vật / trang phục mẫu (tối đa 4 ảnh)
+                                </div>
+                            </div>
+
+                            @if (aiVideo3dRefImages.length > 0) {
+                                <div class="ai-video-3d__thumbs">
+                                    @for (img of aiVideo3dRefImages; track $index) {
+                                        <div class="ai-video-3d__thumb">
+                                            <img [src]="img.dataUrl" [alt]="img.name" />
+                                            <button
+                                                type="button"
+                                                class="prop-texture-studio__ref-clear"
+                                                title="Gỡ ảnh mẫu"
+                                                (click)="removeAiVideo3dRefImage($index)"
+                                            >
+                                                <mat-icon>close</mat-icon>
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+
+                        <!-- 2. Video chuyển động ghi từ Canvas 3D -->
+                        <div class="prop-texture-studio__sec">
+                            <div class="prop-texture-studio__sec-head">
+                                <span>Video chuyển động 3D</span>
+                                @if (aiVideo3dCapturedPreviewUrl) {
+                                    <button
+                                        type="button"
+                                        class="prop-texture-studio__link-btn"
+                                        (click)="clearCaptured3dMotionVideo()"
+                                    >
+                                        Xóa bản ghi
+                                    </button>
+                                }
+                            </div>
+
+                            @if (aiVideo3dCapturedPreviewUrl) {
+                                <video
+                                    class="ai-video-3d__video"
+                                    [src]="aiVideo3dCapturedPreviewUrl"
+                                    controls
+                                    loop
+                                    muted
+                                    playsinline
+                                ></video>
+                            } @else {
+                                <div class="ai-video-3d__hint">
+                                    Căn góc camera 3D vừa ý rồi bấm <strong>Ghi chuyển động 3D</strong> (hoặc bấm thẳng nút Tạo Video AI bên dưới để tự ghi rồi gửi AI).
+                                </div>
+                            }
+
+                            <div class="ai-video-3d__capture-actions">
+                                <button
+                                    type="button"
+                                    class="prop-texture-studio__btn-direct"
+                                    [disabled]="aiVideo3dCapturing || aiVideo3dGenerating"
+                                    (click)="capture3dMotionVideo()"
+                                >
+                                    <mat-icon>{{ aiVideo3dCapturing ? 'fiber_manual_record' : 'videocam' }}</mat-icon>
+                                    <span>{{ aiVideo3dCapturing ? ('Đang ghi (' + aiVideo3dCaptureSec + '/' + aiVideo3dDuration + 's)...') : (aiVideo3dCapturedPreviewUrl ? 'Ghi lại 3D' : 'Ghi 3D (' + aiVideo3dDuration + 's)') }}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="prop-texture-studio__btn-direct ai-video-3d__btn-focus"
+                                    [disabled]="aiVideo3dCapturing || aiVideo3dGenerating"
+                                    title="Phóng camera vừa khung toàn thân nhân vật 3D"
+                                    (click)="focusCharacterForAiVideo()"
+                                >
+                                    <mat-icon>center_focus_strong</mat-icon>
+                                    <span>Căn cận</span>
+                                </button>
+                            </div>
+
+                            <div class="prop-texture-studio__checks">
+                                <label class="prop-texture-studio__check">
+                                    <input type="checkbox" [(ngModel)]="aiVideo3dAutoFrame" />
+                                    <span>Tự phóng cận vừa khung nhân vật (~70% khung hình) khi ghi</span>
+                                </label>
+                                <label class="prop-texture-studio__check">
+                                    <input type="checkbox" [(ngModel)]="aiVideo3dHideGrid" />
+                                    <span>Tạm ẩn lưới sàn & dùng nền tương phản khi ghi 3D</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 3. Mô tả bối cảnh & thông số xuất Video -->
+                        <div class="prop-texture-studio__sec">
+                            <div class="prop-texture-studio__sec-head">
+                                <span>Bối cảnh & Thông số Video</span>
+                            </div>
+
+                            <textarea
+                                class="prop-texture-studio__prompt"
+                                rows="3"
+                                [(ngModel)]="aiVideo3dPrompt"
+                                placeholder="Mô tả bối cảnh & phong cách (tuỳ chọn): VD: Nhân vật trong ảnh mẫu đang chạy bộ trên đường phố Sài Gòn buổi chiều nắng vàng, ánh sáng điện ảnh, camera mượt..."
+                            ></textarea>
+
+                            <div class="studio-lighting__sublabel">Tỷ lệ khung hình</div>
+                            <div class="ai-video-3d__ratio-pills">
+                                @for (r of aiVideo3dRatioOptions; track r) {
+                                    <button
+                                        type="button"
+                                        class="prop-texture-studio__uv-pill"
+                                        [class.prop-texture-studio__uv-pill--active]="aiVideo3dAspectRatio === r"
+                                        (click)="aiVideo3dAspectRatio = r; onAiVideo3dFormatChanged()"
+                                    >
+                                        {{ r }}
+                                    </button>
+                                }
+                            </div>
+
+                            <div class="ai-video-3d__params-row">
+                                <label class="ai-video-3d__param-col">
+                                    <span>Thời lượng</span>
+                                    <select [(ngModel)]="aiVideo3dDuration" (ngModelChange)="onAiVideo3dFormatChanged()">
+                                        @for (d of aiVideo3dDurationOptions; track d) {
+                                            <option [ngValue]="d">{{ d }} giây</option>
+                                        }
+                                    </select>
+                                </label>
+                                <label class="ai-video-3d__param-col">
+                                    <span>Độ phân giải</span>
+                                    <select [(ngModel)]="aiVideo3dResolution">
+                                        <option value="720p">720p (Nhanh)</option>
+                                        <option value="1080p">1080p (Sắc nét)</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Trạng thái xử lý -->
+                        @if (aiVideo3dStatusText) {
+                            <div class="ai-video-3d__status">
+                                <mat-icon>hourglass_top</mat-icon>
+                                <span>{{ aiVideo3dStatusText }}</span>
+                            </div>
+                        }
+
+                        <!-- 4. Kết quả Video AI -->
+                        @if (aiVideo3dResultPreviewUrl) {
+                            <div class="prop-texture-studio__sec">
+                                <div class="prop-texture-studio__sec-head">
+                                    <span>Video AI đã tạo</span>
+                                </div>
+                                <video
+                                    class="ai-video-3d__video ai-video-3d__video--result"
+                                    [src]="aiVideo3dResultPreviewUrl"
+                                    controls
+                                    autoplay
+                                    loop
+                                    playsinline
+                                ></video>
+                                <div class="ai-video-3d__result-actions">
+                                    <button type="button" class="prop-texture-studio__btn-direct" (click)="downloadAiVideoResult()">
+                                        <mat-icon>download</mat-icon>
+                                        <span>Tải MP4</span>
+                                    </button>
+                                    <button type="button" class="prop-texture-studio__btn-direct" (click)="openAiVideoExportsFolder()">
+                                        <mat-icon>folder_open</mat-icon>
+                                        <span>Mở thư mục</span>
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="prop-texture-studio__foot">
+                        <button
+                            type="button"
+                            mat-flat-button
+                            color="primary"
+                            class="prop-texture-studio__btn-save w-full"
+                            [disabled]="aiVideo3dGenerating || aiVideo3dCapturing || !aiVideo3dMitomEnabled || aiVideo3dRefImages.length === 0"
+                            (click)="generateAiVideoFrom3dMotion()"
+                        >
+                            <mat-icon>{{ aiVideo3dGenerating ? 'hourglass_top' : 'auto_awesome' }}</mat-icon>
+                            <span class="ml-2">{{ aiVideo3dGenerating ? 'Mì Tôm AI đang tạo Video...' : 'Tạo Video AI từ 3D' }}</span>
+                        </button>
+                    </div>
+                </div>
+            }
+
+            <!-- STUDIO ÁNH SÁNG & MÔI TRƯỜNG 3D -->
+            @if (isLightingStudioOpen) {
+                <div
+                    class="prop-texture-studio studio-lighting-panel"
+                    (mousedown)="$event.stopPropagation()"
+                    (wheel)="$event.stopPropagation()"
+                >
+                    <div class="prop-texture-studio__head">
+                        <div class="prop-texture-studio__title-wrap">
+                            <mat-icon>wb_sunny</mat-icon>
+                            <div class="min-w-0">
+                                <div class="prop-texture-studio__title">Ánh sáng & Môi trường</div>
+                                <div class="prop-texture-studio__sub">3-Point Light &middot; IBL &middot; Đổ bóng</div>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            class="prop-texture-studio__close"
+                            title="Đóng"
+                            (click)="closeLightingStudio()"
+                        >
+                            <mat-icon>close</mat-icon>
+                        </button>
+                    </div>
+
+                    <div class="prop-texture-studio__body">
+                        <!-- 1. Mẫu ánh sáng nhanh (Presets) -->
+                        <div class="prop-texture-studio__sec">
+                            <div class="prop-texture-studio__sec-head">
+                                <span>Mẫu ánh sáng</span>
+                                <button
+                                    type="button"
+                                    class="prop-texture-studio__link-btn"
+                                    (click)="onLightingReset()"
+                                    title="Khôi phục ánh sáng Studio mặc định"
+                                >
+                                    Khôi phục
+                                </button>
+                            </div>
+                            <div class="studio-lighting__presets">
+                                @for (pr of lightingPresets; track pr.id) {
+                                    <button
+                                        type="button"
+                                        class="studio-lighting__preset-btn"
+                                        [class.studio-lighting__preset-btn--active]="lightingConfig.preset === pr.id"
+                                        (click)="onLightingPresetSelect(pr.id)"
+                                    >
+                                        <span
+                                            class="studio-lighting__preset-dot"
+                                            [style.background]="'linear-gradient(135deg, ' + pr.swatchA + ' 48%, ' + pr.swatchB + ' 52%)'"
+                                        ></span>
+                                        <span>{{ pr.name }}</span>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- 2. Nền Studio, Phơi sáng & Môi trường IBL -->
+                        <div class="prop-texture-studio__sec">
+                            <div class="prop-texture-studio__sec-head">
+                                <span>Tổng thể & Nền Studio</span>
+                            </div>
+
+                            <div class="prop-texture-studio__color-row">
+                                <input
+                                    type="color"
+                                    [(ngModel)]="lightingConfig.bgColor"
+                                    (ngModelChange)="onLightingBgSelect($event)"
+                                    [style.backgroundColor]="lightingConfig.bgColor"
+                                    class="prop-texture-studio__color-picker"
+                                    title="Màu nền không gian 3D"
+                                />
+                                <input
+                                    type="text"
+                                    [(ngModel)]="lightingConfig.bgColor"
+                                    (ngModelChange)="onLightingBgSelect($event)"
+                                    class="prop-texture-studio__hex-input"
+                                    placeholder="#ffffff"
+                                />
+                            </div>
+
+                            <div class="studio-lighting__bg-swatches">
+                                @for (bg of lightingBgPresets; track bg.hex) {
+                                    <button
+                                        type="button"
+                                        class="prop-texture-studio__swatch"
+                                        [class.prop-texture-studio__swatch--active]="lightingConfig.bgColor.toLowerCase() === bg.hex.toLowerCase()"
+                                        [style.background]="bg.hex"
+                                        [title]="bg.name"
+                                        (click)="onLightingBgSelect(bg.hex)"
+                                    ></button>
+                                }
+                            </div>
+
+                            <div class="prop-texture-studio__sliders">
+                                <label class="prop-texture-studio__slider-row">
+                                    <span>Độ phơi sáng (Exposure)</span>
+                                    <strong>{{ lightingConfig.exposure.toFixed(2) }}</strong>
+                                </label>
+                                <input
+                                    type="range"
+                                    min="0.3"
+                                    max="2.4"
+                                    step="0.02"
+                                    [(ngModel)]="lightingConfig.exposure"
+                                    (input)="onLightingConfigChange()"
+                                />
+
+                                <label class="prop-texture-studio__slider-row">
+                                    <span>Phản xạ môi trường (IBL)</span>
+                                    <strong>{{ lightingConfig.envIntensity.toFixed(2) }}</strong>
+                                </label>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="2.4"
+                                    step="0.05"
+                                    [(ngModel)]="lightingConfig.envIntensity"
+                                    (input)="onLightingConfigChange()"
+                                />
+
+                                <div class="studio-lighting__inline-head">
+                                    <span>Ánh sáng nền (Ambient)</span>
+                                    <div class="studio-lighting__inline-right">
+                                        <input
+                                            type="color"
+                                            [(ngModel)]="lightingConfig.ambientColor"
+                                            (ngModelChange)="onLightingConfigChange()"
+                                            [style.backgroundColor]="lightingConfig.ambientColor"
+                                            class="studio-lighting__mini-color"
+                                            title="Màu ánh sáng nền"
+                                        />
+                                        <strong>{{ lightingConfig.ambientIntensity.toFixed(2) }}</strong>
+                                    </div>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1.5"
+                                    step="0.02"
+                                    [(ngModel)]="lightingConfig.ambientIntensity"
+                                    (input)="onLightingConfigChange()"
+                                />
+                            </div>
+
+                            <div class="studio-lighting__sublabel">Tone Mapping</div>
+                            <div class="studio-lighting__pills studio-lighting__pills--4">
+                                <button type="button" class="prop-texture-studio__uv-pill" [class.prop-texture-studio__uv-pill--active]="lightingConfig.toneMapping === 'neutral'" (click)="onLightingToneMapChange('neutral')">Neutral</button>
+                                <button type="button" class="prop-texture-studio__uv-pill" [class.prop-texture-studio__uv-pill--active]="lightingConfig.toneMapping === 'aces2'" (click)="onLightingToneMapChange('aces2')">ACES2</button>
+                                <button type="button" class="prop-texture-studio__uv-pill" [class.prop-texture-studio__uv-pill--active]="lightingConfig.toneMapping === 'filmic'" (click)="onLightingToneMapChange('filmic')">Filmic</button>
+                                <button type="button" class="prop-texture-studio__uv-pill" [class.prop-texture-studio__uv-pill--active]="lightingConfig.toneMapping === 'linear'" (click)="onLightingToneMapChange('linear')">Linear</button>
+                            </div>
+
+                            <div class="prop-texture-studio__checks">
+                                <label class="prop-texture-studio__check">
+                                    <input type="checkbox" [(ngModel)]="lightingConfig.showGrid" (change)="onLightingConfigChange()" />
+                                    <span>Hiển thị lưới tọa độ sàn (Grid)</span>
+                                </label>
+                                <label class="prop-texture-studio__check">
+                                    <input type="checkbox" [(ngModel)]="lightingConfig.showFloorShadow" (change)="onLightingConfigChange()" />
+                                    <span>Hứng bóng đổ mềm trên mặt sàn</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 3. Đèn chính (Key Light / Mặt trời) & Bóng đổ -->
+                        <div class="prop-texture-studio__sec">
+                            <div class="prop-texture-studio__sec-head">
+                                <label class="studio-lighting__sec-toggle">
+                                    <input type="checkbox" [(ngModel)]="lightingConfig.keyEnabled" (change)="onLightingConfigChange()" />
+                                    <span>Đèn chính (Key Light)</span>
+                                </label>
+                                <input
+                                    type="color"
+                                    [(ngModel)]="lightingConfig.keyColor"
+                                    (ngModelChange)="onLightingConfigChange()"
+                                    [style.backgroundColor]="lightingConfig.keyColor"
+                                    class="studio-lighting__mini-color"
+                                    title="Màu đèn chính"
+                                />
+                            </div>
+
+                            <div class="prop-texture-studio__sliders">
+                                <label class="prop-texture-studio__slider-row">
+                                    <span>Cường độ đèn chính</span>
+                                    <strong>{{ lightingConfig.keyIntensity.toFixed(2) }}</strong>
+                                </label>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="4"
+                                    step="0.05"
+                                    [disabled]="!lightingConfig.keyEnabled"
+                                    [(ngModel)]="lightingConfig.keyIntensity"
+                                    (input)="onLightingConfigChange()"
+                                />
+
+                                <label class="prop-texture-studio__slider-row">
+                                    <span>Hướng chiếu ngang (Yaw)</span>
+                                    <strong>{{ lightingConfig.keyYaw.toFixed(0) }}&deg;</strong>
+                                </label>
+                                <input
+                                    type="range"
+                                    min="-180"
+                                    max="180"
+                                    step="2"
+                                    [disabled]="!lightingConfig.keyEnabled"
+                                    [(ngModel)]="lightingConfig.keyYaw"
+                                    (input)="onLightingConfigChange()"
+                                />
+
+                                <label class="prop-texture-studio__slider-row">
+                                    <span>Độ cao góc chiếu (Pitch)</span>
+                                    <strong>{{ lightingConfig.keyPitch.toFixed(0) }}&deg;</strong>
+                                </label>
+                                <input
+                                    type="range"
+                                    min="5"
+                                    max="85"
+                                    step="1"
+                                    [disabled]="!lightingConfig.keyEnabled"
+                                    [(ngModel)]="lightingConfig.keyPitch"
+                                    (input)="onLightingConfigChange()"
+                                />
+                            </div>
+
+                            <div class="studio-lighting__divider"></div>
+
+                            <div class="prop-texture-studio__checks">
+                                <label class="prop-texture-studio__check">
+                                    <input type="checkbox" [(ngModel)]="lightingConfig.shadowsEnabled" (change)="onLightingConfigChange()" />
+                                    <span>Bật đổ bóng 3D (Shadows)</span>
+                                </label>
+                            </div>
+
+                            @if (lightingConfig.shadowsEnabled) {
+                                <div class="prop-texture-studio__sliders">
+                                    <label class="prop-texture-studio__slider-row">
+                                        <span>Độ đậm bóng đổ</span>
+                                        <strong>{{ (lightingConfig.shadowIntensity * 100).toFixed(0) }}%</strong>
+                                    </label>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.02"
+                                        [(ngModel)]="lightingConfig.shadowIntensity"
+                                        (input)="onLightingConfigChange()"
+                                    />
+                                </div>
+                                <div class="studio-lighting__pills studio-lighting__pills--2">
+                                    <button type="button" class="prop-texture-studio__uv-pill" [class.prop-texture-studio__uv-pill--active]="lightingConfig.shadowSoftness === 'soft'" (click)="onLightingShadowSoftnessChange('soft')">Bóng mềm (PCF5)</button>
+                                    <button type="button" class="prop-texture-studio__uv-pill" [class.prop-texture-studio__uv-pill--active]="lightingConfig.shadowSoftness === 'crisp'" (click)="onLightingShadowSoftnessChange('crisp')">Bóng nét (PCF3)</button>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- 4. Đèn phụ (Fill) & Đèn viền (Rim) -->
+                        <div class="prop-texture-studio__sec">
+                            <div class="prop-texture-studio__sec-head">
+                                <span>Đèn phụ & Đèn viền</span>
+                            </div>
+
+                            <div class="prop-texture-studio__sliders">
+                                <div class="studio-lighting__inline-head">
+                                    <label class="studio-lighting__sec-toggle">
+                                        <input type="checkbox" [(ngModel)]="lightingConfig.fillEnabled" (change)="onLightingConfigChange()" />
+                                        <span>Đèn phụ (Fill)</span>
+                                    </label>
+                                    <div class="studio-lighting__inline-right">
+                                        <input
+                                            type="color"
+                                            [(ngModel)]="lightingConfig.fillColor"
+                                            (ngModelChange)="onLightingConfigChange()"
+                                            [style.backgroundColor]="lightingConfig.fillColor"
+                                            class="studio-lighting__mini-color"
+                                            title="Màu đèn phụ"
+                                        />
+                                        <strong>{{ lightingConfig.fillIntensity.toFixed(2) }}</strong>
+                                    </div>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="2.5"
+                                    step="0.04"
+                                    [disabled]="!lightingConfig.fillEnabled"
+                                    [(ngModel)]="lightingConfig.fillIntensity"
+                                    (input)="onLightingConfigChange()"
+                                />
+
+                                <div class="studio-lighting__inline-head mt-1">
+                                    <label class="studio-lighting__sec-toggle">
+                                        <input type="checkbox" [(ngModel)]="lightingConfig.rimEnabled" (change)="onLightingConfigChange()" />
+                                        <span>Đèn viền (Rim)</span>
+                                    </label>
+                                    <div class="studio-lighting__inline-right">
+                                        <input
+                                            type="color"
+                                            [(ngModel)]="lightingConfig.rimColor"
+                                            (ngModelChange)="onLightingConfigChange()"
+                                            [style.backgroundColor]="lightingConfig.rimColor"
+                                            class="studio-lighting__mini-color"
+                                            title="Màu đèn viền"
+                                        />
+                                        <strong>{{ lightingConfig.rimIntensity.toFixed(2) }}</strong>
+                                    </div>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="3"
+                                    step="0.05"
+                                    [disabled]="!lightingConfig.rimEnabled"
+                                    [(ngModel)]="lightingConfig.rimIntensity"
+                                    (input)="onLightingConfigChange()"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="prop-texture-studio__foot">
+                        <button
+                            type="button"
+                            mat-flat-button
+                            color="primary"
+                            class="prop-texture-studio__btn-save w-full"
+                            [disabled]="lightingSaving"
+                            (click)="saveLightingConfig()"
+                        >
+                            <mat-icon>save</mat-icon>
+                            <span class="ml-2">{{ lightingSaving ? 'Đang lưu...' : 'Lưu ánh sáng Studio' }}</span>
+                        </button>
+                    </div>
+                </div>
+            }
+
+            <!-- STUDIO MÀU SẮC & AI TẠO TEXTURE 3D TỪ ẢNH MẪU -->
+            @if (isTextureStudioOpen && texStudioPropId) {
+                <div
+                    class="prop-texture-studio"
+                    (mousedown)="$event.stopPropagation()"
+                    (wheel)="$event.stopPropagation()"
+                    (paste)="onTexStudioPaste($event)"
+                >
+                    <div class="prop-texture-studio__head">
+                        <div class="prop-texture-studio__title-wrap">
+                            <mat-icon>palette</mat-icon>
+                            <div class="min-w-0">
+                                <div class="prop-texture-studio__title">Màu sắc & AI Texture 3D</div>
+                                <div class="prop-texture-studio__sub" [title]="texStudioPropName">{{ texStudioPropName }}</div>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            class="prop-texture-studio__close"
+                            title="Đóng"
+                            (click)="closePropTextureStudio()"
+                        >
+                            <mat-icon>close</mat-icon>
+                        </button>
+                    </div>
+
+                    <div class="prop-texture-studio__body">
+                        <!-- 1. Chỉnh Màu & Chất liệu PBR trực tiếp -->
+                        <div class="prop-texture-studio__sec">
+                            <div class="prop-texture-studio__sec-head">
+                                <span>Màu sắc & Chất liệu</span>
+                                <button
+                                    type="button"
+                                    class="prop-texture-studio__link-btn"
+                                    (click)="resetTextureStudioToOriginal()"
+                                    title="Khôi phục màu sắc và texture ban đầu của file GLB"
+                                >
+                                    Khôi phục
+                                </button>
+                            </div>
+
+                            <div class="prop-texture-studio__color-row">
+                                <input
+                                    type="color"
+                                    [ngModel]="texStudioColor"
+                                    (ngModelChange)="onTexStudioColorChange($event)"
+                                    [style.backgroundColor]="texStudioColor"
+                                    class="prop-texture-studio__color-picker"
+                                    title="Chọn màu phủ lên đồ vật"
+                                />
+                                <input
+                                    type="text"
+                                    [ngModel]="texStudioColor"
+                                    (ngModelChange)="onTexStudioColorChange($event)"
+                                    class="prop-texture-studio__hex-input"
+                                    placeholder="#ffffff"
+                                />
+                            </div>
+
+                            <div class="prop-texture-studio__swatches">
+                                @for (sw of texStudioColorPresets; track sw.hex) {
+                                    <button
+                                        type="button"
+                                        class="prop-texture-studio__swatch"
+                                        [class.prop-texture-studio__swatch--active]="texStudioColor.toLowerCase() === sw.hex.toLowerCase()"
+                                        [style.background]="sw.hex"
+                                        [title]="sw.name + ' (' + sw.hex + ')'"
+                                        (click)="onTexStudioColorChange(sw.hex)"
+                                    ></button>
+                                }
+                            </div>
+
+                            <div class="prop-texture-studio__sliders">
+                                <label class="prop-texture-studio__slider-row">
+                                    <span>Kim loại (Metalness)</span>
+                                    <strong>{{ texStudioMetalness.toFixed(2) }}</strong>
+                                </label>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.02"
+                                    [(ngModel)]="texStudioMetalness"
+                                    (input)="onTexStudioPbrChange()"
+                                />
+                                <label class="prop-texture-studio__slider-row">
+                                    <span>Độ nhám (Roughness)</span>
+                                    <strong>{{ texStudioRoughness.toFixed(2) }}</strong>
+                                </label>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.02"
+                                    [(ngModel)]="texStudioRoughness"
+                                    (input)="onTexStudioPbrChange()"
+                                />
+                            </div>
+                        </div>
+
+                        <!-- 2. Dán Logo & AI Tạo Texture 3D từ Ảnh mẫu -->
+                        <div class="prop-texture-studio__sec">
+                            <div class="prop-texture-studio__sec-head">
+                                <span>Dán Logo & AI Tạo Texture</span>
+                            </div>
+
+                            <!-- Chế độ chiếu UV (tự tạo UV Trụ nếu GLB chưa có UV gốc) -->
+                            <div class="prop-texture-studio__uv-mode">
+                                <button
+                                    type="button"
+                                    class="prop-texture-studio__uv-pill"
+                                    [class.prop-texture-studio__uv-pill--active]="texStudioUvMode === 'cylindrical'"
+                                    title="Bọc hình trụ 360 độ (chuẩn cho lon nước, chai, cốc, dán logo)"
+                                    (click)="onTexStudioUvModeChange('cylindrical')"
+                                >
+                                    UV Trụ (Lon)
+                                </button>
+                                <button
+                                    type="button"
+                                    class="prop-texture-studio__uv-pill"
+                                    [class.prop-texture-studio__uv-pill--active]="texStudioUvMode === 'box'"
+                                    title="Chiếu 6 mặt phẳng (chuẩn cho hộp, bàn, màn hình, tường)"
+                                    (click)="onTexStudioUvModeChange('box')"
+                                >
+                                    UV Khối
+                                </button>
+                                <button
+                                    type="button"
+                                    class="prop-texture-studio__uv-pill"
+                                    [class.prop-texture-studio__uv-pill--active]="texStudioUvMode === 'original'"
+                                    [disabled]="!texStudioHasNativeUv"
+                                    [title]="texStudioHasNativeUv ? 'Dùng bản đồ UV gốc của file GLB' : 'File GLB này chưa có UV gốc'"
+                                    (click)="onTexStudioUvModeChange('original')"
+                                >
+                                    UV Gốc
+                                </button>
+                            </div>
+                            @if (!texStudioHasNativeUv) {
+                                <div class="prop-texture-studio__uv-badge">
+                                    Mô hình GLB chưa có tọa độ UV gốc &middot; Đã tự tạo lưới UV để bọc ảnh/logo.
+                                </div>
+                            }
+
+                            <input
+                                #texStudioRefFileInput
+                                type="file"
+                                accept="image/*"
+                                class="hidden"
+                                (change)="onTexStudioRefFileSelected($event)"
+                            />
+
+                            <div
+                                class="prop-texture-studio__dropzone"
+                                (click)="texStudioRefFileInput.click()"
+                                (dragover)="$event.preventDefault()"
+                                (drop)="onTexStudioDrop($event)"
+                            >
+                                @if (texStudioRefImageDataUrl) {
+                                    <div class="prop-texture-studio__ref-preview">
+                                        <img [src]="texStudioRefImageDataUrl" alt="Ảnh mẫu" />
+                                        <button
+                                            type="button"
+                                            class="prop-texture-studio__ref-clear"
+                                            title="Xoá ảnh mẫu"
+                                            (click)="$event.stopPropagation(); clearTexStudioRefImage()"
+                                        >
+                                            <mat-icon>close</mat-icon>
+                                        </button>
+                                        <span class="prop-texture-studio__ref-name">{{ texStudioRefImageName }}</span>
+                                    </div>
+                                } @else {
+                                    <mat-icon class="prop-texture-studio__drop-icon">add_photo_alternate</mat-icon>
+                                    <div class="prop-texture-studio__drop-text">
+                                        Nhấn chọn, kéo thả hoặc <strong>Ctrl+V</strong> dán ảnh Logo / nhãn sản phẩm
+                                    </div>
+                                }
+                            </div>
+
+                            <textarea
+                                class="prop-texture-studio__prompt"
+                                rows="2"
+                                [(ngModel)]="texStudioPrompt"
+                                placeholder="Mô tả thêm cho AI (tuỳ chọn): VD: Bọc màu đỏ và logo từ ảnh mẫu lên thân lon, giữ nắp và đáy màu bạc kim loại..."
+                            ></textarea>
+
+                            <div class="prop-texture-studio__ai-actions">
+                                @if (texStudioRefImageDataUrl) {
+                                    <button
+                                        type="button"
+                                        class="prop-texture-studio__btn-logo"
+                                        [disabled]="texStudioGenerating"
+                                        title="Tự ghép Logo chuẩn tỷ lệ lên thân đồ vật 3D ngay lập tức (không cần chờ AI)"
+                                        (click)="applyReferenceDirectlyAsTexture()"
+                                    >
+                                        <mat-icon>layers</mat-icon>
+                                        <span>Dán Logo lên thân (Tức thì)</span>
+                                    </button>
+                                }
+                                <button
+                                    type="button"
+                                    class="prop-texture-studio__btn-ai"
+                                    [disabled]="texStudioGenerating || (!texStudioRefImageDataUrl && !texStudioPrompt.trim())"
+                                    (click)="generateAiTextureFromReference()"
+                                >
+                                    <mat-icon>{{ texStudioGenerating ? 'hourglass_top' : 'auto_awesome' }}</mat-icon>
+                                    <span>{{ texStudioGenerating ? 'AI đang vẽ UV Texture...' : 'AI Tạo Texture theo UV' }}</span>
+                                </button>
+                            </div>
+
+                            <!-- Tinh chỉnh nhanh khi đang ở chế độ Dán Logo -->
+                            @if (texStudioLogoMode && texStudioRefImageDataUrl) {
+                                <div class="prop-texture-studio__logo-panel">
+                                    <div class="prop-texture-studio__sliders">
+                                        <label class="prop-texture-studio__slider-row">
+                                            <span>Cỡ Logo</span>
+                                            <strong>{{ (texStudioLogoScale * 100).toFixed(0) }}%</strong>
+                                        </label>
+                                        <input
+                                            type="range"
+                                            min="0.15"
+                                            max="1"
+                                            step="0.02"
+                                            [(ngModel)]="texStudioLogoScale"
+                                            (input)="onTexStudioLogoControlChange()"
+                                        />
+                                        <label class="prop-texture-studio__slider-row">
+                                            <span>Xoay ngang quanh thân</span>
+                                            <strong>{{ (texStudioLogoOffsetX * 360).toFixed(0) }}&deg;</strong>
+                                        </label>
+                                        <input
+                                            type="range"
+                                            min="-0.5"
+                                            max="0.5"
+                                            step="0.01"
+                                            [(ngModel)]="texStudioLogoOffsetX"
+                                            (input)="onTexStudioLogoControlChange()"
+                                        />
+                                        <label class="prop-texture-studio__slider-row">
+                                            <span>Vị trí cao / thấp</span>
+                                            <strong>{{ texStudioLogoOffsetY.toFixed(2) }}</strong>
+                                        </label>
+                                        <input
+                                            type="range"
+                                            min="-0.3"
+                                            max="0.3"
+                                            step="0.01"
+                                            [(ngModel)]="texStudioLogoOffsetY"
+                                            (input)="onTexStudioLogoControlChange()"
+                                        />
+                                    </div>
+                                    <div class="prop-texture-studio__checks">
+                                        <label class="prop-texture-studio__check">
+                                            <input type="checkbox" [(ngModel)]="texStudioLogoMatchBg" (change)="onTexStudioLogoControlChange()" />
+                                            <span>Nền thân tự khớp màu viền ảnh Logo</span>
+                                        </label>
+                                        @if (texStudioUvMode === 'cylindrical') {
+                                            <label class="prop-texture-studio__check">
+                                                <input type="checkbox" [(ngModel)]="texStudioLogoBothSides" (change)="onTexStudioLogoControlChange()" />
+                                                <span>In Logo cả mặt trước và mặt sau</span>
+                                            </label>
+                                            <label class="prop-texture-studio__check">
+                                                <input type="checkbox" [(ngModel)]="texStudioLogoMetallicRims" (change)="onTexStudioLogoControlChange()" />
+                                                <span>Giữ nắp trên & đáy màu bạc kim loại</span>
+                                            </label>
+                                        }
+                                    </div>
+                                </div>
+                            }
+
+                            <!-- Bản xem trước UV và Texture đang áp dụng -->
+                            @if (texStudioOriginalUvDataUrl || texStudioGeneratedDataUrl) {
+                                <div class="prop-texture-studio__uv-previews">
+                                    @if (texStudioOriginalUvDataUrl) {
+                                        <div class="prop-texture-studio__uv-card">
+                                            <img [src]="texStudioOriginalUvDataUrl" alt="Bản đồ UV" />
+                                            <span>Bản đồ UV ({{ texStudioUvMode === 'cylindrical' ? 'Trụ' : (texStudioUvMode === 'box' ? 'Khối' : 'Gốc') }})</span>
+                                        </div>
+                                    }
+                                    @if (texStudioGeneratedDataUrl) {
+                                        <div class="prop-texture-studio__uv-card prop-texture-studio__uv-card--active">
+                                            <img [src]="texStudioGeneratedDataUrl" alt="Texture mới" />
+                                            <span>Texture đang áp dụng</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            <!-- Tinh chỉnh UV nâng cao (Lặp / Dịch / Xoay) -->
+                            <button
+                                type="button"
+                                class="prop-texture-studio__uv-toggle"
+                                (click)="texStudioShowUvControls = !texStudioShowUvControls"
+                            >
+                                <span>Tinh chỉnh vị trí / tỷ lệ UV</span>
+                                <mat-icon>{{ texStudioShowUvControls ? 'expand_less' : 'expand_more' }}</mat-icon>
+                            </button>
+
+                            @if (texStudioShowUvControls) {
+                                <div class="prop-texture-studio__uv-grid">
+                                    <label>
+                                        <span>Lặp X</span>
+                                        <input type="number" step="0.1" min="0.1" max="10" [(ngModel)]="texStudioRepeatX" (ngModelChange)="onTexStudioUvTransformChange()" />
+                                    </label>
+                                    <label>
+                                        <span>Lặp Y</span>
+                                        <input type="number" step="0.1" min="0.1" max="10" [(ngModel)]="texStudioRepeatY" (ngModelChange)="onTexStudioUvTransformChange()" />
+                                    </label>
+                                    <label>
+                                        <span>Dịch X</span>
+                                        <input type="number" step="0.05" min="-2" max="2" [(ngModel)]="texStudioOffsetX" (ngModelChange)="onTexStudioUvTransformChange()" />
+                                    </label>
+                                    <label>
+                                        <span>Dịch Y</span>
+                                        <input type="number" step="0.05" min="-2" max="2" [(ngModel)]="texStudioOffsetY" (ngModelChange)="onTexStudioUvTransformChange()" />
+                                    </label>
+                                    <label class="col-span-2">
+                                        <span>Xoay UV (&deg;)</span>
+                                        <input type="number" step="15" min="-360" max="360" [(ngModel)]="texStudioRotation" (ngModelChange)="onTexStudioUvTransformChange()" />
+                                    </label>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="prop-texture-studio__foot">
+                        <button
+                            type="button"
+                            mat-flat-button
+                            color="primary"
+                            class="prop-texture-studio__btn-save w-full"
+                            [disabled]="texStudioSaving || texStudioGenerating"
+                            (click)="saveTextureStudioChanges()"
+                        >
+                            <mat-icon>save</mat-icon>
+                            <span class="ml-2">{{ texStudioSaving ? 'Đang lưu...' : 'Lưu Texture & Màu sắc' }}</span>
+                        </button>
+                    </div>
                 </div>
             }
 
@@ -1635,6 +2605,16 @@
                             >
                                 <mat-icon class="icon-size-4">auto_awesome</mat-icon>
                                 <span>AI Thiết kế từ Video</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="glb-tl-btn glb-tl-btn--ai"
+                                [class.glb-tl-btn--active]="isAiVideo3dOpen"
+                                (click)="openAiVideo3dStudio()"
+                                title="Ghi chuyển động 3D này và đắp ảnh nhân vật mẫu bằng model Video của Mì Tôm AI"
+                            >
+                                <mat-icon class="icon-size-4">movie_filter</mat-icon>
+                                <span>AI Tạo Video</span>
                             </button>
                             <button
                                 type="button"
