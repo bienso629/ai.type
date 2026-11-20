@@ -21,7 +21,9 @@ import {
   VideoFramePoseSample,
   StudioLightingConfig,
   DEFAULT_STUDIO_LIGHTING,
-  STUDIO_LIGHTING_PRESETS
+  STUDIO_LIGHTING_PRESETS,
+  CaptureScenePropInfo,
+  CaptureSceneSummary
 } from './sontinh-scene.service';
 import { ProfileDataService, UserProfile } from './profile-data.service';
 import { GenaiService } from 'app/genai.service';
@@ -73,12 +75,55 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   selectedPropPos: { x: number; y: number; z: number } | null = null;
   selectedPropRot: { x: number; y: number; z: number } | null = null;
   selectedPropScl: { x: number; y: number; z: number } | null = null;
+  /** Khoảng cách từ đáy thực tế của đồ vật/nhân vật tới mặt sàn phần mềm (Y = 0): 0 = chạm sàn, >0 = cao hơn sàn, <0 = lún dưới sàn */
+  selectedPropFloorHeight: number | null = null;
   /** Vị trí pixel + trạng thái của cặp nút Delete/Duplicate nổi trên canvas */
   propActionAnchor = { visible: false, x: 0, y: 0, propId: null as string | null };
   /** Do vat dang chon co bi khoa khong (nut khoa tren canvas + chan scrub) */
   get selectedPropLocked(): boolean {
     const p = this.roomProps?.find(pr => pr && pr.id === this.selectedPropId);
     return !!p?.locked;
+  }
+
+  get selectedPropFloorState(): 'grounded' | 'above' | 'below' | 'unknown' {
+    if (this.selectedPropFloorHeight === null) return 'unknown';
+    if (this.selectedPropFloorHeight > 0.03) return 'above';
+    if (this.selectedPropFloorHeight < -0.03) return 'below';
+    return 'grounded';
+  }
+
+  get selectedPropExactOnFloor(): boolean {
+    return this.selectedPropFloorHeight !== null && Math.abs(this.selectedPropFloorHeight) < 0.005;
+  }
+
+  private _refreshSelectedPropFloorHeight(): void {
+    this.selectedPropFloorHeight = this.selectedPropId
+      ? this.sceneService.getPropFloorElevation(this.selectedPropId)
+      : null;
+  }
+
+  /** Đưa đáy đồ vật/nhân vật đang chọn về đúng mặt sàn phần mềm (Y sàn = 0.00) và lưu lại */
+  snapSelectedPropToFloor(event?: Event): void {
+    event?.stopPropagation();
+    if (!this.selectedPropId) return;
+    if (this.selectedPropLocked) {
+      this.toastr.warning('Đối tượng đang bị khóa vị trí. Hãy mở khóa trước khi đặt xuống sàn.');
+      return;
+    }
+    const newPos = this.sceneService.snapPropToFloor(this.selectedPropId);
+    if (!newPos) return;
+    this.selectedPropPos = { ...newPos };
+    this._refreshSelectedPropFloorHeight();
+    const prop = this.roomProps.find(p => p && p.id === this.selectedPropId);
+    if (prop) {
+      prop.position = { ...newPos };
+      (prop as any)._customPositionSet = true;
+      const curScale = this.selectedPropScl || prop.scale || { x: 1, y: 1, z: 1 };
+      (prop as any)._groundedAtScale = { x: curScale.x, y: curScale.y, z: curScale.z };
+      this.profileDataService.saveProps(this.roomProps).subscribe();
+    }
+    this.toastr.success(`Đã đặt "${this.selectedPropName}" sát mặt sàn chuẩn (độ cao 0.00)`);
+    this.cdr.markForCheck();
   }
   private _lastSelectedPropId: string | null = null;
   /** Set lưu runtime propId đang insert GLB — tuyệt đối không ghi cờ tạm lên prop object để tránh serialize xuống props.json */
@@ -346,6 +391,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         if (!prop) return;
         prop.position = pos;
         (prop as any)._customPositionSet = true;
+        if (propId === this.selectedPropId) {
+          this._refreshSelectedPropFloorHeight();
+        }
         this.profileDataService.saveProps(this.roomProps).subscribe();
         this.cdr.markForCheck();
       };
@@ -379,6 +427,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         if (!propId) {
           this.selectedPropRot = null;
           this.selectedPropScl = null;
+          this.selectedPropFloorHeight = null;
+        } else {
+          this._refreshSelectedPropFloorHeight();
         }
         this._lastSelectedPropId = propId;
         this.cdr.markForCheck();
@@ -417,6 +468,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
             this.selectedPropPos = null;
             this.selectedPropRot = null;
             this.selectedPropScl = null;
+            this.selectedPropFloorHeight = null;
           }
           if (this.texStudioPropId === pid) {
             this.isTextureStudioOpen = false;
@@ -447,6 +499,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         if (kind === 'pos') this.selectedPropPos = { ...values };
         else if (kind === 'rot') this.selectedPropRot = { ...values };
         else this.selectedPropScl = { ...values };
+        this._refreshSelectedPropFloorHeight();
         this.cdr.markForCheck();
       };
 
@@ -464,6 +517,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           (prop as any)._groundedAtScale = { ...values };
         } else {
           return;
+        }
+        if (propId === this.selectedPropId) {
+          this._refreshSelectedPropFloorHeight();
         }
         this.profileDataService.saveProps(this.roomProps).subscribe();
         this.cdr.markForCheck();
@@ -1913,20 +1969,25 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   }
 
   // =========================================================================
-  // STUDIO TẠO VIDEO AI TỪ CHUYỂN ĐỘNG NHÂN VẬT 3D + ẢNH MẪU (MÌ TÔM AI)
+  // STUDIO TẠO VIDEO AI TỪ CẢNH 3D (ĐA ĐỒ VẬT + HIỆU ỨNG FX + ẢNH MẪU -> MÌ TÔM AI)
   // =========================================================================
   isAiVideo3dOpen = false;
   aiVideo3dCapturing = false;
   aiVideo3dGenerating = false;
   aiVideo3dStatusText = '';
   aiVideo3dCaptureSec = 0;
-  aiVideo3dRefImages: Array<{ name: string; dataUrl: string; mimeType: string }> = [];
+  aiVideo3dRefImages: Array<{ name: string; dataUrl: string; mimeType: string; targetKey: string }> = [];
   aiVideo3dPrompt = '';
   aiVideo3dDuration = 5;
   aiVideo3dAspectRatio: '16:9' | '9:16' | '1:1' | '3:4' | '4:3' = '16:9';
   aiVideo3dResolution: '720p' | '1080p' = '720p';
   aiVideo3dHideGrid = true;
-  aiVideo3dAutoFrame = true;
+  aiVideo3dShowViewfinder = true;
+  /** Chế độ khung camera khi ghi 3D: 'keep' (mặc định) giữ nguyên 100% góc máy người dùng đang đặt, 'all' gom tất cả đồ vật, 'selected' cận 1 đối tượng */
+  aiVideo3dCameraMode: 'keep' | 'all' | 'selected' = 'keep';
+  aiVideo3dSceneProps: CaptureScenePropInfo[] = [];
+  aiVideo3dActiveFxNames: string[] = [];
+  private _aiVideo3dCapturedSummary: CaptureSceneSummary | null = null;
   aiVideo3dCapturedMp4Base64: string | null = null;
   aiVideo3dCapturedPreviewUrl: string | null = null;
   aiVideo3dCapturedFilePath: string | null = null;
@@ -1936,6 +1997,16 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
   readonly aiVideo3dDurationOptions: number[] = [5, 6, 8, 10, 12];
   readonly aiVideo3dRatioOptions: Array<'16:9' | '9:16' | '1:1' | '3:4' | '4:3'> = ['16:9', '9:16', '1:1', '3:4', '4:3'];
+
+  get aiVideo3dAspectRatioValue(): number {
+    switch (this.aiVideo3dAspectRatio) {
+      case '9:16': return 9 / 16;
+      case '1:1':  return 1;
+      case '3:4':  return 3 / 4;
+      case '4:3':  return 4 / 3;
+      default:     return 16 / 9;
+    }
+  }
 
   get aiVideo3dMitomEnabled(): boolean {
     return this.genaiService.isUModelverseEnabled();
@@ -1958,12 +2029,39 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     );
   }
 
+  refreshAiVideo3dSceneSummary(): CaptureSceneSummary {
+    const summary = this.sceneService.getCaptureSceneSummary();
+    this.aiVideo3dSceneProps = summary.props;
+    this.aiVideo3dActiveFxNames = summary.fxNames;
+    // Nếu targetKey cũ trỏ tới prop đã ẩn/xóa thì chuyển về 'auto'
+    const validIds = new Set(summary.props.map((p) => p.id));
+    for (const img of this.aiVideo3dRefImages) {
+      if (img.targetKey && img.targetKey !== 'auto' && img.targetKey !== 'bg' && !validIds.has(img.targetKey)) {
+        img.targetKey = 'auto';
+      }
+    }
+    this.cdr.markForCheck();
+    return summary;
+  }
+
+  getAiVideo3dSpatialLabel(p: CaptureScenePropInfo): string {
+    const depthLabel = p.depthLayer === 'front' ? 'phía trước' : (p.depthLayer === 'back' ? 'phía sau' : '');
+    const horizLabel = p.screenZone === 'left' ? 'bên trái' : (p.screenZone === 'right' ? 'bên phải' : '');
+    if (depthLabel && horizLabel) return `${depthLabel}, ${horizLabel}`;
+    if (depthLabel) return depthLabel;
+    if (horizLabel) return horizLabel;
+    return 'chính giữa';
+  }
+
   focusCharacterForAiVideo(): void {
     const activePid = this.timelinePropId || this.selectedPropId || this.sceneService.getFirstRiggedPropId();
-    const ok = this.sceneService.autoFramePropForCapture(activePid, 0.68);
+    const frameMode: 'all' | 'selected' = this.aiVideo3dCameraMode === 'selected' ? 'selected' : 'all';
+    const ok = this.sceneService.autoFrameSceneForCapture(frameMode, activePid, 0.68, this.aiVideo3dAspectRatio);
     if (!ok) {
-      this.toastr.info('Chưa tìm thấy nhân vật 3D đang hiển thị trên canvas.', 'AI Video 3D');
+      this.toastr.info('Chưa tìm thấy đồ vật hoặc nhân vật 3D đang hiển thị trên canvas.', 'AI Video 3D');
+      return;
     }
+    requestAnimationFrame(() => this.refreshAiVideo3dSceneSummary());
   }
 
   onAiVideo3dFormatChanged(): void {
@@ -1984,8 +2082,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   openAiVideo3dStudio(): void {
     this.isLightingStudioOpen = false;
     this.isTextureStudioOpen = false;
+    this.refreshAiVideo3dSceneSummary();
     // Tự gợi ý thời lượng theo clip 3D đang chạy (kẹp trong 5..12s)
-    const activePid = this.timelinePropId || this.selectedPropId;
+    const activePid = this.timelinePropId || this.selectedPropId || this.sceneService.getFirstRiggedPropId();
     if (activePid) {
       const tl = this.sceneService.getPropTimeline(activePid);
       if (tl && typeof tl.duration === 'number' && tl.duration >= 4) {
@@ -2042,11 +2141,28 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private _pickDefaultRefTargetKey(): string {
+    const used = new Set(this.aiVideo3dRefImages.map((it) => it.targetKey));
+    // Ưu tiên gán nhân vật có khung xương chưa được gán, tiếp đến các đồ vật 3D còn lại từ trái sang phải
+    const orderedProps = [
+      ...this.aiVideo3dSceneProps.filter((p) => p.hasRig),
+      ...this.aiVideo3dSceneProps.filter((p) => !p.hasRig)
+    ];
+    for (const p of orderedProps) {
+      if (!used.has(p.id)) return p.id;
+    }
+    if (this.aiVideo3dSceneProps.length > 0 && !used.has('bg')) {
+      return 'bg';
+    }
+    return 'auto';
+  }
+
   private _addAiVideo3dRefFile(file: File): void {
     if (this.aiVideo3dRefImages.length >= 4) {
-      this.toastr.warning('Tối đa 4 ảnh tham chiếu nhân vật / trang phục / bối cảnh.', 'AI Video 3D');
+      this.toastr.warning('Tối đa 4 ảnh tham chiếu đồ vật / nhân vật / bối cảnh.', 'AI Video 3D');
       return;
     }
+    this.refreshAiVideo3dSceneSummary();
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
@@ -2055,7 +2171,8 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         this.aiVideo3dRefImages.push({
           name: file.name || `anh_mau_${this.aiVideo3dRefImages.length + 1}.png`,
           dataUrl,
-          mimeType: mimeMatch ? mimeMatch[1] : (file.type || 'image/png')
+          mimeType: mimeMatch ? mimeMatch[1] : (file.type || 'image/png'),
+          targetKey: this._pickDefaultRefTargetKey()
         });
         this.cdr.markForCheck();
       }
@@ -2076,12 +2193,21 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     this.aiVideo3dCapturedMp4Base64 = null;
     this.aiVideo3dCapturedPreviewUrl = null;
     this.aiVideo3dCapturedFilePath = null;
+    this._aiVideo3dCapturedSummary = null;
     this.cdr.markForCheck();
   }
 
+  downloadCaptured3dMotionVideo(): void {
+    if (!this.aiVideo3dCapturedPreviewUrl) return;
+    const a = document.createElement('a');
+    a.href = this.aiVideo3dCapturedPreviewUrl;
+    a.download = `scene_3d_${Date.now()}.mp4`;
+    a.click();
+  }
+
   /**
-   * Ghi trực tiếp chuyển động của nhân vật 3D trên Canvas theo đúng thời lượng và tỷ lệ khung hình,
-   * tạm ẩn vòng chọn & lưới sàn (nếu bật) rồi chuyển sang chuẩn H.264 MP4 qua FFmpeg tích hợp.
+   * Ghi trực tiếp toàn bộ cảnh 3D (một hoặc nhiều đồ vật + bóng đổ + hiệu ứng FX tuyết/hạt...) trên Canvas
+   * theo đúng thời lượng và tỷ lệ khung hình, đồng bộ tất cả timeline về t=0 rồi chuyển sang H.264 MP4 qua FFmpeg.
    */
   async capture3dMotionVideo(): Promise<string | null> {
     if (this.aiVideo3dCapturing) return null;
@@ -2096,44 +2222,55 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       return null;
     }
 
-    const durSec = Math.max(3, Math.min(15, Number(this.aiVideo3dDuration) || 5));
+    // Seedance 2.0/2.5 Video Editing yêu cầu video đầu vào dài tối thiểu 4 giây (4..30s)
+    const durSec = Math.max(4, Math.min(15, Number(this.aiVideo3dDuration) || 5));
     this.aiVideo3dCapturing = true;
     this.aiVideo3dCaptureSec = 0;
-    this.aiVideo3dStatusText = `Đang ghi chuyển động 3D (0/${durSec}s)...`;
+    this.aiVideo3dStatusText = `Đang ghi cảnh 3D (0/${durSec}s)...`;
     this.cdr.markForCheck();
 
+    const initialSummary = this.refreshAiVideo3dSceneSummary();
+    const hasActiveFx = initialSummary.fxNames.length > 0;
+
     // Lưu góc camera + ánh sáng hiện tại để phục hồi nguyên vẹn ngay sau khi ghi xong
-    const prevCameraSnap = this.aiVideo3dAutoFrame ? this.sceneService.getCameraSnapshot() : null;
+    const shouldAutoFrame = this.aiVideo3dCameraMode !== 'keep';
+    const prevCameraSnap = shouldAutoFrame ? this.sceneService.getCameraSnapshot() : null;
     const prevLighting = this.sceneService.getStudioLighting();
     const shouldTempHideGrid = this.aiVideo3dHideGrid && prevLighting.showGrid;
     const bgHex = String(prevLighting.bgColor || '').trim().toLowerCase();
-    const shouldTempContrastBg = this.aiVideo3dHideGrid && (bgHex === '#ffffff' || bgHex === '#f8fafc' || bgHex === '#f1f5f9');
+    const isVeryLightBg = bgHex === '#ffffff' || bgHex === '#f8fafc' || bgHex === '#f1f5f9';
+    const shouldTempContrastBg = this.aiVideo3dHideGrid && isVeryLightBg;
     const lightingTempPatch: any = {};
     if (shouldTempHideGrid) lightingTempPatch.showGrid = false;
-    // Nền trắng tinh khiến tay/chân mô hình gỗ màu sáng bị hòa nền -> chuyển tạm nền xám studio dịu để AI bám đường nét khớp rõ hơn
-    if (shouldTempContrastBg) lightingTempPatch.bgColor = '#dce2ec';
+    // Khi nền gốc quá sáng, chuyển sang nền xám trung tính #94a3b8 (hoặc #64748b khi có FX tuyết/hạt) để cả mô hình trắng (lon nước), hình nộm gỗ lẫn tuyết đều nổi rõ đường biên
+    if (shouldTempContrastBg) {
+      lightingTempPatch.bgColor = hasActiveFx ? '#64748b' : '#94a3b8';
+    }
 
     this.sceneService.setSelectionRingTempHidden(true);
     if (Object.keys(lightingTempPatch).length > 0) {
       this.sceneService.applyStudioLighting(lightingTempPatch);
     }
 
-    // Tự động chọn đúng nhân vật có khớp xương đang ở trên canvas, tua về t=0 rồi phóng cận vừa khung (~68% chiều cao)
-    const activePid = this.timelinePropId || this.selectedPropId || this.sceneService.getFirstRiggedPropId();
-    if (activePid && this.sceneService.hasPropRig(activePid)) {
-      try {
-        this.sceneService.seekPropTimeline(activePid, 0);
-        this.sceneService.setPropTimelinePlaying(activePid, true);
-      } catch (_) {}
-    }
-    if (this.aiVideo3dAutoFrame) {
-      this.sceneService.autoFramePropForCapture(activePid, 0.68);
+    // Đồng bộ tua toàn bộ nhân vật/đồ vật có khung xương về t=0 và chạy cùng lúc
+    this.sceneService.syncAllRiggedPropsForCapture();
+    if (shouldAutoFrame) {
+      const activePid = this.timelinePropId || this.selectedPropId || this.sceneService.getFirstRiggedPropId();
+      this.sceneService.autoFrameSceneForCapture(
+        this.aiVideo3dCameraMode === 'selected' ? 'selected' : 'all',
+        activePid,
+        0.68,
+        this.aiVideo3dAspectRatio
+      );
     }
 
     let timer: any = null;
     try {
-      // Đợi 3 frame để camera auto-frame + tắt lưới/ring + pose t=0 render ổn định trước khi mở MediaRecorder
+      // Đợi 3 frame để camera + nền tương phản + tắt lưới/ring + pose t=0 ổn định trước khi mở MediaRecorder
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r))));
+
+      // Chụp lại bản đồ vị trí Trái/Giữa/Phải của các đồ vật theo đúng góc camera lúc ghi hình
+      const capturedSummary = this.refreshAiVideo3dSceneSummary();
 
       const stream: MediaStream = (canvas as any).captureStream(30);
       const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
@@ -2158,11 +2295,12 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       timer = setInterval(() => {
         const elapsed = Math.min(durSec, Math.floor((Date.now() - startedAt) / 1000));
         this.aiVideo3dCaptureSec = elapsed;
-        this.aiVideo3dStatusText = `Đang ghi chuyển động 3D (${elapsed}/${durSec}s)...`;
+        this.aiVideo3dStatusText = `Đang ghi cảnh 3D (${elapsed}/${durSec}s)...`;
         this.cdr.markForCheck();
       }, 250);
 
-      await new Promise((r) => setTimeout(r, durSec * 1000 + 180));
+      // Cộng dư 380ms khi ghi WebM rồi FFmpeg cắt chuẩn -t durSec để chắc chắn video đầu ra đủ tối thiểu >= 4.0s
+      await new Promise((r) => setTimeout(r, durSec * 1000 + 380));
       if (recorder.state !== 'inactive') {
         recorder.stop();
       }
@@ -2202,12 +2340,13 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.aiVideo3dCapturedMp4Base64 = conv.base64;
       this.aiVideo3dCapturedPreviewUrl = URL.createObjectURL(mp4Blob);
       this.aiVideo3dCapturedFilePath = conv.filePath || null;
+      this._aiVideo3dCapturedSummary = capturedSummary;
       this.aiVideo3dStatusText = '';
       this.cdr.markForCheck();
       return conv.base64;
     } catch (err: any) {
       console.error('[Profile] capture3dMotionVideo error:', err);
-      this.toastr.error(err?.message || 'Lỗi ghi chuyển động 3D.', 'AI Video 3D');
+      this.toastr.error(err?.message || 'Lỗi ghi cảnh 3D.', 'AI Video 3D');
       return null;
     } finally {
       if (timer) { clearInterval(timer); timer = null; }
@@ -2227,8 +2366,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Tạo Video AI bằng Mì Tôm AI: lấy video chuyển động 3D của nhân vật trên canvas (tự ghi nếu chưa có)
-   * kết hợp ảnh mẫu nhân vật/trang phục do người dùng đưa vào để AI "đắp" nhân vật thật lên đúng chuyển động 3D.
+   * Tạo Video AI bằng đúng model video cấu hình trong Mì Tôm AI:
+   * hỗ trợ cả cảnh 1 nhân vật lẫn cảnh nhiều đồ vật 3D + hiệu ứng FX (tuyết rơi, mưa, hạt...)
+   * và ánh xạ chính xác từng ảnh mẫu (@Image 1..4) vào đúng đồ vật theo vị trí Trái/Giữa/Phải trên @Video 1.
    */
   async generateAiVideoFrom3dMotion(): Promise<void> {
     if (this.aiVideo3dGenerating || this.aiVideo3dCapturing) return;
@@ -2237,8 +2377,8 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.toastr.warning('Vui lòng bật Mì Tôm AI và cấu hình API Key + Model Video trong Cài đặt trước.', 'Mì Tôm AI');
       return;
     }
-    if (this.aiVideo3dRefImages.length === 0) {
-      this.toastr.warning('Vui lòng chọn hoặc dán ít nhất 1 ảnh mẫu nhân vật để AI đắp lên chuyển động 3D.', 'AI Video 3D');
+    if (this.aiVideo3dRefImages.length === 0 && !(this.aiVideo3dConfiguredSupportsRefVideo && (this.aiVideo3dPrompt || '').trim().length > 0)) {
+      this.toastr.warning('Vui lòng chọn ít nhất 1 ảnh mẫu hoặc nhập mô tả bối cảnh để AI dựng video từ cảnh 3D.', 'AI Video 3D');
       return;
     }
 
@@ -2246,7 +2386,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
 
     try {
-      // 1. Tự động ghi chuyển động 3D trên canvas nếu chưa có bản ghi sẵn
+      // 1. Tự động ghi cảnh 3D trên canvas nếu chưa có bản ghi sẵn
       let mp4Base64 = this.aiVideo3dCapturedMp4Base64;
       if (!mp4Base64) {
         mp4Base64 = await this.capture3dMotionVideo();
@@ -2258,12 +2398,15 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       // Luôn sử dụng đúng model video đã cấu hình sẵn trong Mì Tôm AI
       const targetModel = this.aiVideo3dConfiguredModel;
       const isMotionModel = this.aiVideo3dConfiguredSupportsRefVideo;
+      const sceneSummary = this._aiVideo3dCapturedSummary || this.refreshAiVideo3dSceneSummary();
+      const visibleProps = sceneSummary.props;
+      const activeFxNames = sceneSummary.fxNames;
 
       this.aiVideo3dStatusText = `Đang gửi sang Mì Tôm AI (${targetModel}) — quá trình render video thường mất 1-3 phút...`;
       this.cdr.markForCheck();
 
-      // 2. Đóng gói danh sách tham chiếu: Ảnh nhân vật (CHARACTER_REFERENCE) + Video 3D (REFERENCE_VIDEO)
-      // KHÔNG trộn START_FRAME để tương thích chuẩn Volcengine Seedance 2.0/2.5 lẫn Kling V3 Motion Control!
+      // 2. Đóng gói danh sách tham chiếu: Ảnh mẫu (CHARACTER_REFERENCE) + Video 3D (REFERENCE_VIDEO)
+      // KHÔNG trộn START_FRAME để tương thích chuẩn Volcengine Seedance 2.0/2.5
       const referenceImages: any[] = [];
       for (let i = 0; i < this.aiVideo3dRefImages.length; i++) {
         const img = this.aiVideo3dRefImages[i];
@@ -2274,7 +2417,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
             mimeType: img.mimeType || 'image/png'
           },
           referenceType: 'CHARACTER_REFERENCE',
-          characterName: img.name || `Character_${i + 1}`
+          characterName: img.name || `Reference_${i + 1}`
         });
       }
 
@@ -2293,32 +2436,111 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       const isSeedanceTarget = lowerTargetModel.includes('seedance');
       const isKlingMotionTarget = lowerTargetModel.includes('motion-control') || lowerTargetModel.includes('kling-v3');
 
-      const imgTags = this.aiVideo3dRefImages.map((_, idx) => `@Image ${idx + 1}`).join(', ');
-      let finalPrompt = '';
+      const describePropSpatialEng = (p: CaptureScenePropInfo): string => {
+        const horiz = p.screenZone === 'left'
+          ? 'on the LEFT side'
+          : (p.screenZone === 'right' ? 'on the RIGHT side' : 'near the CENTER');
+        if (p.depthLayer === 'front') {
+          return `in the FOREGROUND (in FRONT, closest to the camera, ${horiz})`;
+        }
+        if (p.depthLayer === 'back') {
+          return `in the BACKGROUND (BEHIND the foreground subject, farther from the camera, ${horiz})`;
+        }
+        return `${horiz} of the frame`;
+      };
 
+      const hasDepthStack =
+        visibleProps.some((p) => p.depthLayer === 'front') &&
+        visibleProps.some((p) => p.depthLayer === 'back');
+      const videoRef = isSeedanceTarget ? '@Video 1' : 'the driving video';
+
+      // Xây dựng câu lệnh ánh xạ chính xác từng ảnh @Image k vào từng đồ vật 3D theo đúng cấu trúc chiều sâu trước-sau & trái-phải
+      const mappedPropIds = new Set<string>();
+      const mappingLines: string[] = [];
+      const bgImageTags: string[] = [];
+
+      this.aiVideo3dRefImages.forEach((img, idx) => {
+        const tag = isSeedanceTarget ? `@Image ${idx + 1}` : `Reference Image ${idx + 1}`;
+        if (img.targetKey === 'bg') {
+          bgImageTags.push(tag);
+          mappingLines.push(
+            `- ${tag}: use strictly as the background environment, lighting, and visual atmosphere of the scene.`
+          );
+          return;
+        }
+        const matchedProp = img.targetKey && img.targetKey !== 'auto'
+          ? visibleProps.find((p) => p.id === img.targetKey)
+          : null;
+        if (matchedProp) {
+          mappedPropIds.add(matchedProp.id);
+          const posDesc = visibleProps.length > 1
+            ? `${describePropSpatialEng(matchedProp)} of ${videoRef}`
+            : `in ${videoRef}`;
+          if (matchedProp.hasRig) {
+            mappingLines.push(
+              `- ${tag}: replace ONLY the articulated 3D human mannequin "${matchedProp.name}" (${posDesc}) with the exact character, face, hair, body build, and clothing from ${tag}; strictly preserve 100% of its exact 2D screen position, depth layer, skeleton pose, limb angles, torso facing direction, and timing.`
+            );
+          } else {
+            mappingLines.push(
+              `- ${tag}: replace ONLY the 3D prop/object "${matchedProp.name}" (${posDesc}) with the exact subject/object appearance from ${tag}; keep it strictly at its EXACT 3D coordinates, depth layer, apparent perspective size, and independent motion/rotation from ${videoRef} — NEVER copy the foreground character's running/T-pose limbs onto it and NEVER relocate it side-by-side next to the foreground character.`
+            );
+          }
+        } else {
+          mappingLines.push(
+            `- ${tag}: apply this visual appearance ONLY to its corresponding element in ${videoRef} without changing its 3D depth layer, occlusion, or screen coordinates.`
+          );
+        }
+      });
+
+      const unmappedProps = visibleProps.filter((p) => !mappedPropIds.has(p.id));
+      const unmappedRule = unmappedProps.length > 0
+        ? `Keep all other visible 3D objects (${unmappedProps.map((p) => `"${p.name}" ${describePropSpatialEng(p)}`).join(', ')}) rendered realistically as their true object type in their EXACT 3D depth layer, occlusion order, scale, and motion from ${videoRef} — do NOT turn an unmapped prop into a second human and do NOT remove it.`
+        : '';
+
+      const depthStructureRule = hasDepthStack
+        ? `STRICT FOREGROUND-TO-BACKGROUND DEPTH & OCCLUSION LOCK: ${videoRef} has a FRONT-AND-BACK 3D depth layout where the foreground subject stands IN FRONT of and partially overlaps the background object behind it. Preserve this EXACT front-to-back occlusion, depth separation, and exact (X, Y) pixel coordinates of every object throughout every frame. NEVER rearrange front-and-back objects into a side-by-side horizontal lineup!`
+        : `STRICT 2D & 3D LAYOUT LOCK: Preserve the exact (X, Y) screen coordinates, perspective depth, and relative apparent sizes of every object in ${videoRef} — NEVER reposition or rearrange objects.`;
+
+      const fxRule = activeFxNames.length > 0
+        ? `ENVIRONMENTAL & PARTICLE FX (${activeFxNames.join(', ')}): Strictly preserve and realistically render the active atmospheric/particle effects visible in ${videoRef} (such as falling snow, rain, or floating particles) matching the exact falling direction, speed, and depth across the entire frame.`
+        : '';
+
+      const sceneDesc = userPrompt
+        ? `Scene & visual style: ${userPrompt}.`
+        : (bgImageTags.length > 0
+            ? `Match the environment, lighting, and cinematic color grading of ${bgImageTags.join(', ')} with natural grounded shadows.`
+            : `Clean cinematic background and realistic studio lighting matching the camera framing and grounded shadows of ${videoRef}.`);
+
+      let finalPrompt = '';
       if (isSeedanceTarget) {
-        // Volcengine Seedance 2.0 / 2.5 bắt buộc nhắc rõ thẻ @Video 1 và @Image 1 trong prompt mới bám chuẩn chuyển động 1:1
-        const sceneDesc = userPrompt
-          ? `Scene & visual style: ${userPrompt}.`
-          : 'Clean minimalist studio background matching the lighting and camera framing of @Video 1.';
-        finalPrompt =
-          `STRICT 1:1 MOTION TRANSFER FROM @Video 1 TO ${imgTags}: ` +
-          `Reproduce the EXACT frame-by-frame full-body motion, skeleton pose, limb angles, torso facing direction (profile/front/back), stride timing, speed, and camera angle from @Video 1. ` +
-          `Completely replace the wooden 3D mannequin in @Video 1 with the exact character, face, hair, body build, and clothing from ${imgTags}. ` +
-          `${sceneDesc} ` +
-          `CRITICAL RULES: Keep the exact same character orientation and motion trajectory as @Video 1 at every single second — do NOT invent different actions, do NOT rotate the character to face the camera if @Video 1 faces sideways, and do NOT render the wooden mannequin.`;
+        finalPrompt = [
+          `STRICT 1:1 3D SCENE STRUCTURE, CAMERA & MOTION TRANSFER FROM @Video 1:`,
+          `LOCKED CAMERA PERSPECTIVE: Strictly preserve 100% of the exact camera angle, viewpoint elevation, focal length, framing distance, and horizon tilt of @Video 1 from start to finish — ZERO unrequested camera orbit, pan, zoom, or angle cuts.`,
+          depthStructureRule,
+          ...(mappingLines.length > 0 ? ['EXACT ELEMENT MAPPING:', ...mappingLines] : []),
+          unmappedRule,
+          fxRule,
+          sceneDesc,
+          `CRITICAL RULES: Keep the EXACT camera angle, front-to-back occlusion order, screen positions, and individual motion of each element in @Video 1 at every second. Never move a background object beside a foreground character, never duplicate one character's pose onto another object, and never leave raw wooden mannequins or untextured 3D meshes.`
+        ].filter(Boolean).join(' ');
       } else {
-        const sceneDesc = userPrompt
-          ? `${userPrompt}. `
-          : 'Clean cinematic studio lighting, natural realistic shadows. ';
-        finalPrompt =
-          `${sceneDesc}` +
-          `Strictly replicate 100% of the exact full-body motion, joint angles, facing orientation, arm/leg trajectory, timing, and camera perspective from the reference driving video onto the character from the reference image. ` +
-          `Replace the 3D mannequin completely with the realistic character, face, hair, and outfit from the reference image. No wooden mannequin, no wireframe, no extra invented poses.`;
+        finalPrompt = [
+          sceneDesc,
+          `LOCKED CAMERA: Strictly keep the exact same camera angle, distance, perspective, and framing as ${videoRef} with zero camera drift or angle changes.`,
+          depthStructureRule,
+          ...mappingLines,
+          unmappedRule,
+          fxRule,
+          `Replace placeholder 3D models cleanly with realistic subjects and materials while keeping exact depth occlusion. No wooden mannequin, no wireframe.`
+        ].filter(Boolean).join(' ');
+      }
+
+      if (finalPrompt.length > 2400) {
+        finalPrompt = finalPrompt.substring(0, 2400);
       }
 
       this.toastr.info(
-        `Đã gửi video chuyển động 3D + ${this.aiVideo3dRefImages.length} ảnh mẫu tới Mì Tôm AI (${targetModel})...`,
+        `Đã gửi cảnh 3D (${visibleProps.length} đồ vật${activeFxNames.length ? ' + ' + activeFxNames.length + ' FX' : ''}) + ${this.aiVideo3dRefImages.length} ảnh mẫu tới Mì Tôm AI (${targetModel})...`,
         'AI Video 3D',
         { timeOut: 6000 }
       );
@@ -2326,11 +2548,15 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       const outMeta: { url?: string | null; duration?: number; characterOrientation?: 'video' | 'image' } = {
         characterOrientation: isKlingMotionTarget ? 'video' : undefined
       };
+      // Volcengine Seedance 2.0/2.5 khi chỉnh sửa/thay thế đối tượng trên @Video 1 (video editing)
+      // bắt buộc truyền ratio='adaptive' và duration=-1 để bám đúng tỷ lệ & độ dài của video 3D đầu vào (đã cắt chuẩn bởi FFmpeg).
+      const reqAspectRatio = (isSeedanceTarget && isMotionModel) ? 'adaptive' : this.aiVideo3dAspectRatio;
+      const reqDuration = (isSeedanceTarget && isMotionModel) ? -1 : this.aiVideo3dDuration;
       const resultBase64 = await this.genaiService.generateVideoUModelverse(
         finalPrompt,
-        this.aiVideo3dAspectRatio,
+        reqAspectRatio,
         referenceImages,
-        this.aiVideo3dDuration,
+        reqDuration,
         undefined,
         targetModel,
         this.aiVideo3dResolution,
@@ -2371,7 +2597,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       }
 
       this.aiVideo3dStatusText = '';
-      this.toastr.success('Mì Tôm AI đã tạo Video từ chuyển động 3D thành công!', 'AI Video 3D');
+      this.toastr.success('Mì Tôm AI đã tạo Video từ cảnh 3D thành công!', 'AI Video 3D');
     } catch (err: any) {
       console.error('[Profile] generateAiVideoFrom3dMotion error:', err);
       this.aiVideo3dStatusText = '';
@@ -3476,7 +3702,8 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
       loop: this.timelineData.loop,
       speed: Number(this.timelineData.speed) || 1.0,
       duration: Math.max(0.5, Number(this.timelineData.duration) || 3.0),
-      mode: this.timelineData.mode
+      mode: this.timelineData.mode,
+      inPlace: this.timelineData.inPlace !== false
     });
     this.saveTimelineToProp(true);
     this.cdr.markForCheck();
@@ -3610,24 +3837,72 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
     this.cdr.markForCheck();
   }
 
-  /** Tải xuống / Xuất tệp .glb độc lập của một Clip Keyframe để chia sẻ hoặc nạp cho nhân vật khác */
+  /**
+   * Xuất tệp .glb chuyển động độc lập (hỗ trợ CẢ Clip gốc nhúng sẵn trong GLB lẫn Clip Keyframe tùy chỉnh),
+   * tự động lưu vào thư mục assets/anims/, đồng bộ chia sẻ ngay sang tất cả nhân vật 3D khác trong phòng để kế thừa,
+   * và tải tệp .glb rời về máy.
+   */
   exportTimelineCustomClip(clipName: string, event?: Event): void {
     if (event) {
       event.stopPropagation();
       event.preventDefault();
     }
     if (!this.timelinePropId || !clipName) return;
-    const glbBuf = this.sceneService.exportClipToGlbArrayBuffer(this.timelinePropId, clipName);
-    if (!glbBuf) {
-      this.toastr.warning('Không tìm thấy dữ liệu Keyframe của Clip này để xuất.', 'Timeline GLB');
+
+    // Tạo tên gọn đẹp nếu clip gốc trong GLB mang tên UUID (vd: 27dd30be-3d01-...)
+    const isUuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(clipName) || /^animation_\d+$/i.test(clipName) || /^mixamo\.com$/i.test(clipName);
+    let preferredName: string | undefined = undefined;
+    if (isUuidLike) {
+      const cleanProp = (this.timelinePropName || 'Character')
+        .replace(/\.glb$/i, '')
+        .replace(/^Meshy_AI_/i, '')
+        .replace(/_withSkin.*$/i, '')
+        .replace(/_biped_Animation_/i, ' ')
+        .replace(/_/g, ' ')
+        .trim();
+      preferredName = cleanProp ? `${cleanProp.slice(0, 36)} (Anim)` : `Anim_${clipName.slice(0, 8)}`;
+    }
+
+    const portableClip = this.sceneService.extractPortableClip(this.timelinePropId, clipName, preferredName);
+    if (!portableClip) {
+      this.toastr.warning('Không trích xuất được dữ liệu khớp xương từ Clip này để xuất.', 'Timeline GLB');
       return;
     }
-    const safeName = clipName.replace(/[^a-zA-Z0-9_\-\.]/g, '_') || 'CustomClip';
+
+    const glbBuf = this.sceneService.exportClipToGlbArrayBuffer(this.timelinePropId, clipName, portableClip);
+    if (!glbBuf) {
+      this.toastr.warning('Không đóng gói được tệp .GLB từ Clip này.', 'Timeline GLB');
+      return;
+    }
+
+    const exportTitle = portableClip.name || clipName;
+    const safeName = exportTitle.replace(/[^a-zA-Z0-9_\-\.]/g, '_') || 'ExportedAnim';
+
+    // 1. Ghi tệp .glb portable vào thư mục chung assets/anims/ để mọi nhân vật mở sau này tự động kế thừa
     if ((window as any).electron?.uploadAnimation) {
       (window as any).electron
-        .uploadAnimation(this.username || 'admin', clipName, glbBuf)
-        .catch(() => {});
+        .uploadAnimation(this.username || 'admin', exportTitle, glbBuf)
+        .catch((e: any) => console.warn('[Timeline GLB] Không ghi được file clip .glb rời:', e));
     }
+
+    // 2. Chia sẻ & kế thừa NGAY LẬP TỨC cho tất cả nhân vật 3D khác đang có trong phòng
+    let sharedCount = 0;
+    for (const p of this.roomProps || []) {
+      if (p && p.id !== this.timelinePropId && this.sceneService.hasPropRig(p.id)) {
+        if (this.sceneService.injectSharedKeyframeClip(p.id, portableClip)) {
+          const otherTl = this.sceneService.getPropTimeline(p.id);
+          if (otherTl) {
+            p.boneTimeline = JSON.parse(JSON.stringify(otherTl));
+          }
+          sharedCount++;
+        }
+      }
+    }
+    if (sharedCount > 0) {
+      this.profileDataService.saveProps(this.roomProps).subscribe();
+    }
+
+    // 3. Tải tệp .glb rời về máy để người dùng có thể nạp thủ công (Nạp Anim .GLB) hoặc lưu trữ
     const blob = new Blob([glbBuf], { type: 'model/gltf-binary' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -3637,9 +3912,14 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1500);
+
+    const shareNote = sharedCount > 0
+      ? ` Đã kế thừa ngay cho ${sharedCount} nhân vật khác trong phòng!`
+      : ' Các nhân vật khác mở lên sẽ tự động kế thừa từ thư viện chuyển động.';
     this.toastr.success(
-      `Đã xuất tệp "${safeName}.glb" (và đồng bộ vào thư mục assets/anims/${safeName}.glb)!`,
-      'Timeline GLB'
+      `Đã xuất "${safeName}.glb" (lưu vào assets/anims/${safeName}.glb).${shareNote}`,
+      'Timeline GLB',
+      { timeOut: 6000 }
     );
   }
 

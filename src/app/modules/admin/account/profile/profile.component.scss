@@ -1504,6 +1504,104 @@
     color: #e2e8f0;
     min-width: 56px;
   }
+
+  /* Đo khoảng cách tới mặt sàn chuẩn (y = 0) + nút 1 chạm đưa đối tượng xuống sàn */
+  &__floor-box {
+    margin-top: 8px;
+    padding-top: 7px;
+    border-top: 1px dashed rgba(148, 163, 184, 0.22);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__floor-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+  }
+
+  &__floor-label {
+    color: rgba(148, 163, 184, 0.9);
+    font-weight: 600;
+  }
+
+  &__floor-status {
+    font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 5px;
+    white-space: nowrap;
+
+    &--grounded {
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(52, 211, 153, 0.36);
+    }
+
+    &--above {
+      color: #fbbf24;
+      background: rgba(245, 158, 11, 0.18);
+      border: 1px solid rgba(251, 191, 36, 0.42);
+    }
+
+    &--below {
+      color: #fb7185;
+      background: rgba(244, 63, 94, 0.18);
+      border: 1px solid rgba(251, 113, 133, 0.42);
+    }
+  }
+
+  &__floor-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #cbd5e1;
+    background: rgba(148, 163, 184, 0.14);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    mat-icon,
+    .mat-icon {
+      width: 15px !important;
+      height: 15px !important;
+      font-size: 15px !important;
+      line-height: 15px !important;
+    }
+
+    &:hover:not(:disabled) {
+      background: rgba(56, 189, 248, 0.24);
+      border-color: rgba(56, 189, 248, 0.6);
+      color: #ffffff;
+    }
+
+    &--alert {
+      color: #fef3c7;
+      background: rgba(245, 158, 11, 0.24);
+      border-color: rgba(251, 191, 36, 0.55);
+
+      &:hover:not(:disabled) {
+        background: rgba(245, 158, 11, 0.4);
+        border-color: #fbbf24;
+        color: #ffffff;
+      }
+    }
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+  }
 }
 
 // ===================== CANVAS FX EFFECTS (danh sach + dialog dong) =====================
@@ -1712,6 +1810,10 @@
 
     &--2 {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    &--3 {
+        grid-template-columns: repeat(3, 1fr);
     }
 
     &--4 {
@@ -2537,6 +2639,10 @@
         grid-template-columns: repeat(2, 1fr);
     }
 
+    &--3 {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
     &--4 {
         grid-template-columns: repeat(4, 1fr);
     }
@@ -2548,9 +2654,209 @@
     margin: 2px 0;
 }
 
+/* Khung ngắm tỷ lệ quay Video 3D (overlay chỉ để căn góc, pointer-events: none, không dính vào canvas ghi) */
+.ai-video-3d-viewfinder {
+    position: absolute;
+    inset: 0;
+    z-index: 15;
+    pointer-events: none;
+    overflow: hidden;
+    container-type: size;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ai-video-3d-viewfinder__box {
+    --ar: 1.7777778;
+    position: relative;
+    width: min(100cqw, calc(100cqh * var(--ar)));
+    height: min(100cqh, calc(100cqw / var(--ar)));
+    border: 1.5px dashed rgba(45, 212, 191, 0.88);
+    box-shadow: 0 0 0 9999px rgba(2, 6, 23, 0.36);
+    box-sizing: border-box;
+}
+
+.ai-video-3d-viewfinder__tag {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #ccfbf1;
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid rgba(45, 212, 191, 0.45);
+}
+
 /* Studio Tạo Video AI từ Chuyển động 3D */
 .ai-video-3d-panel {
-    width: 332px;
+    width: 348px;
+}
+
+.ai-video-3d__scene-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.ai-video-3d__scene-summary-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #cbd5e1;
+}
+
+.ai-video-3d__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.ai-video-3d__chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    line-height: 1.4;
+    background: rgba(51, 65, 85, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    color: #e2e8f0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &--rig {
+        background: rgba(13, 148, 136, 0.2);
+        border-color: rgba(45, 212, 191, 0.42);
+        color: #99f6e4;
+    }
+
+    &--fx {
+        background: rgba(56, 189, 248, 0.16);
+        border-color: rgba(125, 211, 252, 0.42);
+        color: #bae6fd;
+    }
+}
+
+.ai-video-3d__ref-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ai-video-3d__ref-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.ai-video-3d__ref-thumb {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #020617;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+}
+
+.ai-video-3d__ref-badge {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 1px 3px;
+    font-size: 9px;
+    font-weight: 700;
+    font-family: monospace;
+    text-align: center;
+    color: #ffffff;
+    background: rgba(2, 6, 23, 0.8);
+}
+
+.ai-video-3d__ref-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ai-video-3d__ref-name {
+    font-size: 11px;
+    color: #e2e8f0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ai-video-3d__ref-select {
+    width: 100%;
+    height: 26px;
+    padding: 0 6px;
+    border-radius: 6px;
+    border: 1px solid rgba(148, 163, 184, 0.26);
+    background: rgba(2, 6, 23, 0.85);
+    color: #f8fafc;
+    font-size: 11px;
+    outline: none;
+    cursor: pointer;
+}
+
+.ai-video-3d__ref-del {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    border: none;
+    background: rgba(239, 68, 68, 0.16);
+    color: #fca5a5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+
+    mat-icon {
+        width: 14px !important;
+        height: 14px !important;
+        font-size: 14px !important;
+        line-height: 14px !important;
+    }
+
+    &:hover {
+        background: rgba(239, 68, 68, 0.35);
+        color: #ffffff;
+    }
+}
+
+.ai-video-3d__head-links {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .ai-video-3d__model-bar {
