@@ -1107,6 +1107,20 @@
     <div class="profile-scene-wrap">
         <!-- Inner padded container — canvas fills this, not the outer wrap -->
         <div class="scene-inner" #sceneContainer>
+            <!-- Khung ngắm tỷ lệ quay Video 3D (chỉ hiển thị xem trước trên UI, không dính vào video ghi) -->
+            @if (isAiVideo3dOpen && aiVideo3dShowViewfinder) {
+                <div class="ai-video-3d-viewfinder">
+                    <div
+                        class="ai-video-3d-viewfinder__box"
+                        [style.--ar]="aiVideo3dAspectRatioValue"
+                    >
+                        <span class="ai-video-3d-viewfinder__tag">
+                            Khung quay {{ aiVideo3dAspectRatio }}
+                        </span>
+                    </div>
+                </div>
+            }
+
             <!-- Floating Sidebar Re-open Button (Top-Left, visible when sidebar collapsed) -->
             @if (isSidebarCollapsed) {
                 <button
@@ -1325,6 +1339,38 @@
                             </span>
                         </button>
                     </div>
+                    @if (selectedPropFloorHeight !== null) {
+                        <div class="sontinh-axes-info__floor-box">
+                            <div class="sontinh-axes-info__floor-row">
+                                <span class="sontinh-axes-info__floor-label">So với sàn</span>
+                                <span
+                                    class="sontinh-axes-info__floor-status"
+                                    [class.sontinh-axes-info__floor-status--grounded]="selectedPropFloorState === 'grounded'"
+                                    [class.sontinh-axes-info__floor-status--above]="selectedPropFloorState === 'above'"
+                                    [class.sontinh-axes-info__floor-status--below]="selectedPropFloorState === 'below'"
+                                >
+                                    @if (selectedPropFloorState === 'grounded') {
+                                        Chạm sàn ({{ selectedPropFloorHeight.toFixed(2) }})
+                                    } @else if (selectedPropFloorState === 'above') {
+                                        Cao hơn +{{ selectedPropFloorHeight.toFixed(2) }}
+                                    } @else {
+                                        Lún sàn {{ selectedPropFloorHeight.toFixed(2) }}
+                                    }
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                class="sontinh-axes-info__floor-btn"
+                                [class.sontinh-axes-info__floor-btn--alert]="selectedPropFloorState !== 'grounded' && !selectedPropLocked"
+                                [disabled]="selectedPropLocked || selectedPropExactOnFloor"
+                                title="Đưa điểm thấp nhất của đối tượng về đúng mặt sàn chuẩn (độ cao = 0.00)"
+                                (click)="snapSelectedPropToFloor($event)"
+                            >
+                                <mat-icon class="icon-size-4">vertical_align_bottom</mat-icon>
+                                <span>{{ selectedPropExactOnFloor ? 'Đang sát mặt sàn' : 'Đặt xuống sàn' }}</span>
+                            </button>
+                        </div>
+                    }
                     <div class="sontinh-axes-info__sec">Góc xoay (&deg;)</div>
                     <div class="sontinh-axes-info__row">
                         <span class="sontinh-axes-info__axis sontinh-axes-info__axis--x">X</span>
@@ -1465,10 +1511,39 @@
                             }
                         }
 
-                        <!-- 1. Ảnh mẫu nhân vật để đắp lên nhân vật 3D -->
+                        <!-- Tóm tắt thành phần 3D đang có trên cảnh (đồ vật + hiệu ứng FX) -->
+                        <div class="ai-video-3d__scene-summary">
+                            <div class="ai-video-3d__scene-summary-head">
+                                <span>Thành phần cảnh 3D ({{ aiVideo3dSceneProps.length }} đồ vật{{ aiVideo3dActiveFxNames.length ? ' &middot; ' + aiVideo3dActiveFxNames.length + ' FX' : '' }})</span>
+                                <button
+                                    type="button"
+                                    class="prop-texture-studio__link-btn"
+                                    title="Quét lại danh sách đồ vật và hiệu ứng đang hiển thị trên canvas"
+                                    (click)="refreshAiVideo3dSceneSummary()"
+                                >
+                                    Làm mới
+                                </button>
+                            </div>
+                            @if (aiVideo3dSceneProps.length > 0 || aiVideo3dActiveFxNames.length > 0) {
+                                <div class="ai-video-3d__chips">
+                                    @for (p of aiVideo3dSceneProps; track p.id) {
+                                        <span class="ai-video-3d__chip" [class.ai-video-3d__chip--rig]="p.hasRig">
+                                            {{ p.name }}{{ aiVideo3dSceneProps.length > 1 ? ' (' + getAiVideo3dSpatialLabel(p) + ')' : '' }}
+                                        </span>
+                                    }
+                                    @for (fx of aiVideo3dActiveFxNames; track $index) {
+                                        <span class="ai-video-3d__chip ai-video-3d__chip--fx">FX: {{ fx }}</span>
+                                    }
+                                </div>
+                            } @else {
+                                <div class="ai-video-3d__hint">Chưa có đồ vật 3D nào hiển thị trên canvas.</div>
+                            }
+                        </div>
+
+                        <!-- 1. Ảnh mẫu đắp lên từng đồ vật / bối cảnh (tối đa 4 ảnh) -->
                         <div class="prop-texture-studio__sec">
                             <div class="prop-texture-studio__sec-head">
-                                <span>Ảnh mẫu đắp lên 3D ({{ aiVideo3dRefImages.length }}/4)</span>
+                                <span>Ảnh mẫu đắp lên cảnh 3D ({{ aiVideo3dRefImages.length }}/4)</span>
                             </div>
 
                             <input
@@ -1488,18 +1563,37 @@
                             >
                                 <mat-icon class="prop-texture-studio__drop-icon">add_photo_alternate</mat-icon>
                                 <div class="prop-texture-studio__drop-text">
-                                    Chọn, kéo thả hoặc <strong>Ctrl+V</strong> dán ảnh nhân vật / trang phục mẫu (tối đa 4 ảnh)
+                                    Chọn, kéo thả hoặc <strong>Ctrl+V</strong> dán ảnh nhân vật, sản phẩm, bối cảnh (tối đa 4 ảnh)
                                 </div>
                             </div>
 
                             @if (aiVideo3dRefImages.length > 0) {
-                                <div class="ai-video-3d__thumbs">
+                                <div class="ai-video-3d__ref-list">
                                     @for (img of aiVideo3dRefImages; track $index) {
-                                        <div class="ai-video-3d__thumb">
-                                            <img [src]="img.dataUrl" [alt]="img.name" />
+                                        <div class="ai-video-3d__ref-card">
+                                            <div class="ai-video-3d__ref-thumb">
+                                                <img [src]="img.dataUrl" [alt]="img.name" />
+                                                <span class="ai-video-3d__ref-badge">&#64;Image {{ $index + 1 }}</span>
+                                            </div>
+                                            <div class="ai-video-3d__ref-meta">
+                                                <div class="ai-video-3d__ref-name" [title]="img.name">{{ img.name }}</div>
+                                                <select
+                                                    class="ai-video-3d__ref-select"
+                                                    [(ngModel)]="img.targetKey"
+                                                    title="Chọn đồ vật 3D hoặc bối cảnh mà ảnh này sẽ đắp lên"
+                                                >
+                                                    @for (p of aiVideo3dSceneProps; track p.id) {
+                                                        <option [value]="p.id">
+                                                            Đắp vào: {{ p.name }}{{ aiVideo3dSceneProps.length > 1 ? ' (' + getAiVideo3dSpatialLabel(p) + ')' : '' }}
+                                                        </option>
+                                                    }
+                                                    <option value="bg">Làm bối cảnh / Phông nền</option>
+                                                    <option value="auto">Tự động nhận diện</option>
+                                                </select>
+                                            </div>
                                             <button
                                                 type="button"
-                                                class="prop-texture-studio__ref-clear"
+                                                class="ai-video-3d__ref-del"
                                                 title="Gỡ ảnh mẫu"
                                                 (click)="removeAiVideo3dRefImage($index)"
                                             >
@@ -1514,15 +1608,25 @@
                         <!-- 2. Video chuyển động ghi từ Canvas 3D -->
                         <div class="prop-texture-studio__sec">
                             <div class="prop-texture-studio__sec-head">
-                                <span>Video chuyển động 3D</span>
+                                <span>Video cảnh 3D (&#64;Video 1)</span>
                                 @if (aiVideo3dCapturedPreviewUrl) {
-                                    <button
-                                        type="button"
-                                        class="prop-texture-studio__link-btn"
-                                        (click)="clearCaptured3dMotionVideo()"
-                                    >
-                                        Xóa bản ghi
-                                    </button>
+                                    <div class="ai-video-3d__head-links">
+                                        <button
+                                            type="button"
+                                            class="prop-texture-studio__link-btn"
+                                            title="Tải xuống bản ghi 3D MP4 gốc"
+                                            (click)="downloadCaptured3dMotionVideo()"
+                                        >
+                                            Tải MP4 3D
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="prop-texture-studio__link-btn"
+                                            (click)="clearCaptured3dMotionVideo()"
+                                        >
+                                            Xóa bản ghi
+                                        </button>
+                                    </div>
                                 }
                             </div>
 
@@ -1537,9 +1641,40 @@
                                 ></video>
                             } @else {
                                 <div class="ai-video-3d__hint">
-                                    Căn góc camera 3D vừa ý rồi bấm <strong>Ghi chuyển động 3D</strong> (hoặc bấm thẳng nút Tạo Video AI bên dưới để tự ghi rồi gửi AI).
+                                    Ghi đồng bộ tất cả đồ vật 3D, bóng đổ và hiệu ứng FX (tuyết rơi, hạt...) thành video dẫn hướng cho Mì Tôm AI.
                                 </div>
                             }
+
+                            <div class="studio-lighting__sublabel">Khung hình camera khi ghi</div>
+                            <div class="studio-lighting__pills studio-lighting__pills--3">
+                                <button
+                                    type="button"
+                                    class="prop-texture-studio__uv-pill"
+                                    [class.prop-texture-studio__uv-pill--active]="aiVideo3dCameraMode === 'keep'"
+                                    title="Mặc định: Giữ nguyên 100% góc xoay và độ thu phóng camera bạn đang đặt trên canvas"
+                                    (click)="aiVideo3dCameraMode = 'keep'"
+                                >
+                                    Giữ góc
+                                </button>
+                                <button
+                                    type="button"
+                                    class="prop-texture-studio__uv-pill"
+                                    [class.prop-texture-studio__uv-pill--active]="aiVideo3dCameraMode === 'all'"
+                                    title="Tự động căn camera gom gọn toàn bộ các đồ vật 3D đang hiển thị vào giữa khung hình"
+                                    (click)="aiVideo3dCameraMode = 'all'"
+                                >
+                                    Cả cảnh
+                                </button>
+                                <button
+                                    type="button"
+                                    class="prop-texture-studio__uv-pill"
+                                    [class.prop-texture-studio__uv-pill--active]="aiVideo3dCameraMode === 'selected'"
+                                    title="Phóng cận vào duy nhất 1 nhân vật/đồ vật đang chọn"
+                                    (click)="aiVideo3dCameraMode = 'selected'"
+                                >
+                                    1 vật
+                                </button>
+                            </div>
 
                             <div class="ai-video-3d__capture-actions">
                                 <button
@@ -1555,22 +1690,22 @@
                                     type="button"
                                     class="prop-texture-studio__btn-direct ai-video-3d__btn-focus"
                                     [disabled]="aiVideo3dCapturing || aiVideo3dGenerating"
-                                    title="Phóng camera vừa khung toàn thân nhân vật 3D"
+                                    title="Tự căn camera vừa khung trên canvas (bạn có thể xoay/zoom lại tùy ý sau đó)"
                                     (click)="focusCharacterForAiVideo()"
                                 >
                                     <mat-icon>center_focus_strong</mat-icon>
-                                    <span>Căn cận</span>
+                                    <span>Căn khung</span>
                                 </button>
                             </div>
 
                             <div class="prop-texture-studio__checks">
                                 <label class="prop-texture-studio__check">
-                                    <input type="checkbox" [(ngModel)]="aiVideo3dAutoFrame" />
-                                    <span>Tự phóng cận vừa khung nhân vật (~70% khung hình) khi ghi</span>
+                                    <input type="checkbox" [(ngModel)]="aiVideo3dShowViewfinder" />
+                                    <span>Hiện khung ngắm tỷ lệ ({{ aiVideo3dAspectRatio }}) trên canvas</span>
                                 </label>
                                 <label class="prop-texture-studio__check">
                                     <input type="checkbox" [(ngModel)]="aiVideo3dHideGrid" />
-                                    <span>Tạm ẩn lưới sàn & dùng nền tương phản khi ghi 3D</span>
+                                    <span>Ẩn lưới sàn &amp; tự tăng tương phản nền (lộ rõ tuyết/đồ vật) khi ghi</span>
                                 </label>
                             </div>
                         </div>
@@ -1585,7 +1720,7 @@
                                 class="prop-texture-studio__prompt"
                                 rows="3"
                                 [(ngModel)]="aiVideo3dPrompt"
-                                placeholder="Mô tả bối cảnh & phong cách (tuỳ chọn): VD: Nhân vật trong ảnh mẫu đang chạy bộ trên đường phố Sài Gòn buổi chiều nắng vàng, ánh sáng điện ảnh, camera mượt..."
+                                placeholder="Mô tả bối cảnh & phong cách (tuỳ chọn): VD: Phố mùa đông buổi tối tuyết rơi nhẹ, ánh đèn ấm phản chiếu lên lon nước đang xoay và trang phục nhân vật, ánh sáng điện ảnh..."
                             ></textarea>
 
                             <div class="studio-lighting__sublabel">Tỷ lệ khung hình</div>
@@ -1663,7 +1798,7 @@
                             mat-flat-button
                             color="primary"
                             class="prop-texture-studio__btn-save w-full"
-                            [disabled]="aiVideo3dGenerating || aiVideo3dCapturing || !aiVideo3dMitomEnabled || aiVideo3dRefImages.length === 0"
+                            [disabled]="aiVideo3dGenerating || aiVideo3dCapturing || !aiVideo3dMitomEnabled || (aiVideo3dRefImages.length === 0 && !aiVideo3dPrompt.trim())"
                             (click)="generateAiVideoFrom3dMotion()"
                         >
                             <mat-icon>{{ aiVideo3dGenerating ? 'hourglass_top' : 'auto_awesome' }}</mat-icon>
@@ -2561,6 +2696,15 @@
                             >
                                 <mat-icon class="icon-size-4">repeat</mat-icon>
                             </button>
+                            <button
+                                type="button"
+                                class="glb-tl-btn"
+                                [class.glb-tl-btn--active]="timelineData.inPlace !== false"
+                                (click)="timelineData.inPlace = (timelineData.inPlace === false); onTimelineConfigChange()"
+                                [title]="timelineData.inPlace !== false ? 'Đang khóa tại chỗ trong vòng chọn (In-Place) — bấm để cho di chuyển tự do theo root motion' : 'Đang di chuyển tự do theo root motion — bấm để khóa tại chỗ trong vòng chọn'"
+                            >
+                                <mat-icon class="icon-size-4">my_location</mat-icon>
+                            </button>
                             <div class="glb-tl-field" title="Tốc độ phát">
                                 <span>Tốc độ</span>
                                 <select
@@ -2823,14 +2967,14 @@
                                                             }
                                                         </div>
                                                     </div>
+                                                    <span
+                                                        class="text-slate-400 hover:text-teal-300 px-1 flex items-center"
+                                                        [title]="c.isCustom ? 'Xuất tệp .GLB rời & chia sẻ cho các nhân vật khác' : 'Xuất chuyển động gốc của GLB thành tệp .GLB rời để các nhân vật khác kế thừa'"
+                                                        (click)="exportTimelineCustomClip(c.name, $event)"
+                                                    >
+                                                        <mat-icon class="icon-size-3.5">download</mat-icon>
+                                                    </span>
                                                     @if (c.isCustom) {
-                                                        <span
-                                                            class="text-slate-400 hover:text-teal-300 px-1 flex items-center"
-                                                            title="Xuất tệp .GLB rời (lưu vào assets/anims/ và tải về máy)"
-                                                            (click)="exportTimelineCustomClip(c.name, $event)"
-                                                        >
-                                                            <mat-icon class="icon-size-3.5">download</mat-icon>
-                                                        </span>
                                                         <span
                                                             class="text-slate-400 hover:text-rose-400 px-1.5 text-sm font-bold"
                                                             title="Xóa Clip chuyển động này"

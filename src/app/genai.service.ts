@@ -4496,6 +4496,7 @@ export class GenaiService {
             avatarDialogueText?: string;
             _isInternalAvatarSegment?: boolean;
             characterOrientation?: 'video' | 'image';
+            _retriedSeedanceVideoEdit?: boolean;
         }
     ): Promise<string> {
         this.syncConfigFromStorage();
@@ -5942,6 +5943,28 @@ export class GenaiService {
                                 : (rawErr?.message || JSON.stringify(rawErr));
 
                             if (typeof errMessage === 'string') {
+                                // Seedance 2.0/2.5 phân loại prompt có reference_video là "video editing" -> bắt buộc ratio="adaptive" và duration=-1 (tự động thử lại 1 lần)
+                                if (
+                                    isSeedanceV2Plus &&
+                                    hasExplicitRefVideo &&
+                                    !outMeta?._retriedSeedanceVideoEdit &&
+                                    (errMessage.includes('TaskTypeConstraint') ||
+                                        (errMessage.includes('adaptive') && errMessage.includes('-1')))
+                                ) {
+                                    console.warn('[UModelverse Seedance] Task được phân loại Video Editing -> tự động gửi lại với ratio="adaptive" và duration=-1...');
+                                    const retryMeta = outMeta || {};
+                                    retryMeta._retriedSeedanceVideoEdit = true;
+                                    return await this.generateVideoUModelverse(
+                                        rawCleanPrompt,
+                                        'adaptive',
+                                        referenceImages,
+                                        -1,
+                                        seed,
+                                        overrideModel,
+                                        resolution,
+                                        retryMeta
+                                    );
+                                }
                                 if (errMessage.toLowerCase() === 'success') {
                                     errMessage = "Provider server gặp lỗi nội bộ trong quá trình render (Lỗi máy chủ). Vui lòng thử lại sau.";
                                 } else if (errMessage.toLowerCase().includes('violate') || errMessage.toLowerCase().includes('safety')) {
