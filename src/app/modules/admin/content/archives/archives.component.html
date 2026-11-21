@@ -460,17 +460,45 @@
 
                                     <button mat-menu-item (click)="openRowScript(row)">
                                         <mat-icon
-                                            class="icon-size-4 text-red-500"
+                                            class="icon-size-4"
+                                            [ngClass]="
+                                                hasScriptProject(row)
+                                                    ? 'text-red-500 dark:text-red-400'
+                                                    : 'text-slate-400 dark:text-slate-500'
+                                            "
                                             [svgIcon]="'feather:feather'"
                                         ></mat-icon>
-                                        <span>{{ (row.has_script || row.hasScript || hasScriptProject(row)) ? "Xem kịch bản" : "Tạo kịch bản" }}</span>
+                                        <span class="inline-flex items-center gap-2">
+                                            <span>{{ hasScriptProject(row) ? "Xem kịch bản" : "Tạo kịch bản" }}</span>
+                                            @if (hasScriptProject(row)) {
+                                                <span class="px-1.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 leading-none">
+                                                    Đã có
+                                                </span>
+                                            }
+                                        </span>
                                     </button>
                                     <button mat-menu-item (click)="openRowVideo(row)">
                                         <mat-icon
-                                            class="icon-size-4 text-blue-500"
-                                            [svgIcon]="'heroicons_outline:film'"
+                                            class="icon-size-4"
+                                            [ngClass]="
+                                                hasCreatedVideo(row)
+                                                    ? 'text-blue-600 dark:text-blue-400'
+                                                    : 'text-slate-400 dark:text-slate-500'
+                                            "
+                                            [svgIcon]="
+                                                hasCreatedVideo(row)
+                                                    ? 'heroicons_solid:film'
+                                                    : 'heroicons_outline:film'
+                                            "
                                         ></mat-icon>
-                                        <span>Dựng video</span>
+                                        <span class="inline-flex items-center gap-2">
+                                            <span>Dựng video</span>
+                                            @if (hasCreatedVideo(row)) {
+                                                <span class="px-1.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 leading-none">
+                                                    Đã tạo
+                                                </span>
+                                            }
+                                        </span>
                                     </button>
                                     <button
                                         mat-menu-item
@@ -516,23 +544,43 @@
                                     mat-icon-button
                                     (click)="openRowScript(row)"
                                     class="transition-colors"
-                                    [matTooltip]="(row.has_script || row.hasScript || hasScriptProject(row)) ? 'Xem kịch bản' : 'Tạo kịch bản'"
+                                    [matTooltip]="hasScriptProject(row) ? 'Đã có kịch bản — Nhấn để xem kịch bản' : 'Tạo kịch bản'"
                                 >
-                                    <mat-icon
-                                        class="icon-size-4 text-red-500"
-                                        [svgIcon]="'feather:feather'"
-                                    ></mat-icon>
+                                    @if (hasScriptProject(row)) {
+                                        <span class="script-created-badge">
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [svgIcon]="'feather:feather'"
+                                            ></mat-icon>
+                                            <span class="video-created-dot"></span>
+                                        </span>
+                                    } @else {
+                                        <mat-icon
+                                            class="icon-size-4 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 transition-colors"
+                                            [svgIcon]="'feather:feather'"
+                                        ></mat-icon>
+                                    }
                                 </button>
                                 <button
                                     mat-icon-button
                                     (click)="openRowVideo(row)"
                                     class="transition-colors"
-                                    [matTooltip]="'Dựng video'"
+                                    [matTooltip]="getVideoActionTooltip(row)"
                                 >
-                                    <mat-icon
-                                        class="icon-size-4 text-blue-500"
-                                        [svgIcon]="'heroicons_outline:film'"
-                                    ></mat-icon>
+                                    @if (hasCreatedVideo(row)) {
+                                        <span class="video-created-badge">
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [svgIcon]="'heroicons_solid:film'"
+                                            ></mat-icon>
+                                            <span class="video-created-dot"></span>
+                                        </span>
+                                    } @else {
+                                        <mat-icon
+                                            class="icon-size-4 text-slate-400 hover:text-blue-500 dark:text-slate-500 dark:hover:text-blue-400 transition-colors"
+                                            [svgIcon]="'heroicons_outline:film'"
+                                        ></mat-icon>
+                                    }
                                 </button>
                                 <button
                                     mat-icon-button
@@ -660,6 +708,64 @@
                                               ")"
                                             : "Sửa (" + selected.length + ")"
                                     }}</mat-label>
+                                </button>
+                            }
+                            @if ((selected && selected.length > 0) || bulkVideoInProgress || bulkVideoItems.length > 0) {
+                                <button
+                                    mat-flat-button
+                                    class="bulk-video-trigger-btn bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 sm:px-4 min-w-0"
+                                    (click)="openBulkVideoDialog()"
+                                    [matTooltip]="
+                                        bulkVideoInProgress
+                                            ? 'Xem tiến trình tạo video hàng loạt'
+                                            : 'Tạo video AI hàng loạt cho các tác vụ đã chọn'
+                                    "
+                                >
+                                    <span class="inline-flex items-center justify-center gap-1.5 leading-none">
+                                        @if (!bulkVideoInProgress) {
+                                            <mat-icon
+                                                class="icon-size-4 sm:icon-size-5 shrink-0"
+                                                [svgIcon]="'heroicons_outline:film'"
+                                            ></mat-icon>
+                                        } @else {
+                                            <svg
+                                                class="w-4 h-4 animate-spin shrink-0 text-white"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                            >
+                                                <circle
+                                                    class="opacity-25"
+                                                    cx="12"
+                                                    cy="12"
+                                                    r="9.5"
+                                                    stroke="currentColor"
+                                                    stroke-width="2.5"
+                                                ></circle>
+                                                <path
+                                                    class="opacity-95"
+                                                    d="M12 2.5a9.5 9.5 0 0 1 9.5 9.5"
+                                                    stroke="currentColor"
+                                                    stroke-width="2.5"
+                                                    stroke-linecap="round"
+                                                ></path>
+                                            </svg>
+                                        }
+                                        <span class="text-xs sm:text-sm leading-none whitespace-nowrap">{{
+                                            bulkVideoInProgress
+                                                ? "Đang tạo video (" +
+                                                  bulkVideoFinishedCount +
+                                                  "/" +
+                                                  bulkVideoTotal +
+                                                  ")"
+                                                : selected && selected.length > 0
+                                                  ? "Tạo video (" + selected.length + ")"
+                                                  : "Kết quả video (" +
+                                                    bulkVideoSuccessCount +
+                                                    "/" +
+                                                    bulkVideoTotal +
+                                                    ")"
+                                        }}</span>
+                                    </span>
                                 </button>
                             }
 
@@ -861,6 +967,445 @@
                 </button>
             </div>
         }
+    </div>
+</ng-template>
+
+<!-- Dialog tạo video hàng loạt -->
+<ng-template #bulkVideoDialog>
+    <div class="bulk-video-dialog flex flex-col bg-card rounded-xl overflow-hidden w-full max-h-[90vh]">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 shrink-0">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+                    <mat-icon
+                        class="icon-size-5 text-emerald-600 dark:text-emerald-400"
+                        [svgIcon]="'heroicons_outline:film'"
+                    ></mat-icon>
+                </div>
+                <div class="min-w-0">
+                    <h2 class="text-[18px] font-bold text-gray-900 dark:text-gray-100 m-0 leading-tight truncate">
+                        Tạo video hàng loạt ({{ bulkVideoViewMode === 'progress' ? bulkVideoItems.length : bulkVideoTargets.length }} tác vụ)
+                    </h2>
+                    <p class="text-[13px] text-secondary m-0 mt-0.5 truncate">
+                        {{ getBulkVideoEngineLabel() }}
+                    </p>
+                </div>
+            </div>
+            <button
+                type="button"
+                mat-icon-button
+                mat-dialog-close
+                class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shrink-0"
+                [matTooltip]="bulkVideoInProgress ? 'Thu nhỏ (tiếp tục chạy nền)' : 'Đóng'"
+            >
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:x'"></mat-icon>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4 min-h-0">
+            @if (bulkVideoViewMode === 'config') {
+                <!-- Tỷ lệ khung hình -->
+                <div class="flex flex-col gap-2">
+                    <span class="text-[14px] font-semibold text-gray-700 dark:text-gray-200">
+                        Tỷ lệ khung hình
+                    </span>
+                    <div class="grid grid-cols-6 gap-1 p-1 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                        @for (opt of bulkVideoAspectRatioOptions; track opt.value) {
+                            <button
+                                type="button"
+                                (click)="selectBulkVideoAspectRatio(opt.value)"
+                                class="flex flex-col items-center justify-center gap-1.5 py-2 px-1 rounded-md transition-colors cursor-pointer select-none border"
+                                [ngClass]="
+                                    bulkVideoAspectRatio === opt.value
+                                        ? 'bg-white dark:bg-gray-700 text-emerald-700 dark:text-emerald-300 border-emerald-400 dark:border-emerald-500 font-semibold'
+                                        : 'bg-transparent border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-gray-700/40 font-medium'
+                                "
+                            >
+                                <span class="h-5 flex items-center justify-center">
+                                    <span
+                                        class="inline-block rounded-[2px] border-[1.75px] border-current"
+                                        [style.width.px]="opt.iconW"
+                                        [style.height.px]="opt.iconH"
+                                    ></span>
+                                </span>
+                                <span class="text-[13px] leading-none">{{ opt.label }}</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <!-- Độ phân giải & Chế độ chạy -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="flex flex-col gap-1.5">
+                        <span class="text-[14px] font-semibold text-gray-700 dark:text-gray-200">
+                            Độ phân giải
+                        </span>
+                        <div class="grid grid-cols-4 gap-1 p-1 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                            @for (res of bulkVideoResolutionOptions; track res.value) {
+                                <button
+                                    type="button"
+                                    (click)="bulkVideoResolution = res.value; persistBulkVideoPreferences()"
+                                    class="py-2 px-1 rounded-md text-[13px] text-center transition-colors cursor-pointer select-none border"
+                                    [ngClass]="
+                                        bulkVideoResolution === res.value
+                                            ? 'bg-white dark:bg-gray-700 text-emerald-700 dark:text-emerald-300 border-emerald-400 dark:border-emerald-500 font-semibold'
+                                            : 'bg-transparent border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium'
+                                    "
+                                >
+                                    {{ res.label }}
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <span class="text-[14px] font-semibold text-gray-700 dark:text-gray-200">
+                            Chế độ xử lý
+                        </span>
+                        <div class="grid grid-cols-3 gap-1 p-1 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                            @for (cOpt of bulkVideoConcurrencyOptions; track cOpt.value) {
+                                <button
+                                    type="button"
+                                    (click)="bulkVideoConcurrency = cOpt.value; persistBulkVideoPreferences()"
+                                    class="py-2 px-1 rounded-md text-[13px] text-center transition-colors cursor-pointer select-none border truncate"
+                                    [ngClass]="
+                                        bulkVideoConcurrency === cOpt.value
+                                            ? 'bg-white dark:bg-gray-700 text-emerald-700 dark:text-emerald-300 border-emerald-400 dark:border-emerald-500 font-semibold'
+                                            : 'bg-transparent border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium'
+                                    "
+                                >
+                                    {{ cOpt.label }}
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thời lượng mỗi video -->
+                <div class="flex flex-col gap-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[14px] font-semibold text-gray-700 dark:text-gray-200">
+                            Thời lượng mỗi video
+                        </span>
+                        <span class="text-[14px] font-semibold text-emerald-600 dark:text-emerald-400">
+                            {{
+                                bulkVideoDuration === 0
+                                    ? 'Tự động (theo nội dung)'
+                                    : bulkVideoDuration + ' giây / video'
+                            }}
+                        </span>
+                    </div>
+                    <div class="flex flex-col pt-1">
+                        <input
+                            type="range"
+                            min="0"
+                            max="30"
+                            step="1"
+                            [ngModel]="bulkVideoDuration"
+                            (ngModelChange)="onBulkVideoDurationChange($event)"
+                            [style.background]="getBulkVideoDurationSliderBg()"
+                            class="bulk-video-slider w-full h-1.5 rounded-full cursor-pointer"
+                        />
+                        <div class="relative w-full h-7 mt-1.5 select-none">
+                            @for (tick of bulkVideoDurationTicks; track tick) {
+                                <button
+                                    type="button"
+                                    (click)="onBulkVideoDurationChange(tick)"
+                                    class="absolute -translate-x-1/2 flex flex-col items-center cursor-pointer group focus:outline-none"
+                                    [style.left]="'calc(8px + (100% - 16px) * ' + (tick / 30) + ')'"
+                                >
+                                    <span
+                                        class="w-[1.5px] h-1.5 rounded-full transition-colors"
+                                        [ngClass]="
+                                            bulkVideoDuration === tick
+                                                ? 'bg-emerald-600 dark:bg-emerald-400'
+                                                : 'bg-gray-300 dark:bg-gray-600 group-hover:bg-gray-400'
+                                        "
+                                    ></span>
+                                    <span
+                                        class="text-[12px] leading-tight mt-0.5 transition-colors"
+                                        [ngClass]="
+                                            bulkVideoDuration === tick
+                                                ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                                                : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-200'
+                                        "
+                                    >
+                                        {{ tick }}s
+                                    </span>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prompt bổ sung -->
+                <div class="flex flex-col gap-1.5">
+                    <span class="text-[14px] font-semibold text-gray-700 dark:text-gray-200">
+                        Prompt bổ sung
+                    </span>
+                    <textarea
+                        [(ngModel)]="bulkVideoPrompt"
+                        rows="3"
+                        placeholder="Nhập yêu cầu bổ sung về phong cách, góc quay, ánh sáng, nhịp dựng... (tự động kết hợp cùng nội dung bài viết của từng tác vụ)"
+                        class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-[14px] leading-relaxed text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:border-emerald-500 resize-y"
+                    ></textarea>
+                </div>
+
+                <!-- Đính kèm file -->
+                <div class="flex flex-col gap-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[14px] font-semibold text-gray-700 dark:text-gray-200">
+                            Đính kèm file tham chiếu
+                        </span>
+                        @if (bulkVideoFiles.length > 0) {
+                            <button
+                                type="button"
+                                (click)="clearBulkVideoFiles()"
+                                class="text-[13px] text-red-500 hover:text-red-600 font-medium cursor-pointer"
+                            >
+                                Xóa tất cả ({{ bulkVideoFiles.length }})
+                            </button>
+                        }
+                    </div>
+
+                    <input
+                        #bulkVideoFileInput
+                        type="file"
+                        multiple
+                        accept="image/*,video/*,audio/*,.txt,.md,.json,.pdf,.srt,.vtt"
+                        (change)="onBulkVideoFilesSelected($event)"
+                        class="hidden"
+                    />
+
+                    <button
+                        type="button"
+                        (click)="bulkVideoFileInput.click()"
+                        class="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50/70 dark:bg-gray-800/40 hover:border-emerald-500 hover:bg-emerald-50/40 dark:hover:bg-emerald-900/20 text-gray-600 dark:text-gray-300 transition-colors cursor-pointer"
+                    >
+                        <mat-icon
+                            class="icon-size-5 text-emerald-600 dark:text-emerald-400 shrink-0"
+                            [svgIcon]="'feather:paperclip'"
+                        ></mat-icon>
+                        <div class="text-left">
+                            <div class="text-[14px] font-semibold text-gray-700 dark:text-gray-200">
+                                Chọn file đính kèm (Ảnh nhân vật/sản phẩm, Video mẫu, Audio, Tài liệu)
+                            </div>
+                            <div class="text-[13px] text-gray-400 mt-0.5">
+                                Hỗ trợ chọn nhiều tệp cùng lúc để áp dụng cho toàn bộ video trong lô
+                            </div>
+                        </div>
+                    </button>
+
+                    @if (bulkVideoFiles.length > 0) {
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            @for (att of bulkVideoFiles; track att.id; let fIdx = $index) {
+                                <div class="flex items-center gap-2.5 p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 min-w-0">
+                                    @if (att.kind === 'image' && att.previewUrl) {
+                                        <img
+                                            [src]="att.previewUrl"
+                                            [alt]="att.name"
+                                            class="w-10 h-10 rounded object-cover border border-gray-200 dark:border-gray-600 shrink-0"
+                                        />
+                                    } @else {
+                                        <div
+                                            class="w-10 h-10 rounded flex items-center justify-center shrink-0 border"
+                                            [ngClass]="{
+                                                'bg-indigo-50 border-indigo-200 text-indigo-600 dark:bg-indigo-900/40 dark:border-indigo-700': att.kind === 'video',
+                                                'bg-amber-50 border-amber-200 text-amber-600 dark:bg-amber-900/40 dark:border-amber-700': att.kind === 'audio',
+                                                'bg-slate-100 border-slate-200 text-slate-600 dark:bg-slate-800 dark:border-slate-600': att.kind === 'document'
+                                            }"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [svgIcon]="
+                                                    att.kind === 'video'
+                                                        ? 'heroicons_outline:film'
+                                                        : att.kind === 'audio'
+                                                          ? 'feather:volume-2'
+                                                          : 'feather:file-text'
+                                                "
+                                            ></mat-icon>
+                                        </div>
+                                    }
+                                    <div class="min-w-0 flex-1">
+                                        <div class="text-[14px] font-semibold text-gray-800 dark:text-gray-100 truncate" [title]="att.name">
+                                            {{ att.name }}
+                                        </div>
+                                        <div class="text-[12px] text-gray-400">
+                                            {{
+                                                att.kind === 'image'
+                                                    ? 'Ảnh tham chiếu'
+                                                    : att.kind === 'video'
+                                                      ? 'Video mẫu'
+                                                      : att.kind === 'audio'
+                                                        ? 'Audio mẫu'
+                                                        : 'Tài liệu'
+                                            }} · {{ formatFileSize(att.size) }}
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        (click)="removeBulkVideoFile(fIdx)"
+                                        class="bulk-video-chip-close text-gray-400 hover:text-red-500 shrink-0"
+                                        matTooltip="Gỡ file này"
+                                    >
+                                        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                                            <line x1="2.5" y1="2.5" x2="9.5" y2="9.5" />
+                                            <line x1="9.5" y1="2.5" x2="2.5" y2="9.5" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            } @else {
+                <!-- Màn hình tiến trình & kết quả tạo hàng loạt -->
+                <div class="flex flex-col gap-3">
+                    <div class="p-3.5 rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 flex flex-col gap-2">
+                        <div class="flex items-center justify-between text-[14px] font-semibold">
+                            <span class="text-gray-700 dark:text-gray-200">
+                                @if (bulkVideoInProgress) {
+                                    Đang xử lý {{ bulkVideoFinishedCount }} / {{ bulkVideoTotal }} video...
+                                } @else {
+                                    Hoàn tất {{ bulkVideoSuccessCount }} / {{ bulkVideoTotal }} video
+                                    @if (bulkVideoFailCount > 0) {
+                                        <span class="text-red-500 ml-1">({{ bulkVideoFailCount }} lỗi)</span>
+                                    }
+                                }
+                            </span>
+                            <span class="text-emerald-600 dark:text-emerald-400">
+                                {{ bulkVideoProgressPercent }}%
+                            </span>
+                        </div>
+                        <mat-progress-bar
+                            mode="determinate"
+                            [value]="bulkVideoProgressPercent"
+                            color="primary"
+                        ></mat-progress-bar>
+                        <div class="text-[13px] text-gray-500 dark:text-gray-400 flex flex-wrap gap-x-3 gap-y-1">
+                            <span>Tỷ lệ: <b>{{ bulkVideoAspectRatio }}</b></span>
+                            <span>Độ phân giải: <b>{{ bulkVideoResolution.toUpperCase() }}</b></span>
+                            <span>Thời lượng: <b>{{ bulkVideoDuration === 0 ? 'Tự động' : bulkVideoDuration + 's' }}</b></span>
+                            @if (bulkVideoFiles.length > 0) {
+                                <span>Đính kèm: <b>{{ bulkVideoFiles.length }} tệp</b></span>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2.5">
+                        @for (item of bulkVideoItems; track item.uuid) {
+                            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/80 overflow-hidden">
+                                <div class="p-3 flex items-center justify-between gap-3">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <span class="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-mono text-[12px] font-semibold shrink-0">
+                                                {{ item.uuid }}
+                                            </span>
+                                            <span class="text-[14px] font-semibold text-gray-800 dark:text-gray-100 truncate" [title]="item.title">
+                                                {{ item.title }}
+                                            </span>
+                                        </div>
+                                        <div class="text-[13px] mt-1 flex items-center gap-1.5"
+                                            [ngClass]="{
+                                                'text-gray-400': item.status === 'pending' || item.status === 'cancelled',
+                                                'text-blue-600 dark:text-blue-400': item.status === 'running',
+                                                'text-emerald-600 dark:text-emerald-400': item.status === 'done',
+                                                'text-red-500': item.status === 'error'
+                                            }"
+                                        >
+                                            @if (item.status === 'running') {
+                                                <mat-spinner [diameter]="14"></mat-spinner>
+                                            }
+                                            <span class="truncate">{{ item.statusText }}</span>
+                                        </div>
+                                    </div>
+
+                                    @if (item.status === 'done' && item.localPath) {
+                                        <div class="flex items-center shrink-0">
+                                            <button
+                                                type="button"
+                                                mat-icon-button
+                                                class="text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                                                (click)="openBulkVideoFolder(item)"
+                                                matTooltip="Mở thư mục chứa video"
+                                            >
+                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:folder'"></mat-icon>
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 shrink-0">
+            <div class="text-[13px] text-gray-500 dark:text-gray-400 truncate">
+                @if (bulkVideoViewMode === 'config') {
+                    {{ bulkVideoTargets.length }} video · {{ bulkVideoAspectRatio }} · {{ bulkVideoResolution.toUpperCase() }} · {{ bulkVideoDuration === 0 ? 'Tự động' : bulkVideoDuration + 's' }}
+                } @else {
+                    {{ bulkVideoInProgress ? 'Bạn có thể đóng cửa sổ để tiếp tục làm việc trong lúc chạy nền.' : 'Video đã lưu vào Documents/ai.type/data/exports/output/[uuid]/' }}
+                }
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+                @if (bulkVideoViewMode === 'config') {
+                    <button type="button" mat-button mat-dialog-close>
+                        Hủy
+                    </button>
+                    <button
+                        type="button"
+                        mat-flat-button
+                        class="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        [disabled]="bulkVideoTargets.length === 0"
+                        (click)="startBulkVideoGeneration()"
+                    >
+                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:video-camera'"></mat-icon>
+                        <span class="ml-2">Tạo {{ bulkVideoTargets.length }} video</span>
+                    </button>
+                } @else if (bulkVideoInProgress) {
+                    <button type="button" mat-button mat-dialog-close>
+                        Chạy nền
+                    </button>
+                    <button
+                        type="button"
+                        mat-flat-button
+                        class="bg-red-500 hover:bg-red-600 text-white"
+                        [disabled]="bulkVideoCancelRequested"
+                        (click)="cancelBulkVideoGeneration()"
+                    >
+                        <mat-icon class="icon-size-4" [svgIcon]="'feather:square'"></mat-icon>
+                        <span class="ml-1.5">{{ bulkVideoCancelRequested ? 'Đang dừng...' : 'Dừng' }}</span>
+                    </button>
+                } @else {
+                    <button
+                        type="button"
+                        mat-button
+                        (click)="resetBulkVideoToConfig()"
+                    >
+                        Cấu hình lại
+                    </button>
+                    @if (bulkVideoFailCount > 0) {
+                        <button
+                            type="button"
+                            mat-flat-button
+                            class="bg-amber-500 hover:bg-amber-600 text-white"
+                            (click)="retryFailedBulkVideoItems()"
+                        >
+                            Tạo lại {{ bulkVideoFailCount }} mục lỗi
+                        </button>
+                    }
+                    <button type="button" mat-flat-button color="primary" mat-dialog-close>
+                        Đóng
+                    </button>
+                }
+            </div>
+        </div>
     </div>
 </ng-template>
 

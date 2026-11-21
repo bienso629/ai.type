@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Subject } from 'rxjs';
 import { MultiAccountService } from './multi-account.service';
 
 /**
@@ -36,7 +37,16 @@ export interface ProjectListItem {
     statusClass?: string;
 }
 
+export interface CreatedVideoStatus {
+    exported: boolean;
+    hasSceneVideo?: boolean;
+    count: number;
+    latestPath?: string;
+    updatedAt?: number;
+}
+
 const REGISTRY_KEY = 'ai_type_video_project_registry';
+const CREATED_VIDEO_CACHE_KEY = 'ai_type_created_video_cache';
 const LEGACY_KEYS = {
     meta: (uuid: string) => `ai_type_audio_merger_data_${uuid}`,
     timeline: (uuid: string) => `ai_type_video_ready_data_${uuid}`,
@@ -48,6 +58,9 @@ export class ProjectStoreService {
     private migrateGuard: Set<string> = new Set();
     private registryUuidSet: Set<string> | null = null;
     private registryAccountId: string | null = null;
+    private createdVideoMap: Map<string, CreatedVideoStatus> | null = null;
+    private createdVideoAccountId: string | null = null;
+    readonly createdVideosUpdated$ = new Subject<void>();
 
     constructor(private multiAccountService: MultiAccountService) {
         this.multiAccountService.activeAccount$.subscribe(() => {
@@ -55,15 +68,19 @@ export class ProjectStoreService {
                 this.registryUuidSet = null;
                 this.registryAccountId = this.multiAccountService.currentAccountId;
             }
+            if (this.createdVideoAccountId !== this.multiAccountService.currentAccountId) {
+                this.createdVideoMap = null;
+                this.createdVideoAccountId = this.multiAccountService.currentAccountId;
+                this.createdVideosUpdated$.next();
+            }
         });
 
-        // Sau khi phiên đăng nhập sẵn sàng, nạp registry từ đĩa ở nền
-        // để các kiểm tra hasProject() có dữ liệu ngay cả khi người dùng
-        // đi thẳng vào trang khác (không qua Dashboard).
+        // Sau khi phiên đăng nhập sẵn sàng, nạp registry & trạng thái video đã tạo từ đĩa ở nền
         this.multiAccountService.isReady
             .then(() => {
                 setTimeout(() => {
                     this.list(null).catch(() => {});
+                    this.refreshCreatedVideos(null).catch(() => {});
                 }, 800);
             })
             .catch(() => {});
@@ -129,6 +146,90 @@ export class ProjectStoreService {
     hasProject(uuid: string | null | undefined): boolean {
         if (!uuid) return false;
         return this.ensureRegistrySet().has(uuid);
+    }
+
+    // ===================== CREATED VIDEO INDEX (O(1) cho highlight icon Dựng video) =====================
+
+    private ensureCreatedVideoMap(): Map<string, CreatedVideoStatus> {
+        if (!this.createdVideoMap) {
+            this.createdVideoMap = new Map<string, CreatedVideoStatus>();
+            const cached = this.multiAccountService.getItem(CREATED_VIDEO_CACHE_KEY);
+            if (cached && typeof cached === 'object') {
+                for (const key of Object.keys(cached)) {
+                    if (cached[key]) {
+                        this.createdVideoMap.set(key, cached[key]);
+                    }
+                }
+            }
+            this.createdVideoAccountId = this.multiAccountService.currentAccountId;
+        }
+        return this.createdVideoMap;
+    }
+
+    private persistCreatedVideoMap(): void {
+        if (!this.createdVideoMap) return;
+        const obj: Record<string, CreatedVideoStatus> = {};
+        let count = 0;
+        for (const [k, v] of this.createdVideoMap.entries()) {
+            obj[k] = v;
+            count++;
+            if (count >= 1000) break;
+        }
+        this.multiAccountService.setItem(CREATED_VIDEO_CACHE_KEY, obj);
+    }
+
+    hasCreatedVideo(uuid: string | null | undefined): boolean {
+        if (!uuid) return false;
+        return this.ensureCreatedVideoMap().has(uuid);
+    }
+
+    getCreatedVideoInfo(uuid: string | null | undefined): CreatedVideoStatus | null {
+        if (!uuid) return null;
+        return this.ensureCreatedVideoMap().get(uuid) || null;
+    }
+
+    markCreatedVideo(uuid: string, info?: Partial<CreatedVideoStatus>): void {
+        if (!uuid) return;
+        const map = this.ensureCreatedVideoMap();
+        const prev = map.get(uuid);
+        map.set(uuid, {
+            exported: info?.exported ?? prev?.exported ?? true,
+            hasSceneVideo: info?.hasSceneVideo ?? prev?.hasSceneVideo ?? true,
+            count: info?.count ?? Math.max(1, prev?.count || 0),
+            latestPath: info?.latestPath ?? prev?.latestPath,
+            updatedAt: info?.updatedAt ?? Date.now(),
+        });
+        this.persistCreatedVideoMap();
+        this.createdVideosUpdated$.next();
+    }
+
+    async refreshCreatedVideos(
+        username?: string | null,
+    ): Promise<Map<string, CreatedVideoStatus>> {
+        const uname = this.activeUsername(username);
+        if (this.isElectron) {
+            try {
+                const res = await this.electron.invoke('project-store:list-created-videos', {
+                    username: uname || 'anonymous',
+                });
+                if (res?.success && res.videos && typeof res.videos === 'object') {
+                    const nextMap = new Map<string, CreatedVideoStatus>();
+                    for (const key of Object.keys(res.videos)) {
+                        if (res.videos[key]) {
+                            nextMap.set(key, res.videos[key]);
+                        }
+                    }
+                    this.createdVideoMap = nextMap;
+                    this.createdVideoAccountId = this.multiAccountService.currentAccountId;
+                    this.persistCreatedVideoMap();
+                    this.createdVideosUpdated$.next();
+                    return nextMap;
+                }
+            } catch (e) {
+                console.warn('[ProjectStore] Không quét được danh sách video đã tạo:', e);
+            }
+        }
+        return this.ensureCreatedVideoMap();
     }
 
     /** Kiểm tra nền: nếu registry thiếu nhưng đĩa có thì tự bổ sung (best-effort) */

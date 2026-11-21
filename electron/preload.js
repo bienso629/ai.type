@@ -218,7 +218,7 @@ if (isInternalAppOrigin) contextBridge.exposeInMainWorld('electron', {
     // ── Animations ──
     listAnimations:     (username)               => ipcRenderer.invoke('animations:list',            { username }),
     uploadAnimation:    (username, name, buffer) => ipcRenderer.invoke('animations:upload',          { username, name, buffer }),
-    deleteAnimation:    (username, id)           => ipcRenderer.invoke('animations:delete',          { username, id }),
+    deleteAnimation:    (username, id, name)     => ipcRenderer.invoke('animations:delete',          { username, id, name }),
     updateAnimation:    (username, id, patch)    => ipcRenderer.invoke('animations:update',          { username, id, patch }),
 
     // ── Clothing / Accessories ──
@@ -239,6 +239,15 @@ if (isInternalAppOrigin) contextBridge.exposeInMainWorld('electron', {
     openExportsFolder:      (username)                                           => ipcRenderer.invoke('exports:open-folder',        { username }),
     convertExportWebmToMp4: (username, buffer, aspectRatio, maxDurationSec)      => ipcRenderer.invoke('exports:convert-webm-to-mp4', { username, buffer, aspectRatio, maxDurationSec }),
     saveAiExportVideo:      (username, base64, filename)                         => ipcRenderer.invoke('exports:save-ai-video',      { username, base64, filename }),
+
+    // ── 3D Video Motion Capture (NLF SMPL 3D) ──
+    extractVideoMocap3d:    (payload) => ipcRenderer.invoke('mocap:extract-video-3d', payload),
+    onMocapProgress:        (callback) => {
+        if (typeof callback !== 'function') return () => {};
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on('mocap:progress', listener);
+        return () => ipcRenderer.removeListener('mocap:progress', listener);
+    },
 
     // ── Props ──
     listProps:          (username)               => ipcRenderer.invoke('props:list',                 { username }),

@@ -48,10 +48,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
   @ViewChild('sceneCanvas', { static: true }) canvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('sceneContainer') sceneContainerRef!: ElementRef<HTMLDivElement>;
-  @ViewChild('glbFileInput') glbFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('photoFileInput') photoFileInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('avatarFileInput') avatarFileInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('actionFileInput') actionFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('audioFileInput') audioFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('textFileInput') textFileInput!: ElementRef<HTMLInputElement>;
   /** Input ẩn nhận file .js chứa mã lệnh PlayCanvas chạy trực tiếp trên canvas */
@@ -61,12 +58,10 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   @ViewChild('promptInputArea') promptInputArea?: ElementRef<HTMLTextAreaElement>;
 
   isLoading    = true;
-  isUploading  = false;
   isProcessingPrompt = false;
   isFullscreen = false;
   isSidebarCollapsed = false;
   loadError: string | null   = null;
-  uploadError: string | null = null;
   profile: UserProfile | null = null;
   roomProps: any[] = DEFAULT_PROPS;
 
@@ -75,55 +70,12 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   selectedPropPos: { x: number; y: number; z: number } | null = null;
   selectedPropRot: { x: number; y: number; z: number } | null = null;
   selectedPropScl: { x: number; y: number; z: number } | null = null;
-  /** Khoảng cách từ đáy thực tế của đồ vật/nhân vật tới mặt sàn phần mềm (Y = 0): 0 = chạm sàn, >0 = cao hơn sàn, <0 = lún dưới sàn */
-  selectedPropFloorHeight: number | null = null;
   /** Vị trí pixel + trạng thái của cặp nút Delete/Duplicate nổi trên canvas */
   propActionAnchor = { visible: false, x: 0, y: 0, propId: null as string | null };
   /** Do vat dang chon co bi khoa khong (nut khoa tren canvas + chan scrub) */
   get selectedPropLocked(): boolean {
     const p = this.roomProps?.find(pr => pr && pr.id === this.selectedPropId);
     return !!p?.locked;
-  }
-
-  get selectedPropFloorState(): 'grounded' | 'above' | 'below' | 'unknown' {
-    if (this.selectedPropFloorHeight === null) return 'unknown';
-    if (this.selectedPropFloorHeight > 0.03) return 'above';
-    if (this.selectedPropFloorHeight < -0.03) return 'below';
-    return 'grounded';
-  }
-
-  get selectedPropExactOnFloor(): boolean {
-    return this.selectedPropFloorHeight !== null && Math.abs(this.selectedPropFloorHeight) < 0.005;
-  }
-
-  private _refreshSelectedPropFloorHeight(): void {
-    this.selectedPropFloorHeight = this.selectedPropId
-      ? this.sceneService.getPropFloorElevation(this.selectedPropId)
-      : null;
-  }
-
-  /** Đưa đáy đồ vật/nhân vật đang chọn về đúng mặt sàn phần mềm (Y sàn = 0.00) và lưu lại */
-  snapSelectedPropToFloor(event?: Event): void {
-    event?.stopPropagation();
-    if (!this.selectedPropId) return;
-    if (this.selectedPropLocked) {
-      this.toastr.warning('Đối tượng đang bị khóa vị trí. Hãy mở khóa trước khi đặt xuống sàn.');
-      return;
-    }
-    const newPos = this.sceneService.snapPropToFloor(this.selectedPropId);
-    if (!newPos) return;
-    this.selectedPropPos = { ...newPos };
-    this._refreshSelectedPropFloorHeight();
-    const prop = this.roomProps.find(p => p && p.id === this.selectedPropId);
-    if (prop) {
-      prop.position = { ...newPos };
-      (prop as any)._customPositionSet = true;
-      const curScale = this.selectedPropScl || prop.scale || { x: 1, y: 1, z: 1 };
-      (prop as any)._groundedAtScale = { x: curScale.x, y: curScale.y, z: curScale.z };
-      this.profileDataService.saveProps(this.roomProps).subscribe();
-    }
-    this.toastr.success(`Đã đặt "${this.selectedPropName}" sát mặt sàn chuẩn (độ cao 0.00)`);
-    this.cdr.markForCheck();
   }
   private _lastSelectedPropId: string | null = null;
   /** Set lưu runtime propId đang insert GLB — tuyệt đối không ghi cờ tạm lên prop object để tránh serialize xuống props.json */
@@ -258,7 +210,6 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
   username = 'admin';
   promptText = '';
-  charThumbnail: string | null = null;
   // ── Quản lý mẫu thiết kế 3D (design presets) ──
   designPresets: Design3DPreset[] = [];
   designSearch = '';
@@ -268,12 +219,10 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   newDesignDesc = '';
   pendingDesignId: string | null = null; // design đang chờ lưu (đã có id từ nút "Lưu lại")
 
-  userAnimations: Array<{ id: string; name: string; glbPath: string; isMovement?: boolean; speed?: number; uploadedAt?: string }> = [];
   attachedImages: Array<{ dataUrl: string; base64: string; mimeType: string }> = [];
   attachedScripts: Array<{ name: string; code: string; size: number }> = [];
 
   private _destroy$    = new Subject<void>();
-  private _charBlobUrl: string | null = null;
 
   constructor(
     private sceneService: SontinhSceneService,
@@ -292,24 +241,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       const user = await this.userService.user$.pipe(take(1)).toPromise();
       this.username = user?.name || 'admin';
 
-      if ((window as any).electron?.getAvatar) {
-        try {
-          const res = await (window as any).electron.getAvatar(this.username);
-          if (res?.success && res?.dataUrl) {
-            this.charThumbnail = res.dataUrl;
-          }
-        } catch (_) {}
-      }
       const savedSidebarState = localStorage.getItem('profile_sidebar_collapsed');
       if (savedSidebarState !== null) {
         this.isSidebarCollapsed = savedSidebarState === 'true';
-      }
-
-      if (!this.charThumbnail) {
-        const savedAvatar = localStorage.getItem(`profile_avatar_${this.username}`);
-        if (savedAvatar) {
-          this.charThumbnail = savedAvatar;
-        }
       }
 
       // 2. Load profile từ đĩa qua Electron IPC
@@ -324,61 +258,10 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.roomProps = this.mergeProps((profile as any)?.props || []);
       (this.profile as any).props = this.roomProps;
 
-      // 3. Nếu profile đã có glbPath → đọc file thành Blob URL để PlayCanvas load
-      //    glbPath là đường dẫn đĩa, KHÔNG dùng làm URL trực tiếp
-      let charGlbObjectUrl: string | null = null;
-      const savedGlbPath = profile?.character?.glbPath ?? null;
-      if (savedGlbPath) {
-        try {
-          charGlbObjectUrl = await this.profileDataService
-            .readGlbAsObjectUrl(savedGlbPath).toPromise() ?? null;
-          this._charBlobUrl = charGlbObjectUrl;
-        } catch (e) {
-          console.warn('[Profile] Không đọc được GLB đã lưu:', savedGlbPath, e);
-        }
-      }
-
-      // 3b. Load danh sách hành động (animations) từ đĩa trước khi khởi tạo scene
-      if ((window as any).electron?.listAnimations) {
-        try {
-          const animRes = await (window as any).electron.listAnimations(this.username);
-          if (animRes?.success && Array.isArray(animRes.data)) {
-            this.userAnimations = animRes.data;
-          }
-        } catch (e) {
-          console.warn('[Profile] Lỗi load danh sách hành động:', e);
-        }
-      }
-
-      // 4. Khởi động 3D scene
-      await this.sceneService.initScene(this.canvasRef.nativeElement, this.profile, charGlbObjectUrl);
+      // 3. Khởi động 3D scene (mọi mô hình/nhân vật 3D được quản lý thống nhất qua danh sách Đồ vật GLB)
+      await this.sceneService.initScene(this.canvasRef.nativeElement, this.profile, null);
       this.lightingConfig = this.sceneService.getStudioLighting();
       this.sceneService.rerunAllFxEffects();
-
-      // 4a. Phát ngay hành động mặc định nếu đã chọn
-      const defaultAnimState = profile?.character?.animationState;
-      if (defaultAnimState) {
-        const found = this.userAnimations.find(a => a.name === defaultAnimState);
-        if (found) {
-          this.setAnimation(found.name, found.glbPath, found.isMovement, found.speed);
-        }
-      }
-
-      // Capture thumbnail nếu chưa có avatar tùy chỉnh
-      if (profile?.character?.glbPath && !this.charThumbnail) {
-        setTimeout(() => {
-          const canvas = this.canvasRef?.nativeElement as HTMLCanvasElement;
-          if (canvas && !this.charThumbnail) {
-            try {
-              const snap = canvas.toDataURL('image/jpeg', 0.8);
-              if (snap && snap.length > 500) {
-                this.charThumbnail = snap;
-              }
-            } catch (_) {}
-            this.cdr.markForCheck();
-          }
-        }, 2000);
-      }
 
       // 4b. Wire callback: khi user click khung ảnh trên tường mà chưa có ảnh
       this.sceneService.onPictureFrameClick = () => {
@@ -391,9 +274,6 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         if (!prop) return;
         prop.position = pos;
         (prop as any)._customPositionSet = true;
-        if (propId === this.selectedPropId) {
-          this._refreshSelectedPropFloorHeight();
-        }
         this.profileDataService.saveProps(this.roomProps).subscribe();
         this.cdr.markForCheck();
       };
@@ -427,9 +307,6 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         if (!propId) {
           this.selectedPropRot = null;
           this.selectedPropScl = null;
-          this.selectedPropFloorHeight = null;
-        } else {
-          this._refreshSelectedPropFloorHeight();
         }
         this._lastSelectedPropId = propId;
         this.cdr.markForCheck();
@@ -468,7 +345,6 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
             this.selectedPropPos = null;
             this.selectedPropRot = null;
             this.selectedPropScl = null;
-            this.selectedPropFloorHeight = null;
           }
           if (this.texStudioPropId === pid) {
             this.isTextureStudioOpen = false;
@@ -499,7 +375,6 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         if (kind === 'pos') this.selectedPropPos = { ...values };
         else if (kind === 'rot') this.selectedPropRot = { ...values };
         else this.selectedPropScl = { ...values };
-        this._refreshSelectedPropFloorHeight();
         this.cdr.markForCheck();
       };
 
@@ -517,9 +392,6 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           (prop as any)._groundedAtScale = { ...values };
         } else {
           return;
-        }
-        if (propId === this.selectedPropId) {
-          this._refreshSelectedPropFloorHeight();
         }
         this.profileDataService.saveProps(this.roomProps).subscribe();
         this.cdr.markForCheck();
@@ -629,10 +501,6 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     if (id.includes('drawer') || name.includes('tủ')) return 'inventory_2';
     if (id.includes('door') || name.includes('cửa')) return 'meeting_room';
     return 'category';
-  }
-
-  focusOnCharacter(): void {
-    this.setCameraPreset('CHARACTER');
   }
 
   /** Bấm nút Plus trên panel CANVAS: mở hộp thoại chọn file .js */
@@ -1505,145 +1373,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     this.deleteProp(event, propId);
   }
 
-  /** Mở file picker khi click vào upload zone */
-  triggerUpload(): void {
-    this.glbFileInput?.nativeElement?.click();
-  }
-
   /** Đổi góc nhìn camera */
   setCameraPreset(preset: string): void {
     (this.sceneService as any).setCameraPreset?.(preset);
-  }
-
-  /** Chọn và phát animation cho nhân vật */
-  setAnimation(animName: string, glbPath?: string, isMovement?: boolean, speed?: number): void {
-    const found = this.userAnimations.find(a => a.name === animName);
-    if (found) {
-      glbPath = glbPath || found.glbPath;
-      if (typeof isMovement !== 'boolean') isMovement = found.isMovement;
-      if (typeof speed !== 'number') speed = found.speed;
-    }
-    console.log('[Profile] Play animation:', animName, glbPath, isMovement, speed);
-    this.sceneService.playAnimation?.(animName, glbPath, isMovement, speed);
-    this.cdr.markForCheck();
-  }
-
-  /** Đặt 1 hành động làm mặc định cho nhân vật (lưu vào profile) */
-  setDefaultAnimation(event: Event, animName: string, glbPath?: string, isMovement?: boolean, speed?: number): void {
-    event.stopPropagation();
-    const found = this.userAnimations.find(a => a.name === animName);
-    if (found) {
-      glbPath = glbPath || found.glbPath;
-      if (typeof isMovement !== 'boolean') isMovement = found.isMovement;
-      if (typeof speed !== 'number') speed = found.speed;
-    }
-    if (this.profile?.character) {
-      this.profile.character.animationState = animName;
-    }
-    console.log('[Profile] Set default animation:', animName, glbPath, isMovement, speed);
-    this.profileDataService.saveCharacter({ animationState: animName }).subscribe();
-    this.sceneService.playAnimation?.(animName, glbPath, isMovement, speed);
-    this.cdr.markForCheck();
-  }
-
-  /** Modal Cấu hình hành động */
-  editingAction: { id: string; name: string; isMovement: boolean; speed: number } | null = null;
-
-  openActionConfig(event: MouseEvent, anim: any): void {
-    event.stopPropagation();
-    this.editingAction = {
-      id: anim.id,
-      name: anim.name,
-      isMovement: anim.isMovement ?? false,
-      speed: anim.speed ?? (anim.isMovement ? 11.0 : 0.0)
-    };
-    this.cdr.markForCheck();
-  }
-
-  async saveActionConfig(): Promise<void> {
-    if (!this.editingAction) return;
-    const { id, name, isMovement, speed } = this.editingAction;
-    try {
-      if ((window as any).electron?.updateAnimation) {
-        const res = await (window as any).electron.updateAnimation(this.username, id, {
-          name: name.trim(),
-          isMovement,
-          speed: isMovement ? (speed > 0 ? speed : 11.0) : 0.0
-        });
-        if (res?.success && res.data) {
-          const idx = this.userAnimations.findIndex(a => a.id === id);
-          if (idx >= 0) {
-            this.userAnimations[idx] = res.data;
-          }
-          if (this.profile?.character?.animationState === name) {
-            this.setAnimation(res.data.name, res.data.glbPath, res.data.isMovement, res.data.speed);
-          }
-        }
-      }
-    } catch (e) {
-      console.error('[Profile] Save action config error:', e);
-    }
-    this.editingAction = null;
-    this.cdr.markForCheck();
-  }
-
-  closeActionConfig(): void {
-    this.editingAction = null;
-    this.cdr.markForCheck();
-  }
-
-  /** Trigger thêm hành động mới */
-  triggerAddAction(): void {
-    this.actionFileInput?.nativeElement?.click();
-  }
-
-  /** Xử lý khi chọn file animation clip GLB */
-  async onActionFileSelected(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const file  = input.files?.[0];
-    if (!file) return;
-    input.value = '';
-
-    const actionName = file.name.replace(/\.[^/.]+$/, "").replace(/_/g, " ").trim();
-    if (!actionName) return;
-
-    try {
-      const buffer = await file.arrayBuffer();
-      if ((window as any).electron?.uploadAnimation) {
-        const res = await (window as any).electron.uploadAnimation(this.username, actionName, buffer);
-        if (res?.success && res.data) {
-          const idx = this.userAnimations.findIndex(a => a.name === res.data.name);
-          if (idx >= 0) {
-            this.userAnimations[idx] = res.data;
-          } else {
-            this.userAnimations.push(res.data);
-          }
-          this.setAnimation(res.data.name, res.data.glbPath);
-          this.cdr.markForCheck();
-        } else {
-          alert('Upload hành động thất bại: ' + (res?.error || 'Lỗi không xác định'));
-        }
-      }
-    } catch (err: any) {
-      console.error('[Profile] Upload action error:', err);
-      alert('Upload hành động thất bại: ' + (err?.message || 'Lỗi không xác định'));
-    }
-  }
-
-  /** Xoá 1 hành động đã upload */
-  async deleteAction(event: MouseEvent, animId: string): Promise<void> {
-    event.stopPropagation();
-    try {
-      if ((window as any).electron?.deleteAnimation) {
-        const res = await (window as any).electron.deleteAnimation(this.username, animId);
-        if (res?.success) {
-          this.userAnimations = this.userAnimations.filter(a => a.id !== animId);
-          this.cdr.markForCheck();
-        }
-      }
-    } catch (err) {
-      console.error('[Profile] Delete animation error:', err);
-    }
   }
 
   /** Trigger thêm hình ảnh */
@@ -1915,28 +1647,28 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   }
 
   /** Nút Delete nổi trên canvas: gỡ món đang chọn khỏi scene (giữ item trong menu) */
-  onCanvasDeleteProp(event: Event): void {
+  onCanvasDeleteProp(event: Event, propId?: string | null): void {
     event.stopPropagation();
     event.preventDefault();
-    const pid = this.propActionAnchor.propId;
+    const pid = propId || this.selectedPropId || this.propActionAnchor.propId;
     if (!pid) return;
     this.sceneService.deletePropById(pid);
   }
 
   /** Nút Duplicate nổi trên canvas: nhân bản món đang chọn, bản sao đặt cạnh */
-  onCanvasDuplicateProp(event: Event): void {
+  onCanvasDuplicateProp(event: Event, propId?: string | null): void {
     event.stopPropagation();
     event.preventDefault();
-    const pid = this.propActionAnchor.propId;
+    const pid = propId || this.selectedPropId || this.propActionAnchor.propId;
     if (!pid) return;
     this.sceneService.duplicatePropById(pid);
   }
 
   /** Nut Khóa/Mở khóa nổi trên canvas: chặn kéo + scrub + scale cho tới khi mở khóa */
-  onCanvasToggleLock(event: Event): void {
+  onCanvasToggleLock(event: Event, propId?: string | null): void {
     event.stopPropagation();
     event.preventDefault();
-    const pid = this.propActionAnchor.propId;
+    const pid = propId || this.selectedPropId || this.propActionAnchor.propId;
     if (!pid) return;
     const next = !this.sceneService.isPropLocked(pid);
     this.sceneService.togglePropLock(pid, next);
@@ -1959,6 +1691,20 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   bonePos = { x: 0, y: 0, z: 0 };
   timelineAutoKey = true;
   timelineClips: Array<{ name: string; duration: number; isCustom?: boolean; kfCount?: number }> = [];
+  editingClipModal: {
+    propId: string;
+    originalName: string;
+    nameDraft: string;
+    isCustom: boolean;
+    duration: number;
+    kfCount: number;
+    aiPrompt: string;
+    hasAiSegments: boolean;
+    summaryText: string;
+    editInstruction: string;
+    saveAsNew: boolean;
+    isProcessing: boolean;
+  } | null = null;
   timelineCurrentTime = 0;
   timelineData: GlbPropTimelineData | null = null;
   private _lastUiTickMs = 0;
@@ -3489,12 +3235,13 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
     if (!targetPropId || !this.sceneService.hasPropRig(targetPropId)) return;
     let changed = false;
 
-    // 1. Đồng bộ từ các đồ vật 3D khác trong cùng căn phòng
+    // 1. Đồng bộ từ các đồ vật 3D khác trong cùng căn phòng (không ghi đè clip cùng tên đã có trên nhân vật hiện tại)
     for (const p of this.roomProps || []) {
+      if (!p || p.id === targetPropId) continue;
       const savedList = p?.boneTimeline?.savedClips;
       if (Array.isArray(savedList)) {
         for (const clip of savedList) {
-          if (this.sceneService.injectSharedKeyframeClip(targetPropId, clip)) {
+          if (this.sceneService.injectSharedKeyframeClip(targetPropId, clip, false)) {
             changed = true;
           }
         }
@@ -3512,7 +3259,7 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
           const glbRes = await electronApi.readGlb(item.glbPath);
           if (glbRes?.success && glbRes.buffer) {
             const parsedClip = this.sceneService.parseKeyframeClipFromBuffer(glbRes.buffer);
-            if (parsedClip && this.sceneService.injectSharedKeyframeClip(targetPropId, parsedClip)) {
+            if (parsedClip && this.sceneService.injectSharedKeyframeClip(targetPropId, parsedClip, false)) {
               changed = true;
             }
           }
@@ -3529,6 +3276,7 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
 
   closePropTimeline(): void {
     this.isGlbTimelineOpen = false;
+    this.editingClipModal = null;
     this.sceneService.highlightPropBone(null, null);
     this.cdr.markForCheck();
   }
@@ -3778,17 +3526,21 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
     let bakedClipInfo: { name: string; duration: number; kfCount: number; isNew: boolean } | null = null;
     const currentTl = this.sceneService.getPropTimeline(this.timelinePropId);
 
-    // Khi người dùng bấm nút Lưu (silent === false) hoặc truyền tên clip rõ ràng và trên Timeline đang có Keyframe:
-    // tự động đóng gói bộ Keyframe hiện tại thành một Clip chuyển động mới trong tab "Clip Chuyển động"
-    // đồng thời xuất tệp .glb riêng biệt vào ~/Documents/ai.type/data/profiles/{username}/assets/anims/
-    if ((!silent || customClipLabel) && currentTl && Array.isArray(currentTl.keyframes) && currentTl.keyframes.length > 0) {
+    // Chỉ tự động đóng gói bộ Keyframe thành Clip mới khi có tên clip rõ ràng (từ AI / Video)
+    // hoặc khi người dùng bấm nút Lưu lúc đang biên tập trực tiếp ở tab Keyframe Khớp xương (tránh bấm Lưu ở tab Clip làm nhân bản clip cũ)
+    const shouldAutoBake = Boolean(customClipLabel) || (!silent && currentTl?.mode === 'keyframes');
+    if (shouldAutoBake && currentTl && Array.isArray(currentTl.keyframes) && currentTl.keyframes.length > 0) {
       const promptTitle = (this.aiMotionPrompt || '').trim();
       const videoTitle = (this.aiMotionVideoName || '').replace(/\.[^.]+$/, '').trim();
+      const existingActiveCustom = this.timelineClips.find(
+        (c) => c.isCustom && c.name === currentTl.activeClipName
+      );
       const customCount = this.timelineClips.filter((c) => c.isCustom).length;
       const autoTitle =
         customClipLabel ||
         (promptTitle ? `AI: ${promptTitle.slice(0, 36)}` : '') ||
         (videoTitle ? `Video: ${videoTitle.slice(0, 32)}` : '') ||
+        existingActiveCustom?.name ||
         `Clip Keyframe #${customCount + 1}`;
       bakedClipInfo = this.sceneService.bakeKeyframesToClip(this.timelinePropId, autoTitle);
       this.timelineClips = this.sceneService.getPropClips(this.timelinePropId);
@@ -3923,23 +3675,441 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
     );
   }
 
-  deleteTimelineCustomClip(clipName: string, event?: Event): void {
+  openClipEditDialog(clipName: string, event?: Event): void {
     if (event) {
       event.stopPropagation();
       event.preventDefault();
     }
     if (!this.timelinePropId || !clipName) return;
-    if (this.sceneService.deletePropCustomClip(this.timelinePropId, clipName)) {
-      const safeId = clipName.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
-      if ((window as any).electron?.deleteAnimation) {
-        (window as any).electron.deleteAnimation(this.username || 'admin', safeId).catch(() => {});
+
+    // Phát ngay clip đang chọn trên scene 3D để người dùng vừa quan sát vừa mô tả điểm cần chỉnh
+    this.selectTimelineClip(clipName);
+
+    const summary = this.sceneService.summarizePropClipForAi(this.timelinePropId, clipName);
+    if (!summary) return;
+
+    const parts: string[] = [`${summary.duration.toFixed(2)}s`];
+    if (summary.isCustom) parts.push(`${summary.kfCount} KF`);
+    if (summary.totalDistanceMeters > 0.2) parts.push(`Quãng đường ~${summary.totalDistanceMeters}m`);
+    if (summary.aiSegments?.length) parts.push(`${summary.aiSegments.length} chặng AI`);
+    else if (!summary.isCustom) parts.push('Clip gốc nhúng trong GLB');
+
+    this.editingClipModal = {
+      propId: this.timelinePropId,
+      originalName: summary.name,
+      nameDraft: summary.name,
+      isCustom: summary.isCustom,
+      duration: summary.duration,
+      kfCount: summary.kfCount,
+      aiPrompt: summary.aiPrompt || '',
+      hasAiSegments: !!summary.aiSegments?.length,
+      summaryText: parts.join(' · '),
+      editInstruction: '',
+      saveAsNew: !summary.isCustom,
+      isProcessing: false
+    };
+    this.cdr.markForCheck();
+  }
+
+  closeClipEditDialog(): void {
+    if (this.editingClipModal?.isProcessing) return;
+    this.editingClipModal = null;
+    this.cdr.markForCheck();
+  }
+
+  private async persistRenamedClip(
+    propId: string,
+    oldName: string,
+    newName: string,
+    isCustom: boolean
+  ): Promise<void> {
+    for (const p of this.roomProps || []) {
+      if (!p) continue;
+      if (p.id === propId) {
+        const curTl = this.sceneService.getPropTimeline(propId);
+        if (curTl) {
+          p.boneTimeline = JSON.parse(JSON.stringify(curTl));
+        }
+        continue;
       }
-      this.timelineClips = this.sceneService.getPropClips(this.timelinePropId);
-      this.timelineData = this.sceneService.getPropTimeline(this.timelinePropId);
-      this.saveTimelineToProp(true);
-      this.toastr.info(`Đã xóa Clip chuyển động "${clipName}".`, 'Timeline GLB');
+      if (!isCustom) continue;
+      if (this.sceneService.hasPropRig(p.id)) {
+        this.sceneService.renamePropClip(p.id, oldName, newName);
+        const otherTl = this.sceneService.getPropTimeline(p.id);
+        if (otherTl) {
+          p.boneTimeline = JSON.parse(JSON.stringify(otherTl));
+        }
+      } else if (p.boneTimeline) {
+        const bt = p.boneTimeline;
+        if (Array.isArray(bt.savedClips)) {
+          const matched = bt.savedClips.find((c: any) => c && c.name === oldName);
+          if (matched) matched.name = newName;
+        }
+        if (bt.activeClipName === oldName) {
+          bt.activeClipName = newName;
+        }
+      }
+    }
+
+    if (isCustom) {
+      const electronApi = (window as any).electron;
+      const oldSafeId = oldName.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+      if (electronApi?.deleteAnimation) {
+        try {
+          await electronApi.deleteAnimation(this.username || 'admin', oldSafeId, oldName);
+        } catch (e) {
+          console.warn('[Timeline GLB] Không xóa được bản animation cũ khi đổi tên:', e);
+        }
+      }
+      const glbBuf = this.sceneService.exportClipToGlbArrayBuffer(propId, newName);
+      if (glbBuf && electronApi?.uploadAnimation) {
+        try {
+          await electronApi.uploadAnimation(this.username || 'admin', newName, glbBuf);
+        } catch (e) {
+          console.warn('[Timeline GLB] Không ghi được tệp animation mới sau khi đổi tên:', e);
+        }
+      }
+    }
+
+    if (this.profile) {
+      (this.profile as any).props = this.roomProps;
+    }
+    try {
+      await this.profileDataService.saveProps(this.roomProps).toPromise();
+    } catch (e) {
+      console.warn('[Timeline GLB] Không lưu được props sau khi đổi tên Clip:', e);
+    }
+  }
+
+  async saveClipEditNameOnly(): Promise<void> {
+    const modal = this.editingClipModal;
+    if (!modal || modal.isProcessing) return;
+    const oldName = modal.originalName;
+    const newName = (modal.nameDraft || '').trim();
+    if (!newName) {
+      this.toastr.warning('Tên Clip chuyển động không được để trống.', 'Chỉnh sửa Clip');
+      return;
+    }
+    if (newName === oldName) {
+      this.editingClipModal = null;
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const res = this.sceneService.renamePropClip(modal.propId, oldName, newName);
+    if (res.conflict) {
+      this.toastr.warning(`Đã có Clip chuyển động mang tên "${newName}". Vui lòng chọn tên khác.`, 'Chỉnh sửa Clip');
+      return;
+    }
+    if (!res.renamed) return;
+
+    modal.isProcessing = true;
+    this.cdr.markForCheck();
+
+    await this.persistRenamedClip(modal.propId, oldName, newName, res.isCustom);
+
+    if (this.timelinePropId === modal.propId) {
+      this.timelineClips = this.sceneService.getPropClips(modal.propId);
+      this.timelineData = this.sceneService.getPropTimeline(modal.propId);
+    }
+    this.editingClipModal = null;
+    this.toastr.success(`Đã đổi tên Clip chuyển động thành "${newName}".`, 'Chỉnh sửa Clip');
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Dùng AI tinh chỉnh trực tiếp một Clip chuyển động hiện có (giữ nguyên những phần đang đúng,
+   * chỉ sửa đúng điểm sai/chưa ưng theo mô tả của người dùng), đồng thời hỗ trợ đổi tên hoặc lưu thành bản mới.
+   */
+  async refineClipWithAi(): Promise<void> {
+    const modal = this.editingClipModal;
+    if (!modal || modal.isProcessing) return;
+
+    const instruction = (modal.editInstruction || '').trim();
+    const desiredName = (modal.nameDraft || '').trim() || modal.originalName;
+
+    // Nếu người dùng không nhập yêu cầu sửa hành động mà chỉ sửa tên -> lưu tên luôn
+    if (!instruction) {
+      await this.saveClipEditNameOnly();
+      return;
+    }
+
+    const pid = modal.propId;
+    const rigSummary = this.sceneService.getPropRigSummary(pid);
+    const clipSummary = this.sceneService.summarizePropClipForAi(pid, modal.originalName);
+    if (!rigSummary || !clipSummary) {
+      this.toastr.warning('Không đọc được dữ liệu Clip hiện tại để chỉnh sửa.', 'Chỉnh sửa Clip');
+      return;
+    }
+
+    modal.isProcessing = true;
+    this.cdr.markForCheck();
+
+    const isRigidModel = rigSummary.isRigidModel;
+    const autoWheelCount = rigSummary.autoWheelCount || 0;
+    const embeddedClips = rigSummary.embeddedClipNames || [];
+    const boneNames = rigSummary.safeBoneNames?.length
+      ? rigSummary.safeBoneNames
+      : this.sceneService.getPropBones(pid).map((b) => b.name);
+
+    const currentClipJson = JSON.stringify({
+      name: clipSummary.name,
+      duration: clipSummary.duration,
+      loop: clipSummary.loop,
+      originalPrompt: clipSummary.aiPrompt || null,
+      currentSegments: clipSummary.aiSegments || null,
+      totalDistanceMeters: clipSummary.totalDistanceMeters,
+      rootTrajectorySamples: clipSummary.aiSegments ? undefined : clipSummary.rootTrajectorySamples,
+      animatedBones: clipSummary.animatedBones,
+      currentKeyframes: clipSummary.editableKeyframes || undefined
+    }, null, 2);
+
+    const systemPrompt = `Bạn là **Đạo diễn & Chuyên gia Hiệu chỉnh Chuyển động 3D (3D Motion Refinement Director)**.
+Người dùng đã có sẵn một Clip chuyển động 3D nhưng còn hơi sai hoặc chưa ưng ý một vài chi tiết.
+Nhiệm vụ của bạn: Đọc kỹ dữ liệu Clip hiện tại bên dưới, **GIỮ NGUYÊN toàn bộ phần đang đúng** và **CHỈ SỬA ĐÚNG NHỮNG ĐIỂM NGƯỜI DÙNG YÊU CẦU CHỈNH SỬA**!
+
+### THÔNG TIN MÔ HÌNH HIỆN TẠI:
+- Loại mô hình: ${isRigidModel ? `Vật thể cứng / phương tiện (autoWheelCount: ${autoWheelCount}${autoWheelCount >= 3 ? ', xe 4 bánh -> PHẢI giữ leanDeg = 0 để cả 4 bánh bám sàn' : ''})` : 'Nhân vật có bộ xương khớp (Skinned Humanoid)'}
+- Hướng tiến gốc: ${rigSummary.forwardAxis}, kích thước X=${rigSummary.modelSize.x.toFixed(2)}, Y=${rigSummary.modelSize.y.toFixed(2)}, Z=${rigSummary.modelSize.z.toFixed(2)}
+- Các khớp/node an toàn: ${JSON.stringify(boneNames)}
+- Các clip mocap gốc nhúng sẵn trong GLB: ${JSON.stringify(embeddedClips)}
+
+### DỮ LIỆU CLIP CHUYỂN ĐỘNG HIỆN TẠI CẦN SỬA:
+${currentClipJson}
+
+### YÊU CẦU CHỈNH SỬA TỪ NGƯỜI DÙNG:
+- "${instruction}"
+
+### HƯỚNG DẪN CHỈNH SỬA CHÍNH XÁC:
+1. Nếu Clip hiện tại đã có \`currentSegments\` hoặc có quỹ đạo di chuyển không gian (\`rootTrajectorySamples\` có dịch chuyển X/Z hoặc người dùng yêu cầu sửa quãng đường/hướng rẽ/góc quay/tốc độ/thêm hành động nối tiếp):
+   - Hãy trả về mảng \`segments\` đã được chỉnh sửa hoàn chỉnh!
+   - Các loại đoạn hợp lệ:
+     * \`{ "type": "move", "distance": number (mét, âm hoặc reverse:true=lùi), "duration": number, "dy": 0, "angleDeg": 0, "reverse": false, "gait": "${isRigidModel ? 'none' : (embeddedClips.length > 0 ? 'embedded' : 'walk')}" | "walk" | "run" | "none"${embeddedClips.length > 0 ? `, "clipName": "${embeddedClips[0]}"` : ''}, "keyframes": [] }\`
+     * \`{ "type": "turn", "angleDeg": number (+ quay TRÁI, - quay PHẢI, 180 = quay đầu), "duration": number, "gait": "${isRigidModel ? 'none' : 'walk'}" | "none" }\`
+     * \`{ "type": "arc", "radius": number (bán kính = đường kính / 2), "sweepDeg": number (+ cua TRÁI, - cua PHẢI, vòng tròn = -360/+360), "duration": number, "reverse": false, "leanDeg": ${autoWheelCount >= 3 || !isRigidModel ? '0' : '9'}, "centerOnOrigin": true/false, "gait": "${isRigidModel ? 'none' : (embeddedClips.length > 0 ? 'embedded' : 'walk')}" }\`
+     * \`{ "type": "waypoints", "points": [{"x":0,"y":0,"z":5},...], "relative": true, "duration": number, "faceVelocity": true, "reverse": false, "gait": "${isRigidModel ? 'none' : (embeddedClips.length > 0 ? 'embedded' : 'walk')}" }\`
+     * \`{ "type": "figure8", "width": number, "duration": number, "leanDeg": ${autoWheelCount >= 3 || !isRigidModel ? '0' : '10'}, "gait": "${isRigidModel ? 'none' : (embeddedClips.length > 0 ? 'embedded' : 'walk')}" }\`
+     * \`{ "type": "pose", "duration": number, "keyframes": [ { "time": 0, "boneName": "...", "rot": {"x":0,"y":0,"z":0}, "pos": {"x":0,"y":0,"z":0} } ] }\`
+     * \`{ "type": "wait", "duration": number }\`
+2. Nếu Clip hiện tại là động tác khớp xương thuần tại chỗ (\`currentKeyframes\` không di chuyển \`__root__\`):
+   - Trả về mảng \`keyframes\` đã hiệu chỉnh trực tiếp các góc xoay/vị trí khớp xương theo đúng yêu cầu (giữ nguyên các khớp không liên quan).
+   - Quy ước Character Cardinal Space: Đùi x ÂM (-20..-100) nâng lên trước, Đầu gối x DƯƠNG (+15..+100) gập về sau, Tay & Khuỷu x ÂM (-20..-100) đưa/gập lên trước, Thân/Đầu x DƯƠNG cúi trước; LeftArm z DƯƠNG nâng cao tay trái, RightArm z ÂM nâng cao tay phải; Hips.pos.y dương bật nhảy, âm ngồi/nhún.
+3. TUYỆT ĐỐI KHÔNG xoay các sub-mesh không an toàn trên mô hình cứng; với xe 4 bánh luôn đặt \`leanDeg: 0\`.
+
+### ĐẦU RA (CHỈ TRẢ VỀ JSON THUẦN TÚY):
+{
+  "loop": ${clipSummary.loop ? 'true' : 'false'},
+  "duration": ${clipSummary.duration},
+  "explanation": "Giải thích ngắn gọn bạn đã chỉnh sửa điểm nào so với clip cũ",
+  "segments": [ ... ],
+  "keyframes": [ ... ]
+}`;
+
+    try {
+      const aiRes: any = await this.genaiService.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: [{ role: 'user', parts: [{ text: systemPrompt }] }],
+        config: {
+          bypassAiAgent: true,
+          disableThinking: true,
+          temperature: 0.2
+        } as any
+      });
+      const rawReply =
+        aiRes?.text ||
+        aiRes?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || '').join('') ||
+        '';
+      const parsed = this.extractJsonFromAiText(rawReply);
+
+      const combinedPrompt = clipSummary.aiPrompt
+        ? `${clipSummary.aiPrompt} | Chỉnh sửa: ${instruction}`
+        : `${modal.originalName} | Chỉnh sửa: ${instruction}`;
+
+      let appliedCount = 0;
+      let newSegments: any[] | undefined = undefined;
+      if (parsed && Array.isArray(parsed.segments) && parsed.segments.length > 0) {
+        newSegments = parsed.segments;
+        appliedCount = this.sceneService.applyAiMotionPlan(pid, {
+          ...parsed,
+          prompt: combinedPrompt
+        });
+      } else if (parsed && Array.isArray(parsed.keyframes) && parsed.keyframes.length >= (isRigidModel ? 2 : 4)) {
+        appliedCount = this.sceneService.applyGeneratedBoneTimeline(pid, {
+          duration: Number(parsed.duration) || clipSummary.duration,
+          loop: parsed.loop !== undefined ? !!parsed.loop : clipSummary.loop,
+          keyframes: parsed.keyframes
+        });
+      }
+
+      if (appliedCount <= 0) {
+        this.toastr.warning('AI chưa trả về dữ liệu chuyển động hợp lệ. Bạn hãy mô tả cụ thể hơn điểm cần chỉnh.', 'Chỉnh sửa Clip');
+        modal.isProcessing = false;
+        this.cdr.markForCheck();
+        return;
+      }
+
+      // Quyết định tên đích: ghi đè chính clip hiện tại hay lưu thành clip mới
+      let targetClipName = desiredName;
+      const shouldReplaceInPlace = modal.isCustom && !modal.saveAsNew;
+      if (!shouldReplaceInPlace && targetClipName === modal.originalName) {
+        targetClipName = `${desiredName} (Sửa)`;
+      }
+
+      if (shouldReplaceInPlace && targetClipName !== modal.originalName) {
+        // Đổi tên trước rồi ghi đè dữ liệu mới lên tên mới (xóa tên cũ trên đĩa & các nhân vật khác)
+        const renameRes = this.sceneService.renamePropClip(pid, modal.originalName, targetClipName);
+        if (renameRes.conflict) {
+          this.toastr.warning(`Đã có Clip mang tên "${targetClipName}", hệ thống sẽ lưu đè trên tên cũ "${modal.originalName}".`, 'Chỉnh sửa Clip');
+          targetClipName = modal.originalName;
+        } else if (renameRes.renamed) {
+          await this.persistRenamedClip(pid, modal.originalName, targetClipName, true);
+        }
+      }
+
+      // Đóng gói keyframes mới vào đúng targetClipName (kèm aiPrompt & aiSegments mới)
+      const baked = this.sceneService.bakeKeyframesToClip(pid, targetClipName, {
+        aiPrompt: combinedPrompt,
+        aiSegments: newSegments
+      });
+      const finalName = baked?.name || targetClipName;
+
+      // Đồng bộ tệp .glb rời trong assets/anims/ và chia sẻ sang các nhân vật khác trong phòng
+      const glbBuf = this.sceneService.exportClipToGlbArrayBuffer(pid, finalName);
+      if (glbBuf && (window as any).electron?.uploadAnimation) {
+        try {
+          await (window as any).electron.uploadAnimation(this.username || 'admin', finalName, glbBuf);
+        } catch (e) {
+          console.warn('[Chỉnh sửa Clip] Không ghi được tệp .glb rời:', e);
+        }
+      }
+
+      const savedObj = this.sceneService
+        .getPropTimeline(pid)
+        ?.savedClips?.find((c) => c.name === finalName);
+
+      for (const p of this.roomProps || []) {
+        if (!p) continue;
+        if (p.id === pid) {
+          const curTl = this.sceneService.getPropTimeline(pid);
+          if (curTl) p.boneTimeline = JSON.parse(JSON.stringify(curTl));
+        } else if (savedObj && this.sceneService.hasPropRig(p.id)) {
+          this.sceneService.injectSharedKeyframeClip(p.id, savedObj, true);
+          const otherTl = this.sceneService.getPropTimeline(p.id);
+          if (otherTl) p.boneTimeline = JSON.parse(JSON.stringify(otherTl));
+        }
+      }
+
+      if (this.profile) {
+        (this.profile as any).props = this.roomProps;
+      }
+      try {
+        await this.profileDataService.saveProps(this.roomProps).toPromise();
+      } catch (e) {
+        console.warn('[Chỉnh sửa Clip] Không lưu được props:', e);
+      }
+
+      // Phát ngay clip đã chỉnh sửa để người dùng kiểm tra trực tiếp trên sân khấu 3D
+      this.sceneService.playPropClip(pid, finalName);
+      if (this.timelinePropId === pid) {
+        this.timelineClips = this.sceneService.getPropClips(pid);
+        this.timelineData = this.sceneService.getPropTimeline(pid);
+        this.timelineCurrentTime = 0;
+      }
+
+      this.editingClipModal = null;
+      this.toastr.success(
+        parsed?.explanation || `AI đã chỉnh sửa xong Clip "${finalName}" (${appliedCount} KF) và đang phát!`,
+        'AI Chỉnh sửa Chuyển động',
+        { timeOut: 5500 }
+      );
+    } catch (err: any) {
+      console.error('[Chỉnh sửa Clip] Lỗi gọi AI:', err);
+      this.toastr.error(err?.message || 'Không thể kết nối AI để chỉnh sửa chuyển động.', 'Chỉnh sửa Clip');
+      if (this.editingClipModal) this.editingClipModal.isProcessing = false;
+    } finally {
       this.cdr.markForCheck();
     }
+  }
+
+  async deleteTimelineCustomClip(clipName: string, event?: Event): Promise<void> {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    if (!this.timelinePropId || !clipName) return;
+
+    const currentPropId = this.timelinePropId;
+    let removed = this.sceneService.deletePropCustomClip(currentPropId, clipName);
+
+    // Xóa đồng bộ Clip này khỏi TẤT CẢ các đồ vật/nhân vật khác trong phòng (kể cả nhân vật đang ẩn trong props.json)
+    // để syncSharedClipsToProp không nạp lại bản sao cũ sau khi F5
+    for (const p of this.roomProps || []) {
+      if (!p) continue;
+      if (p.id === currentPropId) {
+        const curTl = this.sceneService.getPropTimeline(currentPropId);
+        if (curTl) {
+          p.boneTimeline = JSON.parse(JSON.stringify(curTl));
+        }
+        continue;
+      }
+      if (this.sceneService.hasPropRig(p.id)) {
+        if (this.sceneService.deletePropCustomClip(p.id, clipName)) {
+          removed = true;
+        }
+        const otherTl = this.sceneService.getPropTimeline(p.id);
+        if (otherTl) {
+          p.boneTimeline = JSON.parse(JSON.stringify(otherTl));
+        }
+      } else if (p.boneTimeline) {
+        const bt = p.boneTimeline;
+        if (Array.isArray(bt.savedClips)) {
+          const beforeLen = bt.savedClips.length;
+          bt.savedClips = bt.savedClips.filter((c: any) => c && c.name !== clipName);
+          if (bt.savedClips.length !== beforeLen) removed = true;
+        }
+        if (bt.activeClipName === clipName) {
+          removed = true;
+          const nextSaved = Array.isArray(bt.savedClips) && bt.savedClips.length > 0 ? bt.savedClips[0] : null;
+          bt.activeClipName = nextSaved ? nextSaved.name : null;
+          if (!nextSaved) {
+            bt.playing = false;
+            bt.keyframes = [];
+          } else if (bt.mode === 'clip') {
+            bt.keyframes = Array.isArray(nextSaved.keyframes) ? JSON.parse(JSON.stringify(nextSaved.keyframes)) : [];
+          }
+        }
+      }
+    }
+
+    if (!removed) return;
+
+    this.timelineClips = this.sceneService.getPropClips(currentPropId);
+    this.timelineData = this.sceneService.getPropTimeline(currentPropId);
+    this.timelineCurrentTime = Math.round(this.sceneService.getPropCurrentTime(currentPropId) * 100) / 100;
+    this.cdr.markForCheck();
+
+    // Xóa triệt để bản ghi trong animations.json và tệp .glb rời trong assets/anims/ (khớp theo cả id lẫn name)
+    const safeId = clipName.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+    if ((window as any).electron?.deleteAnimation) {
+      try {
+        await (window as any).electron.deleteAnimation(this.username || 'admin', safeId, clipName);
+      } catch (e) {
+        console.warn('[Timeline GLB] Không xóa được tệp animation rời:', e);
+      }
+    }
+
+    // Ghi đồng bộ xuống cả props.json và profile.json trước khi báo hoàn tất
+    if (this.profile) {
+      (this.profile as any).props = this.roomProps;
+    }
+    try {
+      await this.profileDataService.saveProps(this.roomProps).toPromise();
+    } catch (e) {
+      console.warn('[Timeline GLB] Không lưu được props sau khi xóa Clip:', e);
+    }
+
+    this.toastr.info(`Đã xóa vĩnh viễn Clip chuyển động "${clipName}".`, 'Timeline GLB');
+    this.cdr.markForCheck();
   }
 
   // ============================================================================
@@ -3950,6 +4120,12 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
   aiMotionPrompt = '';
   aiMotionVideoName = '';
   aiMotionVideoDuration = 0;
+  aiMotionVideoFile: File | null = null;
+  aiMotionVideoPath = '';
+  aiMotionProgressPercent = 0;
+  aiMotionProgressStage = '';
+  aiMotionLastEngine = '';
+  private _unsubMocapProgress: (() => void) | null = null;
   aiMotionVideoFrames: Array<{
     time: number;
     dataUrl: string;
@@ -3967,8 +4143,13 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
   clearMotionVideo(): void {
     this.aiMotionVideoName = '';
     this.aiMotionVideoDuration = 0;
+    this.aiMotionVideoFile = null;
+    this.aiMotionVideoPath = '';
     this.aiMotionVideoFrames = [];
     this.aiMotionPoseSamples = [];
+    this.aiMotionProgressPercent = 0;
+    this.aiMotionProgressStage = '';
+    this.aiMotionLastEngine = '';
     this.cdr.markForCheck();
   }
 
@@ -4324,6 +4505,115 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
     });
   }
 
+  /**
+   * Trích xuất chuyển động 3D SMPL thật (NLF NeurIPS 2024 qua Electron GPU CUDA/CPU) từ Video mẫu
+   * và áp dụng trực tiếp lên toàn bộ khớp xương của nhân vật 3D trong không gian Canonical T-Pose.
+   */
+  private async runReal3dVideoMocap(
+    pid: string,
+    file: File | null,
+    directFilePath = ''
+  ): Promise<{ ok: boolean; appliedCount: number; duration: number; frameCount: number; error?: string }> {
+    const elec = (window as any).electron;
+    if (!elec?.extractVideoMocap3d) {
+      return { ok: false, appliedCount: 0, duration: 0, frameCount: 0, error: 'Chưa có cầu nối Electron 3D MoCap.' };
+    }
+    const resolvedPath = (directFilePath || (file as any)?.path || '').trim();
+    if (!resolvedPath && !file) {
+      return { ok: false, appliedCount: 0, duration: 0, frameCount: 0, error: 'Chưa chọn tệp video mẫu.' };
+    }
+
+    this.isDesigningAiMotion = true;
+    this.aiMotionProgressPercent = 2;
+    this.aiMotionProgressStage = 'Đang bắt đầu phân tích chuyển động từ video...';
+    this.cdr.detectChanges();
+
+    try {
+      if (this._unsubMocapProgress) {
+        try { this._unsubMocapProgress(); } catch (_) {}
+        this._unsubMocapProgress = null;
+      }
+      if (typeof elec.onMocapProgress === 'function') {
+        this._unsubMocapProgress = elec.onMocapProgress((msg: any) => {
+          if (!msg) return;
+          if (typeof msg.percent === 'number') this.aiMotionProgressPercent = msg.percent;
+          if (typeof msg.stage === 'string') this.aiMotionProgressStage = msg.stage;
+          this.cdr.detectChanges();
+        });
+      }
+
+      const payload: any = {
+        username: this.username || 'admin',
+        filename: file?.name || this.aiMotionVideoName || 'video.mp4'
+      };
+      if (resolvedPath) {
+        payload.filePath = resolvedPath;
+      } else if (file) {
+        payload.buffer = await file.arrayBuffer();
+      }
+
+      const res = await elec.extractVideoMocap3d(payload);
+      if (!res?.success || !res?.data || !Array.isArray(res.data.keyframes) || res.data.keyframes.length === 0) {
+        return {
+          ok: false,
+          appliedCount: 0,
+          duration: 0,
+          frameCount: 0,
+          error: res?.error || 'Không trích xuất được dữ liệu khớp xương 3D từ video.'
+        };
+      }
+
+      const mocap = res.data;
+      const dur = Number(mocap.duration) || this.aiMotionVideoDuration || 4.0;
+      this.aiMotionVideoDuration = Math.round(dur * 100) / 100;
+      this.aiMotionLastEngine = `${mocap.engine || 'nlf-smpl-3d-adaptive'} (${String(mocap.device || 'gpu').toUpperCase()})`;
+
+      const appliedCount = this.sceneService.applyGeneratedBoneTimeline(pid, {
+        duration: dur,
+        loop: true,
+        poseSpace: 'tpose',
+        footLock: mocap.footLock === true,
+        sourceLegLength: Number(mocap.sourceLegLength) || 0,
+        keyframes: mocap.keyframes
+      });
+
+      this.timelineData = this.sceneService.getPropTimeline(pid);
+      this.timelineCurrentTime = 0;
+
+      const baseVideoName = (this.aiMotionVideoName || file?.name || 'Video')
+        .replace(/\.[^.]+$/, '')
+        .trim()
+        .slice(0, 32);
+      const clipLabel = `Video: ${baseVideoName}`;
+      this.saveTimelineToProp(true, clipLabel);
+      this.timelineClips = this.sceneService.getPropClips(pid);
+
+      this.toastr.success(
+        `Đã tạo xong chuyển động theo video "${baseVideoName}" (${dur.toFixed(2)}s, ${appliedCount} keyframe)!`,
+        'AI Thiết kế chuyển động'
+      );
+
+      return { ok: true, appliedCount, duration: dur, frameCount: Number(mocap.frameCount) || 0 };
+    } catch (err: any) {
+      return {
+        ok: false,
+        appliedCount: 0,
+        duration: 0,
+        frameCount: 0,
+        error: err?.message || String(err)
+      };
+    } finally {
+      if (this._unsubMocapProgress) {
+        try { this._unsubMocapProgress(); } catch (_) {}
+        this._unsubMocapProgress = null;
+      }
+      this.isDesigningAiMotion = false;
+      this.aiMotionProgressPercent = 0;
+      this.aiMotionProgressStage = '';
+      this.cdr.detectChanges();
+    }
+  }
+
   async onMotionVideoSelected(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     const file = input?.files?.[0];
@@ -4331,41 +4621,58 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
     if (!file) return;
 
     try {
-      this.toastr.info(`Đang phân tích tư thế chuyển động từ "${file.name}"...`, 'AI Motion Studio');
-      const res = await this.extractKeyFramesFromVideoFile(file, 12);
+      this.aiMotionVideoFile = file;
+      this.aiMotionVideoPath = String((file as any)?.path || '');
       this.aiMotionVideoName = file.name;
+      this.isAiMotionBarOpen = true;
+      this.cdr.markForCheck();
+
+      this.toastr.info(`Đang phân tích chuyển động từ video "${file.name}"...`, 'AI Thiết kế chuyển động');
+      const res = await this.extractKeyFramesFromVideoFile(file, 10);
       this.aiMotionVideoDuration = res.duration;
       this.aiMotionVideoFrames = res.frames;
       this.aiMotionPoseSamples = res.poseSamples;
-      this.isAiMotionBarOpen = true;
       if (this.timelineData) {
         this.timelineData.duration = res.duration;
       }
+      this.cdr.markForCheck();
 
-      // Áp dụng ngay lập tức chuyển động bắt chước tư thế Video lên mô hình 3D đang chọn
-      const pid = this.timelinePropId || this.selectedPropId;
-      let appliedCount = 0;
-      if (pid && this.sceneService.hasPropRig(pid) && res.poseSamples.length > 0) {
-        appliedCount = this.sceneService.synthesizeVideoPoseBoneMotion(
-          pid,
-          res.poseSamples,
-          res.duration,
-          this.aiMotionPrompt
+      const pid =
+        this.timelinePropId ||
+        this.selectedPropId ||
+        this.roomProps.find((p) => p && p.visible && this.sceneService.hasPropRig(p.id))?.id ||
+        null;
+
+      if (pid && this.sceneService.hasPropRig(pid)) {
+        const mocapRes = await this.runReal3dVideoMocap(pid, file, this.aiMotionVideoPath);
+        if (mocapRes.ok) {
+          return;
+        }
+        console.warn('[Video Motion] Fallback sang bộ tổng hợp tư thế nhẹ:', mocapRes.error);
+        if (res.poseSamples.length > 0) {
+          const appliedCount = this.sceneService.synthesizeVideoPoseBoneMotion(
+            pid,
+            res.poseSamples,
+            res.duration,
+            this.aiMotionPrompt
+          );
+          this.timelineData = this.sceneService.getPropTimeline(pid);
+          this.timelineCurrentTime = 0;
+          this.saveTimelineToProp(true);
+          this.toastr.warning(
+            `Đã tạo chuyển động cơ bản (${appliedCount} keyframe) từ video mẫu.`,
+            'AI Thiết kế chuyển động'
+          );
+        }
+      } else {
+        this.toastr.info(
+          `Đã nạp ${res.frames.length} khung hình mẫu (${res.duration}s). Hãy chọn nhân vật 3D có khớp xương rồi bấm "Tạo chuyển động".`,
+          'AI Thiết kế chuyển động'
         );
-        this.timelineData = this.sceneService.getPropTimeline(pid);
-        this.timelineCurrentTime = 0;
-        this.saveTimelineToProp(true);
       }
-
-      this.toastr.success(
-        appliedCount > 0
-          ? `Đã trích xuất ${res.frames.length} khung hình (${res.duration}s) từ "${file.name}" và áp dụng ngay ${appliedCount} Keyframe bắt chước Video!`
-          : `Đã trích xuất ${res.frames.length} khung hình mẫu (${res.duration}s) từ "${file.name}". Bấm "AI Thiết kế Clip" để tạo chuyển động!`,
-        'AI Motion Studio'
-      );
       this.cdr.markForCheck();
     } catch (err: any) {
-      this.toastr.error(err?.message || 'Không đọc được tệp video mẫu.', 'AI Motion Studio');
+      this.toastr.error(err?.message || 'Không đọc được tệp video mẫu.', 'AI Thiết kế chuyển động');
     }
   }
 
@@ -4376,26 +4683,42 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
       this.roomProps.find((p) => p && p.visible && this.sceneService.hasPropRig(p.id))?.id ||
       null;
     if (!pid || !this.sceneService.hasPropRig(pid)) {
-      this.toastr.warning('Vui lòng chọn một nhân vật hoặc đồ vật 3D có khớp xương trước.', 'AI Motion Studio');
+      this.toastr.warning('Vui lòng chọn một nhân vật hoặc đồ vật 3D có khớp xương trước.', 'AI Thiết kế chuyển động');
       return;
     }
     const prompt = (this.aiMotionPrompt || '').trim();
-    if (!prompt && this.aiMotionVideoFrames.length === 0) {
-      this.toastr.warning('Hãy chọn một Video mẫu hoặc nhập mô tả chuyển động để AI thiết kế.', 'AI Motion Studio');
+    if (!prompt && !this.aiMotionVideoFile && !this.aiMotionVideoPath && this.aiMotionVideoFrames.length === 0) {
+      this.toastr.warning('Hãy chọn một Video mẫu hoặc nhập mô tả chuyển động để AI tạo.', 'AI Thiết kế chuyển động');
       return;
+    }
+
+    if (this.aiMotionVideoFile || this.aiMotionVideoPath) {
+      const mocapRes = await this.runReal3dVideoMocap(pid, this.aiMotionVideoFile, this.aiMotionVideoPath);
+      if (mocapRes.ok) {
+        return;
+      }
+      this.toastr.warning(
+        `Chuyển sang chế độ AI dự phòng để tạo chuyển động...`,
+        'AI Thiết kế chuyển động'
+      );
     }
 
     this.isDesigningAiMotion = true;
     this.cdr.markForCheck();
 
-    const bones = this.sceneService.getPropBones(pid);
-    const boneNames = bones.map((b) => b.name);
+    const rigSummary = this.sceneService.getPropRigSummary(pid);
+    const isRigidModel = !!rigSummary?.isRigidModel;
+    const autoWheelCount = rigSummary?.autoWheelCount || 0;
+    const embeddedClips = rigSummary?.embeddedClipNames || [];
+    const boneNames = rigSummary?.safeBoneNames?.length
+      ? rigSummary.safeBoneNames
+      : this.sceneService.getPropBones(pid).map((b) => b.name);
     const targetDur = this.aiMotionVideoDuration > 0
       ? this.aiMotionVideoDuration
       : (this.timelineData?.duration || 2.4);
 
     try {
-      this.toastr.info('AI Agent đang phân tích khớp xương và thiết kế chuỗi Keyframe...', 'AI Motion Studio', { timeOut: 2500 });
+      this.toastr.info('AI Agent đang phân tích mô hình và biên đạo kế hoạch chuyển động...', 'AI Motion Studio', { timeOut: 2500 });
 
       // Chọn tối đa 8 ảnh đại diện phân bố đều để gửi lên Vision LLM tránh quá tải payload
       const maxVisionFrames = 8;
@@ -4433,45 +4756,78 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
         ? `Người dùng đã đính kèm ${visionFrames.length} khung hình trích xuất theo trình tự thời gian từ Video mẫu "${this.aiMotionVideoName}" (tổng thời lượng ${targetDur}s): ` +
           visionFrames.map((f, idx) => `Ảnh #${idx + 1} tại t=${f.time.toFixed(2)}s`).join(', ') +
           `. Hãy quan sát kỹ tư thế người trong từng khung hình kết hợp thông số đo tư thế để tái tạo chuẩn xác động tác của video.${poseTelemetrySummary}`
-        : `Hãy thiết kế chuỗi Keyframe chuyển động mượt mà, đúng giải phẫu cơ thể người trong thời lượng ${targetDur}s dựa trên mô tả của người dùng.`;
+        : `Hãy tự do suy nghĩ, phân tích và biên đạo kế hoạch chuyển động chuẩn xác nhất theo đúng mô tả của người dùng.`;
 
-      const systemPrompt = `Bạn là **Chuyên gia Diễn hoạt Khớp xương 3D (3D Skeletal Rig & Motion Capture AI Animator)**.
-Nhiệm vụ: Thiết kế clip chuyển động Keyframe 3D chính xác trên Hệ tọa độ Chuẩn Nhân vật (Character Cardinal Space).
+      const systemPrompt = isRigidModel
+        ? `Bạn là **Đạo diễn & Chuyên gia Diễn hoạt Vật thể / Phương tiện 3D (3D Rigid-Body & Vehicle Motion Director)**.
+Nhiệm vụ: Tự do suy nghĩ và biên đạo chuỗi hành động / quỹ đạo chuyển động 3D đáp ứng CHÍNH XÁC mọi yêu cầu của người dùng (kể cả kịch bản nhiều bước phức tạp như đi thẳng, rẽ trái/phải, lùi xe, chạy vòng tròn, hình vuông, zig-zag, hình số 8, dừng chờ...).
 
-### DANH SÁCH KHỚP XƯƠNG CỦA MÔ HÌNH HIỆN TẠI (CHỈ ĐƯỢC DÙNG TÊN TRONG DANH SÁCH NÀY):
-${JSON.stringify(boneNames)}
+### THÔNG TIN MÔ HÌNH HIỆN TẠI:
+- Loại mô hình: Vật thể cứng / phương tiện (\`isRigidModel: true\`), số cụm bánh xe tự động lăn/đánh lái: \`${autoWheelCount}\` (${autoWheelCount >= 3 ? 'Xe 4 bánh — PHẢI giữ thân xe cân phẳng bám sàn, leanDeg = 0; engine sẽ tự quay lăn cả 4 bánh & đánh lái bánh trước theo quỹ đạo!' : autoWheelCount > 0 ? 'Xe 2 bánh — có thể đặt leanDeg nhẹ 8..10 độ khi vào cua; engine sẽ tự động quay lăn cả 2 bánh theo đúng quãng đường di chuyển!' : 'Đồ vật / phương tiện cứng'}).
+- Các node an toàn: ${JSON.stringify(boneNames)}
+- Kích thước gốc: rộng X=${rigSummary?.modelSize.x.toFixed(2)}, cao Y=${rigSummary?.modelSize.y.toFixed(2)}, dài Z=${rigSummary?.modelSize.z.toFixed(2)} (hướng tiến: ${rigSummary?.forwardAxis || '+z'}).
 
-### QUY ƯỚC HỆ TRỤC XOAY CHUẨN NHÂN VẬT (CHARACTER CARDINAL SPACE - BẮT BUỘC TUÂN THỦ):
-Mọi góc xoay \`rot: { "x": number, "y": number, "z": number }\` (đơn vị: độ) đã được quy chuẩn về trục không gian của nhân vật (tư thế gốc A-pose hai tay xuôi mở ~35 độ):
-1. **Trục X (Pitch - Gập trước / Ngả sau)**:
-   - Đùi (\`LeftUpLeg\`, \`RightUpLeg\`): **x ÂM (-20 đến -100)** là nâng đùi/đá chân LÊN PHÍA TRƯỚC; **x DƯƠNG (+15 đến +45)** là đưa chân RA PHÍA SAU.
-   - Đầu gối (\`LeftLeg\`, \`RightLeg\`): **x DƯƠNG (+15 đến +100)** là gập cẳng chân VỀ PHÍA SAU (TUYỆT ĐỐI KHÔNG dùng x âm cho khớp gối).
-   - Cánh tay trên (\`LeftArm\`, \`RightArm\`): **x ÂM (-20 đến -100)** là đưa cánh tay LÊN PHÍA TRƯỚC NGỰC/MẶT; **x DƯƠNG (+15 đến +50)** là đánh tay RA SAU LƯNG.
-   - Khuỷu tay / Cẳng tay (\`LeftForeArm\`, \`RightForeArm\`): **x ÂM (-20 đến -100)** là gập khuỷu tay LÊN PHÍA TRƯỚC.
-   - Cột sống & Đầu (\`Hips\`, \`Spine02\`, \`Spine01\`, \`Spine\`, \`neck\`, \`Head\`): **x DƯƠNG (+10 đến +45)** là cúi gập người/gật đầu VỀ PHÍA TRƯỚC; **x ÂM (-10 đến -30)** là ngửa ra sau.
-2. **Trục Y (Yaw - Xoay trái / Xoay phải quanh trục dọc)**:
-   - \`y DƯƠNG\` xoay thân/đầu sang phải, \`y ÂM\` xoay sang trái (Moonwalk hoặc nhìn ngang: \`Hips.rot.y\` khoảng -75 đến +75).
-3. **Trục Z (Roll - Giang ngang / Khép tay / Nghiêng lườn)**:
-   - Tay trái (\`LeftArm\`): **z DƯƠNG (+15 đến +80)** là giang và nâng cao tay trái lên trời; **z ÂM (-12 đến -25)** là khép tay trái sát vào thân người.
-   - Tay phải (\`RightArm\`): **z ÂM (-15 đến -80)** là giang và nâng cao tay phải lên trời; **z DƯƠNG (+12 đến +25)** là khép tay phải sát vào thân người.
-4. **Dịch chuyển vị trí \`pos: { "x": number, "y": number, "z": number }\` (đơn vị mét, chỉ áp dụng cho \`Hips\` hoặc \`__root__\`)**:
-   - \`pos.y\`: **+0.08 đến +0.35** khi bật nhảy lên không; **-0.08 đến -0.40** khi nhún gối / ngồi squat.
-   - \`pos.x\`: **-0.45 đến +0.45** khi bước/lướt sang ngang (như Moonwalk hoặc né người).
+### NGÔN NGỮ BIÊN ĐẠO QUỸ ĐẠO (\`segments\` — KHUYÊN DÙNG CHO MỌI QUỸ ĐẠO DI CHUYỂN):
+Bạn có thể tự do kết hợp BẤT KỲ số lượng và thứ tự các đoạn \`segments\` nối tiếp liên tục (mỗi đoạn tự nối từ vị trí & hướng kết thúc của đoạn trước):
+1. \`{ "type": "move", "distance": number (mét, dương=tiến, âm hoặc reverse:true=lùi), "duration": number (giây), "dy": 0, "angleDeg": 0, "reverse": false }\`
+2. \`{ "type": "turn", "angleDeg": number (độ xoay tại chỗ: dương = xoay TRÁI, âm = xoay PHẢI, vd +90, -90, 180), "duration": number }\`
+3. \`{ "type": "arc", "radius": number (bán kính mét; nếu đề bài cho đường kính/rộng D mét thì radius = D/2), "sweepDeg": number (góc cung độ: dương = cua TRÁI, âm = cua PHẢI; vòng tròn kín = -360 hoặc +360; cua vuông góc = -90 hoặc +90; quay chữ U = 180), "duration": number, "reverse": false, "leanDeg": ${autoWheelCount >= 3 ? '0' : '9'}, "centerOnOrigin": true/false }\`
+4. \`{ "type": "waypoints", "points": [{"x": 0, "y": 0, "z": 5}, ...], "relative": true, "duration": number, "faceVelocity": true, "reverse": false }\` — đi qua chuỗi điểm bất kỳ (hình vuông, zig-zag, chữ L, bay lên/xuống).
+5. \`{ "type": "figure8", "width": number (chiều rộng mét), "duration": number, "leanDeg": ${autoWheelCount >= 3 ? '0' : '10'} }\`
+6. \`{ "type": "wait", "duration": number }\` — dừng nghỉ tại chỗ.
+
+### QUY TẮC BẮT BUỘC:
+- KHÔNG tự ý bịa hay xoay các sub-mesh con (bánh xe, khung, ghi đông...) làm vỡ cấu trúc xe.
+- Với xe 4 bánh (\`autoWheelCount >= 3\`), luôn đặt \`leanDeg: 0\` để cả 4 bánh luôn chạm sàn.
+- Chỉ dùng \`keyframes\` trực tiếp trên \`__root__\` khi là hiệu ứng đơn giản tại chỗ (rung lắc, xoay trưng bày, bật nảy); mọi chuyển động di chuyển theo đường/quãng đường/nhiều chặng hãy trả về mảng \`segments\`.
+
+### YÊU CẦU TỪ NGƯỜI DÙNG:
+- "${prompt || 'Tạo chuyển động trình diễn mượt mà cho mô hình'}"
+
+### YÊU CẦU ĐẦU RA (CHỈ TRẢ VỀ JSON THUẦN TÚY):
+{
+  "loop": true,
+  "explanation": "Mô tả ngắn gọn kế hoạch chuyển động bạn vừa biên đạo",
+  "segments": [
+    { "type": "arc", "radius": 5, "sweepDeg": -360, "duration": 9.0, "leanDeg": ${autoWheelCount >= 3 ? '0' : '9'}, "centerOnOrigin": true }
+  ]
+}`
+        : `Bạn là **Đạo diễn & Chuyên gia Diễn hoạt Nhân vật 3D (3D Character Motion Director & Skeletal Animator)**.
+Nhiệm vụ: Tự do suy nghĩ, hiểu sâu mọi kịch bản tự nhiên của người dùng (1 hành động hay chuỗi nhiều hành động nối tiếp như đi bộ -> dừng lại vẫy tay -> quay đầu đi tiếp -> nhảy ăn mừng -> chạy hình vuông/vòng tròn/zig-zag...) và biên đạo kế hoạch chuyển động chuẩn xác.
+
+### THÔNG TIN NHÂN VẬT HIỆN TẠI:
+- Các khớp xương an toàn (CHỈ dùng tên trong danh sách này): ${JSON.stringify(boneNames)}
+- Clip chuyển động gốc nhúng sẵn trong file GLB: ${JSON.stringify(embeddedClips)} ${embeddedClips.length > 0 ? '(Có thể gán `gait: "embedded"` và `clipName` trong các đoạn di chuyển để tái sử dụng dáng bước chân mocap thật của nhân vật!)' : '(Không có clip nhúng — dùng `gait: "walk"` hoặc `"run"` để engine đồng bộ bước chân theo tốc độ)'}
+
+### HỆ THỐNG BIÊN ĐẠO KẾT HỢP (\`segments\` + \`keyframes\`):
+- **Khi yêu cầu có di chuyển không gian, quãng đường (mét), quay đầu, rẽ hướng, hoặc chuỗi nhiều hành động nối tiếp**: trả về mảng \`segments\` nối tiếp nhau liên tục (engine tự nối tọa độ & hướng, ghép dáng đi/chạy đồng bộ không trượt chân, và chuyển mượt sang tư thế \`pose\` do bạn thiết kế):
+  1. \`{ "type": "move", "distance": number (mét, dương=tiến tới, âm hoặc reverse:true=đi lùi), "duration": number (ước lượng ~distance/1.35 cho đi bộ, ~distance/2.5 cho chạy), "gait": "${embeddedClips.length > 0 ? 'embedded' : 'walk'}" | "walk" | "run" | "none", ${embeddedClips.length > 0 ? `"clipName": "${embeddedClips[0]}", ` : ''}"keyframes": [/* tùy chọn: cử chỉ tay/đầu khi đang đi */] }\`
+  2. \`{ "type": "turn", "angleDeg": number (độ xoay tại chỗ: dương = quay TRÁI, âm = quay PHẢI, quay đầu 180° = 180), "duration": 0.85, "gait": "walk" | "none" }\`
+  3. \`{ "type": "arc", "radius": number (bán kính mét; đường kính D => radius = D/2), "sweepDeg": number (dương=cua trái, âm=cua phải; vòng tròn kín = -360 hoặc +360), "duration": number, "gait": "${embeddedClips.length > 0 ? 'embedded' : 'walk'}" | "run", "centerOnOrigin": true/false }\`
+  4. \`{ "type": "waypoints", "points": [{"x": 0, "y": 0, "z": 5}, ...], "relative": true, "duration": number, "gait": "${embeddedClips.length > 0 ? 'embedded' : 'walk'}" | "run" }\` — đi theo đường gấp khúc bất kỳ (zig-zag, hình vuông, tam giác...).
+  5. \`{ "type": "figure8", "width": number, "duration": number, "gait": "${embeddedClips.length > 0 ? 'embedded' : 'walk'}" | "run" }\`
+  6. \`{ "type": "pose", "duration": number, "keyframes": [ { "time": 0.0, "boneName": "RightArm", "rot": {"x": -35, "y": 0, "z": -70} }, ... ] }\` — đứng lại tại vị trí hiện tại để thực hiện động tác khớp xương do bạn thiết kế (vẫy tay, cúi chào, nhảy, đấm, đá, ngồi squat, nhìn quanh, ăn mừng...; \`time\` tính từ \`0\` đến \`duration\` của riêng đoạn đó).
+- **Khi yêu cầu là động tác thuần tại chỗ hoặc bắt chước Video mẫu** (nhảy múa, đấm bốc, đá, moonwalk, cúi chào, tạo dáng... không có quãng đường): trả về trực tiếp \`keyframes\` (35-90 keyframes phân bố đều trên các khớp chính từ \`0\` đến \`duration\`).
+- **Mẹo khép vòng lặp mượt**: Nếu muốn kịch bản quay đầu khép kín vòng lặp \`loop: true\` (vd: đi 10m rồi quay đầu đi lại 10m), hãy thêm 1 đoạn \`turn\` 180° ở cuối để nhân vật xoay lại đúng hướng ban đầu trước khi lặp!
+
+### QUY ƯỚC HỆ TRỤC XOAY CHUẨN NHÂN VẬT (CHARACTER CARDINAL SPACE - cho mọi \`keyframes\`):
+1. **Trục X (Pitch)**: Đùi (\`LeftUpLeg\`, \`RightUpLeg\`) x ÂM (-20..-100) nâng chân lên trước, x DƯƠNG (+15..+45) đưa ra sau; Đầu gối (\`LeftLeg\`, \`RightLeg\`) x DƯƠNG (+15..+100) gập gối về sau (KHÔNG dùng x âm); Cánh tay (\`LeftArm\`, \`RightArm\`) & Khuỷu tay (\`LeftForeArm\`, \`RightForeArm\`) x ÂM (-20..-100) đưa/gập tay lên trước; Cột sống & Đầu (\`Hips\`, \`Spine\`, \`Head\`) x DƯƠNG (+10..+45) cúi về trước.
+2. **Trục Y (Yaw)**: y DƯƠNG xoay sang trái/phải quanh trục đứng.
+3. **Trục Z (Roll)**: \`LeftArm\` z DƯƠNG (+15..+80) nâng giang tay trái lên cao, z ÂM (-12..-25) khép sát thân; \`RightArm\` z ÂM (-15..-80) nâng giang tay phải lên cao, z DƯƠNG (+12..+25) khép sát thân.
+4. **Vị trí \`pos\` (mét)**: \`Hips.pos.y\` +0.08..+0.35 khi bật nhảy, -0.08..-0.40 khi nhún/squat.
 
 ### THÔNG TIN VIDEO MẪU & YÊU CẦU:
 - ${frameMetaDesc}
 - Yêu cầu từ người dùng: "${prompt || 'Bắt chước chính xác chuyển động, hướng xoay thân, bước chân và cử chỉ tay trong các khung hình video mẫu'}"
 
-### YÊU CẦU ĐẦU RA:
-- Tạo từ 35 đến 90 keyframes phân bố đều trên tất cả các khớp chính (Hips, Spine02/Spine01/Spine, neck, Head, LeftArm, LeftForeArm, RightArm, RightForeArm, LeftUpLeg, LeftLeg, RightUpLeg, RightLeg) xuyên suốt từ 0.0s đến ${targetDur}s.
-- CHỈ TRẢ VỀ JSON THUẦN TÚY đúng cấu trúc sau:
+### YÊU CẦU ĐẦU RA (CHỈ TRẢ VỀ JSON THUẦN TÚY):
+- Dùng \`segments\` cho kịch bản có di chuyển / nhiều bước, HOẶC dùng \`keyframes\` cho động tác tại chỗ / video mẫu:
 {
-  "duration": ${targetDur},
   "loop": true,
-  "explanation": "Mô tả ngắn gọn chuyển động vừa thiết kế",
-  "keyframes": [
-    { "time": 0.0, "boneName": "Hips", "rot": { "x": 0, "y": 0, "z": 0 }, "pos": { "x": 0, "y": 0, "z": 0 } }
-  ]
+  "duration": ${targetDur},
+  "explanation": "Mô tả ngắn gọn kế hoạch chuyển động bạn vừa suy nghĩ và biên đạo",
+  "segments": [ ... ],
+  "keyframes": [ ... ]
 }`;
 
       const parts: any[] = [{ text: systemPrompt }];
@@ -4485,6 +4841,7 @@ Mọi góc xoay \`rot: { "x": number, "y": number, "z": number }\` (đơn vị: 
       }
 
       let appliedCount = 0;
+      let usedAiPlan = false;
       let explanation = '';
       try {
         const aiRes: any = await this.genaiService.generateContent({
@@ -4493,7 +4850,7 @@ Mọi góc xoay \`rot: { "x": number, "y": number, "z": number }\` (đơn vị: 
           config: {
             bypassAiAgent: true,
             disableThinking: true,
-            temperature: 0.2
+            temperature: 0.25
           } as any
         });
         const rawReply =
@@ -4501,23 +4858,33 @@ Mọi góc xoay \`rot: { "x": number, "y": number, "z": number }\` (đơn vị: 
           aiRes?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || '').join('') ||
           '';
         const parsed = this.extractJsonFromAiText(rawReply);
-        if (parsed && Array.isArray(parsed.keyframes) && parsed.keyframes.length >= 8) {
+        if (parsed && Array.isArray(parsed.segments) && parsed.segments.length > 0) {
+          appliedCount = this.sceneService.applyAiMotionPlan(pid, { ...parsed, prompt });
+          if (appliedCount >= 2) {
+            usedAiPlan = true;
+            explanation = parsed.explanation || '';
+          }
+        } else if (parsed && Array.isArray(parsed.keyframes) && parsed.keyframes.length >= (isRigidModel ? 4 : 8)) {
           const distinctBones = new Set(parsed.keyframes.map((k: any) => k?.boneName).filter(Boolean));
-          if (distinctBones.size >= 3) {
+          const minDistinctBones = isRigidModel ? 1 : 3;
+          if (distinctBones.size >= minDistinctBones) {
             appliedCount = this.sceneService.applyGeneratedBoneTimeline(pid, {
               duration: Number(parsed.duration) || targetDur,
               loop: parsed.loop !== false,
               keyframes: parsed.keyframes
             });
-            explanation = parsed.explanation || '';
+            if (appliedCount >= (isRigidModel ? 4 : 8)) {
+              usedAiPlan = true;
+              explanation = parsed.explanation || '';
+            }
           }
         }
       } catch (apiErr) {
-        console.warn('[AI Motion Studio] Fallback to smart motion & video pose synthesizer:', apiErr);
+        console.warn('[AI Motion Studio] AI call error, fallback to offline synthesizer:', apiErr);
       }
 
-      // Nếu AI trả về thiếu keyframe hoặc người dùng cần bắt chước trực tiếp từ dữ liệu tư thế Video + từ khóa kịch bản
-      if (appliedCount < 8) {
+      // Chỉ dùng bộ tổng hợp dự phòng ngoại tuyến khi gọi AI bị lỗi mạng hoặc AI trả JSON rỗng/hỏng
+      if (!usedAiPlan) {
         const energies = this.aiMotionVideoFrames.map((f) => f.energy);
         appliedCount = this.sceneService.generateSmartBoneMotion(
           pid,
@@ -4530,9 +4897,11 @@ Mọi góc xoay \`rot: { "x": number, "y": number, "z": number }\` (đơn vị: 
 
       this.timelineData = this.sceneService.getPropTimeline(pid);
       this.timelineCurrentTime = 0;
-      this.saveTimelineToProp(true);
+      const clipLabel = prompt ? prompt.slice(0, 32) : undefined;
+      this.saveTimelineToProp(true, clipLabel);
+      this.timelineClips = this.sceneService.getPropClips(pid);
       this.toastr.success(
-        explanation || `Đã thiết kế xong ${appliedCount} Keyframe chuyển động trên các khớp xương và bắt đầu phát!`,
+        explanation || `AI đã thiết kế xong ${appliedCount} Keyframe chuyển động và bắt đầu phát!`,
         'AI Motion Studio'
       );
     } catch (err: any) {
@@ -4961,17 +5330,16 @@ Mọi góc xoay \`rot: { "x": number, "y": number, "z": number }\` (đơn vị: 
       }
 
       try {
-        const animListStr = this.userAnimations.map(a => a.name).join(', ');
         let targetPropInstruction = '';
         if (targetProps && targetProps.length > 0) {
           const names = targetProps.map(p => `"${p.name}" (ID: "${p.id}")`).join(', ');
           targetPropInstruction = `
 ⚠️ CHÚ Ý QUAN TRỌNG VỀ TARGET SCOPE:
 Người dùng đang ĐÍNH KÈM / @MENTION ĐỒ VẬT CHỈ ĐỊNH: [${names}].
-- Bạn CHỈ ĐƯỢC PHÉP trả về 'modifyProp' để chỉnh sửa thuộc tính JSON Data (như \`activeScreenState: "clock"\`, \`screenOptions\`, \`color\`, \`position\`, \`rotation\`, \`scale\`, \`visible\`,...) CỦA ĐÚNG MÓN ĐỒ VẬT ĐƯỢC MENTION NÀY!
+- Bạn CHỈ ĐƯỢC PHÉP trả về 'modifyProp' (hoặc 'designBoneAnimation' nếu yêu cầu tạo chuyển động khớp xương cho đối tượng này) để chỉnh sửa thuộc tính JSON Data (như \`activeScreenState: "clock"\`, \`screenOptions\`, \`color\`, \`position\`, \`rotation\`, \`scale\`, \`visible\`,...) CỦA ĐÚNG MÓN ĐỒ VẬT ĐƯỢC MENTION NÀY!
 - Trả về object \`modifyProp\` chứa \`targetPropId\` (hoặc \`targetPropName\`) và \`patch\` chứa ĐÚNG CÁC KEY & GIÁ TRỊ CẦN SỬA (ví dụ khi người dùng yêu cầu đổi màu nền màn hình, hãy sửa \`activeScreenState: "clock"\` và \`screenOptions: { "bgColor": "#HexColor" }\`).
 - ĐẶC BIỆT DÀNH CHO MÀN HÌNH (MONITOR): Nếu người dùng yêu cầu hiển thị HÌNH ẢNH / FILE ẢNH (chứa đường dẫn file ảnh .png, .jpg, .webp hoặc url), hãy đặt \`activeScreenState: "image"\` và \`screenOptions: { "imageUrl": "đường_dẫn_file_ảnh" }\`.
-- TUYỆT ĐỐI KHÔNG thay đổi nhân vật (animationName, scale nhân vật, position nhân vật) hay hệ thống đèn (lightsOn) khi người dùng đang chỉ định đồ vật!`;
+- TUYỆT ĐỐI KHÔNG thay đổi hệ thống đèn (lightsOn) khi người dùng đang chỉ định đồ vật!`;
         }
 
         const domainSystemPrompt = `Bạn là **PlayCanvas 3D Master & Director**, Chuyên gia AI có toàn quyền điều khiển toàn bộ tính năng và thuộc tính trong thế giới 3D PlayCanvas.
@@ -5001,23 +5369,16 @@ ${targetPropInstruction}
 
 3. XOÁ ĐỒ VẬT ('removePropName'): Tên đồ vật người dùng yêu cầu bỏ.
 
-4. ĐIỀU KHIỂN HÀNH ĐỘNG & TOÀN BỘ NHÂN VẬT 3D ('characterAction'):
-   - animationName: Chọn hành động từ danh sách: [${animListStr}] (hoặc 'Idle' khi muốn đứng yên / dừng lại).
-   - position: Đưa nhân vật tới vị trí { x, y, z } (VD dưới sàn { x: 0, y: 0, z: 0 }).
-   - facingAngle: Xoay hướng mặt nhân vật (0 đến 360 độ).
-   - scale: Thu nhỏ / phóng to nhân vật (VD: 0.5 đến 2.0).
-   - visible: Ẩn/hiện nhân vật (true / false).
-
-5. ĐỔI MÀU MÔI TRƯỜNG SHOWROOM STUDIO ('environment'):
+4. ĐỔI MÀU MÔI TRƯỜNG SHOWROOM STUDIO ('environment'):
    - background: Đổi màu nền Studio (Hex).
    - table: Đổi màu mặt bàn gỗ (Hex).
    - cloth: Đổi màu khăn vải trải bàn (Hex).
 
-6. ĐIỀU KHIỂN CAMERA ('cameraPreset' / 'focusPropName'):
-   - cameraPreset: 'default' | 'desk' | 'character' | 'overhead'
+5. ĐIỀU KHIỂN CAMERA ('cameraPreset' / 'focusPropName'):
+   - cameraPreset: 'default' | 'desk' | 'overhead'
    - focusPropName: Tập trung góc nhìn vào một món đồ.
 
-7. KÍCH HOẠT HIỆU ỨNG SCRIPT PLAYCANVAS ('applyEffect'):
+6. KÍCH HOẠT HIỆU ỨNG SCRIPT PLAYCANVAS ('applyEffect'):
    - Khi người dùng yêu cầu hiệu ứng (tuyết rơi, mưa, lá rơi, đom đóm, tim bay, khói...), trả về lệnh:
      {"applyEffect": {"name": "snow", "targetPropName": null, "params": {"count": 500, "speed": 2.5}, "script": "function effect(fx) { ... }"}}
    - name: tên ngắn không dấu (snow, rain, leaves, fireflies...). targetPropName: tên món đồ để hiệu ứng bám quanh (null = phủ toàn scene).
@@ -5032,42 +5393,49 @@ ${targetPropInstruction}
      * Script viết dạng "function effect(fx) { ... }", KHÔNG dùng fetch/XHR/DOM/setInterval, chỉ dùng API trên + Math + pc.
      * Script kiểu PlayCanvas Editor (pc.createScript + prototype.initialize/update, có attributes.add) cũng được CHẤP NHẬN: runtime tự chuyển đổi sang effect(fx) và attributes thành fx.params. Nếu file đính kèm có lỗi cú pháp (vd "default:," thiếu giá trị), vẫn copy nguyên văn — runtime tự sửa.
 
-8. THIẾT KẾ CLIP CHUYỂN ĐỘNG KHỚP XƯƠNG 3D TỪ VIDEO MẪU / MÔ TẢ ('designBoneAnimation'):
-   - Khi người dùng yêu cầu thiết kế/tạo chuyển động khớp xương (keyframe, moonwalk, trượt chân, vẫy tay, đá chân, cúi chào, nhảy, quyền anh, ngồi squat, xoay người, giơ tay, vỗ tay, đi bộ, chạy...) hoặc đính kèm các khung hình trích xuất từ Video mẫu cho một nhân vật / đồ vật GLB có xương, trả về trường \`designBoneAnimation\`:
-     {
-       "targetPropId": "id_món_đồ_GLB",
-       "duration": 2.4,
-       "loop": true,
-       "keyframes": [
-         { "time": 0.0, "boneName": "Hips", "rot": { "x": 0, "y": 0, "z": 0 }, "pos": { "x": 0, "y": 0, "z": 0 } }
-       ]
-     }
-   - Chỉ sử dụng đúng tên khớp xương trong mảng \`rigBones\` của đồ vật đó ở phần TRẠNG THÁI HIỆN TẠI bên dưới.
-   - Quy ước Hệ tọa độ Chuẩn Nhân vật (Character Cardinal Space):
-     * Trục X (Pitch): Đùi (LeftUpLeg/RightUpLeg) x âm (-20..-100) nâng chân lên trước, x dương đưa ra sau; Đầu gối (LeftLeg/RightLeg) x dương (+15..+100) gập gối về sau (không dùng x âm); Cánh tay (LeftArm/RightArm) & Khuỷu tay (LeftForeArm/RightForeArm) x âm (-20..-100) đưa/gập tay lên trước ngực; Cột sống & Đầu (Hips/Spine02/Spine01/Spine/neck/Head) x dương (+10..+45) cúi về trước.
-     * Trục Y (Yaw): y dương xoay phải, y âm xoay trái.
-     * Trục Z (Roll): LeftArm z dương (+15..+80) nâng giang tay trái lên cao, z âm (-15..-25) khép sát thân; RightArm z âm (-15..-80) nâng giang tay phải lên cao, z dương (+15..+25) khép sát thân.
-     * Vị trí pos (mét, cho Hips): pos.y dương (+0.1..+0.35) bật nhảy, âm (-0.1..-0.4) nhún/ngồi; pos.x dịch ngang.
+8. THIẾT KẾ CLIP CHUYỂN ĐỘNG KHỚP XƯƠNG & QUỸ ĐẠO 3D ('designBoneAnimation'):
+   - Khi người dùng yêu cầu diễn hoạt nhân vật hoặc di chuyển nhân vật/xe theo bất kỳ quãng đường, quỹ đạo hay chuỗi hành động nào (đi bộ 10m rồi quay đầu, đi bộ rồi dừng vẫy tay, chạy hình vuông/vòng tròn/zig-zag, lùi xe, nhảy, đá, đấm, vẫy tay, cúi chào...), BẮT BUỘC trả về \`designBoneAnimation\` (KHÔNG dùng \`modifyProp.position\`):
+     * Nếu có di chuyển không gian / quãng đường / nhiều chặng, hãy tự biên đạo mảng \`segments\` nối tiếp nhau:
+       - \`{ "type": "move", "distance": number (mét, âm hoặc reverse:true = lùi), "duration": number, "gait": "embedded"|"walk"|"run"|"none", "clipName": string }\`
+       - \`{ "type": "turn", "angleDeg": number (+ trái, - phải, 180 = quay đầu), "duration": 0.85, "gait": "walk"|"none" }\`
+       - \`{ "type": "arc", "radius": number (bán kính = đường kính / 2), "sweepDeg": number (+ cua trái, - cua phải; vòng tròn = -360/+360), "duration": number, "reverse": false, "leanDeg": 0 (xe 4 bánh luôn 0, xe 2 bánh 8..10), "centerOnOrigin": true/false, "gait": "embedded"|"walk"|"run" }\`
+       - \`{ "type": "waypoints", "points": [{"x":0,"y":0,"z":5},...], "relative": true, "duration": number, "gait": "embedded"|"walk"|"run" }\`
+       - \`{ "type": "figure8", "width": number, "duration": number, "leanDeg": 0 }\`
+       - \`{ "type": "pose", "duration": number, "keyframes": [ { "time": 0.0, "boneName": "...", "rot": {"x":0,"y":0,"z":0}, "pos": {"x":0,"y":0,"z":0} } ] }\`
+     * Nếu là động tác tại chỗ thuần túy hoặc bắt chước video, trả về trực tiếp \`keyframes\`:
+       { "targetPropId": "id_món_đồ_GLB", "duration": 2.4, "loop": true, "segments": [...], "keyframes": [...] }
+   - Chỉ sử dụng tên khớp trong \`rigBones\` và tên clip nhúng trong \`embeddedClips\` của đồ vật đó ở TRẠNG THÁI HIỆN TẠI bên dưới.
+   - Với vật thể cứng / xe cộ (\`isRigidModel: true\`): không xoay sub-mesh con; với xe 4 bánh (\`autoWheelCount >= 3\`), luôn đặt \`leanDeg: 0\` (bánh xe tự lăn & đánh lái theo quỹ đạo).
+   - Quy ước Character Cardinal Space cho \`keyframes\`:
+     * X (Pitch): Đùi x âm (-20..-100) nâng lên trước, x dương ra sau; Đầu gối x dương (+15..+100) gập về sau; Tay & Khuỷu x âm (-20..-100) đưa/gập lên trước; Thân/Đầu x dương (+10..+45) cúi trước.
+     * Y (Yaw): xoay quanh trục đứng.
+     * Z (Roll): LeftArm z dương (+15..+80) nâng cao, z âm khép sát; RightArm z âm (-15..-80) nâng cao, z dương khép sát.
+     * pos (mét): Hips.pos.y dương bật nhảy, âm nhún/ngồi.
 
 ---
 ### TRẠNG THÁI HIỆN TẠI:
 ${JSON.stringify({
   username: this.username,
-  character: currentProfile.character,
-  props: this.roomProps.map(p => ({
-    id: p.id,
-    name: p.name,
-    shape: p.shape || 'box',
-    color: p.color,
-    position: p.position,
-    rotation: p.rotation,
-    scale: p.scale,
-    animation: p.animation || 'none',
-    visible: p.visible,
-    rigBones: p.visible && this.sceneService.hasPropRig(p.id)
-      ? this.sceneService.getPropBones(p.id).map(b => b.name)
-      : undefined
-  }))
+  props: this.roomProps.map(p => {
+    const rigInfo = p.visible && this.sceneService.hasPropRig(p.id)
+      ? this.sceneService.getPropRigSummary(p.id)
+      : null;
+    return {
+      id: p.id,
+      name: p.name,
+      shape: p.shape || 'box',
+      color: p.color,
+      position: p.position,
+      rotation: p.rotation,
+      scale: p.scale,
+      animation: p.animation || 'none',
+      visible: p.visible,
+      isRigidModel: rigInfo ? rigInfo.isRigidModel : undefined,
+      autoWheelCount: rigInfo ? rigInfo.autoWheelCount : undefined,
+      embeddedClips: rigInfo && rigInfo.embeddedClipNames.length > 0 ? rigInfo.embeddedClipNames : undefined,
+      rigBones: rigInfo ? rigInfo.safeBoneNames : undefined
+    };
+  })
 }, null, 2)}
 
 ---
@@ -5091,13 +5459,6 @@ ${JSON.stringify({
     "patch": {}
   },
   "removePropName": null,
-  "characterAction": {
-    "animationName": "Walk",
-    "position": { "x": 0, "y": 4.1, "z": 0 },
-    "facingAngle": 0,
-    "scale": 1.0,
-    "visible": true
-  },
   "environment": {
     "background": null,
     "table": null,
@@ -5146,73 +5507,11 @@ ${JSON.stringify({
               updated = true;
             }
 
-            // 🕺 ĐIỀU KHIỂN HÀNH ĐỘNG & THUỘC TÍNH TOÀN BỘ NHÂN VẬT 3D
-            const charAct = parsed.characterAction || {};
-            const animName = charAct.animationName || parsed.animationName;
-            if (animName) {
-              const lowerAnim = animName.toLowerCase();
-              const anim = this.userAnimations.find(a => a.name.toLowerCase() === lowerAnim) ||
-                           this.userAnimations.find(a => lowerAnim.includes(a.name.toLowerCase()));
-              if (anim) {
-                this.setAnimation(anim.name, anim.glbPath, anim.isMovement, anim.speed);
-                currentProfile.character.animationState = anim.name;
-                updated = true;
-              } else if (lowerAnim.includes('idle') || lowerAnim.includes('đứng') || lowerAnim.includes('dừng')) {
-                const idleAnim = this.userAnimations.find(a => a.name.toLowerCase().includes('idle')) || this.userAnimations[0];
-                if (idleAnim) {
-                  this.setAnimation(idleAnim.name, idleAnim.glbPath, false, 0);
-                  currentProfile.character.animationState = idleAnim.name;
-                  updated = true;
-                }
-              }
-            }
-            const charPos = charAct.position || parsed.position;
-            if (charPos) {
-              currentProfile.character.position = charPos;
-              this.sceneService.setCharacterTransform({ position: charPos });
-              updated = true;
-            }
-            const charAngle = typeof charAct.facingAngle === 'number' ? charAct.facingAngle : parsed.facingAngle;
-            if (typeof charAngle === 'number') {
-              currentProfile.character.facingAngle = charAngle;
-              this.sceneService.setCharacterTransform({ facingAngle: charAngle });
-              updated = true;
-            }
-            const charScale = typeof charAct.scale === 'number' ? charAct.scale : parsed.scale;
-            if (typeof charScale === 'number') {
-              currentProfile.character.scale = charScale;
-              this.sceneService.setCharacterTransform({ scale: charScale });
-              updated = true;
-            }
-            if (typeof charAct.visible === 'boolean') {
-              this.sceneService.setCharacterVisibility(charAct.visible);
-              updated = true;
-            }
-            // ONLY update global scene / character IF NO target prop was mentioned (@mention)
+            // ONLY update global scene IF NO target prop was mentioned (@mention)
             if (!hasTargetProps) {
               if (parsed.lightsOn !== null && parsed.lightsOn !== undefined) {
                 currentProfile.scene.lightsOn = parsed.lightsOn;
                 this.sceneService.clickLightSwitch(parsed.lightsOn);
-                updated = true;
-              }
-              if (parsed.animationName) {
-                const anim = this.userAnimations.find(a => a.name.toLowerCase() === parsed.animationName.toLowerCase());
-                if (anim) {
-                  this.setAnimation(anim.name, anim.glbPath, anim.isMovement, anim.speed);
-                  currentProfile.character.animationState = anim.name;
-                  updated = true;
-                }
-              }
-              if (parsed.scale !== null && parsed.scale !== undefined) {
-                currentProfile.character.scale = parsed.scale;
-                updated = true;
-              }
-              if (parsed.facingAngle !== null && parsed.facingAngle !== undefined) {
-                currentProfile.character.facingAngle = parsed.facingAngle;
-                updated = true;
-              }
-              if (parsed.position) {
-                currentProfile.character.position = parsed.position;
                 updated = true;
               }
               if (parsed.cameraPreset) {
@@ -5408,16 +5707,20 @@ ${JSON.stringify({
                 this.selectedPropId ||
                 this.roomProps.find((p) => p && p.visible && this.sceneService.hasPropRig(p.id))?.id;
               if (targetPid && this.sceneService.hasPropRig(targetPid)) {
-                const count = this.sceneService.applyGeneratedBoneTimeline(targetPid, dba);
+                const count = Array.isArray(dba.segments) && dba.segments.length > 0
+                  ? this.sceneService.applyAiMotionPlan(targetPid, { ...dba, prompt: text })
+                  : this.sceneService.applyGeneratedBoneTimeline(targetPid, dba);
                 if (count > 0) {
                   this.openPropTimeline(targetPid);
-                  this.saveTimelineToProp(true);
+                  this.saveTimelineToProp(true, text.slice(0, 32));
                   updated = true;
-                  message = parsed.explanation || `AI đã thiết kế xong ${count} Keyframe chuyển động khớp xương!`;
+                  message = parsed.explanation || `AI đã biên đạo và tạo xong ${count} Keyframe chuyển động!`;
                 }
               }
             }
-            if (parsed.explanation) {
+            if (parsed.explanation && !updated) {
+              message = parsed.explanation;
+            } else if (parsed.explanation && !parsed.designBoneAnimation) {
               message = parsed.explanation;
             }
           }
@@ -5430,7 +5733,7 @@ ${JSON.stringify({
     if (
       !updated &&
       (this.aiMotionVideoFrames.length > 0 ||
-        /moonwalk|trượt|keyframe|khớp xương|chuyển động|diễn hoạt|đá|kick|đấm|boxing|võ|kungfu|cúi|chào|vẫy|wave|nhảy|dance|hiphop|jump|ngồi|squat|thụt dầu|xoay người|quay người|spin|giơ tay|ăn mừng|vỗ tay|clap|gật đầu|lắc đầu|đi bộ|walk|chạy|run|thuyết trình|tạo dáng|pose/.test(lower))
+        /moonwalk|trượt|keyframe|khớp xương|chuyển động|diễn hoạt|đá|kick|đấm|boxing|võ|kungfu|cúi|chào|vẫy|wave|nhảy|dance|hiphop|jump|ngồi|squat|thụt dầu|xoay người|quay người|quay đầu|quay lại|spin|giơ tay|ăn mừng|vỗ tay|clap|gật đầu|lắc đầu|đi bộ|walk|chạy|run|thuyết trình|tạo dáng|pose/.test(lower))
     ) {
       const targetPid =
         (targetProps && targetProps[0]?.id) ||
@@ -5452,29 +5755,6 @@ ${JSON.stringify({
           this.saveTimelineToProp(true);
           updated = true;
           message = `AI đã thiết kế ${count} Keyframe chuyển động khớp xương và phát trên Timeline!`;
-        }
-      }
-    }
-
-    const hasTargetProps = targetProps && targetProps.length > 0;
-
-    // Local fallback rules run ONLY when NO target prop is mentioned (@mention)
-    if (!updated && !hasTargetProps) {
-      if (lower.includes('đi bộ') || lower.includes('walk')) {
-        const anim = this.userAnimations.find(a => a.name.toLowerCase().includes('đi bộ') || a.name.toLowerCase().includes('walk'));
-        if (anim) {
-          this.setAnimation(anim.name, anim.glbPath, anim.isMovement, anim.speed);
-          currentProfile.character.animationState = anim.name;
-          updated = true;
-          message = `🏃 AI đã đổi hành động nhân vật sang: ${anim.name}!`;
-        }
-      } else if (lower.includes('đứng') || lower.includes('idle') || lower.includes('dừng lại')) {
-        const anim = this.userAnimations.find(a => a.name.toLowerCase().includes('đứng') || a.name.toLowerCase().includes('idle'));
-        if (anim) {
-          this.setAnimation(anim.name, anim.glbPath, anim.isMovement, anim.speed);
-          currentProfile.character.animationState = anim.name;
-          updated = true;
-          message = `🧍 AI đã chuyển nhân vật sang trạng thái đứng yên!`;
         }
       }
     }
@@ -5665,13 +5945,10 @@ ${JSON.stringify({
     this.sceneService.applyProfile(currentProfile, { skipCamera: true });
     this.sceneService.syncProps(this.roomProps);
 
-    // 💾 2. TỰ ĐỘNG LƯU TRỰC TIẾP VÀO THƯ MỤC Documents/ai.type/data/profiles/{username}/ (props.json, character.json, room.json, profile.json)
+    // 💾 2. TỰ ĐỘNG LƯU TRỰC TIẾP VÀO THƯ MỤC Documents/ai.type/data/profiles/{username}/ (props.json, room.json, profile.json)
     try {
       await this.profileDataService.saveProps(this.roomProps).toPromise();
       await this.profileDataService.saveProfile(currentProfile).toPromise();
-      if (currentProfile.character) {
-        await this.profileDataService.saveCharacter(currentProfile.character).toPromise();
-      }
       if (currentProfile.scene) {
         await this.profileDataService.saveScene(currentProfile.scene).toPromise();
       }
@@ -5691,43 +5968,6 @@ ${JSON.stringify({
     if (!event.shiftKey) {
       event.preventDefault();
       this.sendPrompt();
-    }
-  }
-
-  /** Xử lý khi user chọn file GLB */
-  async onGlbSelected(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const file  = input.files?.[0];
-    if (!file) return;
-
-    // Reset
-    input.value = '';
-    this.uploadError = null;
-    this.isUploading = true;
-    this.cdr.markForCheck();
-
-    try {
-      // Upload qua Electron IPC → lưu vào ~/Documents/ai.type/data/profiles/{username}/assets/{username}.glb
-      const result = await this.profileDataService.uploadCharacterGlb(file).toPromise();
-      if (!result?.glbPath) throw new Error('Không nhận được đường dẫn GLB');
-
-      // Revoke blob URL cũ nếu có
-      if (this._charBlobUrl) { URL.revokeObjectURL(this._charBlobUrl); this._charBlobUrl = null; }
-
-      // Đọc file vừa lưu thành Blob URL và load vào scene ngay
-      const blobUrl = await this.profileDataService.readGlbAsObjectUrl(result.glbPath).toPromise();
-      if (blobUrl) {
-        this._charBlobUrl = blobUrl;
-        this.sceneService.loadCharacterFromBlobUrl(blobUrl);
-      }
-
-      this.isUploading = false;
-      this.cdr.markForCheck();
-    } catch (err: any) {
-      console.error('[Profile] Upload GLB error:', err);
-      this.uploadError = 'Upload thất bại: ' + (err?.message ?? 'Lỗi không xác định');
-      this.isUploading = false;
-      this.cdr.markForCheck();
     }
   }
 
@@ -5753,39 +5993,6 @@ ${JSON.stringify({
       this.sceneService.loadPhotoTexture(blobUrl);
     } catch (err: any) {
       console.error('[Profile] Upload photo error:', err);
-    }
-  }
-
-  triggerAvatarUpload(): void {
-    this.avatarFileInput?.nativeElement?.click();
-  }
-
-  async onAvatarSelected(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    input.value = '';
-
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const ext = file.name.split('.').pop() || 'png';
-
-      // Lưu qua Electron IPC vào ~/Documents/ai.type/data/profiles/{username}/assets/avatar.{ext}
-      if ((window as any).electron?.saveAvatar) {
-        await (window as any).electron.saveAvatar(this.username, arrayBuffer, ext);
-      }
-
-      const reader = new FileReader();
-      reader.onload = (e: any) => {
-        const dataUrl = e.target.result;
-        this.charThumbnail = dataUrl;
-        localStorage.setItem(`profile_avatar_${this.username}`, dataUrl);
-        this.toastr.success('Đã lưu ảnh đại diện vào thư mục profile!');
-        this.cdr.markForCheck();
-      };
-      reader.readAsDataURL(file);
-    } catch (err: any) {
-      console.error('[Profile] Save avatar error:', err);
     }
   }
 
@@ -5831,20 +6038,9 @@ ${JSON.stringify({
 
         await new Promise(r => setTimeout(r, 200));
 
-        let charGlbObjectUrl: string | null = null;
-        if (this.profile?.character?.glbPath) {
-          charGlbObjectUrl = await this.profileDataService.readGlbAsObjectUrl(this.profile.character.glbPath).toPromise() ?? null;
-        }
-        await this.sceneService.initScene(this.canvasRef.nativeElement, this.profile, charGlbObjectUrl);
-      this.sceneService.rerunAllFxEffects();
+        await this.sceneService.initScene(this.canvasRef.nativeElement, this.profile, null);
+        this.sceneService.rerunAllFxEffects();
         await this.loadSavedPropGlbs();
-        const defaultAnimState = this.profile?.character?.animationState;
-        if (defaultAnimState) {
-          const found = this.userAnimations.find(a => a.name === defaultAnimState);
-          if (found) {
-            this.setAnimation(found.name, found.glbPath, found.isMovement, found.speed);
-          }
-        }
       }
       this.toastr.success('Đã tải lại Căn phòng 3D!');
     } catch (e) {
@@ -6193,9 +6389,12 @@ ${JSON.stringify({
   ngOnDestroy(): void {
     if (this._recordingTimerInterval) clearInterval(this._recordingTimerInterval);
     if (this._frameExportInterval) clearInterval(this._frameExportInterval);
+    if (this._unsubMocapProgress) {
+      try { this._unsubMocapProgress(); } catch (_) {}
+      this._unsubMocapProgress = null;
+    }
     this._destroy$.next();
     this._destroy$.complete();
     this.sceneService.destroyScene();
-    if (this._charBlobUrl) { URL.revokeObjectURL(this._charBlobUrl); }
   }
 }

@@ -1345,6 +1345,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
 
         this.audioList = clips.map((item: any) => {
+            // Dự án tạo từ luồng Tạo video hàng loạt trước đây bị gán nhầm video prompt vào clip.prompt
+            // khiến giao diện hiện thừa nút "Tạo ảnh từ Prompt" (Dreamina)
+            if (String(item?.id || '').startsWith('batch_') && item.prompt) {
+                item.prompt = '';
+            }
             if (item.description) {
                 const doc = new DOMParser().parseFromString(
                     item.description,

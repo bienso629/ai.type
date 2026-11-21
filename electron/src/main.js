@@ -6888,7 +6888,7 @@ app.whenReady().then(async () => {
     // ===== SAVE BASE64 IPC =====
     ipcMain.handle("save-base64", async (_event, payload) => {
         try {
-            let { base64, fileName, folder, username } = payload || {};
+            let { base64, fileName, folder, username, customDataSubDir } = payload || {};
             if (!base64) return { success: false, error: "Empty base64 data" };
 
             // Strip data URI prefix if present
@@ -6897,8 +6897,17 @@ app.whenReady().then(async () => {
             }
 
             const docDir = documentsDir || path.join(os.homedir(), "Documents");
-            let targetDir = path.join(docDir, "ai.type", "data", "uploads");
-            if (folder && username) {
+            const dataRoot = path.join(docDir, "ai.type", "data");
+            let targetDir = path.join(dataRoot, "uploads");
+            if (customDataSubDir && typeof customDataSubDir === "string") {
+                const safeSegs = customDataSubDir
+                    .replace(/\\/g, "/")
+                    .split("/")
+                    .filter((s) => s && s !== "." && s !== "..");
+                if (safeSegs.length > 0) {
+                    targetDir = path.join(dataRoot, ...safeSegs);
+                }
+            } else if (folder && username) {
                 targetDir = path.join(targetDir, folder, username);
             } else if (username) {
                 targetDir = path.join(targetDir, username);

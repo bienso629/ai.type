@@ -7,22 +7,6 @@
         style="display: none"
         (change)="onPhotoSelected($event)"
     />
-    <!-- Hidden avatar file input -->
-    <input
-        #avatarFileInput
-        type="file"
-        accept="image/*"
-        style="display: none"
-        (change)="onAvatarSelected($event)"
-    />
-    <!-- Hidden action GLB file input -->
-    <input
-        #actionFileInput
-        type="file"
-        accept=".glb"
-        style="display: none"
-        (change)="onActionFileSelected($event)"
-    />
     <!-- Hidden PlayCanvas script file input -->
     <input
         #scriptFileInput
@@ -76,111 +60,6 @@
         </div>
 
         <div class="sidebar-body">
-            <!-- NHÂN VẬT -->
-            <div class="sidebar-section-label">Nhân vật</div>
-
-            <!-- Upload zone khi chưa có character -->
-            @if (!profile?.character?.glbPath) {
-                <div
-                    class="char-upload-zone"
-                    (click)="triggerUpload()"
-                    [class.is-uploading]="isUploading"
-                >
-                    <input
-                        #glbFileInput
-                        type="file"
-                        accept=".glb"
-                        style="display: none"
-                        (change)="onGlbSelected($event)"
-                    />
-                    <div class="char-upload-zone-inner">
-                        @if (!isUploading) {
-                            <span class="char-upload-icon">🧍</span>
-                            <span class="char-upload-title">Thêm nhân vật</span>
-                            <span class="char-upload-hint"
-                                >Nhấn để upload file .GLB</span
-                            >
-                        }
-                        @if (isUploading) {
-                            <div class="char-upload-spinner"></div>
-                            <span class="char-upload-hint"
-                                >Đang tải lên...</span
-                            >
-                        }
-                    </div>
-                </div>
-            }
-
-            <!-- Sau khi có character -->
-            @if (profile?.character?.glbPath) {
-                <div class="sidebar-char-card shrink-0">
-                    <div
-                        class="sidebar-char-avatar !w-10 !h-10 !min-w-[40px] !min-h-[40px] !max-w-[40px] !max-h-[40px] shrink-0 cursor-pointer relative group overflow-hidden rounded"
-                        (click)="focusOnCharacter()"
-                        matTooltip="Nhấn để đổi góc nhìn & ảnh đại diện"
-                    >
-                        @if (charThumbnail) {
-                            <img
-                                [src]="charThumbnail"
-                                alt="avatar"
-                                class="!w-10 !h-10 !max-w-[40px] !max-h-[40px] object-cover rounded block"
-                            />
-                        }
-                        @if (!charThumbnail) {
-                            <div
-                                class="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-bold text-base uppercase rounded shadow-inner"
-                            >
-                                {{
-                                    (
-                                        profile?.character?.name ||
-                                        username ||
-                                        "A"
-                                    ).slice(0, 1)
-                                }}
-                            </div>
-                        }
-                        <div
-                            class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white rounded"
-                        >
-                            <mat-icon class="icon-size-4"
-                                >photo_camera</mat-icon
-                            >
-                        </div>
-                    </div>
-                    <div
-                        class="sidebar-char-info cursor-pointer min-w-0 flex-1"
-                        (click)="focusOnCharacter()"
-                    >
-                        <span class="sidebar-char-name truncate block">{{
-                            profile?.character?.name || username
-                        }}</span>
-                        <span class="sidebar-char-sub truncate block">{{
-                            profile?.character?.animationState || "Walk"
-                        }}</span>
-                    </div>
-                    <input
-                        #glbFileInput
-                        type="file"
-                        accept=".glb"
-                        style="display: none"
-                        (change)="onGlbSelected($event)"
-                    />
-                    <button
-                        mat-icon-button
-                        class="sidebar-char-replace shrink-0 ml-auto"
-                        (click)="triggerUpload()"
-                        title="Thay nhân vật"
-                    >
-                        <mat-icon>file_upload</mat-icon>
-                    </button>
-                </div>
-            }
-
-            <!-- Upload error -->
-            @if (uploadError) {
-                <div class="char-upload-error">⚠️ {{ uploadError }}</div>
-            }
-
             <!-- ACCORDION MENU -->
             <div class="sidebar-accordion">
                 <!-- MẪU THIẾT KẾ 3D CỦA TÔI -->
@@ -730,172 +609,6 @@
 
             </div>
 
-            <!-- Angular Material Sub-Menus -->
-            <!-- Actions Sub-Menu -->
-            <mat-menu
-                #actionsMenu="matMenu"
-                class="rounded-xl py-1 w-72"
-                panelClass="faint-shadow-menu"
-            >
-                @for (anim of userAnimations; track anim) {
-                    <div
-                        mat-menu-item
-                        (click)="setAnimation(anim.name, anim.glbPath)"
-                        class="hover:bg-gray-50 flex items-center justify-between !px-3 min-w-0 gap-2"
-                    >
-                        <!-- Radio button chọn mặc định -->
-                        <div
-                            (click)="
-                                setDefaultAnimation(
-                                    $event,
-                                    anim.name,
-                                    anim.glbPath
-                                )
-                            "
-                            class="flex items-center shrink-0 mr-2"
-                            [title]="
-                                profile?.character?.animationState === anim.name
-                                    ? 'Đang là mặc định'
-                                    : 'Chọn làm hành động mặc định'
-                            "
-                        >
-                            <span
-                                class="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center transition-colors"
-                                [class.border-teal-500]="
-                                    profile?.character?.animationState ===
-                                    anim.name
-                                "
-                                [class.bg-teal-500]="
-                                    profile?.character?.animationState ===
-                                    anim.name
-                                "
-                            >
-                                @if (
-                                    profile?.character?.animationState ===
-                                    anim.name
-                                ) {
-                                    <span
-                                        class="w-2 h-2 rounded-full bg-white"
-                                    ></span>
-                                }
-                            </span>
-                        </div>
-                        <!-- Tên hành động (bấm vào để phát ngay) -->
-                        <span
-                            class="text-base font-medium overflow-hidden text-ellipsis whitespace-nowrap block shrink flex-1"
-                            [title]="anim.name"
-                            [class.text-teal-600]="
-                                profile?.character?.animationState === anim.name
-                            "
-                        >
-                            {{ anim.name }}
-                        </span>
-                        <!-- Bộ nút 3 chấm chuẩn Angular 1:1 icon-only -->
-                        <div
-                            class="flex items-center justify-end ml-auto shrink-0"
-                            (click)="$event.stopPropagation()"
-                        >
-                            <button
-                                mat-icon-button
-                                [matMenuTriggerFor]="actionSubMenu"
-                                disableRipple
-                                title="Tùy chọn"
-                            >
-                                <mat-icon class="icon-size-5 text-gray-500"
-                                    >more_vert</mat-icon
-                                >
-                            </button>
-                            <mat-menu
-                                #actionSubMenu="matMenu"
-                                class="rounded-xl py-1 min-w-[180px]"
-                                panelClass="faint-shadow-menu"
-                            >
-                                <button
-                                    mat-menu-item
-                                    (click)="openActionConfig($event, anim)"
-                                    class="hover:bg-gray-50"
-                                >
-                                    <mat-icon
-                                        class="icon-size-5 text-teal-600 mr-2.5"
-                                        >tune</mat-icon
-                                    >
-                                    <span class="text-base font-medium"
-                                        >Chỉnh sửa</span
-                                    >
-                                </button>
-                                <button
-                                    mat-menu-item
-                                    (click)="deleteAction($event, anim.id)"
-                                    class="hover:bg-red-50 text-red-600"
-                                >
-                                    <mat-icon
-                                        class="icon-size-5 text-red-600 mr-2.5"
-                                        >delete_outline</mat-icon
-                                    >
-                                    <span class="text-base font-medium"
-                                        >Xoá hành động</span
-                                    >
-                                </button>
-                            </mat-menu>
-                        </div>
-                    </div>
-                }
-
-                @if (userAnimations.length === 0) {
-                    <button mat-menu-item disabled>
-                        <span class="text-base text-gray-400 font-normal"
-                            >Chưa có hành động nào</span
-                        >
-                    </button>
-                }
-                <mat-divider></mat-divider>
-                <button
-                    mat-menu-item
-                    (click)="triggerAddAction()"
-                    class="hover:bg-teal-50 text-teal-600"
-                >
-                    <mat-icon class="icon-size-6 text-teal-600 mr-2.5"
-                        >add_circle_outline</mat-icon
-                    >
-                    <span class="text-base font-semibold"
-                        >Thêm hành động...</span
-                    >
-                </button>
-            </mat-menu>
-
-            <!-- Clothes Sub-Menu -->
-            <mat-menu
-                #clothesMenu="matMenu"
-                class="rounded-xl py-1 w-64"
-                panelClass="faint-shadow-menu"
-            >
-                <button mat-menu-item class="hover:bg-gray-50">
-                    <mat-icon class="icon-size-5 text-teal-600 mr-2.5"
-                        >checkroom</mat-icon
-                    >
-                    <span class="text-base font-medium">Mặc định</span>
-                </button>
-                <button mat-menu-item class="hover:bg-gray-50">
-                    <mat-icon class="icon-size-5 text-teal-600 mr-2.5"
-                        >checkroom</mat-icon
-                    >
-                    <span class="text-base font-medium">Áo phông đen</span>
-                </button>
-                <mat-divider></mat-divider>
-                <button
-                    mat-menu-item
-                    (click)="triggerUpload()"
-                    class="hover:bg-teal-50 text-teal-600"
-                >
-                    <mat-icon class="icon-size-6 text-teal-600 mr-2.5"
-                        >add_circle_outline</mat-icon
-                    >
-                    <span class="text-base font-semibold"
-                        >Thêm trang phục...</span
-                    >
-                </button>
-            </mat-menu>
-
             <!-- Add Menu (Thêm mới đồ vật GLB) -->
             <mat-menu
                 #addMenu="matMenu"
@@ -945,19 +658,24 @@
                 >
                     @for (prop of attachedProps; track prop; let i = $index) {
                         <div
-                            class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-xs font-semibold"
+                            class="sidebar-attached-chip rounded-full bg-teal-50 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-xs font-semibold"
                         >
-                            <span class="text-teal-600 dark:text-teal-400"
+                            <span class="text-teal-600 dark:text-teal-400 leading-none"
                                 >&#64;</span
                             >
-                            <span class="truncate max-w-[120px]">{{
+                            <span class="truncate max-w-[120px] leading-none">{{
                                 prop.name
                             }}</span>
                             <button
+                                type="button"
                                 (click)="removeAttachedProp(i)"
-                                class="text-teal-500 hover:text-teal-700 ml-1 focus:outline-none"
+                                title="Gỡ đối tượng đính kèm"
+                                class="sidebar-attached-chip__close text-teal-500 hover:text-teal-700 hover:bg-teal-100/80 dark:hover:bg-teal-800/60 focus:outline-none"
                             >
-                                <mat-icon class="icon-size-3">close</mat-icon>
+                                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                                    <line x1="2.5" y1="2.5" x2="9.5" y2="9.5" />
+                                    <line x1="9.5" y1="2.5" x2="2.5" y2="9.5" />
+                                </svg>
                             </button>
                         </div>
                     }
@@ -966,19 +684,24 @@
 
             <!-- Attached Script Chips Bar (JS hieu ung PlayCanvas) -->
             @if (attachedScripts.length > 0) {
-                <div class="flex flex-wrap gap-2 p-3 pt-0">
+                <div class="flex flex-wrap gap-2 p-2 border-b border-slate-100 dark:border-slate-800">
                     @for (sc of attachedScripts; track sc.name; let i = $index) {
                         <div
-                            class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-violet-50 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 text-xs font-semibold"
+                            class="sidebar-attached-chip rounded-lg bg-violet-50 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 text-xs font-semibold"
                         >
                             <mat-icon class="icon-size-3.5 text-violet-500">code</mat-icon>
-                            <span class="truncate max-w-[160px]">{{ sc.name }}</span>
-                            <span class="text-violet-400 font-normal">{{ sc.size < 1024 ? sc.size + ' B' : (sc.size / 1024).toFixed(1) + ' KB' }}</span>
+                            <span class="truncate max-w-[160px] leading-none">{{ sc.name }}</span>
+                            <span class="text-violet-400 font-normal leading-none">{{ sc.size < 1024 ? sc.size + ' B' : (sc.size / 1024).toFixed(1) + ' KB' }}</span>
                             <button
+                                type="button"
                                 (click)="removeAttachedScript(i)"
-                                class="text-violet-400 hover:text-violet-700 ml-1 focus:outline-none"
+                                title="Gỡ tệp kịch bản"
+                                class="sidebar-attached-chip__close text-violet-400 hover:text-violet-700 hover:bg-violet-100/80 dark:hover:bg-violet-800/60 focus:outline-none"
                             >
-                                <mat-icon class="icon-size-3">close</mat-icon>
+                                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                                    <line x1="2.5" y1="2.5" x2="9.5" y2="9.5" />
+                                    <line x1="9.5" y1="2.5" x2="2.5" y2="9.5" />
+                                </svg>
                             </button>
                         </div>
                     }
@@ -1339,38 +1062,6 @@
                             </span>
                         </button>
                     </div>
-                    @if (selectedPropFloorHeight !== null) {
-                        <div class="sontinh-axes-info__floor-box">
-                            <div class="sontinh-axes-info__floor-row">
-                                <span class="sontinh-axes-info__floor-label">So với sàn</span>
-                                <span
-                                    class="sontinh-axes-info__floor-status"
-                                    [class.sontinh-axes-info__floor-status--grounded]="selectedPropFloorState === 'grounded'"
-                                    [class.sontinh-axes-info__floor-status--above]="selectedPropFloorState === 'above'"
-                                    [class.sontinh-axes-info__floor-status--below]="selectedPropFloorState === 'below'"
-                                >
-                                    @if (selectedPropFloorState === 'grounded') {
-                                        Chạm sàn ({{ selectedPropFloorHeight.toFixed(2) }})
-                                    } @else if (selectedPropFloorState === 'above') {
-                                        Cao hơn +{{ selectedPropFloorHeight.toFixed(2) }}
-                                    } @else {
-                                        Lún sàn {{ selectedPropFloorHeight.toFixed(2) }}
-                                    }
-                                </span>
-                            </div>
-                            <button
-                                type="button"
-                                class="sontinh-axes-info__floor-btn"
-                                [class.sontinh-axes-info__floor-btn--alert]="selectedPropFloorState !== 'grounded' && !selectedPropLocked"
-                                [disabled]="selectedPropLocked || selectedPropExactOnFloor"
-                                title="Đưa điểm thấp nhất của đối tượng về đúng mặt sàn chuẩn (độ cao = 0.00)"
-                                (click)="snapSelectedPropToFloor($event)"
-                            >
-                                <mat-icon class="icon-size-4">vertical_align_bottom</mat-icon>
-                                <span>{{ selectedPropExactOnFloor ? 'Đang sát mặt sàn' : 'Đặt xuống sàn' }}</span>
-                            </button>
-                        </div>
-                    }
                     <div class="sontinh-axes-info__sec">Góc xoay (&deg;)</div>
                     <div class="sontinh-axes-info__row">
                         <span class="sontinh-axes-info__axis sontinh-axes-info__axis--x">X</span>
@@ -1444,24 +1135,53 @@
                         </button>
                     </div>
                     <div class="sontinh-axes-info__hint">Kéo nút mũi tên để chỉnh &middot; thả ra để lưu</div>
-                    <button
-                        type="button"
-                        class="sontinh-axes-info__texture-btn"
-                        (click)="openPropTextureStudio(selectedPropId, $event)"
-                    >
-                        <mat-icon class="icon-size-4">palette</mat-icon>
-                        <span>Màu sắc & AI Texture</span>
-                    </button>
-                    @if (selectedPropHasRig) {
+                    <div class="sontinh-axes-info__actions">
+                        @if (selectedPropHasRig) {
+                            <button
+                                type="button"
+                                class="sontinh-prop-actions__btn sontinh-prop-actions__btn--anim"
+                                [class.sontinh-prop-actions__btn--anim-active]="isGlbTimelineOpen"
+                                title="Mở Timeline Chuyển động & Khớp xương (GLB Rig & Timeline)"
+                                (pointerdown)="openPropTimeline(selectedPropId, $event)"
+                            >
+                                <mat-icon>movie</mat-icon>
+                            </button>
+                        }
                         <button
                             type="button"
-                            class="sontinh-axes-info__timeline-btn"
-                            (click)="openPropTimeline(selectedPropId, $event)"
+                            class="sontinh-prop-actions__btn sontinh-prop-actions__btn--tex"
+                            [class.sontinh-prop-actions__btn--tex-active]="isTextureStudioOpen && texStudioPropId === selectedPropId"
+                            title="Chỉnh màu sắc & Tạo Texture AI từ ảnh mẫu"
+                            (pointerdown)="openPropTextureStudio(selectedPropId, $event)"
                         >
-                            <mat-icon class="icon-size-4">movie</mat-icon>
-                            <span>Timeline & Khớp xương</span>
+                            <mat-icon>palette</mat-icon>
                         </button>
-                    }
+                        <button
+                            type="button"
+                            class="sontinh-prop-actions__btn sontinh-prop-actions__btn--lock"
+                            [class.sontinh-prop-actions__btn--locked]="selectedPropLocked"
+                            [title]="selectedPropLocked ? 'Mở khóa: cho phép kéo và thay đổi kích thước' : 'Khóa: không thể kéo hoặc thay đổi kích thước'"
+                            (pointerdown)="onCanvasToggleLock($event, selectedPropId)"
+                        >
+                            <mat-icon>{{ selectedPropLocked ? 'lock' : 'lock_open' }}</mat-icon>
+                        </button>
+                        <button
+                            type="button"
+                            class="sontinh-prop-actions__btn sontinh-prop-actions__btn--dup"
+                            title="Nhân bản đồ vật này (bản sao đặt cạnh)"
+                            (pointerdown)="onCanvasDuplicateProp($event, selectedPropId)"
+                        >
+                            <mat-icon>content_copy</mat-icon>
+                        </button>
+                        <button
+                            type="button"
+                            class="sontinh-prop-actions__btn sontinh-prop-actions__btn--del"
+                            title="Gỡ đồ vật này khỏi canvas (giữ trong menu ĐỒ VẬT)"
+                            (pointerdown)="onCanvasDeleteProp($event, selectedPropId)"
+                        >
+                            <mat-icon>delete</mat-icon>
+                        </button>
+                    </div>
                 </div>
             }
 
@@ -2752,16 +2472,6 @@
                             </button>
                             <button
                                 type="button"
-                                class="glb-tl-btn glb-tl-btn--ai"
-                                [class.glb-tl-btn--active]="isAiVideo3dOpen"
-                                (click)="openAiVideo3dStudio()"
-                                title="Ghi chuyển động 3D này và đắp ảnh nhân vật mẫu bằng model Video của Mì Tôm AI"
-                            >
-                                <mat-icon class="icon-size-4">movie_filter</mat-icon>
-                                <span>AI Tạo Video</span>
-                            </button>
-                            <button
-                                type="button"
                                 class="glb-tl-btn glb-tl-btn--accent"
                                 (click)="addCurrentBoneKeyframe()"
                                 title="Đặt mốc Keyframe cho khớp đang chọn tại thời điểm hiện tại"
@@ -2825,7 +2535,7 @@
                                     [(ngModel)]="aiMotionPrompt"
                                     (keydown.enter)="designMotionWithAi()"
                                     [disabled]="isDesigningAiMotion"
-                                    placeholder="Nhập mô tả chuyển động (VD: Nhảy theo video mẫu, Đá chân cao, Đấm quyền anh, Vẫy tay cúi chào...)"
+                                    placeholder="Nhập mô tả chuyển động (VD: Đấm quyền anh, Vẫy tay...) hoặc chọn Video mẫu"
                                     class="glb-ai-motion-input"
                                 />
 
@@ -2836,11 +2546,26 @@
                                     [disabled]="isDesigningAiMotion"
                                 >
                                     <mat-icon class="icon-size-4" [class.animate-spin]="isDesigningAiMotion">
-                                        {{ isDesigningAiMotion ? 'sync' : 'bolt' }}
+                                        {{ isDesigningAiMotion ? 'sync' : 'auto_awesome' }}
                                     </mat-icon>
-                                    <span>{{ isDesigningAiMotion ? 'Đang thiết kế...' : 'AI Thiết kế Clip' }}</span>
+                                    <span>
+                                        @if (isDesigningAiMotion) {
+                                            {{ aiMotionProgressPercent > 0 ? ('Đang tạo ' + aiMotionProgressPercent + '%') : 'Đang tạo...' }}
+                                        } @else {
+                                            Tạo chuyển động
+                                        }
+                                    </span>
                                 </button>
                             </div>
+
+                            @if (isDesigningAiMotion && aiMotionProgressStage) {
+                                <div class="glb-ai-progress">
+                                    <div class="glb-ai-progress__bar">
+                                        <div class="glb-ai-progress__fill" [style.width.%]="aiMotionProgressPercent"></div>
+                                    </div>
+                                    <span class="glb-ai-progress__text">{{ aiMotionProgressStage }}</span>
+                                </div>
+                            }
 
                             @if (aiMotionVideoFrames.length > 0) {
                                 <div class="glb-ai-frames-strip">
@@ -2951,24 +2676,36 @@
                                     @if (timelineClips.length > 0) {
                                         <div class="glb-clips-grid">
                                             @for (c of timelineClips; track c.name) {
-                                                <button
-                                                    type="button"
+                                                <div
+                                                    role="button"
+                                                    tabindex="0"
                                                     class="glb-clip-card"
                                                     [class.glb-clip-card--active]="timelineData.activeClipName === c.name"
                                                     (click)="selectTimelineClip(c.name)"
                                                 >
-                                                    <mat-icon class="icon-size-5 text-teal-400">play_circle</mat-icon>
+                                                    <mat-icon class="icon-size-5 text-teal-400 shrink-0">play_circle</mat-icon>
                                                     <div class="text-left min-w-0 flex-1">
-                                                        <div class="font-semibold text-xs text-white truncate" [title]="c.name">{{ c.name }}</div>
-                                                        <div class="text-[11px] text-slate-400">
-                                                            Thời lượng: {{ c.duration.toFixed(2) }}s
+                                                        <div
+                                                            class="font-semibold text-xs text-white truncate"
+                                                            [title]="c.name + ' (Nhấn đúp hoặc bấm bút chì để sửa tên & tinh chỉnh bằng AI)'"
+                                                            (dblclick)="openClipEditDialog(c.name, $event)"
+                                                        >{{ c.name }}</div>
+                                                        <div class="text-[11px] text-slate-400 whitespace-nowrap truncate">
+                                                            {{ c.duration.toFixed(2) }}s
                                                             @if (c.isCustom) {
                                                                 <span> &middot; {{ c.kfCount || 0 }} KF</span>
                                                             }
                                                         </div>
                                                     </div>
                                                     <span
-                                                        class="text-slate-400 hover:text-teal-300 px-1 flex items-center"
+                                                        class="glb-clip-action-btn text-slate-400 hover:text-amber-300"
+                                                        title="Mở hộp thoại sửa tên hoặc dùng AI chỉnh lại hành động"
+                                                        (click)="openClipEditDialog(c.name, $event)"
+                                                    >
+                                                        <mat-icon class="icon-size-3.5">edit</mat-icon>
+                                                    </span>
+                                                    <span
+                                                        class="glb-clip-action-btn text-slate-400 hover:text-teal-300"
                                                         [title]="c.isCustom ? 'Xuất tệp .GLB rời & chia sẻ cho các nhân vật khác' : 'Xuất chuyển động gốc của GLB thành tệp .GLB rời để các nhân vật khác kế thừa'"
                                                         (click)="exportTimelineCustomClip(c.name, $event)"
                                                     >
@@ -2976,12 +2713,12 @@
                                                     </span>
                                                     @if (c.isCustom) {
                                                         <span
-                                                            class="text-slate-400 hover:text-rose-400 px-1.5 text-sm font-bold"
+                                                            class="glb-clip-action-btn text-slate-400 hover:text-rose-400 text-sm font-bold"
                                                             title="Xóa Clip chuyển động này"
                                                             (click)="deleteTimelineCustomClip(c.name, $event)"
                                                         >&times;</span>
                                                     }
-                                                </button>
+                                                </div>
                                             }
                                         </div>
                                     } @else {
@@ -2999,124 +2736,150 @@
     </div>
 </div>
 
-<!-- Modal Cấu hình hành động -->
-@if (editingAction) {
+<!-- MODAL CHỈNH SỬA TÊN & TINH CHỈNH CLIP CHUYỂN ĐỘNG BẰNG AI -->
+@if (editingClipModal) {
     <div
-        class="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4"
+        class="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
+        (click)="closeClipEditDialog()"
     >
         <div
-            class="bg-white rounded-sm border border-gray-100 p-6 w-full max-w-md animate-in fade-in zoom-in-95 duration-150"
+            class="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-xl max-h-[calc(90vh-48px)] flex flex-col overflow-hidden text-base shadow-2xl border border-slate-200 dark:border-slate-700"
+            (click)="$event.stopPropagation()"
         >
-            <div
-                class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4"
-            >
-                <h3
-                    class="text-base font-bold text-gray-800 flex items-center gap-2"
-                >
-                    <mat-icon class="text-teal-600">tune</mat-icon>
-                    Cấu hình hành động
-                </h3>
-                <button mat-icon-button (click)="closeActionConfig()">
-                    <mat-icon>close</mat-icon>
-                </button>
-            </div>
-            <div class="space-y-4">
-                <!-- Tên hành động -->
-                <div>
-                    <label
-                        class="block text-base font-semibold text-gray-600 mb-1"
-                        >Tên hành động</label
-                    >
-                    <input
-                        type="text"
-                        [(ngModel)]="editingAction.name"
-                        class="w-full px-3 py-2 border border-gray-200 rounded-sm text-base focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                    />
-                </div>
-                <!-- Loại hành động: Di chuyển vs Tại chỗ -->
-                <div>
-                    <label
-                        class="block text-base font-semibold text-gray-600 mb-2"
-                        >Loại chuyển động</label
-                    >
-                    <div class="grid grid-cols-2 gap-3">
-                        <button
-                            type="button"
-                            (click)="editingAction.isMovement = false"
-                            [class.border-teal-500]="!editingAction.isMovement"
-                            [class.bg-teal-50]="!editingAction.isMovement"
-                            [class.text-teal-700]="!editingAction.isMovement"
-                            class="p-3 border rounded-sm flex flex-col items-center gap-1.5 transition-all text-gray-600 border-gray-200 hover:border-teal-200"
-                        >
-                            <mat-icon class="icon-size-5"
-                                >accessibility_new</mat-icon
-                            >
-                            <span class="text-base font-semibold">Tại chỗ</span>
-                            <span class="text-base text-gray-400"
-                                >Đứng/Nhảy/Dance</span
-                            >
-                        </button>
-                        <button
-                            type="button"
-                            (click)="editingAction.isMovement = true"
-                            [class.border-teal-500]="editingAction.isMovement"
-                            [class.bg-teal-50]="editingAction.isMovement"
-                            [class.text-teal-700]="editingAction.isMovement"
-                            class="p-3 border rounded-sm flex flex-col items-center gap-1.5 transition-all text-gray-600 border-gray-200 hover:border-teal-200"
-                        >
-                            <mat-icon class="icon-size-5"
-                                >directions_walk</mat-icon
-                            >
-                            <span class="text-base font-semibold"
-                                >Di chuyển</span
-                            >
-                            <span class="text-base text-gray-400"
-                                >Đi bộ/Chạy</span
-                            >
-                        </button>
-                    </div>
-                </div>
-                <!-- Tốc độ di chuyển (chỉ hiện khi là loại Di chuyển) -->
-                @if (editingAction.isMovement) {
-                    <div>
-                        <label
-                            class="block text-base font-semibold text-gray-600 mb-1"
-                        >
-                            Tốc độ di chuyển:
-                            <span class="text-teal-600 font-bold"
-                                >{{ editingAction.speed || 1 }}x</span
-                            >
-                        </label>
-                        <div class="flex items-center gap-3">
-                            <span class="text-xs text-gray-400"
-                                >Chậm (0.2x)</span
-                            >
-                            <input
-                                type="range"
-                                min="0.2"
-                                max="3.0"
-                                step="0.1"
-                                [(ngModel)]="editingAction.speed"
-                                class="w-full accent-teal-600"
-                            />
-                            <span class="text-xs text-gray-400"
-                                >Nhanh (3x)</span
-                            >
+            <!-- Header -->
+            <div class="shrink-0 px-6 pt-5 pb-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <mat-icon
+                        class="text-emerald-500 icon-size-6 shrink-0"
+                        [svgIcon]="'heroicons_outline:sparkles'"
+                    ></mat-icon>
+                    <div class="min-w-0">
+                        <div class="text-[18px] font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                            Chỉnh sửa Clip Chuyển động
+                        </div>
+                        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                            {{ editingClipModal.summaryText }}
                         </div>
                     </div>
-                }
-            </div>
-            <div
-                class="flex justify-end gap-2 border-t border-gray-100 pt-4 mt-6"
-            >
-                <button mat-button (click)="closeActionConfig()">Hủy</button>
+                </div>
                 <button
-                    mat-flat-button
-                    color="primary"
-                    (click)="saveActionConfig()"
-                    class="bg-teal-600 text-white"
+                    type="button"
+                    mat-icon-button
+                    [disabled]="editingClipModal.isProcessing"
+                    (click)="closeClipEditDialog()"
+                    class="bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-400"
+                    title="Đóng"
                 >
-                    Lưu cấu hình
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:x'"
+                    ></mat-icon>
+                </button>
+            </div>
+
+            <!-- Body -->
+            <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                <!-- 1. Đổi tên Clip -->
+                <div>
+                    <label class="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Tên chuyển động
+                    </label>
+                    <div class="flex items-center gap-2">
+                        <input
+                            type="text"
+                            class="flex-1 h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[14px] text-slate-900 dark:text-slate-100 focus:outline-none focus:border-teal-500"
+                            [(ngModel)]="editingClipModal.nameDraft"
+                            [disabled]="editingClipModal.isProcessing"
+                            maxlength="80"
+                            placeholder="Nhập tên chuyển động..."
+                            (keydown.enter)="!editingClipModal.editInstruction.trim() && saveClipEditNameOnly()"
+                        />
+                        <button
+                            type="button"
+                            mat-stroked-button
+                            class="shrink-0"
+                            [disabled]="editingClipModal.isProcessing || !editingClipModal.nameDraft.trim() || editingClipModal.nameDraft.trim() === editingClipModal.originalName"
+                            (click)="saveClipEditNameOnly()"
+                        >
+                            Lưu tên
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. Tinh chỉnh hành động bằng AI -->
+                <div class="pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="text-[13px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                            <mat-icon
+                                class="icon-size-4 text-emerald-500"
+                                [svgIcon]="'heroicons_outline:sparkles'"
+                            ></mat-icon>
+                            <span>Chỉnh sửa lại hành động bằng AI</span>
+                        </label>
+                        @if (editingClipModal.hasAiSegments) {
+                            <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-600 dark:text-teal-300">
+                                Có kịch bản gốc
+                            </span>
+                        }
+                    </div>
+
+                    @if (editingClipModal.aiPrompt) {
+                        <div class="mb-2.5 px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-[12px] text-slate-600 dark:text-slate-300">
+                            <span class="font-semibold text-slate-700 dark:text-slate-200">Mô tả trước đó:</span>
+                            {{ editingClipModal.aiPrompt }}
+                        </div>
+                    }
+
+                    <textarea
+                        rows="4"
+                        class="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[14px] text-slate-900 dark:text-slate-100 leading-relaxed focus:outline-none focus:border-teal-500 resize-y"
+                        [(ngModel)]="editingClipModal.editInstruction"
+                        [disabled]="editingClipModal.isProcessing"
+                        placeholder="Mô tả chi tiết điểm hơi sai cần chỉnh lại...&#10;Ví dụ:&#10;- Quay sang phải thay vì sang trái&#10;- Đi nhanh hơn 1.5 lần và giảm quãng đường còn 6m&#10;- Đoạn cuối dừng lại vẫy tay chào 2 giây rồi mới quay đầu&#10;- Nâng tay phải cao hơn 20 độ"
+                    ></textarea>
+
+                    <div class="mt-2.5">
+                        <mat-checkbox
+                            [(ngModel)]="editingClipModal.saveAsNew"
+                            [disabled]="editingClipModal.isProcessing || !editingClipModal.isCustom"
+                        >
+                            <span class="text-[13px] text-slate-700 dark:text-slate-300">
+                                Lưu thành Clip mới (giữ nguyên bản cũ)
+                                @if (!editingClipModal.isCustom) {
+                                    <span class="text-[12px] text-slate-400"> — bắt buộc với clip gốc GLB</span>
+                                }
+                            </span>
+                        </mat-checkbox>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/60">
+                <button
+                    type="button"
+                    mat-button
+                    [disabled]="editingClipModal.isProcessing"
+                    (click)="closeClipEditDialog()"
+                    class="text-gray-600 dark:text-gray-300 font-medium"
+                >
+                    Đóng
+                </button>
+                <button
+                    type="button"
+                    mat-flat-button
+                    [color]="'primary'"
+                    [disabled]="editingClipModal.isProcessing || !editingClipModal.editInstruction.trim()"
+                    (click)="refineClipWithAi()"
+                >
+                    <mat-icon
+                        class="icon-size-5"
+                        [class.animate-spin]="editingClipModal.isProcessing"
+                        [svgIcon]="editingClipModal.isProcessing ? 'heroicons_outline:refresh' : 'heroicons_outline:sparkles'"
+                    ></mat-icon>
+                    <span class="ml-2">
+                        {{ editingClipModal.isProcessing ? 'AI đang chỉnh sửa...' : (editingClipModal.saveAsNew ? 'Tạo bản chỉnh sửa bằng AI' : 'Cập nhật hành động bằng AI') }}
+                    </span>
                 </button>
             </div>
         </div>
