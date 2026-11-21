@@ -148,10 +148,17 @@ export class ProfileDataService {
                 return copy;
             })
             : props;
-        if (window.electron?.saveProps) {
-            window.electron.saveProps(this._username, cleanProps).catch(e => console.warn('[ProfileDataService] Error saving props.json via IPC:', e));
-        }
-        return this.saveProfile({ props: cleanProps } as any);
+        const persistProps$ = window.electron?.saveProps
+            ? from(window.electron.saveProps(this._username, cleanProps)).pipe(
+                catchError(e => {
+                    console.warn('[ProfileDataService] Error saving props.json via IPC:', e);
+                    return of({ success: false });
+                })
+            )
+            : of({ success: true });
+        return persistProps$.pipe(
+            switchMap(() => this.saveProfile({ props: cleanProps } as any))
+        );
     }
 
     /**

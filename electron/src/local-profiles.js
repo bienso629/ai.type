@@ -231,17 +231,102 @@ function registerProfileHandlers(binaries = null) {
         }
     });
 
-    /** Xoá animation */
-    ipcMain.handle('animations:delete', async (_event, { username, id } = {}) => {
+    /** Xoá animation (hỗ trợ khớp theo id, name và cả tên clip nhúng trong GLB để tránh clip sống lại sau F5) */
+    ipcMain.handle('animations:delete', async (_event, { username, id, name } = {}) => {
+        const readEmbeddedClipName = (filePath) => {
+            try {
+                if (!filePath || !fs.existsSync(filePath)) return null;
+                const fd = fs.openSync(filePath, 'r');
+                try {
+                    const hdr = Buffer.alloc(20);
+                    const nRead = fs.readSync(fd, hdr, 0, 20, 0);
+                    if (nRead < 20) return null;
+                    if (hdr.readUInt32LE(0) !== 0x46546c67) return null; // 'glTF'
+                    const jsonLen = hdr.readUInt32LE(12);
+                    const jsonType = hdr.readUInt32LE(16);
+                    if (jsonType !== 0x4e4f534a || jsonLen <= 0 || jsonLen > 50 * 1024 * 1024) return null;
+                    const jsonBuf = Buffer.alloc(jsonLen);
+                    const jRead = fs.readSync(fd, jsonBuf, 0, jsonLen, 20);
+                    if (jRead < jsonLen) return null;
+                    const gltf = JSON.parse(jsonBuf.toString('utf8'));
+                    const embedded = gltf?.asset?.extras?.aitypeKeyframeClip || gltf?.extras?.aitypeKeyframeClip;
+                    return embedded?.name ? String(embedded.name) : null;
+                } finally {
+                    fs.closeSync(fd);
+                }
+            } catch (_) {
+                return null;
+            }
+        };
+
         try {
             const animListPath = path.join(getProfileDir(username), 'animations.json');
-            let list = readJson(animListPath, []);
-            const entry = list.find(a => a.id === id);
-            if (entry?.glbPath && fs.existsSync(entry.glbPath))
-                fs.unlinkSync(entry.glbPath);
-            list = list.filter(a => a.id !== id);
-            writeJson(animListPath, list);
-            return { success: true };
+            const animDir = getAssetsDir(username, 'anims');
+            const list = readJson(animListPath, []);
+            const targetId = id ? String(id) : '';
+            const targetName = name ? String(name) : '';
+            const safeFromName = targetName ? targetName.replace(/[^a-zA-Z0-9_\-\.]/g, '_') : '';
+
+            const kept = [];
+            let removedCount = 0;
+            const unlinkedPaths = new Set();
+
+            for (const entry of list) {
+                if (!entry) continue;
+                const matchById = Boolean(targetId) && (entry.id === targetId || entry.name === targetId);
+                const matchByName = Boolean(targetName) && (
+                    entry.name === targetName ||
+                    entry.id === targetName ||
+                    (safeFromName && entry.id === safeFromName) ||
+                    (entry.glbPath && readEmbeddedClipName(entry.glbPath) === targetName)
+                );
+                if (matchById || matchByName) {
+                    removedCount++;
+                    if (entry.glbPath && fs.existsSync(entry.glbPath)) {
+                        try {
+                            fs.unlinkSync(entry.glbPath);
+                            unlinkedPaths.add(path.resolve(entry.glbPath));
+                        } catch (_) {}
+                    }
+                } else {
+                    kept.push(entry);
+                }
+            }
+
+            // Xóa thêm tệp .glb mồ côi trùng tên an toàn hoặc chứa clip nhúng cùng tên trong assets/anims/
+            const candidateNames = [targetId, safeFromName].filter(Boolean);
+            for (const cand of candidateNames) {
+                const candidatePath = path.join(animDir, `${cand}.glb`);
+                const resolved = path.resolve(candidatePath);
+                if (!unlinkedPaths.has(resolved) && fs.existsSync(candidatePath)) {
+                    const stillReferenced = kept.some((e) => e?.glbPath && path.resolve(e.glbPath) === resolved);
+                    if (!stillReferenced) {
+                        try {
+                            fs.unlinkSync(candidatePath);
+                            unlinkedPaths.add(resolved);
+                        } catch (_) {}
+                    }
+                }
+            }
+
+            if (targetName && fs.existsSync(animDir)) {
+                for (const fname of fs.readdirSync(animDir)) {
+                    if (!/\.glb$/i.test(fname)) continue;
+                    const fullPath = path.join(animDir, fname);
+                    const resolved = path.resolve(fullPath);
+                    if (unlinkedPaths.has(resolved)) continue;
+                    const stillReferenced = kept.some((e) => e?.glbPath && path.resolve(e.glbPath) === resolved);
+                    if (!stillReferenced && readEmbeddedClipName(fullPath) === targetName) {
+                        try {
+                            fs.unlinkSync(fullPath);
+                            unlinkedPaths.add(resolved);
+                        } catch (_) {}
+                    }
+                }
+            }
+
+            writeJson(animListPath, kept);
+            return { success: true, removedCount };
         } catch (e) {
             return { success: false, error: e.message };
         }
@@ -507,6 +592,125 @@ function registerProfileHandlers(binaries = null) {
             fs.writeFileSync(outPath, Buffer.from(cleanB64, 'base64'));
             return { success: true, filePath: outPath, exportsDir };
         } catch (e) {
+            return { success: false, error: e.message || String(e) };
+        }
+    });
+
+    // Trích xuất chuyển động 3D SMPL thật từ video mẫu (NLF NeurIPS 2024 trên GPU CUDA / CPU, hoàn toàn tự động)
+    ipcMain.handle('mocap:extract-video-3d', async (event, { username, filePath, buffer, filename, targetFps, maxFrames } = {}) => {
+        const { spawn } = require('child_process');
+        const os = require('os');
+        let tmpVideo = '';
+        let tmpOutJson = '';
+        try {
+            const stamp = `${Date.now()}_${Math.floor(Math.random() * 1e5)}`;
+            let inputVideoPath = (typeof filePath === 'string' && filePath.trim() && fs.existsSync(filePath.trim()))
+                ? filePath.trim()
+                : '';
+
+            if (!inputVideoPath) {
+                if (!buffer) {
+                    return { success: false, error: 'Thiếu tệp video mẫu đầu vào.' };
+                }
+                const ext = path.extname(String(filename || 'video.mp4')) || '.mp4';
+                tmpVideo = path.join(os.tmpdir(), `aitype_mocap_in_${stamp}${ext}`);
+                fs.writeFileSync(tmpVideo, Buffer.from(buffer));
+                inputVideoPath = tmpVideo;
+            }
+
+            tmpOutJson = path.join(os.tmpdir(), `aitype_mocap_out_${stamp}.json`);
+
+            // Tìm script video_mocap_3d.py (hỗ trợ cả dev lẫn bản đóng gói extraResources)
+            const scriptCandidates = [
+                path.join(__dirname, '..', 'scripts', 'video_mocap_3d.py'),
+                path.join(process.resourcesPath || '', 'scripts', 'video_mocap_3d.py'),
+                path.join(process.cwd(), 'electron', 'scripts', 'video_mocap_3d.py')
+            ];
+            const scriptPath = scriptCandidates.find((p) => p && fs.existsSync(p));
+            if (!scriptPath) {
+                return { success: false, error: 'Không tìm thấy kịch bản trích xuất 3D MoCap (video_mocap_3d.py).' };
+            }
+
+            // Ưu tiên môi trường venv riêng hỗ trợ CUDA GTX/RTX tại electron/mocap-env/.venv
+            const pyCandidates = [
+                path.join(__dirname, '..', 'mocap-env', '.venv', 'bin', 'python'),
+                path.join(__dirname, '..', 'mocap-env', '.venv', 'Scripts', 'python.exe'),
+                path.join(process.cwd(), 'electron', 'mocap-env', '.venv', 'bin', 'python'),
+                path.join(process.cwd(), 'electron', 'mocap-env', '.venv', 'Scripts', 'python.exe'),
+                process.platform === 'win32' ? 'python' : 'python3'
+            ];
+            const pythonBin = pyCandidates.find((p) => p === 'python' || p === 'python3' || fs.existsSync(p)) || 'python3';
+
+            const modelCandidates = [
+                path.join(__dirname, '..', 'mocap-env', 'models', 'nlf_l_multi_0.3.2.torchscript'),
+                path.join(process.cwd(), 'electron', 'mocap-env', 'models', 'nlf_l_multi_0.3.2.torchscript'),
+                path.join(app.getPath('userData'), 'mocap-models', 'nlf_l_multi_0.3.2.torchscript')
+            ];
+            const modelPath = modelCandidates.find((p) => fs.existsSync(p)) || modelCandidates[0];
+
+            const args = [
+                scriptPath,
+                '--video', inputVideoPath,
+                '--out', tmpOutJson,
+                '--model', modelPath,
+                '--foot-mode', 'auto'
+            ];
+            if (typeof targetFps === 'number' && targetFps > 0) {
+                args.push('--fps', String(targetFps));
+            }
+            if (typeof maxFrames === 'number' && maxFrames > 0) {
+                args.push('--max-frames', String(Math.round(maxFrames)));
+            }
+
+            await new Promise((resolve, reject) => {
+                const child = spawn(pythonBin, args, {
+                    windowsHide: true,
+                    env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUNBUFFERED: '1' }
+                });
+                let stdoutBuf = '';
+                let stderrBuf = '';
+
+                child.stdout.on('data', (chunk) => {
+                    stdoutBuf += chunk.toString('utf8');
+                    const lines = stdoutBuf.split(/\r?\n/);
+                    stdoutBuf = lines.pop() || '';
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed.startsWith('{')) continue;
+                        try {
+                            const msg = JSON.parse(trimmed);
+                            if (msg && msg.type === 'progress' && event && event.sender && !event.sender.isDestroyed()) {
+                                event.sender.send('mocap:progress', msg);
+                            }
+                        } catch (_) {}
+                    }
+                });
+
+                child.stderr.on('data', (chunk) => {
+                    stderrBuf += chunk.toString('utf8');
+                    if (stderrBuf.length > 6000) stderrBuf = stderrBuf.slice(-6000);
+                });
+
+                child.on('error', (err) => reject(err));
+                child.on('close', (code) => {
+                    if (code === 0) {
+                        resolve();
+                    } else {
+                        reject(new Error(`Trích xuất 3D MoCap thất bại (mã ${code}): ${stderrBuf.slice(-600)}`));
+                    }
+                });
+            });
+
+            if (!fs.existsSync(tmpOutJson)) {
+                return { success: false, error: 'Không tạo được tệp dữ liệu khớp xương 3D đầu ra.' };
+            }
+            const parsed = JSON.parse(fs.readFileSync(tmpOutJson, 'utf8'));
+            try { if (tmpVideo && fs.existsSync(tmpVideo)) fs.unlinkSync(tmpVideo); } catch (_) {}
+            try { if (tmpOutJson && fs.existsSync(tmpOutJson)) fs.unlinkSync(tmpOutJson); } catch (_) {}
+            return { success: true, data: parsed };
+        } catch (e) {
+            try { if (tmpVideo && fs.existsSync(tmpVideo)) fs.unlinkSync(tmpVideo); } catch (_) {}
+            try { if (tmpOutJson && fs.existsSync(tmpOutJson)) fs.unlinkSync(tmpOutJson); } catch (_) {}
             return { success: false, error: e.message || String(e) };
         }
     });

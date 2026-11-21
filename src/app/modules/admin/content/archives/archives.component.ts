@@ -1,6 +1,7 @@
 import {
     ChangeDetectorRef,
     Component,
+    HostListener,
     OnDestroy,
     OnInit,
     ViewChild,
@@ -8,7 +9,8 @@ import {
     TemplateRef,
     ChangeDetectionStrategy,
 } from '@angular/core';
-import { Title } from '@angular/platform-browser';
+import { DomSanitizer, SafeUrl, Title } from '@angular/platform-browser';
+import { GoogleGenAI } from '@google/genai';
 import {
     ColumnMode,
     DatatableComponent,
@@ -41,7 +43,7 @@ import {
     isMasterKey,
 } from 'app/core/auth/crypto.helper';
 
-import { isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
+import { getSettings, isAutoSaveLocalEnabled } from 'app/_services/user-settings.service';
 
 @Component({
     selector: 'archives',
@@ -121,6 +123,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     collections: any[] = [];
 
     @ViewChild('bulkEditDialog') bulkEditDialogTemplate: TemplateRef<any>;
+    @ViewChild('bulkVideoDialog') bulkVideoDialogTemplate: TemplateRef<any>;
     @ViewChild('inviteDialog') inviteDialogTemplate: TemplateRef<any>;
     inviteDialogRef: any;
     inviteRow: any = null;
@@ -131,6 +134,86 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     bulkEditProgress: number = 0;
     bulkEditTotal: number = 0;
     bulkEditStatusText: string = '';
+
+    // ── Bulk Video Generation State ──
+    bulkVideoDialogRef: any = null;
+    bulkVideoViewMode: 'config' | 'progress' = 'config';
+    bulkVideoTargets: any[] = [];
+    bulkVideoAspectRatio: string = '9:16';
+    bulkVideoResolution: string = '720p';
+    bulkVideoDuration: number = 10;
+    bulkVideoPrompt: string = '';
+    bulkVideoConcurrency: number = 2;
+    bulkVideoFiles: Array<{
+        id: string;
+        file: File;
+        name: string;
+        size: number;
+        mimeType: string;
+        kind: 'image' | 'video' | 'audio' | 'document';
+        previewUrl?: string;
+        dataUrl?: string;
+        rawBase64?: string;
+        textContent?: string;
+    }> = [];
+    bulkVideoInProgress: boolean = false;
+    bulkVideoCancelRequested: boolean = false;
+    bulkVideoTotal: number = 0;
+    bulkVideoItems: Array<{
+        uuid: string;
+        title: string;
+        row: any;
+        status: 'pending' | 'running' | 'done' | 'error' | 'cancelled';
+        statusText: string;
+        videoUrl?: string;
+        previewSafeUrl?: SafeUrl;
+        localPath?: string;
+        showPreview?: boolean;
+    }> = [];
+    private _bulkVideoBlobUrls: string[] = [];
+
+    readonly bulkVideoAspectRatioOptions = [
+        { value: '21:9', label: '21:9', iconW: 22, iconH: 10 },
+        { value: '16:9', label: '16:9', iconW: 20, iconH: 12 },
+        { value: '4:3', label: '4:3', iconW: 18, iconH: 14 },
+        { value: '1:1', label: '1:1', iconW: 15, iconH: 15 },
+        { value: '3:4', label: '3:4', iconW: 14, iconH: 18 },
+        { value: '9:16', label: '9:16', iconW: 12, iconH: 20 },
+    ];
+
+    readonly bulkVideoResolutionOptions = [
+        { value: '480p', label: '480P' },
+        { value: '720p', label: '720P' },
+        { value: '1080p', label: '1080P' },
+        { value: '4k', label: '4K' },
+    ];
+
+    readonly bulkVideoConcurrencyOptions = [
+        { value: 1, label: 'Tuần tự (1)' },
+        { value: 2, label: 'Song song (2)' },
+        { value: 3, label: 'Nhanh (3)' },
+    ];
+
+    readonly bulkVideoDurationTicks = [0, 5, 10, 15, 20, 25, 30];
+
+    get bulkVideoFinishedCount(): number {
+        return (this.bulkVideoItems || []).filter(
+            (i) => i.status === 'done' || i.status === 'error' || i.status === 'cancelled',
+        ).length;
+    }
+
+    get bulkVideoSuccessCount(): number {
+        return (this.bulkVideoItems || []).filter((i) => i.status === 'done').length;
+    }
+
+    get bulkVideoFailCount(): number {
+        return (this.bulkVideoItems || []).filter((i) => i.status === 'error').length;
+    }
+
+    get bulkVideoProgressPercent(): number {
+        if (!this.bulkVideoTotal || this.bulkVideoTotal <= 0) return 0;
+        return Math.min(100, Math.round((this.bulkVideoFinishedCount / this.bulkVideoTotal) * 100));
+    }
 
     permissionText2Voice: boolean = false;
 
@@ -786,6 +869,897 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         }
     }
 
+    // =========================================================================
+    // BULK VIDEO GENERATION (Tạo video hàng loạt từ danh sách tác vụ đã chọn)
+    // =========================================================================
+
+    private loadBulkVideoPreferences(): void {
+        try {
+            const raw = localStorage.getItem('archives_bulk_video_prefs');
+            if (!raw) return;
+            const prefs = JSON.parse(raw);
+            if (prefs.aspectRatio && this.bulkVideoAspectRatioOptions.some((o) => o.value === prefs.aspectRatio)) {
+                this.bulkVideoAspectRatio = prefs.aspectRatio;
+            }
+            if (prefs.resolution && this.bulkVideoResolutionOptions.some((o) => o.value === prefs.resolution)) {
+                this.bulkVideoResolution = prefs.resolution;
+            }
+            if (Number.isFinite(Number(prefs.duration))) {
+                this.bulkVideoDuration = Math.max(0, Math.min(30, Math.round(Number(prefs.duration))));
+            }
+            if ([1, 2, 3].includes(Number(prefs.concurrency))) {
+                this.bulkVideoConcurrency = Number(prefs.concurrency);
+            }
+        } catch (_) {}
+    }
+
+    persistBulkVideoPreferences(): void {
+        try {
+            localStorage.setItem(
+                'archives_bulk_video_prefs',
+                JSON.stringify({
+                    aspectRatio: this.bulkVideoAspectRatio,
+                    resolution: this.bulkVideoResolution,
+                    duration: this.bulkVideoDuration,
+                    concurrency: this.bulkVideoConcurrency,
+                }),
+            );
+        } catch (_) {}
+    }
+
+    getBulkVideoEngineLabel(): string {
+        if (this._genaiService.isUModelverseEnabled()) {
+            const model = this._genaiService.umodelverseVideoModel || 'doubao-seedance-2-5-260628-global';
+            return `Động cơ: Mì Tôm AI (${model})`;
+        }
+        return 'Động cơ: Google Gemini Veo 3.1';
+    }
+
+    selectBulkVideoAspectRatio(value: string): void {
+        this.bulkVideoAspectRatio = value;
+        this.persistBulkVideoPreferences();
+    }
+
+    onBulkVideoDurationChange(rawValue: any): void {
+        if (rawValue === '' || rawValue === null || rawValue === undefined) {
+            this.bulkVideoDuration = 0;
+            this.persistBulkVideoPreferences();
+            return;
+        }
+        const num = Number(rawValue);
+        if (!Number.isFinite(num)) return;
+        this.bulkVideoDuration = Math.max(0, Math.min(30, Math.round(num)));
+        this.persistBulkVideoPreferences();
+    }
+
+    normalizeBulkVideoDuration(): void {
+        const num = Number(this.bulkVideoDuration);
+        this.bulkVideoDuration = Number.isFinite(num)
+            ? Math.max(0, Math.min(30, Math.round(num)))
+            : 0;
+        this.persistBulkVideoPreferences();
+    }
+
+    getBulkVideoDurationSliderBg(): string {
+        const pct = Math.max(0, Math.min(100, (this.bulkVideoDuration / 30) * 100));
+        return `linear-gradient(to right, #059669 0%, #059669 ${pct}%, #d1d5db ${pct}%, #d1d5db 100%)`;
+    }
+
+    formatFileSize(bytes: number): string {
+        if (!bytes || bytes < 1024) return `${bytes || 0} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    async onBulkVideoFilesSelected(event: any): Promise<void> {
+        const fileList: FileList = event?.target?.files;
+        if (!fileList || fileList.length === 0) return;
+
+        const files = Array.from(fileList);
+        for (const file of files) {
+            const mime = (file.type || '').toLowerCase();
+            const lowerName = (file.name || '').toLowerCase();
+            let kind: 'image' | 'video' | 'audio' | 'document' = 'document';
+            if (mime.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(lowerName)) {
+                kind = 'image';
+            } else if (mime.startsWith('video/') || /\.(mp4|mov|webm|mkv|avi)$/i.test(lowerName)) {
+                kind = 'video';
+            } else if (mime.startsWith('audio/') || /\.(mp3|wav|m4a|ogg|aac|flac)$/i.test(lowerName)) {
+                kind = 'audio';
+            }
+
+            const entry: any = {
+                id: `att_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                file,
+                name: file.name,
+                size: file.size,
+                mimeType: file.type || (kind === 'image' ? 'image/png' : kind === 'video' ? 'video/mp4' : kind === 'audio' ? 'audio/mpeg' : 'text/plain'),
+                kind,
+            };
+
+            try {
+                if (kind === 'document' && /\.(txt|md|json|csv|srt|vtt)$/i.test(lowerName)) {
+                    const txt = await file.text();
+                    entry.textContent = (txt || '').slice(0, 4000);
+                } else {
+                    const dataUrl = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(String(reader.result || ''));
+                        reader.onerror = () => reject(new Error('Không đọc được tệp'));
+                        reader.readAsDataURL(file);
+                    });
+                    entry.dataUrl = dataUrl;
+                    entry.rawBase64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+                    if (kind === 'image') {
+                        entry.previewUrl = dataUrl;
+                    }
+                }
+                this.bulkVideoFiles.push(entry);
+            } catch (err) {
+                console.warn('[BulkVideo] Không đọc được file đính kèm:', file.name, err);
+                this.toastr.warning(`Không thể đọc tệp "${file.name}".`);
+            }
+        }
+        if (event?.target) {
+            event.target.value = '';
+        }
+        this.cd.markForCheck();
+    }
+
+    removeBulkVideoFile(index: number): void {
+        this.bulkVideoFiles.splice(index, 1);
+    }
+
+    clearBulkVideoFiles(): void {
+        this.bulkVideoFiles = [];
+    }
+
+    openBulkVideoDialog(): void {
+        // Nếu đang chạy dở hoặc người dùng chỉ bấm xem lại kết quả khi chưa chọn hàng mới -> mở thẳng tab tiến trình
+        if (this.bulkVideoInProgress || ((!this.selected || this.selected.length === 0) && this.bulkVideoItems.length > 0)) {
+            this.bulkVideoViewMode = 'progress';
+            this.openBulkVideoModalInstance();
+            return;
+        }
+
+        const validSelected = (this.selected || []).filter((r: any) => r && !r.isGroupHeader && r.uuid);
+        if (validSelected.length === 0) {
+            this.toastr.warning('Vui lòng tick chọn ít nhất 1 tác vụ để tạo video hàng loạt.');
+            return;
+        }
+
+        this.ensureMultipleUnlocked(validSelected, (unlocked) => {
+            if (!unlocked) return;
+
+            this.loadBulkVideoPreferences();
+            this.bulkVideoTargets = validSelected.map((r: any) => ({ ...r }));
+            this.bulkVideoViewMode = 'config';
+            this.openBulkVideoModalInstance();
+        });
+    }
+
+    private openBulkVideoModalInstance(): void {
+        if (this.bulkVideoDialogRef) {
+            try {
+                this.bulkVideoDialogRef.close();
+            } catch (_) {}
+        }
+        this.bulkVideoDialogRef = this._matDialog.open(this.bulkVideoDialogTemplate, {
+            width: '680px',
+            maxWidth: '94vw',
+            panelClass: 'custom-dialog-bulk',
+            disableClose: false,
+        });
+    }
+
+    resetBulkVideoToConfig(): void {
+        if (this.bulkVideoInProgress) return;
+        const validSelected = (this.selected || []).filter((r: any) => r && !r.isGroupHeader && r.uuid);
+        if (validSelected.length > 0) {
+            this.bulkVideoTargets = validSelected.map((r: any) => ({ ...r }));
+        } else if (this.bulkVideoItems.length > 0) {
+            this.bulkVideoTargets = this.bulkVideoItems.map((i) => i.row);
+        }
+        this.bulkVideoViewMode = 'config';
+        this.cd.markForCheck();
+    }
+
+    cancelBulkVideoGeneration(): void {
+        if (!this.bulkVideoInProgress) return;
+        this.bulkVideoCancelRequested = true;
+        for (const item of this.bulkVideoItems) {
+            if (item.status === 'pending') {
+                item.status = 'cancelled';
+                item.statusText = 'Đã hủy theo yêu cầu';
+            }
+        }
+        this.toastr.info('Đã yêu cầu dừng hàng đợi tạo video.');
+        this.cd.markForCheck();
+    }
+
+    async startBulkVideoGeneration(): Promise<void> {
+        if (this.bulkVideoInProgress || this.bulkVideoTargets.length === 0) return;
+
+        this.normalizeBulkVideoDuration();
+        this.persistBulkVideoPreferences();
+
+        this.bulkVideoInProgress = true;
+        this.bulkVideoCancelRequested = false;
+        this.bulkVideoViewMode = 'progress';
+        this.bulkVideoTotal = this.bulkVideoTargets.length;
+        this.bulkVideoItems = this.bulkVideoTargets.map((row) => ({
+            uuid: row.uuid,
+            title: row.title || row.uuid,
+            row,
+            status: 'pending' as const,
+            statusText: 'Đang chờ trong hàng đợi...',
+            showPreview: false,
+        }));
+        this.cd.markForCheck();
+
+        await this.runBulkVideoQueue(this.bulkVideoItems);
+    }
+
+    async retryFailedBulkVideoItems(): Promise<void> {
+        if (this.bulkVideoInProgress) return;
+        const failed = this.bulkVideoItems.filter((i) => i.status === 'error' || i.status === 'cancelled');
+        if (failed.length === 0) return;
+        this.bulkVideoInProgress = true;
+        this.bulkVideoCancelRequested = false;
+        for (const item of failed) {
+            item.status = 'pending';
+            item.statusText = 'Đang chờ tạo lại...';
+        }
+        this.cd.markForCheck();
+        await this.runBulkVideoQueue(failed);
+    }
+
+    async retrySingleBulkVideoItem(item: any): Promise<void> {
+        if (this.bulkVideoInProgress || !item) return;
+        this.bulkVideoInProgress = true;
+        this.bulkVideoCancelRequested = false;
+        item.status = 'pending';
+        item.statusText = 'Đang chuẩn bị tạo lại...';
+        this.cd.markForCheck();
+        await this.runBulkVideoQueue([item]);
+    }
+
+    private async runBulkVideoQueue(itemsToRun: any[]): Promise<void> {
+        const username = this.getCurrentUsername();
+        const maxWorkers = Math.max(1, Math.min(3, Number(this.bulkVideoConcurrency) || 2));
+        let cursor = 0;
+
+        const worker = async (): Promise<void> => {
+            while (cursor < itemsToRun.length) {
+                if (this.bulkVideoCancelRequested) return;
+                const currentIdx = cursor++;
+                const item = itemsToRun[currentIdx];
+                if (!item || item.status === 'cancelled') continue;
+                await this.processSingleBulkVideoItem(item, username);
+            }
+        };
+
+        try {
+            const workerCount = Math.min(maxWorkers, itemsToRun.length);
+            const workers: Promise<void>[] = [];
+            for (let w = 0; w < workerCount; w++) {
+                workers.push(worker());
+            }
+            await Promise.all(workers);
+        } finally {
+            this.bulkVideoInProgress = false;
+            this.cd.markForCheck();
+            const ok = this.bulkVideoSuccessCount;
+            const fail = this.bulkVideoFailCount;
+            if (this.bulkVideoCancelRequested) {
+                this.toastr.info(`Đã dừng lô tạo video (${ok}/${this.bulkVideoTotal} hoàn tất).`);
+            } else if (fail === 0) {
+                this.toastr.success(`Đã tạo xong toàn bộ ${ok} video và lưu vào mục Dựng video!`);
+            } else {
+                this.toastr.warning(`Hoàn tất ${ok}/${this.bulkVideoTotal} video, lỗi ${fail} mục.`);
+            }
+        }
+    }
+
+    private async loadArticleTextForBatchVideo(row: any, username: string): Promise<string> {
+        const uuid = row?.uuid;
+        if (!uuid) return '';
+        let fullDoc: any = null;
+
+        // 1. Ưu tiên đọc bài cục bộ từ SQLite qua Electron
+        if ((window as any).electron?.readLocalArticle) {
+            try {
+                let pwd = '';
+                const token = sessionStorage.getItem('nav_handshake_pwd_' + uuid);
+                if (token) {
+                    try {
+                        pwd = JSON.parse(token)?.password || '';
+                    } catch (_) {}
+                }
+                const localRes = await (window as any).electron.readLocalArticle({
+                    uuid,
+                    username,
+                    password: pwd || undefined,
+                });
+                if (localRes?.success && (localRes.article || localRes.data)) {
+                    fullDoc = localRes.article || localRes.data;
+                }
+            } catch (_) {}
+        }
+
+        // 2. Fallback đọc chi tiết từ server CouchDB
+        if (!fullDoc || !this.extractCleanDoneContent(fullDoc)) {
+            try {
+                const remoteRes: any = await firstValueFrom(
+                    this._crawlService.detail({ uuid, username }),
+                ).catch(() => null);
+                if (remoteRes?.success && remoteRes.data) {
+                    fullDoc = remoteRes.data;
+                }
+            } catch (_) {}
+        }
+
+        // Giải mã nếu bài viết có mã hóa
+        if (fullDoc) {
+            const isEnc = fullDoc.is_encrypted || fullDoc.source?.encrypted || fullDoc.cipher;
+            const cipher = fullDoc.cipher || fullDoc.source?.cipher;
+            const masterCipher = fullDoc.master_cipher || fullDoc.source?.master_cipher;
+            if (isEnc && (cipher || masterCipher)) {
+                let pwd = '';
+                const token = sessionStorage.getItem('nav_handshake_pwd_' + uuid);
+                if (token) {
+                    try {
+                        pwd = JSON.parse(token)?.password || '';
+                    } catch (_) {}
+                }
+                try {
+                    const dec = tryDecryptWithMasterFallback(cipher, pwd, masterCipher);
+                    if (dec && dec !== 'VALID') {
+                        try {
+                            const parsed = JSON.parse(dec);
+                            if (parsed?.done) fullDoc.done = parsed.done;
+                            if (parsed?.title) fullDoc.title = parsed.title;
+                        } catch (_) {
+                            fullDoc.done = [dec];
+                        }
+                    }
+                } catch (_) {}
+            }
+        }
+
+        let cleanText = this.extractCleanDoneContent(fullDoc);
+
+        // 3. Nếu bài viết đã có kịch bản lưu riêng trong session/projectStore thì lấy bổ sung
+        if (!cleanText && this.multiAccountService) {
+            try {
+                const scriptData = this.multiAccountService.getItem(`ai_type_script_data_${uuid}`);
+                if (Array.isArray(scriptData) && scriptData.length > 0) {
+                    cleanText = scriptData
+                        .map((s: any) => (typeof s === 'string' ? s : s?.text || s?.content || ''))
+                        .filter(Boolean)
+                        .join('\n');
+                }
+            } catch (_) {}
+        }
+
+        return (cleanText || '').trim();
+    }
+
+    private buildBulkVideoReferenceMedia(): {
+        referenceImages: any[];
+        veoReferenceImages: any[];
+        imageAttachments: Array<{ index: number; name: string; mimeType: string; rawBase64: string }>;
+        hasRefVideo: boolean;
+        hasRefAudio: boolean;
+        textDocNotes: string;
+        firstImagePreview: string | null;
+    } {
+        const referenceImages: any[] = [];
+        const veoReferenceImages: any[] = [];
+        const imageAttachments: Array<{ index: number; name: string; mimeType: string; rawBase64: string }> = [];
+        let hasRefVideo = false;
+        let hasRefAudio = false;
+        let firstImagePreview: string | null = null;
+        const docNotes: string[] = [];
+
+        for (const att of this.bulkVideoFiles || []) {
+            if (att.kind === 'image' && (att.dataUrl || att.rawBase64)) {
+                const mime = att.mimeType || 'image/png';
+                const pureB64 = att.rawBase64 || (att.dataUrl?.includes(',') ? att.dataUrl.split(',')[1] : att.dataUrl || '');
+                const fullDataUri = att.dataUrl && att.dataUrl.startsWith('data:')
+                    ? att.dataUrl
+                    : `data:${mime};base64,${pureB64}`;
+                if (!firstImagePreview) {
+                    firstImagePreview = att.previewUrl || fullDataUri;
+                }
+                const imgIndex = imageAttachments.length + 1;
+                imageAttachments.push({
+                    index: imgIndex,
+                    name: att.name,
+                    mimeType: mime,
+                    rawBase64: pureB64,
+                });
+                // Truyền đầy đủ data URI (kèm đúng mimeType thật jpeg/png/webp) cho generateVideoUModelverse
+                referenceImages.push({
+                    image: {
+                        imageBytes: fullDataUri,
+                        mimeType: mime,
+                    },
+                    referenceType: 'CHARACTER_REFERENCE',
+                    characterName: att.name,
+                });
+                // Bản raw base64 dành riêng cho Google Veo SDK trực tiếp
+                veoReferenceImages.push({
+                    image: {
+                        imageBytes: pureB64,
+                        mimeType: mime,
+                    },
+                    referenceType: 'ASSET',
+                });
+            } else if (att.kind === 'video' && att.dataUrl) {
+                hasRefVideo = true;
+                referenceImages.push({
+                    image: {
+                        imageBytes: att.dataUrl,
+                        mimeType: att.mimeType || 'video/mp4',
+                    },
+                    referenceType: 'REFERENCE_VIDEO',
+                });
+            } else if (att.kind === 'audio' && att.dataUrl) {
+                hasRefAudio = true;
+                referenceImages.push({
+                    referenceType: 'REFERENCE_AUDIO',
+                    audioUrl: att.dataUrl,
+                    mimeType: att.mimeType || 'audio/mpeg',
+                    image: {
+                        imageBytes: att.dataUrl,
+                        mimeType: att.mimeType || 'audio/mpeg',
+                    },
+                });
+            } else if (att.kind === 'document' && att.textContent) {
+                docNotes.push(`[Tài liệu tham khảo: ${att.name}]\n${att.textContent}`);
+            }
+        }
+
+        return {
+            referenceImages,
+            veoReferenceImages,
+            imageAttachments,
+            hasRefVideo,
+            hasRefAudio,
+            textDocNotes: docNotes.join('\n\n'),
+            firstImagePreview,
+        };
+    }
+
+    private async synthesizeBulkVideoPrompt(
+        title: string,
+        articleText: string,
+        userPrompt: string,
+        media: {
+            imageAttachments: Array<{ index: number; name: string; mimeType: string; rawBase64: string }>;
+            hasRefVideo: boolean;
+            hasRefAudio: boolean;
+            textDocNotes: string;
+        },
+    ): Promise<string> {
+        const parts: string[] = [];
+        const cleanUserPrompt = (userPrompt || '').trim();
+        const imageAtts = (media.imageAttachments || []).slice(0, 4);
+
+        if (title) parts.push(`Chủ đề / Tiêu đề: ${title}`);
+        if (articleText) parts.push(`Nội dung / Kịch bản gốc:\n${articleText}`);
+        if (cleanUserPrompt) parts.push(`Yêu cầu bổ sung (phong cách & chỉ đạo hình ảnh): ${cleanUserPrompt}`);
+        if (media.textDocNotes) parts.push(media.textDocNotes);
+
+        let rawCombined = parts.filter(Boolean).join('\n\n').trim();
+        if (!rawCombined) {
+            rawCombined = title || 'Cinematic commercial video';
+        }
+
+        // Gọi AI đạo diễn prompt khi nội dung bài dài HOẶC khi người dùng có đính kèm ảnh nhân vật/chủ thể
+        // để AI nhìn trực tiếp ảnh đính kèm và gắn chặt nhân vật chính vào thẻ @Image 1 (thay thế mọi mô tả nhân vật chung chung trong bài viết)
+        const shouldUseLlmDirector = rawCombined.length > 1400 || imageAtts.length > 0 || media.hasRefVideo;
+        if (shouldUseLlmDirector) {
+            try {
+                const imgDirectives =
+                    imageAtts.length > 0
+                        ? `\nQUY TẮC BẮT BUỘC VỀ ẢNH THAM CHIẾU NHÂN VẬT/CHỦ THỂ (${imageAtts.map((im) => `@Image ${im.index}`).join(', ')}):
+- Ảnh đính kèm đầu tiên (@Image 1) là NHÂN VẬT CHÍNH / CHỦ THỂ BẮT BUỘC phải xuất hiện xuyên suốt video.
+- BẮT BUỘC ghi trực tiếp thẻ "@Image 1" ngay ở câu mở đầu và lặp lại "@Image 1" khi mô tả hành động của nhân vật chính (VD: "Nhân vật chính @Image 1 bước ra từ...").
+- TUYỆT ĐỐI KHÔNG tự bịa mô tả khuôn mặt, giới tính, độ tuổi hay kiểu tóc khác với ảnh @Image 1; hãy THAY THẾ mọi cụm mô tả nhân vật chung chung trong bài viết gốc (như "chàng trai trẻ", "cô gái", "người mẫu"...) bằng chính nhân vật @Image 1, giữ nguyên 100% diện mạo, khuôn mặt, kiểu tóc và phong cách của @Image 1.${
+                              imageAtts.length > 1
+                                  ? `\n- Nếu có thêm ảnh ${imageAtts
+                                        .slice(1)
+                                        .map((im) => `@Image ${im.index} (${im.name})`)
+                                        .join(', ')}, hãy trích dẫn chính xác bằng thẻ @Image tương ứng cho đúng nhân vật/sản phẩm/bối cảnh đó.`
+                                  : ''
+                          }`
+                        : '';
+                const videoDirective = media.hasRefVideo
+                    ? `\n- Có video tham chiếu @Video 1 đính kèm: hãy bám theo chuyển động / bố cục từ @Video 1 và ghi rõ "@Video 1" trong prompt.`
+                    : '';
+
+                const durHint =
+                    this.bulkVideoDuration > 0
+                        ? `thời lượng ${this.bulkVideoDuration} giây`
+                        : 'thời lượng tự động phù hợp nội dung';
+                const condensePrompt = `Bạn là đạo diễn hình ảnh chuyên viết prompt cho mô hình tạo video AI (Seedance 2.0/2.5, Veo, Kling).
+Hãy chuyển nội dung dưới đây thành MỘT prompt tạo video duy nhất, trực quan, giàu chi tiết điện ảnh (bối cảnh, hành động liên tục, góc quay, ánh sáng, nhịp chuyển động) phù hợp với ${durHint} và tỷ lệ khung hình ${this.bulkVideoAspectRatio}.${imgDirectives}${videoDirective}
+- Giữ trọn nội dung, thông điệp, sản phẩm và bối cảnh từ bài viết gốc kết hợp với yêu cầu bổ sung của người dùng (nếu có).
+- Không giải thích, không markdown, không đánh số thừa, tối đa 1700 ký tự.
+
+${rawCombined.slice(0, 6000)}`;
+
+                const llmParts: any[] = [{ text: condensePrompt }];
+                // Gửi trực tiếp ảnh đính kèm cho LLM quan sát đúng khuôn mặt/giới tính/phong cách nhân vật
+                for (const im of imageAtts) {
+                    if (im.rawBase64) {
+                        llmParts.push({
+                            inlineData: {
+                                mimeType: im.mimeType,
+                                data: im.rawBase64,
+                            },
+                        });
+                    }
+                }
+                // Nếu có file PDF đính kèm, gửi luôn cho LLM đọc ngữ cảnh
+                for (const att of this.bulkVideoFiles || []) {
+                    if (att.kind === 'document' && att.rawBase64 && att.mimeType === 'application/pdf') {
+                        llmParts.push({
+                            inlineData: {
+                                mimeType: att.mimeType,
+                                data: att.rawBase64,
+                            },
+                        });
+                    }
+                }
+                const aiRes = await this._genaiService.generateContent({
+                    model: 'gemini-3.8-flash',
+                    contents: [{ role: 'user', parts: llmParts }],
+                });
+                let condensed = typeof aiRes?.text === 'function' ? (aiRes as any).text() : aiRes?.text;
+                if (typeof condensed === 'string' && condensed.trim().length > 30) {
+                    rawCombined = condensed.trim();
+                }
+            } catch (e) {
+                console.warn('[BulkVideo] Bỏ qua bước đạo diễn prompt AI, dùng trực tiếp nội dung gốc:', e);
+            }
+        }
+
+        // Bảo đảm 100% luôn có chỉ thị khóa nhân vật @Image 1 (bắt buộc cho Seedance 2.0/2.5 Omni-Reference)
+        if (imageAtts.length > 0) {
+            const missingTags = imageAtts
+                .map((im) => `@Image ${im.index}`)
+                .filter((tag) => !new RegExp(tag.replace(/\s+/g, '\\s*') + '\\b', 'i').test(rawCombined));
+            if (missingTags.length > 0) {
+                const imgLock =
+                    imageAtts.length === 1
+                        ? `STRICT CHARACTER IDENTITY LOCK: The main protagonist appearing throughout the entire video MUST be the exact character from @Image 1 — strictly preserve 100% of @Image 1's face, facial features, hairstyle, gender, body proportions, and visual style; replace any generic character description in the script with @Image 1.`
+                        : `STRICT SUBJECT & CHARACTER LOCK: Strictly use the exact character/subjects from ${imageAtts.map((im) => `@Image ${im.index}`).join(', ')} (preserve 100% of @Image 1's exact face, hairstyle, and identity as the main character, and incorporate ${imageAtts.slice(1).map((im) => `@Image ${im.index}`).join(', ')} faithfully).`;
+                rawCombined = `${imgLock}\n${rawCombined}`;
+            } else if (!/^STRICT CHARACTER/i.test(rawCombined)) {
+                rawCombined = `STRICT CHARACTER IDENTITY LOCK: Keep the exact face, hairstyle, proportions, and identity of @Image 1 consistent in every frame.\n${rawCombined}`;
+            }
+        }
+        if (media.hasRefVideo && !/@Video\s*1\b/i.test(rawCombined)) {
+            rawCombined = `Follow the camera framing and motion pacing of @Video 1.\n${rawCombined}`;
+        }
+
+        const durText = this.bulkVideoDuration > 0 ? `Duration: ${this.bulkVideoDuration}s. ` : '';
+        const specLine = `Aspect ratio: ${this.bulkVideoAspectRatio}. ${durText}Resolution: ${this.bulkVideoResolution}.`;
+        let finalPrompt = `${rawCombined}\n${specLine}`;
+        if (finalPrompt.length > 2400) {
+            finalPrompt = `${rawCombined.slice(0, 2400 - specLine.length - 4)}...\n${specLine}`;
+        }
+        return finalPrompt;
+    }
+
+    private async generateSingleBatchVideo(
+        finalPrompt: string,
+        media: { referenceImages: any[]; veoReferenceImages: any[]; hasRefVideo: boolean; hasRefAudio: boolean },
+    ): Promise<{ base64: string; remoteUrl: string | null; duration: number }> {
+        const isProxy = this._genaiService.isUModelverseEnabled();
+        const outMeta: { url?: string | null; duration?: number } = {};
+
+        if (isProxy) {
+            let modelName =
+                this._genaiService.umodelverseVideoModel || 'doubao-seedance-2-5-260628-global';
+            const lowerModel = modelName.toLowerCase();
+
+            if (media.hasRefAudio && !lowerModel.includes('seedance-2')) {
+                modelName = 'doubao-seedance-2-5-260628-global';
+            } else if (media.hasRefVideo && !lowerModel.includes('seedance-2') && !lowerModel.includes('r2v')) {
+                modelName = 'kling-v3-motion-control';
+            }
+
+            const base64 = await this._genaiService.generateVideoUModelverse(
+                finalPrompt,
+                this.bulkVideoAspectRatio,
+                media.referenceImages,
+                this.bulkVideoDuration,
+                undefined,
+                modelName,
+                this.bulkVideoResolution,
+                outMeta,
+            );
+            return {
+                base64: base64 || '',
+                remoteUrl: outMeta.url || null,
+                duration: Number(outMeta.duration) || this.bulkVideoDuration,
+            };
+        }
+
+        // Fallback Google Veo 3.1 trực tiếp khi tắt Mì Tôm AI
+        const settings: any = getSettings() || {};
+        const keyList: string[] = Array.isArray(settings?.geminiKeys)
+            ? settings.geminiKeys
+            : Array.isArray(settings?.apiKeys)
+              ? settings.apiKeys
+              : settings?.geminiApiKey
+                ? [settings.geminiApiKey]
+                : [];
+        const geminiApiKey = String(keyList.find((k) => k && k.trim()) || '').trim();
+        const ai: any =
+            this._genaiService.googleAi ||
+            (geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null);
+        if (!ai) {
+            throw new Error('Chưa bật Mì Tôm AI và thiếu Gemini API Key trong Cài đặt.');
+        }
+
+        const videoConfig: any = {
+            aspectRatio: this.bulkVideoAspectRatio,
+        };
+        if (media.veoReferenceImages.length > 0) {
+            videoConfig.referenceImages = media.veoReferenceImages;
+        }
+        let operation: any = await ai.models.generateVideos({
+            model: 'veo-3.1-generate-preview',
+            prompt: finalPrompt,
+            config: videoConfig,
+        });
+
+        let pollCount = 0;
+        const MAX_POLLS = 60;
+        while (!operation.done) {
+            if (this.bulkVideoCancelRequested) {
+                throw new Error('Đã hủy tạo video.');
+            }
+            if (pollCount >= MAX_POLLS) {
+                throw new Error('Quá thời gian chờ tạo video (10 phút).');
+            }
+            await new Promise((resolve) => setTimeout(resolve, 10000));
+            operation = await ai.operations.getVideosOperation({ operation });
+            pollCount++;
+        }
+
+        const videoUri = operation?.response?.generatedVideos?.[0]?.video?.uri;
+        if (!videoUri) {
+            throw new Error('Google Veo không trả về tệp video.');
+        }
+        const res = await fetch(videoUri, {
+            headers: geminiApiKey ? { 'x-goog-api-key': geminiApiKey } : {},
+        });
+        if (!res.ok) {
+            throw new Error(`Không tải được video từ Google (HTTP ${res.status}).`);
+        }
+        const buffer = await res.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let bin = '';
+        const chunkSize = 8192;
+        for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+            bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)) as any);
+        }
+        return {
+            base64: btoa(bin),
+            remoteUrl: videoUri,
+            duration: this.bulkVideoDuration,
+        };
+    }
+
+    private async processSingleBulkVideoItem(item: any, username: string): Promise<void> {
+        item.status = 'running';
+        item.statusText = 'Đang đọc nội dung tác vụ...';
+        this.cd.markForCheck();
+
+        try {
+            const articleText = await this.loadArticleTextForBatchVideo(item.row, username);
+
+            if (this.bulkVideoCancelRequested) {
+                item.status = 'cancelled';
+                item.statusText = 'Đã hủy';
+                this.cd.markForCheck();
+                return;
+            }
+
+            item.statusText = 'Đang chuẩn bị prompt & tệp đính kèm...';
+            this.cd.markForCheck();
+
+            const media = this.buildBulkVideoReferenceMedia();
+            const finalPrompt = await this.synthesizeBulkVideoPrompt(
+                item.title,
+                articleText,
+                this.bulkVideoPrompt,
+                media,
+            );
+
+            if (this.bulkVideoCancelRequested) {
+                item.status = 'cancelled';
+                item.statusText = 'Đã hủy';
+                this.cd.markForCheck();
+                return;
+            }
+
+            item.statusText = `Đang tạo video AI (${this.bulkVideoAspectRatio} · ${this.bulkVideoDuration > 0 ? this.bulkVideoDuration + 's' : 'tự động'})...`;
+            this.cd.markForCheck();
+
+            const genRes = await this.generateSingleBatchVideo(finalPrompt, media);
+            if (!genRes.base64 && !genRes.remoteUrl) {
+                throw new Error('API không trả về dữ liệu video.');
+            }
+
+            item.statusText = 'Đang lưu tệp video & cập nhật dự án...';
+            this.cd.markForCheck();
+
+            let finalVideoUrl = '';
+            let savedLocalPath = '';
+            const safeUuid = String(item.uuid || 'task').replace(/[^a-zA-Z0-9_\-]/g, '_');
+            const safeTitle = String(item.title || item.uuid || 'untitled')
+                .replace(/[^a-z0-9]/gi, '_')
+                .toLowerCase();
+            const fileName = `${safeTitle}_final.mp4`;
+            const electron = (window as any).electron;
+
+            if (genRes.base64 && electron?.saveBase64) {
+                const saveRes = await electron.saveBase64({
+                    base64: genRes.base64,
+                    fileName,
+                    customDataSubDir: `exports/output/${safeUuid}`,
+                    folder: 'videos',
+                    username,
+                });
+                if (saveRes?.success && saveRes.path) {
+                    savedLocalPath = saveRes.path;
+                    const normalizedPath = saveRes.path.replace(/\\/g, '/');
+                    finalVideoUrl = normalizedPath.startsWith('/')
+                        ? `file://${normalizedPath}`
+                        : `file:///${normalizedPath}`;
+                }
+            }
+
+            if (!finalVideoUrl && genRes.remoteUrl) {
+                finalVideoUrl = genRes.remoteUrl;
+            }
+
+            // Tạo Blob URL xem trước nhanh trong dialog (tránh vấn đề CSP/cache file://)
+            let previewUrl = finalVideoUrl;
+            if (genRes.base64) {
+                try {
+                    const pureB64 = genRes.base64.includes(',')
+                        ? genRes.base64.split(',')[1]
+                        : genRes.base64;
+                    const binary = atob(pureB64);
+                    const arr = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+                    const blobUrl = URL.createObjectURL(new Blob([arr], { type: 'video/mp4' }));
+                    this._bulkVideoBlobUrls.push(blobUrl);
+                    previewUrl = blobUrl;
+                    if (!finalVideoUrl) finalVideoUrl = blobUrl;
+                } catch (_) {}
+            }
+
+            // Lưu thẳng vào ProjectStoreService để khi bấm "Dựng video" ở bảng tác vụ là có sẵn video ngay trên timeline
+            const actualDuration = Math.max(1, Math.round(genRes.duration || this.bulkVideoDuration || 5));
+            const existingParts = await this.projectStore.load(username, item.uuid).catch(() => null);
+            const meta = {
+                ...(existingParts?.meta || {}),
+                uuid: item.uuid,
+                title: item.title || existingParts?.meta?.title || item.uuid,
+                extraPrompt: this.bulkVideoPrompt || existingParts?.meta?.extraPrompt || '',
+                videoFormat: 'video',
+                aspectRatio: this.bulkVideoAspectRatio,
+                resolution: this.bulkVideoResolution,
+                maxDuration: actualDuration,
+                clips:
+                    Array.isArray(existingParts?.meta?.clips) && existingParts.meta.clips.length > 0
+                        ? existingParts.meta.clips
+                        : [
+                              {
+                                  id: `batch_${Date.now()}`,
+                                  name: (item.title || item.uuid).slice(0, 60),
+                                  description: (articleText || this.bulkVideoPrompt || item.title || '').slice(0, 500),
+                                  voice: 'vi-VN-NamMinhNeural',
+                                  rate: 1,
+                                  pitch: 0,
+                                  duration: actualDuration,
+                                  prompt: '',
+                                  localFilePath: null,
+                                  visualNote: '',
+                                  scriptDuration: 0,
+                              },
+                          ],
+            };
+
+            const existingScenes = Array.isArray(existingParts?.timeline?.scenes)
+                ? [...existingParts.timeline.scenes]
+                : [];
+            const newScene = {
+                prompt: finalPrompt,
+                visualPrompt: finalPrompt,
+                imageUrl: media.firstImagePreview || null,
+                subtitles: [],
+                forcedDuration: actualDuration,
+                videos: [
+                    {
+                        id: 1,
+                        prompt: finalPrompt,
+                        imagePrompt: finalPrompt,
+                        imageUrl: media.firstImagePreview || null,
+                        duration: actualDuration,
+                        maxDuration: actualDuration,
+                        videoUrl: finalVideoUrl,
+                        resolution: this.bulkVideoResolution,
+                        aspectRatio: this.bulkVideoAspectRatio,
+                    },
+                ],
+            };
+
+            const timeline = {
+                ...(existingParts?.timeline || {}),
+                uuid: item.uuid,
+                title: item.title || existingParts?.timeline?.title || item.uuid,
+                username,
+                masterPrompt: this.bulkVideoPrompt || existingParts?.timeline?.masterPrompt || '',
+                extraPrompt: this.bulkVideoPrompt || existingParts?.timeline?.extraPrompt || '',
+                aspectRatio: this.bulkVideoAspectRatio,
+                resolution: this.bulkVideoResolution,
+                maxDuration: actualDuration,
+                totalScenes: existingScenes.length + 1,
+                scenes: [newScene, ...existingScenes],
+            };
+
+            await this.projectStore.save(username, item.uuid, { meta, timeline });
+            this.projectStore.markCreatedVideo(item.uuid, {
+                exported: !!savedLocalPath,
+                hasSceneVideo: true,
+                latestPath: savedLocalPath || undefined,
+                updatedAt: Date.now(),
+            });
+            if (item.row) {
+                item.row.has_video = true;
+            }
+
+            item.status = 'done';
+            item.videoUrl = finalVideoUrl;
+            item.localPath = savedLocalPath;
+            item.previewSafeUrl = previewUrl ? this._sanitizer.bypassSecurityTrustUrl(previewUrl) : undefined;
+            item.statusText = `Hoàn tất (${actualDuration}s · ${this.bulkVideoAspectRatio})`;
+        } catch (err: any) {
+            console.error('[BulkVideo] Lỗi tạo video cho', item.uuid, err);
+            item.status = 'error';
+            item.statusText = err?.message || 'Lỗi tạo video AI không xác định.';
+        } finally {
+            this.cd.markForCheck();
+        }
+    }
+
+    openBulkVideoResultInEditor(item: any): void {
+        if (!item?.row) return;
+        if (this.bulkVideoDialogRef) {
+            this.bulkVideoDialogRef.close();
+        }
+        const username = this.getCurrentUsername();
+        this.router.navigate(['/voice2video', username, item.uuid, 'node']);
+    }
+
+    openBulkVideoFolder(item: any): void {
+        if (!item?.localPath) return;
+        const electron = (window as any).electron;
+        if (electron?.invoke) {
+            electron.invoke('show-item-in-folder', item.localPath).catch(() => {});
+        }
+    }
+
     displayCheck(row: any) {
         return row && !row.isGroupHeader && !!row.uuid;
     }
@@ -985,9 +1959,66 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         return this.projectStore.hasProject(uuid);
     }
 
+    hasCreatedVideo(row: any): boolean {
+        if (!row) return false;
+        const uuid =
+            typeof row === 'string' ? row : row.uuid || row._id || row.id;
+        if (!uuid) return false;
+        if (this.projectStore.hasCreatedVideo(uuid)) return true;
+        if (typeof row === 'object' && (row.has_video || row.hasVideo))
+            return true;
+        return false;
+    }
+
+    getVideoActionTooltip(row: any): string {
+        if (!this.hasCreatedVideo(row)) {
+            return 'Dựng video';
+        }
+        const uuid = typeof row === 'string' ? row : row?.uuid || row?._id || row?.id;
+        const info = this.projectStore.getCreatedVideoInfo(uuid);
+        if (info?.exported && info.count > 1) {
+            return `Đã tạo ${info.count} video — Nhấn để mở Dựng video`;
+        }
+        return 'Đã tạo video — Nhấn để mở Dựng video';
+    }
+
+    private _lastVideoScanAt = 0;
+    localScriptUuids: Set<string> = new Set<string>();
+
+    private async refreshLocalScripts(username?: string): Promise<void> {
+        const electron = (window as any)?.electron;
+        if (!electron?.listLocalScripts) return;
+        try {
+            const uname = username || this.getCurrentUsername();
+            const res = await electron.listLocalScripts({ username: uname });
+            if (res?.success && Array.isArray(res.data)) {
+                const nextSet = new Set<string>();
+                for (const s of res.data) {
+                    if (s?.uuid) nextSet.add(s.uuid);
+                }
+                this.localScriptUuids = nextSet;
+                if (this.rows && this.rows.length > 0) {
+                    this.rows = [...this.rows];
+                }
+                this.cd.markForCheck();
+            }
+        } catch (_) {}
+    }
+
+    @HostListener('window:focus')
+    onWindowFocusRefreshVideos(): void {
+        const now = Date.now();
+        if (now - this._lastVideoScanAt < 3000) return;
+        this._lastVideoScanAt = now;
+        const username = this.getCurrentUsername();
+        this.projectStore.refreshCreatedVideos(username).catch(() => {});
+        this.refreshLocalScripts(username).catch(() => {});
+    }
+
     hasScriptProject(row: any): boolean {
         if (!row || !row.uuid) return false;
-        if (row.has_script) return true;
+        if (this.localScriptUuids.has(row.uuid)) return true;
+        if (row.has_script || row.hasScript) return true;
         if (this.multiAccountService) {
             return (
                 !!this.multiAccountService.getItem(
@@ -1731,6 +2762,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         private _blogService: BlogService,
         public _matDialog: MatDialog,
         private _fuseMediaWatcherService: FuseMediaWatcherService,
+        private _sanitizer: DomSanitizer,
     ) {
         this.titleService.setTitle(`lưu trữ | ai.type - công cụ tạo content`);
 
@@ -1773,6 +2805,13 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
 
     ngOnDestroy(): void {
         // Unsubscribe from all subscriptions
+        this.bulkVideoCancelRequested = true;
+        for (const url of this._bulkVideoBlobUrls) {
+            try {
+                URL.revokeObjectURL(url);
+            } catch (_) {}
+        }
+        this._bulkVideoBlobUrls = [];
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
     }
@@ -2172,6 +3211,18 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         // Nạp trạng thái ghim (sticky) đã lưu từ lần chạy trước
         this.loadStickyState();
         const username = this.getCurrentUsername();
+        // Đồng bộ danh sách bài viết đã tạo video từ đĩa để làm sáng icon Dựng video
+        this.projectStore.createdVideosUpdated$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe(() => {
+                if (this.rows && this.rows.length > 0) {
+                    this.rows = [...this.rows];
+                }
+                this.cd.markForCheck();
+            });
+        this._lastVideoScanAt = Date.now();
+        this.projectStore.refreshCreatedVideos(username).catch(() => {});
+        this.refreshLocalScripts(username).catch(() => {});
         const cached = AIArchiveComponent._sessionRowsCache[username];
         if (cached && cached.masterRows && cached.masterRows.length > 0 && (!this.uuids || this.uuids.length === 0)) {
             this.masterLoadedRows = [...cached.masterRows];

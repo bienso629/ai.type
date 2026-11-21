@@ -36,6 +36,9 @@ export interface GlbSavedKeyframeClip {
   /** Không gian tư thế tham chiếu: 'tpose' = chuẩn hóa về T-Pose giải phẫu (retarget chính xác giữa A-Pose/T-Pose & mọi số lượng khớp), 'rest' = tư thế nghỉ gốc */
   poseSpace?: 'tpose' | 'rest';
   createdAt?: string;
+  /** Câu lệnh gốc và kế hoạch biên đạo segments do AI tạo (để lần sau AI có thể chỉnh sửa chính xác từng chi tiết nhỏ) */
+  aiPrompt?: string;
+  aiSegments?: any[];
   keyframes: GlbBoneKeyframe[];
 }
 
@@ -53,6 +56,11 @@ export interface GlbPropTimelineData {
   activeClipName?: string | null;
   keyframes: GlbBoneKeyframe[];
   savedClips?: GlbSavedKeyframeClip[];
+  /** Bản đồ đổi tên hiển thị cho các Clip gốc nhúng sẵn trong file GLB (rawName -> displayName) */
+  clipAliases?: Record<string, string>;
+  /** Ngữ cảnh kế hoạch AI gần nhất đang gắn với timeline hiện tại */
+  lastAiPrompt?: string;
+  lastAiSegments?: any[];
 }
 
 export interface GlbBoneInfo {
@@ -2178,12 +2186,28 @@ export class SontinhSceneService implements OnDestroy {
     wrapper: pc.Entity;
     glbEntity: pc.Entity;
     hipsNode: pc.GraphNode | null;
+    hasSkinnedSkeleton: boolean;
+    modelSize: { x: number; y: number; z: number };
+    forwardAxis: '+z' | '+x';
+    meterScale: number;
+    wheelbase: number;
+    autoWheels: Array<{
+      id: string;
+      isFront: boolean;
+      radius: number;
+      axleX: number;
+      axleY: number;
+      axleZ: number;
+      steerPivot: pc.Entity;
+      spinPivot: pc.Entity;
+    }>;
     bones: Map<string, {
       name: string;
       label: string;
       depth: number;
       isSkinnedBone: boolean;
       isRootOrHips: boolean;
+      isRigidPartSafe: boolean;
       node: pc.GraphNode;
       restPos: pc.Vec3;
       restQuat: pc.Quat;
@@ -2198,6 +2222,7 @@ export class SontinhSceneService implements OnDestroy {
     }>;
     clips: Array<{
       name: string;
+      rawName?: string;
       duration: number;
       resource: any;
       isCustomKeyframeClip?: boolean;
@@ -2216,24 +2241,37 @@ export class SontinhSceneService implements OnDestroy {
   /** Tắt hoàn toàn AnimComponent của clip nhúng để không ghi đè tư thế khớp xương ở chế độ Keyframes */
   private _stopRigClipAnim(rig: any): void {
     if (!rig) return;
-    if (rig.glbEntity && rig.timeline?.mode === 'keyframes') {
-      const lp = rig.glbEntity.getLocalPosition();
-      if (Math.abs(lp.x) > 1e-5 || Math.abs(lp.y) > 1e-5 || Math.abs(lp.z) > 1e-5) {
-        rig.glbEntity.setLocalPosition(0, 0, 0);
-      }
-    }
     const comps = [
       rig.animComp,
       rig.glbEntity?.anim,
       (rig.glbEntity as any)?.animation
     ];
+    let wasAnimActive = false;
     for (const c of comps) {
       if (!c) continue;
+      if (c.enabled || c.playing) wasAnimActive = true;
       try {
         c.playing = false;
         c.speed = 0;
         c.enabled = false;
       } catch (_) {}
+    }
+    // Chỉ đặt lại vị trí cục bộ của glbEntity khi vừa tắt clip nhúng có root-motion lock,
+    // KHÔNG xóa vị trí khi chế độ keyframes đang di chuyển __root__ (vd: xe chạy vòng tròn)
+    if (wasAnimActive && rig.glbEntity && rig.timeline?.mode === 'keyframes') {
+      const rootBone = rig.bones?.get?.('__root__');
+      const hasRootPos = !!(
+        rootBone?.curPosDelta &&
+        (Math.abs(rootBone.curPosDelta.x || 0) > 1e-4 ||
+          Math.abs(rootBone.curPosDelta.y || 0) > 1e-4 ||
+          Math.abs(rootBone.curPosDelta.z || 0) > 1e-4)
+      );
+      if (!hasRootPos) {
+        const lp = rig.glbEntity.getLocalPosition();
+        if (Math.abs(lp.x) > 1e-5 || Math.abs(lp.y) > 1e-5 || Math.abs(lp.z) > 1e-5) {
+          rig.glbEntity.setLocalPosition(0, 0, 0);
+        }
+      }
     }
   }
 
@@ -2313,6 +2351,7 @@ export class SontinhSceneService implements OnDestroy {
       depth: number;
       isSkinnedBone: boolean;
       isRootOrHips: boolean;
+      isRigidPartSafe: boolean;
       node: pc.GraphNode;
       restPos: pc.Vec3;
       restQuat: pc.Quat;
@@ -2343,6 +2382,37 @@ export class SontinhSceneService implements OnDestroy {
         }
       }
     }
+    const hasSkinnedSkeleton = skinnedNodes.size > 0;
+
+    // Đếm số sub-mesh tĩnh cùng cha đều đặt pivot tại gốc (0,0,0) (dạng tách mesh theo vật liệu CAD/Sketchfab
+    // như xe đạp BMX có 18 bộ phận cùng gốc (0,0,0) — xoay riêng từng bộ phận sẽ làm bung/lật ngược kết cấu mô hình!)
+    const bakedOriginSiblingCountByParent = new Map<any, number>();
+    const countBakedChildren = (parent: any) => {
+      const chs: any[] = parent?.children || [];
+      let bakedCount = 0;
+      for (const ch of chs) {
+        const lp = ch?.getLocalPosition ? ch.getLocalPosition() : null;
+        const atOrigin = !lp || lp.length() < 0.005;
+        const hasMesh = !!(ch?.render || ch?.model);
+        if (atOrigin && hasMesh && !skinnedNodes.has(ch)) {
+          bakedCount++;
+        }
+        countBakedChildren(ch);
+      }
+      bakedOriginSiblingCountByParent.set(parent, bakedCount);
+    };
+    countBakedChildren(glbEntity);
+
+    // Đọc kích thước gốc cục bộ của mô hình để xác định hướng tiến (+Z hay +X) và hệ số mét
+    const rawMin: pc.Vec3 | null = (wrapper as any)?._localAabbMin || null;
+    const rawMax: pc.Vec3 | null = (wrapper as any)?._localAabbMax || null;
+    const sizeX = rawMin && rawMax ? Math.max(0.01, Math.abs(rawMax.x - rawMin.x)) : 1.0;
+    const sizeY = rawMin && rawMax ? Math.max(0.01, Math.abs(rawMax.y - rawMin.y)) : 1.0;
+    const sizeZ = rawMin && rawMax ? Math.max(0.01, Math.abs(rawMax.z - rawMin.z)) : 1.0;
+    const maxDim = Math.max(sizeX, sizeY, sizeZ);
+    const meterScale = maxDim > 300 ? 1000 : (maxDim > 20 ? 100 : 1);
+    // Nhân vật có bộ xương (humanoid glTF/Mixamo/Meshy) luôn quay mặt về +Z dù vai rộng (X) > độ dày ngực (Z)
+    const forwardAxis: '+z' | '+x' = hasSkinnedSkeleton ? '+z' : (sizeZ >= sizeX * 0.92 ? '+z' : '+x');
 
     // 2. Duyệt cây phân cấp của glbEntity để thu thập xương và hệ trục xoay chuẩn Character Space
     const usedNames = new Set<string>();
@@ -2352,6 +2422,7 @@ export class SontinhSceneService implements OnDestroy {
       label: string,
       depth: number,
       isSkinned: boolean,
+      isRigidPartSafe: boolean,
       charRestQuat: pc.Quat,
       parentCharRestQuat: pc.Quat,
       parentAccumScale: number
@@ -2378,6 +2449,7 @@ export class SontinhSceneService implements OnDestroy {
         depth,
         isSkinnedBone: isSkinned,
         isRootOrHips,
+        isRigidPartSafe,
         node,
         restPos,
         restQuat,
@@ -2399,11 +2471,12 @@ export class SontinhSceneService implements OnDestroy {
     nodeRestCharMat.set(glbEntity, identityMat.clone());
 
     // Luôn thêm node gốc để kể cả GLB chỉ có 1 mesh vẫn tạo chuyển động keyframe được
-    addBoneEntry(glbEntity, '__root__', 'Toàn bộ mô hình (Root)', 0, false, identityQuat, identityQuat, 1);
+    addBoneEntry(glbEntity, '__root__', 'Toàn bộ mô hình (Root)', 0, false, true, identityQuat, identityQuat, 1);
 
     const walk = (node: any, depth: number, parentCharQuat: pc.Quat, parentScale: number, parentCharMat: pc.Mat4) => {
       if (!node) return;
       const children: any[] = node.children || [];
+      const bakedSiblings = bakedOriginSiblingCountByParent.get(node) || 0;
       for (const ch of children) {
         const nm = String(ch?.name || '').trim();
         const isSkinned = skinnedNodes.has(ch);
@@ -2423,14 +2496,692 @@ export class SontinhSceneService implements OnDestroy {
         nodeRestCharMat.set(ch, charMat);
         nodeParentMap.set(ch, node);
 
+        // Xác định node con có an toàn để AI xoay độc lập không:
+        // - Nếu có skin bone thật -> luôn an toàn.
+        // - Nếu mô hình có skeleton thật mà node này là mesh ngoài skin -> KHÔNG an toàn (dễ lệch mesh).
+        // - Nếu mô hình không có skin (đồ vật/xe/props): chỉ an toàn khi node đặt đúng tâm khớp (localPos != 0)
+        //   và KHÔNG thuộc nhóm nhiều sub-mesh vật liệu dùng chung pivot gốc (0,0,0).
+        let isRigidPartSafe = false;
+        if (isSkinned) {
+          isRigidPartSafe = true;
+        } else if (!hasSkinnedSkeleton) {
+          const atOrigin = localPos.length() < 0.005;
+          const childBakedCount = bakedOriginSiblingCountByParent.get(ch) || 0;
+          if (!atOrigin && bakedSiblings < 2) {
+            isRigidPartSafe = true;
+          } else if (atOrigin && bakedSiblings < 2 && childBakedCount === 0 && (ch?.render || ch?.model)) {
+            // Kiểm tra xem tâm hình học của mesh có nằm gần pivot (0,0,0) không
+            const mis = (ch.render?.meshInstances || ch.model?.meshInstances || []) as any[];
+            if (mis.length > 0 && mis[0]?.mesh?.aabb) {
+              const a = mis[0].mesh.aabb;
+              const centerDist = Math.hypot(a.center.x, a.center.y, a.center.z);
+              const maxHalf = Math.max(0.01, a.halfExtents.x, a.halfExtents.y, a.halfExtents.z);
+              isRigidPartSafe = centerDist <= Math.max(0.03, maxHalf * 0.2);
+            }
+          }
+        }
+
         if (nm && (isSkinned || skinnedNodes.size === 0 || !nm.startsWith('Untitled'))) {
           const cleanLabel = nm.replace(/^mixamorig:?/i, '');
-          addBoneEntry(ch as pc.GraphNode, nm, cleanLabel, depth, isSkinned, charQuat, parentCharQuat, parentScale);
+          addBoneEntry(ch as pc.GraphNode, nm, cleanLabel, depth, isSkinned, isRigidPartSafe, charQuat, parentCharQuat, parentScale);
         }
         walk(ch, depth + 1, charQuat, nextScale, charMat);
       }
     };
     walk(glbEntity, 1, identityQuat, 1, identityMat);
+
+    // 2a. Tự động nhận diện & dựng bộ khớp bánh xe ảo (Steer Pivot + Spin Pivot) cho mô hình phương tiện (ô tô, xe tải, xe 2 bánh tách rời bánh)
+    // mà KHÔNG cần chỉnh file GLB gốc — mỗi bánh (lốp + vành + trục + nan hoa + phanh) được gom đúng tâm trục quay của chính bánh đó.
+    const autoWheels: Array<{
+      id: string;
+      isFront: boolean;
+      radius: number;
+      axleX: number;
+      axleY: number;
+      axleZ: number;
+      steerPivot: pc.Entity;
+      spinPivot: pc.Entity;
+    }> = [];
+    let wheelbase = Math.max(0.5, (forwardAxis === '+z' ? sizeZ : sizeX) * 0.6);
+
+    if (!hasSkinnedSkeleton) {
+      const WHEEL_PART_RE = /(?:^|[\s_.-])(wheel|tire|tyre|rim|hub|spoke|alloy|rotor|brake|caliper|banh|lop)/i;
+      const WHEEL_EXCLUDE_RE = /(steering|spare|wheelwell|arch|fender|mudguard|body|door|glass|mirror|seat|pedal|chain|crank|drivetrain|handlebar|fork|cockpit|accessories|accessory)/i;
+      const PRIMARY_WHEEL_RE = /(?:^|[\s_.-])(tire|tyre|wheel|banh|lop)/i;
+      const STEER_ONLY_RE = /(?:^|[\s_.-])(brake|caliper)/i;
+
+      type WheelCand = {
+        node: any;
+        name: string;
+        cx: number;
+        cy: number;
+        cz: number;
+        mnY: number;
+        mxY: number;
+        sx: number;
+        sy: number;
+        sz: number;
+        isPrimary: boolean;
+        isSteerOnly: boolean;
+        charMat: pc.Mat4;
+      };
+
+      const candidates: WheelCand[] = [];
+      const mergedCandidates: WheelCand[] = [];
+      const tmpPt = new pc.Vec3();
+      const tmpOut = new pc.Vec3();
+
+      nodeRestCharMat.forEach((charMat, node) => {
+        if (node === glbEntity) return;
+        const nm = String(node?.name || '').trim();
+        if (!nm || !WHEEL_PART_RE.test(nm) || WHEEL_EXCLUDE_RE.test(nm)) return;
+        const mis = (node?.render?.meshInstances || node?.model?.meshInstances || []) as any[];
+        if (!mis || mis.length === 0) return;
+
+        let mnX = Infinity, mnY = Infinity, mnZ = Infinity;
+        let mxX = -Infinity, mxY = -Infinity, mxZ = -Infinity;
+        for (const mi of mis) {
+          const ma = mi?.mesh?.aabb;
+          if (!ma) continue;
+          const loX = ma.center.x - ma.halfExtents.x, hiX = ma.center.x + ma.halfExtents.x;
+          const loY = ma.center.y - ma.halfExtents.y, hiY = ma.center.y + ma.halfExtents.y;
+          const loZ = ma.center.z - ma.halfExtents.z, hiZ = ma.center.z + ma.halfExtents.z;
+          for (const x of [loX, hiX]) {
+            for (const y of [loY, hiY]) {
+              for (const z of [loZ, hiZ]) {
+                tmpPt.set(x, y, z);
+                charMat.transformPoint(tmpPt, tmpOut);
+                if (tmpOut.x < mnX) mnX = tmpOut.x;
+                if (tmpOut.y < mnY) mnY = tmpOut.y;
+                if (tmpOut.z < mnZ) mnZ = tmpOut.z;
+                if (tmpOut.x > mxX) mxX = tmpOut.x;
+                if (tmpOut.y > mxY) mxY = tmpOut.y;
+                if (tmpOut.z > mxZ) mxZ = tmpOut.z;
+              }
+            }
+          }
+        }
+        if (!Number.isFinite(mnX)) return;
+        const sx = Math.max(1e-4, mxX - mnX);
+        const sy = Math.max(1e-4, mxY - mnY);
+        const sz = Math.max(1e-4, mxZ - mnZ);
+        const longSpan = forwardAxis === '+z' ? sz : sx;
+        const latSpan = forwardAxis === '+z' ? sx : sz;
+        const vehicleLength = forwardAxis === '+z' ? sizeZ : sizeX;
+        const vehicleWidth = forwardAxis === '+z' ? sizeX : sizeZ;
+
+        const candObj: WheelCand = {
+          node,
+          name: nm,
+          cx: (mnX + mxX) * 0.5,
+          cy: (mnY + mxY) * 0.5,
+          cz: (mnZ + mxZ) * 0.5,
+          mnY,
+          mxY,
+          sx,
+          sy,
+          sz,
+          isPrimary: false,
+          isSteerOnly: STEER_ONLY_RE.test(nm),
+          charMat
+        };
+
+        // Mesh gộp nhiều bánh cùng lúc (vd: xe đạp BMX gộp cả 2 bánh trước+sau vào cùng 1 mesh Tyres/Rims/Spokes/Hubs)
+        if (longSpan > Math.max(sy * 1.45, vehicleLength * 0.48)) {
+          candObj.isPrimary = PRIMARY_WHEEL_RE.test(nm) && sy >= sizeY * 0.12;
+          mergedCandidates.push(candObj);
+          return;
+        }
+        if (latSpan > vehicleWidth * 0.48) return;
+
+        const circRatio = Math.max(longSpan, sy) / Math.max(1e-4, Math.min(longSpan, sy));
+        candObj.isPrimary = PRIMARY_WHEEL_RE.test(nm) && sy >= sizeY * 0.08 && circRatio <= 1.38;
+        candidates.push(candObj);
+      });
+
+      const decomposeMat = (m: pc.Mat4): { pos: pc.Vec3; quat: pc.Quat; scale: pc.Vec3 } => {
+        const pos = m.getTranslation(new pc.Vec3());
+        const scale = m.getScale(new pc.Vec3());
+        const d = m.data;
+        const rotM = new pc.Mat4();
+        const rd = rotM.data;
+        const sx = Math.abs(scale.x) > 1e-6 ? scale.x : 1;
+        const sy = Math.abs(scale.y) > 1e-6 ? scale.y : 1;
+        const sz = Math.abs(scale.z) > 1e-6 ? scale.z : 1;
+        rd[0] = d[0] / sx; rd[1] = d[1] / sx; rd[2] = d[2] / sx; rd[3] = 0;
+        rd[4] = d[4] / sy; rd[5] = d[5] / sy; rd[6] = d[6] / sy; rd[7] = 0;
+        rd[8] = d[8] / sz; rd[9] = d[9] / sz; rd[10] = d[10] / sz; rd[11] = 0;
+        rd[12] = 0; rd[13] = 0; rd[14] = 0; rd[15] = 1;
+        const quat = new pc.Quat().setFromMat4(rotM).normalize();
+        return { pos, quat, scale };
+      };
+
+      // Fallback nếu mô hình chỉ đặt tên rim/hub mà không có từ khóa tire/wheel
+      let primaryList = candidates.filter((c) => c.isPrimary);
+      if (primaryList.length < 2) {
+        primaryList = candidates.filter((c) => {
+          const longSpan = forwardAxis === '+z' ? c.sz : c.sx;
+          const circRatio = Math.max(longSpan, c.sy) / Math.max(1e-4, Math.min(longSpan, c.sy));
+          return /(?:^|[\s_.-])(rim|wheel)/i.test(c.name) && c.sy >= sizeY * 0.08 && circRatio <= 1.38;
+        });
+      }
+
+      if (primaryList.length >= 2) {
+        type WheelCluster = {
+          axleX: number;
+          axleY: number;
+          axleZ: number;
+          radius: number;
+          hasFrontName: boolean;
+          hasRearName: boolean;
+          parts: WheelCand[];
+        };
+        const clusters: WheelCluster[] = [];
+
+        for (const prim of primaryList) {
+          const rad = Math.max(prim.sy, forwardAxis === '+z' ? prim.sz : prim.sx) * 0.5;
+          const existing = clusters.find(
+            (cl) =>
+              Math.hypot(cl.axleX - prim.cx, cl.axleY - prim.cy, cl.axleZ - prim.cz) < Math.max(cl.radius, rad) * 0.45
+          );
+          if (existing) {
+            existing.parts.push(prim);
+            if (rad > existing.radius) {
+              existing.radius = rad;
+              existing.axleX = prim.cx;
+              existing.axleY = prim.cy;
+              existing.axleZ = prim.cz;
+            }
+            if (/front|trước|truoc/i.test(prim.name)) existing.hasFrontName = true;
+            if (/rear|back|sau/i.test(prim.name)) existing.hasRearName = true;
+          } else {
+            clusters.push({
+              axleX: prim.cx,
+              axleY: prim.cy,
+              axleZ: prim.cz,
+              radius: rad,
+              hasFrontName: /front|trước|truoc/i.test(prim.name),
+              hasRearName: /rear|back|sau/i.test(prim.name),
+              parts: [prim]
+            });
+          }
+        }
+
+        // Gắn các bộ phận con (vành, trục, 5 nan hoa, phanh đĩa...) vào đúng cụm bánh gần nhất cùng phía trái/phải
+        const usedNodes = new Set<any>(primaryList.map((p) => p.node));
+        const bodyCenterLat = rawMin && rawMax
+          ? (forwardAxis === '+z' ? (rawMin.x + rawMax.x) * 0.5 : (rawMin.z + rawMax.z) * 0.5)
+          : 0;
+
+        for (const cand of candidates) {
+          if (usedNodes.has(cand.node)) continue;
+          const candLat = (forwardAxis === '+z' ? cand.cx : cand.cz) - bodyCenterLat;
+          let bestCl: WheelCluster | null = null;
+          let bestDist = Infinity;
+          for (const cl of clusters) {
+            const clLat = (forwardAxis === '+z' ? cl.axleX : cl.axleZ) - bodyCenterLat;
+            // Không gắn bộ phận bên trái sang bánh bên phải (nếu xe có 2 dãy bánh rõ ràng)
+            if (clusters.length >= 4 && Math.abs(clLat) > 0.05 && Math.abs(candLat) > 0.05 && clLat * candLat < 0) {
+              continue;
+            }
+            const d = Math.hypot(cl.axleX - cand.cx, cl.axleY - cand.cy, cl.axleZ - cand.cz);
+            if (d <= cl.radius * 1.18 && d < bestDist) {
+              bestDist = d;
+              bestCl = cl;
+            }
+          }
+          if (bestCl) {
+            bestCl.parts.push(cand);
+            usedNodes.add(cand.node);
+            if (/front|trước|truoc/i.test(cand.name)) bestCl.hasFrontName = true;
+            if (/rear|back|sau/i.test(cand.name)) bestCl.hasRearName = true;
+          }
+        }
+
+        if (clusters.length >= 2) {
+          const longs = clusters.map((c) => (forwardAxis === '+z' ? c.axleZ : c.axleX));
+          const minL = Math.min(...longs);
+          const maxL = Math.max(...longs);
+          const midL = (minL + maxL) * 0.5;
+          if (maxL - minL > 0.05) {
+            wheelbase = maxL - minL;
+          }
+
+          const reparentedNodes = new Set<any>();
+
+          clusters.forEach((cl, idx) => {
+            const clusterNodeSet = new Set<any>(cl.parts.map((p) => p.node));
+            const longCoord = forwardAxis === '+z' ? cl.axleZ : cl.axleX;
+            const isFront = cl.hasFrontName
+              ? true
+              : cl.hasRearName
+                ? false
+                : longCoord > midL;
+
+            const steerPivot = new pc.Entity(`AutoWheelSteer_${idx}`);
+            steerPivot.setLocalPosition(cl.axleX, cl.axleY, cl.axleZ);
+            steerPivot.setLocalRotation(0, 0, 0, 1);
+            steerPivot.setLocalScale(1, 1, 1);
+            glbEntity.addChild(steerPivot);
+
+            const spinPivot = new pc.Entity(`AutoWheelSpin_${idx}`);
+            spinPivot.setLocalPosition(0, 0, 0);
+            spinPivot.setLocalRotation(0, 0, 0, 1);
+            spinPivot.setLocalScale(1, 1, 1);
+            steerPivot.addChild(spinPivot);
+
+            for (const part of cl.parts) {
+              // Bỏ qua nếu nút cha trực tiếp của nó đã nằm trong cùng cụm bánh
+              let anc = nodeParentMap.get(part.node);
+              let coveredByAnc = false;
+              while (anc && anc !== glbEntity) {
+                if (clusterNodeSet.has(anc)) {
+                  coveredByAnc = true;
+                  break;
+                }
+                anc = nodeParentMap.get(anc);
+              }
+              if (coveredByAnc) continue;
+
+              const { pos, quat, scale } = decomposeMat(part.charMat);
+              const targetParent = part.isSteerOnly ? steerPivot : spinPivot;
+              try {
+                if (part.node.parent) {
+                  part.node.parent.removeChild(part.node);
+                }
+                targetParent.addChild(part.node);
+                part.node.setLocalPosition(pos.x - cl.axleX, pos.y - cl.axleY, pos.z - cl.axleZ);
+                part.node.setLocalRotation(quat);
+                part.node.setLocalScale(scale);
+                reparentedNodes.add(part.node);
+              } catch (_) {}
+            }
+
+            autoWheels.push({
+              id: `wheel_${idx}`,
+              isFront,
+              radius: Math.max(0.05, cl.radius),
+              axleX: cl.axleX,
+              axleY: cl.axleY,
+              axleZ: cl.axleZ,
+              steerPivot,
+              spinPivot
+            });
+          });
+
+          // Đồng bộ lại restPos/restQuat/restScale của các node bánh xe đã reparent để resetBonePose giữ nguyên vị trí chuẩn
+          bonesMap.forEach((b) => {
+            if (reparentedNodes.has(b.node)) {
+              b.restPos = b.node.getLocalPosition().clone();
+              b.restQuat = b.node.getLocalRotation().clone();
+              b.restScale = b.node.getLocalScale().clone();
+              b.isRigidPartSafe = false;
+            }
+          });
+        }
+      } else if (mergedCandidates.length > 0 && this.app?.graphicsDevice) {
+        // Trường hợp xe 2 bánh hoặc 4 bánh gộp chung các bánh vào cùng 1 mesh theo vật liệu (vd: xe đạp BMX gộp bánh trước + bánh sau trong Tyres/Rims/Spokes/Hubs):
+        // tự động tách tam giác theo đúng tâm trục từng bánh tại runtime (giữ nguyên 100% vật liệu, UV, normal và không cần sửa file GLB gốc!).
+        const device = this.app.graphicsDevice;
+
+        const readMeshPositionsAndIndices = (mesh: any): { positions: Float32Array; indices: Uint32Array } | null => {
+          if (!mesh?.vertexBuffer) return null;
+          const vb = mesh.vertexBuffer;
+          const numVerts = vb.getNumVertices ? vb.getNumVertices() : 0;
+          if (numVerts < 3) return null;
+          const posArr: number[] = [];
+          try {
+            mesh.getPositions(posArr);
+          } catch (_) {}
+          if (posArr.length < numVerts * 3) return null;
+          const positions = new Float32Array(posArr);
+
+          const prim = mesh.primitive?.[0];
+          const primCount = prim?.count || 0;
+          const primBase = prim?.base || 0;
+          if (prim && prim.indexed) {
+            const idxArr: number[] = [];
+            try {
+              mesh.getIndices(idxArr);
+            } catch (_) {}
+            if (idxArr.length >= 3) {
+              const slice = primCount > 0 && primBase + primCount <= idxArr.length
+                ? idxArr.slice(primBase, primBase + primCount)
+                : idxArr;
+              return { positions, indices: new Uint32Array(slice) };
+            }
+            const ib = mesh.indexBuffer?.[0];
+            if (ib?.lock) {
+              const rawBuf = ib.lock();
+              if (rawBuf) {
+                const is32 = ib.getFormat && ib.getFormat() === pc.INDEXFORMAT_UINT32;
+                const view = is32 ? new Uint32Array(rawBuf) : new Uint16Array(rawBuf);
+                const end = primCount > 0 ? Math.min(view.length, primBase + primCount) : view.length;
+                const out = new Uint32Array(Math.max(0, end - primBase));
+                for (let k = primBase; k < end; k++) out[k - primBase] = view[k];
+                if (out.length >= 3) return { positions, indices: out };
+              }
+            }
+            return null;
+          }
+          const count = primCount > 0 ? primCount : numVerts;
+          const out = new Uint32Array(count);
+          for (let k = 0; k < count; k++) out[k] = primBase + k;
+          return { positions, indices: out };
+        };
+
+        const primaryMerged = mergedCandidates
+          .filter((c) => c.isPrimary || /(?:^|[\s_.-])(tyre|tire|rim|wheel)/i.test(c.name))
+          .sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0) || b.sy - a.sy)[0];
+
+        if (primaryMerged) {
+          const pmMis = (primaryMerged.node?.render?.meshInstances || primaryMerged.node?.model?.meshInstances || []) as any[];
+          const pmData = pmMis.length === 1 ? readMeshPositionsAndIndices(pmMis[0]?.mesh) : null;
+          if (pmData && pmData.indices.length >= 6) {
+            const { positions, indices } = pmData;
+            const nVerts = Math.floor(positions.length / 3);
+            const charPts = new Float32Array(nVerts * 3);
+            for (let i = 0; i < nVerts; i++) {
+              tmpPt.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+              primaryMerged.charMat.transformPoint(tmpPt, tmpOut);
+              charPts[i * 3] = tmpOut.x;
+              charPts[i * 3 + 1] = tmpOut.y;
+              charPts[i * 3 + 2] = tmpOut.z;
+            }
+
+            const vehicleWidth = forwardAxis === '+z' ? sizeX : sizeZ;
+            const mergedLatSpan = forwardAxis === '+z' ? primaryMerged.sx : primaryMerged.sz;
+            const isFourWaySplit = mergedLatSpan > vehicleWidth * 0.48;
+            const midLong = forwardAxis === '+z' ? primaryMerged.cz : primaryMerged.cx;
+            const midLat = forwardAxis === '+z' ? primaryMerged.cx : primaryMerged.cz;
+            const bucketCount = isFourWaySplit ? 4 : 2;
+            const buckets = Array.from({ length: bucketCount }, () => ({
+              mnX: Infinity, mnY: Infinity, mnZ: Infinity,
+              mxX: -Infinity, mxY: -Infinity, mxZ: -Infinity,
+              triCount: 0
+            }));
+            let crossTris = 0;
+            const totalTris = Math.floor(indices.length / 3);
+
+            const getBucketIdx = (vx: number, vz: number): number => {
+              const longV = forwardAxis === '+z' ? vz : vx;
+              const isFrontB = longV >= midLong ? 1 : 0;
+              if (!isFourWaySplit) return isFrontB;
+              const latV = forwardAxis === '+z' ? vx : vz;
+              const isPosLat = latV >= midLat ? 1 : 0;
+              return isFrontB * 2 + isPosLat;
+            };
+
+            for (let t = 0; t + 2 < indices.length; t += 3) {
+              const i0 = indices[t], i1 = indices[t + 1], i2 = indices[t + 2];
+              const b0 = getBucketIdx(charPts[i0 * 3], charPts[i0 * 3 + 2]);
+              const b1 = getBucketIdx(charPts[i1 * 3], charPts[i1 * 3 + 2]);
+              const b2 = getBucketIdx(charPts[i2 * 3], charPts[i2 * 3 + 2]);
+              if (b0 !== b1 || b1 !== b2) {
+                crossTris++;
+                continue;
+              }
+              const bk = buckets[b0];
+              bk.triCount++;
+              for (const vi of [i0, i1, i2]) {
+                const vx = charPts[vi * 3], vy = charPts[vi * 3 + 1], vz = charPts[vi * 3 + 2];
+                if (vx < bk.mnX) bk.mnX = vx; if (vx > bk.mxX) bk.mxX = vx;
+                if (vy < bk.mnY) bk.mnY = vy; if (vy > bk.mxY) bk.mxY = vy;
+                if (vz < bk.mnZ) bk.mnZ = vz; if (vz > bk.mxZ) bk.mxZ = vz;
+              }
+            }
+
+            const validSplit =
+              totalTris >= 8 &&
+              crossTris / Math.max(1, totalTris) <= 0.02 &&
+              buckets.every((bk) => {
+                if (bk.triCount < 4 || !Number.isFinite(bk.mnX)) return false;
+                const bsy = bk.mxY - bk.mnY;
+                const bLong = forwardAxis === '+z' ? (bk.mxZ - bk.mnZ) : (bk.mxX - bk.mnX);
+                const circRatio = Math.max(bLong, bsy) / Math.max(1e-4, Math.min(bLong, bsy));
+                return bsy >= sizeY * 0.10 && circRatio <= 1.38;
+              });
+
+            if (validSplit) {
+              const splitClusters = buckets.map((bk, bIdx) => {
+                const axleX = (bk.mnX + bk.mxX) * 0.5;
+                const axleY = (bk.mnY + bk.mxY) * 0.5;
+                const axleZ = (bk.mnZ + bk.mxZ) * 0.5;
+                const bsy = bk.mxY - bk.mnY;
+                const bLong = forwardAxis === '+z' ? (bk.mxZ - bk.mnZ) : (bk.mxX - bk.mnX);
+                const radius = Math.max(0.05, Math.max(bsy, bLong) * 0.5);
+                const isFront = isFourWaySplit ? bIdx >= 2 : bIdx === 1;
+
+                const steerPivot = new pc.Entity(`AutoWheelSteer_${bIdx}`);
+                steerPivot.setLocalPosition(axleX, axleY, axleZ);
+                steerPivot.setLocalRotation(0, 0, 0, 1);
+                steerPivot.setLocalScale(1, 1, 1);
+                glbEntity.addChild(steerPivot);
+
+                const spinPivot = new pc.Entity(`AutoWheelSpin_${bIdx}`);
+                spinPivot.setLocalPosition(0, 0, 0);
+                spinPivot.setLocalRotation(0, 0, 0, 1);
+                spinPivot.setLocalScale(1, 1, 1);
+                steerPivot.addChild(spinPivot);
+
+                return { id: `wheel_${bIdx}`, isFront, radius, axleX, axleY, axleZ, steerPivot, spinPivot };
+              });
+
+              const longs = splitClusters.map((c) => (forwardAxis === '+z' ? c.axleZ : c.axleX));
+              const spanL = Math.max(...longs) - Math.min(...longs);
+              if (spanL > 0.05) wheelbase = spanL;
+
+              const wheelMinY = Math.min(...splitClusters.map((c) => c.axleY - c.radius * 1.18));
+              const wheelMaxY = Math.max(...splitClusters.map((c) => c.axleY + c.radius * 1.18));
+              let splitSuccessCount = 0;
+
+              for (const mc of mergedCandidates) {
+                // Với xe 2 bánh gộp mesh (xe đạp/xe máy), giữ nguyên cụm phanh (brake/caliper) cố định trên khung, chỉ tách phần quay của bánh
+                if (!isFourWaySplit && mc.isSteerOnly) continue;
+                // Chỉ tách các bộ phận nằm trong dải chiều cao bánh xe (loại trừ ghi đông/khung nếu đặt tên nhầm)
+                if (mc.mnY < wheelMinY - 0.05 || mc.mxY > wheelMaxY + 0.05) continue;
+                const origRender = mc.node?.render;
+                const mis = (origRender?.meshInstances || mc.node?.model?.meshInstances || []) as any[];
+                if (!mis || mis.length === 0) continue;
+
+                const { pos: nodePos, quat: nodeQuat, scale: nodeScale } = decomposeMat(mc.charMat);
+                const createdForNode: Array<{ parent: pc.Entity; ent: pc.Entity }> = [];
+                let nodeSplitOk = true;
+
+                for (let miIdx = 0; miIdx < mis.length; miIdx++) {
+                  const origMi = mis[miIdx];
+                  const origMesh = origMi?.mesh;
+                  const mData = readMeshPositionsAndIndices(origMesh);
+                  if (!mData || !origMesh?.vertexBuffer?.lock) {
+                    nodeSplitOk = false;
+                    break;
+                  }
+
+                  const vb = origMesh.vertexBuffer;
+                  const fmt = vb.getFormat();
+                  const origRawBuf = vb.lock();
+                  if (!origRawBuf || !fmt) {
+                    nodeSplitOk = false;
+                    break;
+                  }
+                  const origBytes = new Uint8Array(origRawBuf);
+                  const { positions: mPos, indices: mIdx } = mData;
+                  const mVerts = Math.floor(mPos.length / 3);
+                  const mCharPts = new Float32Array(mVerts * 3);
+                  for (let vi = 0; vi < mVerts; vi++) {
+                    tmpPt.set(mPos[vi * 3], mPos[vi * 3 + 1], mPos[vi * 3 + 2]);
+                    mc.charMat.transformPoint(tmpPt, tmpOut);
+                    mCharPts[vi * 3] = tmpOut.x;
+                    mCharPts[vi * 3 + 1] = tmpOut.y;
+                    mCharPts[vi * 3 + 2] = tmpOut.z;
+                  }
+
+                  const perClusterIdx: number[][] = splitClusters.map(() => []);
+                  let rejectedTris = 0;
+                  const mTotalTris = Math.floor(mIdx.length / 3);
+
+                  for (let t = 0; t + 2 < mIdx.length; t += 3) {
+                    const i0 = mIdx[t], i1 = mIdx[t + 1], i2 = mIdx[t + 2];
+                    const cxT = (mCharPts[i0 * 3] + mCharPts[i1 * 3] + mCharPts[i2 * 3]) / 3;
+                    const cyT = (mCharPts[i0 * 3 + 1] + mCharPts[i1 * 3 + 1] + mCharPts[i2 * 3 + 1]) / 3;
+                    const czT = (mCharPts[i0 * 3 + 2] + mCharPts[i1 * 3 + 2] + mCharPts[i2 * 3 + 2]) / 3;
+                    let bestC = -1;
+                    let bestD = Infinity;
+                    for (let ci = 0; ci < splitClusters.length; ci++) {
+                      const cl = splitClusters[ci];
+                      const d = Math.hypot(cxT - cl.axleX, cyT - cl.axleY, czT - cl.axleZ);
+                      if (d < bestD) {
+                        bestD = d;
+                        bestC = ci;
+                      }
+                    }
+                    if (bestC < 0 || bestD > splitClusters[bestC].radius * 1.22) {
+                      rejectedTris++;
+                      continue;
+                    }
+                    perClusterIdx[bestC].push(i0, i1, i2);
+                  }
+
+                  if (mTotalTris === 0 || rejectedTris / mTotalTris > 0.05) {
+                    nodeSplitOk = false;
+                    break;
+                  }
+
+                  const canCompact = fmt.interleaved !== false && fmt.size > 0 && origBytes.byteLength >= mVerts * fmt.size;
+                  const vStride = fmt.size || 0;
+
+                  for (let ci = 0; ci < splitClusters.length; ci++) {
+                    const bIndices = perClusterIdx[ci];
+                    if (bIndices.length < 3) continue;
+                    const cl = splitClusters[ci];
+
+                    let subVb: pc.VertexBuffer;
+                    let finalIndices: Uint16Array | Uint32Array;
+                    let bMnX = Infinity, bMnY = Infinity, bMnZ = Infinity;
+                    let bMxX = -Infinity, bMxY = -Infinity, bMxZ = -Infinity;
+
+                    if (canCompact) {
+                      const remap = new Map<number, number>();
+                      const usedVerts: number[] = [];
+                      for (let k = 0; k < bIndices.length; k++) {
+                        const oldVi = bIndices[k];
+                        if (!remap.has(oldVi)) {
+                          remap.set(oldVi, usedVerts.length);
+                          usedVerts.push(oldVi);
+                          const lx = mPos[oldVi * 3], ly = mPos[oldVi * 3 + 1], lz = mPos[oldVi * 3 + 2];
+                          if (lx < bMnX) bMnX = lx; if (lx > bMxX) bMxX = lx;
+                          if (ly < bMnY) bMnY = ly; if (ly > bMxY) bMxY = ly;
+                          if (lz < bMnZ) bMnZ = lz; if (lz > bMxZ) bMxZ = lz;
+                        }
+                      }
+                      const packed = new Uint8Array(usedVerts.length * vStride);
+                      for (let nv = 0; nv < usedVerts.length; nv++) {
+                        const srcOff = usedVerts[nv] * vStride;
+                        packed.set(origBytes.subarray(srcOff, srcOff + vStride), nv * vStride);
+                      }
+                      subVb = new pc.VertexBuffer(device, fmt, usedVerts.length, {
+                        usage: pc.BUFFER_STATIC,
+                        data: packed.buffer
+                      });
+                      const use32 = usedVerts.length > 65535;
+                      finalIndices = use32 ? new Uint32Array(bIndices.length) : new Uint16Array(bIndices.length);
+                      for (let k = 0; k < bIndices.length; k++) {
+                        finalIndices[k] = remap.get(bIndices[k])!;
+                      }
+                    } else {
+                      let maxVi = 0;
+                      for (let k = 0; k < bIndices.length; k++) {
+                        const vi = bIndices[k];
+                        if (vi > maxVi) maxVi = vi;
+                        const lx = mPos[vi * 3], ly = mPos[vi * 3 + 1], lz = mPos[vi * 3 + 2];
+                        if (lx < bMnX) bMnX = lx; if (lx > bMxX) bMxX = lx;
+                        if (ly < bMnY) bMnY = ly; if (ly > bMxY) bMxY = ly;
+                        if (lz < bMnZ) bMnZ = lz; if (lz > bMxZ) bMxZ = lz;
+                      }
+                      const cloned = origBytes.slice();
+                      subVb = new pc.VertexBuffer(device, fmt, mVerts, {
+                        usage: pc.BUFFER_STATIC,
+                        data: cloned.buffer
+                      });
+                      const use32 = maxVi > 65535;
+                      finalIndices = use32 ? new Uint32Array(bIndices) : new Uint16Array(bIndices);
+                    }
+
+                    const subIb = new pc.IndexBuffer(
+                      device,
+                      finalIndices instanceof Uint32Array ? pc.INDEXFORMAT_UINT32 : pc.INDEXFORMAT_UINT16,
+                      finalIndices.length,
+                      pc.BUFFER_STATIC,
+                      finalIndices
+                    );
+                    const subMesh = new pc.Mesh(device);
+                    subMesh.vertexBuffer = subVb;
+                    subMesh.indexBuffer[0] = subIb;
+                    subMesh.primitive[0] = {
+                      type: pc.PRIMITIVE_TRIANGLES,
+                      base: 0,
+                      baseVertex: 0,
+                      count: finalIndices.length,
+                      indexed: true
+                    };
+                    subMesh.aabb = new pc.BoundingBox(
+                      new pc.Vec3((bMnX + bMxX) * 0.5, (bMnY + bMxY) * 0.5, (bMnZ + bMxZ) * 0.5),
+                      new pc.Vec3(Math.max(1e-4, (bMxX - bMnX) * 0.5), Math.max(1e-4, (bMxY - bMnY) * 0.5), Math.max(1e-4, (bMxZ - bMnZ) * 0.5))
+                    );
+
+                    const subEnt = new pc.Entity(`AutoWheelSplit_${ci}_${mc.name.slice(0, 24)}_${miIdx}`);
+                    subEnt.setLocalPosition(nodePos.x - cl.axleX, nodePos.y - cl.axleY, nodePos.z - cl.axleZ);
+                    subEnt.setLocalRotation(nodeQuat);
+                    subEnt.setLocalScale(nodeScale);
+                    subEnt.addComponent('render', {
+                      type: 'asset',
+                      castShadows: origRender?.castShadows ?? true,
+                      receiveShadows: origRender?.receiveShadows ?? true,
+                      layers: origRender?.layers ? [...origRender.layers] : undefined
+                    });
+                    const newMi = new pc.MeshInstance(subMesh, origMi.material, subEnt);
+                    newMi.castShadow = origMi.castShadow ?? true;
+                    newMi.receiveShadow = origMi.receiveShadow ?? true;
+                    if (subEnt.render) {
+                      subEnt.render.meshInstances = [newMi];
+                    }
+                    createdForNode.push({
+                      parent: mc.isSteerOnly ? cl.steerPivot : cl.spinPivot,
+                      ent: subEnt
+                    });
+                  }
+                }
+
+                if (nodeSplitOk && createdForNode.length >= splitClusters.length) {
+                  for (const item of createdForNode) {
+                    item.parent.addChild(item.ent);
+                  }
+                  mc.node.enabled = false;
+                  bonesMap.forEach((b) => {
+                    if (b.node === mc.node) b.isRigidPartSafe = false;
+                  });
+                  splitSuccessCount++;
+                } else {
+                  for (const item of createdForNode) {
+                    try { item.ent.destroy(); } catch (_) {}
+                  }
+                }
+              }
+
+              if (splitSuccessCount > 0) {
+                for (const cl of splitClusters) {
+                  autoWheels.push(cl);
+                }
+              } else {
+                for (const cl of splitClusters) {
+                  try { cl.steerPivot.destroy(); } catch (_) {}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
 
     // 2b. Chuẩn hóa tư thế nghỉ (A-Pose / T-Pose / góc vai khác nhau) về chung Canonical T-Pose giải phẫu
     // (Cánh tay trái = +X, cánh tay phải = -X, đùi & cẳng chân = -Y) để retarget chính xác giữa các mô hình khác nhau về tư thế nghỉ & số lượng khớp!
@@ -2533,8 +3284,14 @@ export class SontinhSceneService implements OnDestroy {
     }
 
     // 3. Thu thập các Animation Clip có sẵn trong file GLB và các Clip Keyframe đã lưu
+    const savedTl: GlbPropTimelineData | undefined = prop?.boneTimeline;
+    const savedClipAliases: Record<string, string> =
+      savedTl?.clipAliases && typeof savedTl.clipAliases === 'object'
+        ? { ...savedTl.clipAliases }
+        : {};
     const clips: Array<{
       name: string;
+      rawName?: string;
       duration: number;
       resource: any;
       isCustomKeyframeClip?: boolean;
@@ -2546,18 +3303,49 @@ export class SontinhSceneService implements OnDestroy {
       const a = rawAnims[i];
       const track = a?.resource || a;
       if (!track) continue;
-      const cName = String(a?.name || track?.name || `Animation_${i + 1}`);
+      const rawName = String(a?.name || track?.name || `Animation_${i + 1}`);
+      const cName = (savedClipAliases[rawName] && String(savedClipAliases[rawName]).trim()) || rawName;
       const dur = Math.max(0.1, Number(track?.duration) || 2.5);
-      clips.push({ name: cName, duration: dur, resource: track, isCustomKeyframeClip: false });
+      clips.push({ name: cName, rawName, duration: dur, resource: track, isCustomKeyframeClip: false });
     }
 
     // 4. Khởi tạo hoặc khôi phục cấu hình Timeline từ prop.boneTimeline
-    const savedTl: GlbPropTimelineData | undefined = prop?.boneTimeline;
+    // Với xe 4 bánh (autoWheels >= 3), tự động cân phẳng các clip chạy mặt đất cũ từng bị gán nhầm độ nghiêng kiểu xe đạp (<= 12.5° khi pos.y = 0)
+    // để cả 4 bánh luôn bám phẳng tuyệt đối trên mặt sàn (y = 0).
+    const levelFlatFourWheelerKeyframes = (kfs: GlbBoneKeyframe[]) => {
+      if (autoWheels.length < 3 || !Array.isArray(kfs) || kfs.length < 2) return;
+      const rootKfs = kfs.filter((k) => k && k.boneName === '__root__');
+      if (rootKfs.length < 2) return;
+      let maxTiltDeg = 0;
+      let maxAbsY = 0;
+      const tmpUp = new pc.Vec3();
+      const tmpFwd = new pc.Vec3();
+      const fwdBase = forwardAxis === '+x' ? new pc.Vec3(1, 0, 0) : new pc.Vec3(0, 0, 1);
+      const yawOff = forwardAxis === '+x' ? -90 : 0;
+      for (const k of rootKfs) {
+        maxAbsY = Math.max(maxAbsY, Math.abs(Number(k.pos?.y) || 0));
+        const q = new pc.Quat().setFromEulerAngles(k.rot?.x || 0, k.rot?.y || 0, k.rot?.z || 0);
+        q.transformVector(new pc.Vec3(0, 1, 0), tmpUp);
+        const tilt = (Math.acos(Math.max(-1, Math.min(1, tmpUp.y))) * 180) / Math.PI;
+        if (tilt > maxTiltDeg) maxTiltDeg = tilt;
+      }
+      if (maxAbsY < 0.02 && maxTiltDeg > 0.25 && maxTiltDeg <= 12.5) {
+        for (const k of rootKfs) {
+          const q = new pc.Quat().setFromEulerAngles(k.rot?.x || 0, k.rot?.y || 0, k.rot?.z || 0);
+          q.transformVector(fwdBase, tmpFwd);
+          const yawDeg = (Math.atan2(tmpFwd.x, tmpFwd.z) * 180) / Math.PI + yawOff;
+          const wrappedYaw = (((yawDeg + 180) % 360) + 360) % 360 - 180;
+          k.rot = { x: 0, y: Math.round(wrappedYaw * 100) / 100, z: 0 };
+        }
+      }
+    };
+
     const savedCustomClips: GlbSavedKeyframeClip[] = Array.isArray(savedTl?.savedClips)
       ? JSON.parse(JSON.stringify(savedTl!.savedClips))
       : [];
     for (const sc of savedCustomClips) {
       if (!sc || !sc.name || !Array.isArray(sc.keyframes)) continue;
+      levelFlatFourWheelerKeyframes(sc.keyframes);
       const existIdx = clips.findIndex((c) => c.name === sc.name);
       const entry = {
         name: sc.name,
@@ -2580,6 +3368,11 @@ export class SontinhSceneService implements OnDestroy {
       ? Math.max(0.5, Number(savedTl.duration))
       : (matchedClip ? matchedClip.duration : 3.0);
 
+    const initialKeyframes: GlbBoneKeyframe[] = Array.isArray(savedTl?.keyframes)
+      ? JSON.parse(JSON.stringify(savedTl!.keyframes))
+      : [];
+    levelFlatFourWheelerKeyframes(initialKeyframes);
+
     const timeline: GlbPropTimelineData = {
       enabled: savedTl ? savedTl.enabled !== false : (clips.length > 0),
       playing: savedTl ? savedTl.playing !== false : (clips.length > 0),
@@ -2590,10 +3383,9 @@ export class SontinhSceneService implements OnDestroy {
       inPlace: savedTl && typeof savedTl.inPlace === 'boolean' ? savedTl.inPlace : true,
       poseSpace: savedTl?.poseSpace,
       activeClipName: defaultClipName,
-      keyframes: Array.isArray(savedTl?.keyframes)
-        ? JSON.parse(JSON.stringify(savedTl!.keyframes))
-        : [],
-      savedClips: savedCustomClips
+      keyframes: initialKeyframes,
+      savedClips: savedCustomClips,
+      clipAliases: savedClipAliases
     };
 
     // Xác định xương chậu / gốc chính (Hips/Pelvis/Root) để khóa chuyển động tại chỗ (triệt tiêu root-motion trôi ngang X/Z)
@@ -2617,6 +3409,12 @@ export class SontinhSceneService implements OnDestroy {
       wrapper,
       glbEntity,
       hipsNode,
+      hasSkinnedSkeleton,
+      modelSize: { x: sizeX, y: sizeY, z: sizeZ },
+      forwardAxis,
+      meterScale,
+      wheelbase,
+      autoWheels,
       bones: bonesMap,
       clips,
       animComp: null as any,
@@ -2639,6 +3437,45 @@ export class SontinhSceneService implements OnDestroy {
   hasPropRig(propId: string | null | undefined): boolean {
     if (!propId) return false;
     return this._propRigMap.has(propId);
+  }
+
+  getPropRigSummary(propId: string | null | undefined): {
+    hasSkinnedSkeleton: boolean;
+    isRigidModel: boolean;
+    safeBoneNames: string[];
+    allBoneCount: number;
+    autoWheelCount: number;
+    embeddedClipNames: string[];
+    modelSize: { x: number; y: number; z: number };
+    forwardAxis: '+z' | '+x';
+    meterScale: number;
+  } | null {
+    if (!propId) return null;
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return null;
+    const safeBoneNames: string[] = [];
+    rig.bones.forEach((b) => {
+      if (b.isRigidPartSafe) {
+        safeBoneNames.push(b.name);
+      }
+    });
+    if (safeBoneNames.length === 0 && rig.bones.has('__root__')) {
+      safeBoneNames.push('__root__');
+    }
+    const embeddedClipNames = rig.clips
+      .filter((c) => !c.isCustomKeyframeClip && !!c.resource)
+      .map((c) => c.name);
+    return {
+      hasSkinnedSkeleton: rig.hasSkinnedSkeleton,
+      isRigidModel: !rig.hasSkinnedSkeleton,
+      safeBoneNames,
+      allBoneCount: rig.bones.size,
+      autoWheelCount: rig.autoWheels.length,
+      embeddedClipNames,
+      modelSize: { ...rig.modelSize },
+      forwardAxis: rig.forwardAxis,
+      meterScale: rig.meterScale
+    };
   }
 
   getPropBones(propId: string): GlbBoneInfo[] {
@@ -2775,6 +3612,12 @@ export class SontinhSceneService implements OnDestroy {
       b.node.setLocalPosition(b.restPos);
       b.node.setLocalScale(b.restScale);
     });
+    if (rig.autoWheels && rig.autoWheels.length > 0) {
+      for (const w of rig.autoWheels) {
+        w.steerPivot.setLocalRotation(0, 0, 0, 1);
+        w.spinPivot.setLocalRotation(0, 0, 0, 1);
+      }
+    }
   }
 
   upsertBoneKeyframe(
@@ -2921,8 +3764,10 @@ export class SontinhSceneService implements OnDestroy {
 
       const useTPose = rig.timeline.poseSpace === 'tpose';
       const rawAlpha = Math.max(0, Math.min(1, localT / span));
-      // Với clip mocap/GLB mẫu dày (poseSpace === 'tpose') dùng slerp tuyến tính để giữ nguyên gia tốc thực; keyframe thưa dùng smoothstep
-      const alpha = useTPose ? rawAlpha : (rawAlpha * rawAlpha * (3 - 2 * rawAlpha));
+      // Với clip mocap/GLB mẫu dày (poseSpace === 'tpose') hoặc quỹ đạo cong dày (>= 12 điểm, vd: xe chạy vòng tròn)
+      // dùng nội suy tuyến tính để giữ vận tốc đều mượt, không bị khựng giật tại từng mốc keyframe.
+      const useLinear = useTPose || list.length >= 12;
+      const alpha = useLinear ? rawAlpha : (rawAlpha * rawAlpha * (3 - 2 * rawAlpha));
       const qA = new pc.Quat().setFromEulerAngles(kfA.rot.x, kfA.rot.y, kfA.rot.z);
       const qB = new pc.Quat().setFromEulerAngles(kfB.rot.x, kfB.rot.y, kfB.rot.z);
       const qInterp = new pc.Quat().slerp(qA, qB, alpha);
@@ -2942,6 +3787,159 @@ export class SontinhSceneService implements OnDestroy {
         useTPose
       );
     });
+
+    // Tự động quay bánh xe & đánh lái bánh trước theo đúng quãng đường lăn và bán kính cua thực tế của __root__
+    const rootList = byBone.get('__root__');
+    if (rig.autoWheels && rig.autoWheels.length > 0 && rootList && rootList.length >= 2) {
+      this._updateAutoWheelsFromRootTrack(rig, rootList, t, dur);
+    }
+  }
+
+  /**
+   * Động học bánh xe theo thời gian thực:
+   * - Góc quay bánh = quãng đường lăn có dấu s(t) / bán kính bánh (lăn thật không trượt trên mặt sàn).
+   * - Góc đánh lái bánh trước (Ackermann) = atan(wheelbase * độ cong quỹ đạo), tự rẽ trái/phải/thẳng theo đường chạy.
+   */
+  private _updateAutoWheelsFromRootTrack(
+    rig: {
+      forwardAxis: '+z' | '+x';
+      wheelbase: number;
+      timeline: GlbPropTimelineData;
+      autoWheels: Array<{
+        isFront: boolean;
+        radius: number;
+        steerPivot: pc.Entity;
+        spinPivot: pc.Entity;
+      }>;
+    },
+    rootList: GlbBoneKeyframe[],
+    time: number,
+    dur: number
+  ): void {
+    const fwdLocal = rig.forwardAxis === '+x' ? new pc.Vec3(1, 0, 0) : new pc.Vec3(0, 0, 1);
+    const sampleRootAt = (sampleT: number): { x: number; z: number; q: pc.Quat } => {
+      let st = sampleT;
+      if (rig.timeline.loop) {
+        st = ((st % dur) + dur) % dur;
+      } else {
+        st = Math.max(0, Math.min(dur, st));
+      }
+      let a = rootList[0];
+      let b = rootList[rootList.length - 1];
+      let span = 0;
+      let loc = 0;
+      if (st <= rootList[0].time) {
+        if (rig.timeline.loop) {
+          a = rootList[rootList.length - 1];
+          b = rootList[0];
+          span = (dur - a.time) + b.time;
+          loc = (dur - a.time) + st;
+        } else {
+          return {
+            x: a.pos?.x || 0,
+            z: a.pos?.z || 0,
+            q: new pc.Quat().setFromEulerAngles(a.rot.x, a.rot.y, a.rot.z)
+          };
+        }
+      } else if (st >= rootList[rootList.length - 1].time) {
+        if (rig.timeline.loop) {
+          a = rootList[rootList.length - 1];
+          b = rootList[0];
+          span = (dur - a.time) + b.time;
+          loc = st - a.time;
+        } else {
+          return {
+            x: b.pos?.x || 0,
+            z: b.pos?.z || 0,
+            q: new pc.Quat().setFromEulerAngles(b.rot.x, b.rot.y, b.rot.z)
+          };
+        }
+      } else {
+        for (let i = 0; i < rootList.length - 1; i++) {
+          if (st >= rootList[i].time && st <= rootList[i + 1].time) {
+            a = rootList[i];
+            b = rootList[i + 1];
+            span = b.time - a.time;
+            loc = st - a.time;
+            break;
+          }
+        }
+      }
+      if (span <= 1e-5) {
+        return {
+          x: a.pos?.x || 0,
+          z: a.pos?.z || 0,
+          q: new pc.Quat().setFromEulerAngles(a.rot.x, a.rot.y, a.rot.z)
+        };
+      }
+      const alpha = Math.max(0, Math.min(1, loc / span));
+      const qA = new pc.Quat().setFromEulerAngles(a.rot.x, a.rot.y, a.rot.z);
+      const qB = new pc.Quat().setFromEulerAngles(b.rot.x, b.rot.y, b.rot.z);
+      return {
+        x: (a.pos?.x || 0) + ((b.pos?.x || 0) - (a.pos?.x || 0)) * alpha,
+        z: (a.pos?.z || 0) + ((b.pos?.z || 0) - (a.pos?.z || 0)) * alpha,
+        q: new pc.Quat().slerp(qA, qB, alpha)
+      };
+    };
+
+    // 1. Tích phân quãng đường lăn có dấu s(t) từ t=0 đến time
+    let signedDist = 0;
+    const tmpFwd = new pc.Vec3();
+    for (let i = 0; i < rootList.length - 1; i++) {
+      const a = rootList[i];
+      const b = rootList[i + 1];
+      if (time <= a.time) break;
+      const segDur = Math.max(1e-5, b.time - a.time);
+      const frac = time >= b.time ? 1 : Math.max(0, Math.min(1, (time - a.time) / segDur));
+      const dx = (b.pos?.x || 0) - (a.pos?.x || 0);
+      const dz = (b.pos?.z || 0) - (a.pos?.z || 0);
+      const segLen = Math.hypot(dx, dz);
+      if (segLen > 1e-5) {
+        const qA = new pc.Quat().setFromEulerAngles(a.rot.x, a.rot.y, a.rot.z);
+        const qB = new pc.Quat().setFromEulerAngles(b.rot.x, b.rot.y, b.rot.z);
+        const qMid = new pc.Quat().slerp(qA, qB, frac * 0.5);
+        qMid.transformVector(fwdLocal, tmpFwd);
+        const dot = dx * tmpFwd.x + dz * tmpFwd.z;
+        signedDist += (dot >= 0 ? 1 : -1) * segLen * frac;
+      }
+      if (time < b.time) break;
+    }
+
+    // 2. Tính góc đánh lái bánh trước từ tốc độ xoay hướng (dYaw / ds) tại thời điểm hiện tại
+    const eps = Math.min(0.12, Math.max(0.02, dur * 0.015));
+    const sPrev = sampleRootAt(time - eps);
+    const sCur = sampleRootAt(time);
+    const sNext = sampleRootAt(time + eps);
+    const dxTot = sNext.x - sPrev.x;
+    const dzTot = sNext.z - sPrev.z;
+    const ds = Math.hypot(dxTot, dzTot);
+    let steerDeg = 0;
+    if (ds > 1e-4) {
+      const fPrev = sPrev.q.transformVector(fwdLocal, new pc.Vec3());
+      const fCur = sCur.q.transformVector(fwdLocal, new pc.Vec3());
+      const fNext = sNext.q.transformVector(fwdLocal, new pc.Vec3());
+      const hPrev = Math.atan2(fPrev.x, fPrev.z);
+      const hNext = Math.atan2(fNext.x, fNext.z);
+      let dYaw = hNext - hPrev;
+      while (dYaw > Math.PI) dYaw -= Math.PI * 2;
+      while (dYaw < -Math.PI) dYaw += Math.PI * 2;
+      const moveSign = (dxTot * fCur.x + dzTot * fCur.z) >= 0 ? 1 : -1;
+      const kappa = dYaw / ds;
+      const steerRad = Math.atan((rig.wheelbase || 2.5) * kappa * moveSign);
+      steerDeg = Math.max(-34, Math.min(34, (steerRad * 180) / Math.PI));
+    }
+
+    // 3. Áp góc đánh lái (cho xe >= 3 bánh) và góc quay lăn lên từng cụm bánh xe (xe 2 bánh giữ thẳng trong phuộc để không đâm xuyên càng trước)
+    const allowFrontSteer = rig.autoWheels.length >= 3;
+    for (const w of rig.autoWheels) {
+      const spinDeg = (signedDist / Math.max(0.05, w.radius)) * (180 / Math.PI);
+      w.steerPivot.setLocalEulerAngles(0, (allowFrontSteer && w.isFront) ? steerDeg : 0, 0);
+      if (rig.forwardAxis === '+x') {
+        w.spinPivot.setLocalEulerAngles(0, 0, -spinDeg);
+      } else {
+        w.spinPivot.setLocalEulerAngles(spinDeg, 0, 0);
+      }
+    }
   }
 
   seekPropTimeline(propId: string, time: number): void {
@@ -3013,7 +4011,8 @@ export class SontinhSceneService implements OnDestroy {
    */
   bakeKeyframesToClip(
     propId: string,
-    preferredName?: string
+    preferredName?: string,
+    aiMeta?: { aiPrompt?: string; aiSegments?: any[] }
   ): { name: string; duration: number; kfCount: number; isNew: boolean } | null {
     const rig = this._propRigMap.get(propId);
     if (!rig || !Array.isArray(rig.timeline.keyframes) || rig.timeline.keyframes.length === 0) {
@@ -3042,6 +4041,20 @@ export class SontinhSceneService implements OnDestroy {
     const clonedKfs: GlbBoneKeyframe[] = JSON.parse(JSON.stringify(rig.timeline.keyframes));
     const dur = Math.max(0.5, Number(rig.timeline.duration) || 2.4);
 
+    const existingSavedIdx = rig.timeline.savedClips.findIndex((c) => c.name === clipName);
+    const existingSaved = existingSavedIdx >= 0 ? rig.timeline.savedClips[existingSavedIdx] : null;
+    const resolvedPrompt =
+      (aiMeta?.aiPrompt && aiMeta.aiPrompt.trim()) ||
+      (rig.timeline.lastAiPrompt && rig.timeline.lastAiPrompt.trim()) ||
+      existingSaved?.aiPrompt ||
+      undefined;
+    const resolvedSegments =
+      (Array.isArray(aiMeta?.aiSegments) && aiMeta!.aiSegments.length > 0
+        ? JSON.parse(JSON.stringify(aiMeta!.aiSegments))
+        : (Array.isArray(rig.timeline.lastAiSegments) && rig.timeline.lastAiSegments.length > 0
+          ? JSON.parse(JSON.stringify(rig.timeline.lastAiSegments))
+          : (existingSaved?.aiSegments ? JSON.parse(JSON.stringify(existingSaved.aiSegments)) : undefined)));
+
     const savedEntry: GlbSavedKeyframeClip = {
       name: clipName,
       duration: dur,
@@ -3049,10 +4062,11 @@ export class SontinhSceneService implements OnDestroy {
       speed: rig.timeline.speed,
       poseSpace: rig.timeline.poseSpace,
       createdAt: new Date().toISOString(),
+      ...(resolvedPrompt ? { aiPrompt: resolvedPrompt } : {}),
+      ...(resolvedSegments ? { aiSegments: resolvedSegments } : {}),
       keyframes: clonedKfs
     };
 
-    const existingSavedIdx = rig.timeline.savedClips.findIndex((c) => c.name === clipName);
     const isNew = existingSavedIdx < 0;
     if (existingSavedIdx >= 0) {
       rig.timeline.savedClips[existingSavedIdx] = savedEntry;
@@ -3084,23 +4098,188 @@ export class SontinhSceneService implements OnDestroy {
     };
   }
 
+  /**
+   * Trích xuất bản tóm tắt cấu trúc của một Clip chuyển động hiện có để gửi cho AI tinh chỉnh:
+   * - Nếu clip có lưu `aiSegments` gốc -> trả nguyên mảng `aiSegments` + `aiPrompt` để AI sửa chính xác từng đoạn.
+   * - Nếu là clip keyframe cũ / clip gốc nhúng -> lấy mẫu quỹ đạo `__root__` (mét & góc yaw) và danh sách khớp xương
+   *   (gửi kèm keyframes gọn nếu clip có <= 100 KF) để AI nắm rõ clip hiện tại đang làm gì trước khi chỉnh sửa.
+   */
+  summarizePropClipForAi(
+    propId: string,
+    clipName: string
+  ): {
+    name: string;
+    isCustom: boolean;
+    duration: number;
+    loop: boolean;
+    kfCount: number;
+    aiPrompt?: string;
+    aiSegments?: any[];
+    rootTrajectorySamples: Array<{ t: number; x: number; y: number; z: number; rx: number; ry: number; rz: number }>;
+    totalDistanceMeters: number;
+    animatedBones: string[];
+    editableKeyframes?: Array<{ time: number; boneName: string; rot: { x: number; y: number; z: number }; pos?: { x: number; y: number; z: number } }>;
+  } | null {
+    const rig = this._propRigMap.get(propId);
+    if (!rig || !clipName) return null;
+    const clip = rig.clips.find((c) => c.name === clipName);
+    if (!clip) return null;
+
+    const isCustom = !!clip.isCustomKeyframeClip;
+    const savedMeta = isCustom
+      ? rig.timeline.savedClips?.find((sc) => sc && sc.name === clipName)
+      : undefined;
+    const rawKfs: GlbBoneKeyframe[] = isCustom && Array.isArray(clip.keyframes)
+      ? clip.keyframes
+      : (savedMeta && Array.isArray(savedMeta.keyframes) ? savedMeta.keyframes : []);
+    const meterScale = rig.meterScale || 1;
+
+    const rootKfs = rawKfs
+      .filter((k) => k && k.boneName === '__root__')
+      .sort((a, b) => a.time - b.time);
+
+    let totalDistanceMeters = 0;
+    for (let i = 1; i < rootKfs.length; i++) {
+      const a = rootKfs[i - 1];
+      const b = rootKfs[i];
+      const dx = ((b.pos?.x || 0) - (a.pos?.x || 0)) / meterScale;
+      const dy = ((b.pos?.y || 0) - (a.pos?.y || 0)) / meterScale;
+      const dz = ((b.pos?.z || 0) - (a.pos?.z || 0)) / meterScale;
+      totalDistanceMeters += Math.hypot(dx, dy, dz);
+    }
+
+    const maxRootSamples = 18;
+    const sampledRoot = rootKfs.length <= maxRootSamples
+      ? rootKfs
+      : Array.from({ length: maxRootSamples }, (_, idx) => {
+          const i = Math.min(rootKfs.length - 1, Math.round((idx / (maxRootSamples - 1)) * (rootKfs.length - 1)));
+          return rootKfs[i];
+        });
+    const rootTrajectorySamples = sampledRoot.map((k) => ({
+      t: Math.round((Number(k.time) || 0) * 100) / 100,
+      x: Math.round(((Number(k.pos?.x) || 0) / meterScale) * 100) / 100,
+      y: Math.round(((Number(k.pos?.y) || 0) / meterScale) * 100) / 100,
+      z: Math.round(((Number(k.pos?.z) || 0) / meterScale) * 100) / 100,
+      rx: Math.round((Number(k.rot?.x) || 0) * 10) / 10,
+      ry: Math.round((Number(k.rot?.y) || 0) * 10) / 10,
+      rz: Math.round((Number(k.rot?.z) || 0) * 10) / 10
+    }));
+
+    const animatedBoneSet = new Set<string>();
+    for (const k of rawKfs) {
+      if (k?.boneName && k.boneName !== '__root__') {
+        animatedBoneSet.add(k.boneName);
+      }
+    }
+
+    const hasAiSegments = Array.isArray(savedMeta?.aiSegments) && savedMeta!.aiSegments.length > 0;
+    const editableKeyframes = !hasAiSegments && rawKfs.length > 0 && rawKfs.length <= 100
+      ? rawKfs.map((k) => ({
+          time: Math.round((Number(k.time) || 0) * 100) / 100,
+          boneName: k.boneName,
+          rot: {
+            x: Math.round((Number(k.rot?.x) || 0) * 10) / 10,
+            y: Math.round((Number(k.rot?.y) || 0) * 10) / 10,
+            z: Math.round((Number(k.rot?.z) || 0) * 10) / 10
+          },
+          pos: {
+            x: Math.round(((Number(k.pos?.x) || 0) / (k.boneName === '__root__' ? meterScale : 1)) * 100) / 100,
+            y: Math.round(((Number(k.pos?.y) || 0) / (k.boneName === '__root__' ? meterScale : 1)) * 100) / 100,
+            z: Math.round(((Number(k.pos?.z) || 0) / (k.boneName === '__root__' ? meterScale : 1)) * 100) / 100
+          }
+        }))
+      : undefined;
+
+    return {
+      name: clip.name,
+      isCustom,
+      duration: Math.round((Number(clip.duration) || 2.4) * 100) / 100,
+      loop: savedMeta?.loop !== undefined ? !!savedMeta.loop : rig.timeline.loop !== false,
+      kfCount: rawKfs.length,
+      aiPrompt: savedMeta?.aiPrompt,
+      aiSegments: hasAiSegments ? JSON.parse(JSON.stringify(savedMeta!.aiSegments)) : undefined,
+      rootTrajectorySamples,
+      totalDistanceMeters: Math.round(totalDistanceMeters * 10) / 10,
+      animatedBones: Array.from(animatedBoneSet),
+      editableKeyframes
+    };
+  }
+
+  /** Đổi tên một Clip chuyển động (hỗ trợ cả Clip Keyframe tùy chỉnh lẫn Clip gốc nhúng trong GLB) */
+  renamePropClip(
+    propId: string,
+    oldName: string,
+    newName: string
+  ): { renamed: boolean; isCustom: boolean; finalName: string; conflict?: boolean } {
+    const rig = this._propRigMap.get(propId);
+    const trimmed = String(newName || '').trim();
+    if (!rig || !oldName || !trimmed || trimmed === oldName) {
+      return { renamed: false, isCustom: false, finalName: oldName };
+    }
+    const target = rig.clips.find((c) => c.name === oldName);
+    if (!target) {
+      return { renamed: false, isCustom: false, finalName: oldName };
+    }
+    const conflict = rig.clips.some((c) => c !== target && c.name === trimmed);
+    if (conflict) {
+      return { renamed: false, isCustom: !!target.isCustomKeyframeClip, finalName: oldName, conflict: true };
+    }
+
+    target.name = trimmed;
+    const isCustom = !!target.isCustomKeyframeClip;
+    if (isCustom) {
+      if (Array.isArray(rig.timeline.savedClips)) {
+        const saved = rig.timeline.savedClips.find((sc) => sc && sc.name === oldName);
+        if (saved) saved.name = trimmed;
+      }
+    } else {
+      if (!rig.timeline.clipAliases || typeof rig.timeline.clipAliases !== 'object') {
+        rig.timeline.clipAliases = {};
+      }
+      const rawKey = target.rawName || oldName;
+      rig.timeline.clipAliases[rawKey] = trimmed;
+    }
+
+    if (rig.timeline.activeClipName === oldName) {
+      rig.timeline.activeClipName = trimmed;
+    }
+
+    return { renamed: true, isCustom, finalName: trimmed };
+  }
+
   /** Xóa một Clip Keyframe tùy chỉnh đã lưu khỏi danh sách Clip Chuyển động */
   deletePropCustomClip(propId: string, clipName: string): boolean {
     const rig = this._propRigMap.get(propId);
     if (!rig || !clipName) return false;
+    let removed = false;
     const clipIdx = rig.clips.findIndex((c) => c.name === clipName && c.isCustomKeyframeClip);
-    if (clipIdx < 0) return false;
-    rig.clips.splice(clipIdx, 1);
+    if (clipIdx >= 0) {
+      rig.clips.splice(clipIdx, 1);
+      removed = true;
+    }
     if (Array.isArray(rig.timeline.savedClips)) {
+      const beforeLen = rig.timeline.savedClips.length;
       rig.timeline.savedClips = rig.timeline.savedClips.filter((c) => c.name !== clipName);
+      if (rig.timeline.savedClips.length !== beforeLen) removed = true;
+    }
+    if (!removed && rig.timeline.activeClipName !== clipName) {
+      return false;
     }
     if (rig.timeline.activeClipName === clipName) {
+      // Xóa sạch bộ keyframe cũ đang tải trên timeline để tránh bị đóng gói lại thành "Clip Keyframe #1" khi bấm Lưu
+      rig.timeline.keyframes = [];
+      rig.currentTime = 0;
       rig.timeline.activeClipName = rig.clips[0]?.name || null;
       if (rig.timeline.mode === 'clip' && rig.timeline.activeClipName) {
         this.playPropClip(propId, rig.timeline.activeClipName);
+      } else {
+        this._stopRigClipAnim(rig);
+        rig.timeline.playing = false;
+        this.resetBonePose(propId);
       }
+      removed = true;
     }
-    return true;
+    return removed;
   }
 
   playPropClip(propId: string, clipName: string): boolean {
@@ -3161,13 +4340,13 @@ export class SontinhSceneService implements OnDestroy {
   }
 
   /** Nạp một Clip Keyframe dùng chung (từ thư mục assets/anims/ hoặc nhân vật khác) vào danh sách Clip của mô hình hiện tại */
-  injectSharedKeyframeClip(propId: string, clip: GlbSavedKeyframeClip): boolean {
+  injectSharedKeyframeClip(propId: string, clip: GlbSavedKeyframeClip, overwrite = true): boolean {
     const rig = this._propRigMap.get(propId);
     if (!rig || !clip || !clip.name || !Array.isArray(clip.keyframes) || clip.keyframes.length === 0) {
       return false;
     }
     const existClip = rig.clips.find((c) => c.name === clip.name);
-    if (existClip && !existClip.isCustomKeyframeClip) {
+    if (existClip && (!existClip.isCustomKeyframeClip || !overwrite)) {
       return false;
     }
     const entry = {
@@ -3200,7 +4379,8 @@ export class SontinhSceneService implements OnDestroy {
   extractPortableClip(
     propId: string,
     clipName?: string,
-    preferredExportName?: string
+    preferredExportName?: string,
+    targetSpace: 'tpose' | 'rest' = 'tpose'
   ): GlbSavedKeyframeClip | null {
     const rig = this._propRigMap.get(propId);
     if (!rig) return null;
@@ -3390,9 +4570,10 @@ export class SontinhSceneService implements OnDestroy {
     boneCurves.forEach(({ bone, rotCurve, posCurve }) => {
       const isCanonicalBone = sourceToCanonical.has(bone.name);
       const canonBoneName = sourceToCanonical.get(bone.name) || bone.label || bone.name;
-      // Quy đổi góc xoay tương đối so với Canonical T-Pose (bất biến với A-Pose vs T-Pose của mô hình nguồn!)
-      const baseLocalQuat = bone.tposeLocalQuat || bone.restQuat;
-      const baseCharQuat = bone.tposeCharQuat || bone.charRestQuat;
+      // Quy đổi góc xoay tương đối so với Canonical T-Pose (mặc định khi xuất portable) hoặc Rest Pose (khi ghép cùng keyframe AI trên cùng nhân vật)
+      const useRestSpace = targetSpace === 'rest';
+      const baseLocalQuat = useRestSpace ? bone.restQuat : (bone.tposeLocalQuat || bone.restQuat);
+      const baseCharQuat = useRestSpace ? bone.charRestQuat : (bone.tposeCharQuat || bone.charRestQuat);
       const baseLocalQuatInv = baseLocalQuat.clone().invert();
       const baseCharQuatInv = baseCharQuat.clone().invert();
       const posScale = Math.max(1e-4, Number(bone.posUnitScale) || 1);
@@ -3482,7 +4663,7 @@ export class SontinhSceneService implements OnDestroy {
       duration: Math.round(dur * 100) / 100,
       loop: rig.timeline.loop !== false,
       speed: rig.timeline.speed || 1.0,
-      poseSpace: 'tpose',
+      poseSpace: targetSpace === 'rest' ? 'rest' : 'tpose',
       createdAt: new Date().toISOString(),
       keyframes: extractedKeyframes
     };
@@ -4048,6 +5229,9 @@ export class SontinhSceneService implements OnDestroy {
       loop?: boolean;
       speed?: number;
       poseSpace?: 'tpose' | 'rest';
+      footLock?: boolean;
+      sourceLegLength?: number;
+      allowUnsafeParts?: boolean;
       keyframes?: Array<{
         time: number;
         boneName: string;
@@ -4088,8 +5272,8 @@ export class SontinhSceneService implements OnDestroy {
       torso: anat.chest,
       neck: anat.neck,
       head: anat.head,
-      leftshoulder: anat.lShoulder,
-      rightshoulder: anat.rShoulder,
+      leftshoulder: anat.lShoulder !== anat.chest ? anat.lShoulder : anat.lArm,
+      rightshoulder: anat.rShoulder !== anat.chest ? anat.rShoulder : anat.rArm,
       leftarm: anat.lArm,
       leftupperarm: anat.lArm,
       upperarm_l: anat.lArm,
@@ -4156,8 +5340,17 @@ export class SontinhSceneService implements OnDestroy {
       return null;
     };
 
-    const clampAngle = (v: any) => Math.max(-180, Math.min(180, Number(v) || 0));
-    const clampOffset = (v: any) => Math.max(-5, Math.min(5, Number(v) || 0));
+    // Chuẩn hóa góc theo chu kỳ 360° về (-180, 180] thay vì cắt cứng ở ±180° (tránh kẹt/gãy góc khi xoay vòng tròn 270°/360°)
+    const wrapAngle = (v: any) => {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return 0;
+      return (((n + 180) % 360) + 360) % 360 - 180;
+    };
+    const clampOffset = (v: any, isRoot: boolean) => {
+      const lim = isRoot ? 200 : 5;
+      const n = Number(v);
+      return Number.isFinite(n) ? Math.max(-lim, Math.min(lim, n)) : 0;
+    };
 
     let addedCount = 0;
     // Khi một nhân vật đích có ÍT đốt xương hơn (vd: chỉ có 1 xương sống thay vì 3 đốt Spine/Spine1/Spine2),
@@ -4173,29 +5366,38 @@ export class SontinhSceneService implements OnDestroy {
       if (!kf || !kf.boneName) continue;
       const resolved = resolveBoneName(kf.boneName);
       if (!resolved) continue;
+      const targetBone = rig.bones.get(resolved);
+      if (!targetBone) continue;
+      // Bảo vệ cấu trúc hình học: CHẶN xoay/dịch các sub-mesh vật liệu dùng chung pivot gốc (0,0,0)
+      // (như xe đạp/đồ vật không có skin bone) để không bao giờ bị tách rời hay lật ngược các bộ phận!
+      if (!spec.allowUnsafeParts && targetBone.isRigidPartSafe === false) {
+        continue;
+      }
+      const isRootBone = resolved === '__root__';
       const t = Math.max(0, Math.min(rig.timeline.duration, Number(kf.time) || 0));
-      let rx = clampAngle(kf.rot?.x);
-      const ry = clampAngle(kf.rot?.y);
-      const rz = clampAngle(kf.rot?.z);
+      let rx = wrapAngle(kf.rot?.x);
+      const ry = wrapAngle(kf.rot?.y);
+      const rz = wrapAngle(kf.rot?.z);
 
-      // Ràng buộc giải phẫu khớp gối chỉ áp cho keyframe AI tạo thô ('rest'); với clip trích từ GLB thật ('tpose') giữ nguyên quaternion gốc
-      if (!isTPoseClip && (resolved === anat.lLeg || resolved === anat.rLeg) && resolved !== anat.lUpLeg && resolved !== anat.rUpLeg) {
+      // Ràng buộc giải phẫu khớp gối chỉ áp cho nhân vật có xương thật (skinned) khi AI tạo thô ('rest')
+      if (rig.hasSkinnedSkeleton && !isTPoseClip && (resolved === anat.lLeg || resolved === anat.rLeg) && resolved !== anat.lUpLeg && resolved !== anat.rUpLeg) {
         if (rx < -5) rx = Math.abs(rx);
       }
 
       const qStep = new pc.Quat().setFromEulerAngles(rx, ry, rz);
       const posStep = {
-        x: clampOffset(kf.pos?.x),
-        y: clampOffset(kf.pos?.y),
-        z: clampOffset(kf.pos?.z)
+        x: clampOffset(kf.pos?.x, isRootBone),
+        y: clampOffset(kf.pos?.y, isRootBone),
+        z: clampOffset(kf.pos?.z, isRootBone)
       };
       const slotKey = `${resolved}|${Math.round(t * 1000)}`;
       const existing = mergedByBoneTime.get(slotKey);
       if (existing) {
-        existing.quat = new pc.Quat().mul2(qStep, existing.quat).normalize();
-        existing.pos.x = clampOffset(existing.pos.x + posStep.x);
-        existing.pos.y = clampOffset(existing.pos.y + posStep.y);
-        existing.pos.z = clampOffset(existing.pos.z + posStep.z);
+        // Thứ tự chuỗi động học cha -> con: qTotal = qParent * qChild
+        existing.quat = new pc.Quat().mul2(existing.quat, qStep).normalize();
+        existing.pos.x = clampOffset(existing.pos.x + posStep.x, isRootBone);
+        existing.pos.y = clampOffset(existing.pos.y + posStep.y, isRootBone);
+        existing.pos.z = clampOffset(existing.pos.z + posStep.z, isRootBone);
       } else {
         mergedByBoneTime.set(slotKey, {
           boneName: resolved,
@@ -4206,19 +5408,247 @@ export class SontinhSceneService implements OnDestroy {
       }
     }
 
+    const baseIdStamp = Date.now().toString(36);
+    let seq = 0;
+
+    // Nếu clip có bật khóa 2 chân bám sàn (footLock) trên nền Canonical T-Pose:
+    // đo chính xác tỷ lệ chiều dài đùi/cẳng chân của chính rig đích (nguoigo_rigged / Meshy / Mixamo...),
+    // co giãn Hips.pos (x,y,z) đúng tỷ lệ và giải lại 2-Bone Analytical Leg IK trực tiếp trên chiều dài xương thật
+    // để đảm bảo 2 bàn chân đứng cố định tuyệt đối 0.000mm trên mặt sàn ở mọi mô hình 3D!
+    if (spec.footLock && isTPoseClip && anat.hips && anat.lUpLeg !== anat.hips && anat.lLeg !== anat.lUpLeg && anat.lFoot !== anat.lLeg && anat.rUpLeg !== anat.hips && anat.rLeg !== anat.rUpLeg && anat.rFoot !== anat.rLeg) {
+      const bHips = rig.bones.get(anat.hips);
+      const bLUp = rig.bones.get(anat.lUpLeg);
+      const bLLeg = rig.bones.get(anat.lLeg);
+      const bLFoot = rig.bones.get(anat.lFoot);
+      const bRUp = rig.bones.get(anat.rUpLeg);
+      const bRLeg = rig.bones.get(anat.rLeg);
+      const bRFoot = rig.bones.get(anat.rFoot);
+      if (bHips?.node && bLUp?.node && bLLeg?.node && bLFoot?.node && bRUp?.node && bRLeg?.node && bRFoot?.node) {
+        const invGlb = rig.glbEntity.getWorldTransform().clone().invert();
+        const getLocal = (nd: pc.GraphNode): pc.Vec3 => invGlb.transformPoint(nd.getPosition(), new pc.Vec3());
+        const pH0 = getLocal(bHips.node);
+        const pLU0 = getLocal(bLUp.node);
+        const pLL0 = getLocal(bLLeg.node);
+        const pLF0 = getLocal(bLFoot.node);
+        const pRU0 = getLocal(bRUp.node);
+        const pRL0 = getLocal(bRLeg.node);
+        const pRF0 = getLocal(bRFoot.node);
+
+        const lThigh = 0.5 * (pLU0.distance(pLL0) + pRU0.distance(pRL0));
+        const lShin = 0.5 * (pLL0.distance(pLF0) + pRL0.distance(pRF0));
+        const rigLegLen = lThigh + lShin;
+        const hipOffL = pLU0.clone().sub(pH0);
+        const hipOffR = pRU0.clone().sub(pH0);
+        const restHipY = pH0.y - 0.5 * (pLF0.y + pRF0.y);
+
+        if (rigLegLen > 0.05 && lThigh > 0.02 && lShin > 0.02) {
+          const srcLegLen = Number(spec.sourceLegLength) > 0.1 ? Number(spec.sourceLegLength) : rigLegLen;
+          const posScaleRatio = rigLegLen / srcLegLen;
+
+          // Gom theo mốc thời gian (ms)
+          const byTimeMs = new Map<number, Map<string, { boneName: string; time: number; quat: pc.Quat; pos: { x: number; y: number; z: number } }>>();
+          mergedByBoneTime.forEach((entry) => {
+            const ms = Math.round(entry.time * 1000);
+            if (!byTimeMs.has(ms)) byTimeMs.set(ms, new Map());
+            byTimeMs.get(ms)!.set(entry.boneName, entry);
+          });
+
+          const sortedMs = Array.from(byTimeMs.keys()).sort((a, b) => a - b);
+          const vDownThigh = new pc.Vec3(0, -lThigh, 0);
+          const vDownShin = new pc.Vec3(0, -lShin, 0);
+
+          // 1. Scale Hips.pos theo tỷ lệ chân rig đích & lấy trung vị vị trí 2 cổ chân làm điểm neo cố định trên sàn
+          const lAnkSamples: pc.Vec3[] = [];
+          const rAnkSamples: pc.Vec3[] = [];
+          for (const ms of sortedMs) {
+            const frame = byTimeMs.get(ms)!;
+            const eH = frame.get(anat.hips);
+            if (!eH) continue;
+            eH.pos.x *= posScaleRatio;
+            eH.pos.y *= posScaleRatio;
+            eH.pos.z *= posScaleRatio;
+
+            const qH = eH.quat;
+            const pH = new pc.Vec3(eH.pos.x, restHipY + eH.pos.y, eH.pos.z);
+            const eLU = frame.get(anat.lUpLeg);
+            const eLL = frame.get(anat.lLeg);
+            const eRU = frame.get(anat.rUpLeg);
+            const eRL = frame.get(anat.rLeg);
+            if (eLU && eLL && eRU && eRL) {
+              const qLT = new pc.Quat().mul2(qH, eLU.quat);
+              const qLS = new pc.Quat().mul2(qLT, eLL.quat);
+              const pLH = pH.clone().add(qH.transformVector(hipOffL, new pc.Vec3()));
+              const pLA = pLH.clone().add(qLT.transformVector(vDownThigh, new pc.Vec3())).add(qLS.transformVector(vDownShin, new pc.Vec3()));
+              lAnkSamples.push(pLA);
+
+              const qRT = new pc.Quat().mul2(qH, eRU.quat);
+              const qRS = new pc.Quat().mul2(qRT, eRL.quat);
+              const pRH = pH.clone().add(qH.transformVector(hipOffR, new pc.Vec3()));
+              const pRA = pRH.clone().add(qRT.transformVector(vDownThigh, new pc.Vec3())).add(qRS.transformVector(vDownShin, new pc.Vec3()));
+              rAnkSamples.push(pRA);
+            }
+          }
+
+          const medianCoord = (arr: pc.Vec3[], comp: 'x' | 'y' | 'z', fallback: number): number => {
+            if (!arr.length) return fallback;
+            const vals = arr.map((v) => v[comp]).sort((a, b) => a - b);
+            return vals[Math.floor(vals.length / 2)];
+          };
+          const stanceHalfX = Math.max(
+            Math.abs(hipOffL.x) * 1.1,
+            Math.min(rigLegLen * 0.36, 0.5 * Math.abs(medianCoord(lAnkSamples, 'x', hipOffL.x) - medianCoord(rAnkSamples, 'x', hipOffR.x)))
+          );
+          const lAnkZ = Math.max(-rigLegLen * 0.16, Math.min(rigLegLen * 0.16, medianCoord(lAnkSamples, 'z', 0)));
+          const rAnkZ = Math.max(-rigLegLen * 0.16, Math.min(rigLegLen * 0.16, medianCoord(rAnkSamples, 'z', 0)));
+          const leftSign = hipOffL.x >= hipOffR.x ? 1 : -1;
+          const lAnkFixed = new pc.Vec3(leftSign * stanceHalfX, 0, lAnkZ);
+          const rAnkFixed = new pc.Vec3(-leftSign * stanceHalfX, 0, rAnkZ);
+          const midFixed = lAnkFixed.clone().add(rAnkFixed).mulScalar(0.5);
+          const maxReach = rigLegLen * 0.975;
+
+          const makeBasisQuat = (xAxis: pc.Vec3, yAxis: pc.Vec3, zAxis: pc.Vec3): pc.Quat => {
+            const m = new pc.Mat4();
+            const d = m.data;
+            d[0] = xAxis.x; d[1] = xAxis.y; d[2] = xAxis.z; d[3] = 0;
+            d[4] = yAxis.x; d[5] = yAxis.y; d[6] = yAxis.z; d[7] = 0;
+            d[8] = zAxis.x; d[9] = zAxis.y; d[10] = zAxis.z; d[11] = 0;
+            d[12] = 0; d[13] = 0; d[14] = 0; d[15] = 1;
+            return new pc.Quat().setFromMat4(m).normalize();
+          };
+
+          const solveLegIkPc = (
+            pHip: pc.Vec3,
+            pAnk: pc.Vec3,
+            poleHint: pc.Vec3,
+            toeOutDeg: number
+          ): { qThigh: pc.Quat; qShin: pc.Quat; qFoot: pc.Quat } => {
+            const vec = pAnk.clone().sub(pHip);
+            const rawD = vec.length();
+            const minD = Math.max(0.05, Math.abs(lThigh - lShin) + 0.02);
+            const d = Math.max(minD, Math.min(rigLegLen * 0.994, rawD));
+            const dirHA = rawD > 1e-6 ? vec.clone().mulScalar(1 / rawD) : new pc.Vec3(0, -1, 0);
+            const a = (lThigh * lThigh + d * d - lShin * lShin) / (2 * d);
+            const h = Math.sqrt(Math.max(0, lThigh * lThigh - a * a));
+            const poleProj = poleHint.clone().sub(dirHA.clone().mulScalar(poleHint.dot(dirHA)));
+            if (poleProj.lengthSq() < 1e-6) {
+              poleProj.set(0, 0, 1).sub(dirHA.clone().mulScalar(dirHA.z));
+            }
+            poleProj.normalize();
+            const pKnee = pHip.clone().add(dirHA.clone().mulScalar(a)).add(poleProj.clone().mulScalar(h));
+            const vThigh = pKnee.clone().sub(pHip).normalize();
+            const vShin = pAnk.clone().sub(pKnee).normalize();
+
+            let xHinge = new pc.Vec3().cross(vThigh, vShin);
+            if (xHinge.lengthSq() < 1e-6) {
+              xHinge = new pc.Vec3().cross(poleProj, dirHA);
+            }
+            xHinge.normalize();
+            if (xHinge.x * leftSign < 0) xHinge.mulScalar(-1);
+
+            const yT = vThigh.clone().mulScalar(-1);
+            const zT = new pc.Vec3().cross(xHinge, yT).normalize();
+            const xT = new pc.Vec3().cross(yT, zT).normalize();
+            const qThigh = makeBasisQuat(xT, yT, zT);
+
+            const yS = vShin.clone().mulScalar(-1);
+            const zS = new pc.Vec3().cross(xHinge, yS).normalize();
+            const xS = new pc.Vec3().cross(yS, zS).normalize();
+            const qShin = makeBasisQuat(xS, yS, zS);
+
+            const qFoot = new pc.Quat().setFromEulerAngles(0, toeOutDeg, 0);
+            return { qThigh, qShin, qFoot };
+          };
+
+          const poleL = new pc.Vec3(leftSign * 0.28, 0.12, 1.0).normalize();
+          const poleR = new pc.Vec3(-leftSign * 0.28, 0.12, 1.0).normalize();
+
+          for (const ms of sortedMs) {
+            const frame = byTimeMs.get(ms)!;
+            const eH = frame.get(anat.hips);
+            if (!eH) continue;
+            const qH = eH.quat;
+            const pH = new pc.Vec3(eH.pos.x, Math.max(rigLegLen * 0.34, restHipY + eH.pos.y), eH.pos.z);
+
+            for (let it = 0; it < 4; it++) {
+              const pLH = pH.clone().add(qH.transformVector(hipOffL, new pc.Vec3()));
+              const pRH = pH.clone().add(qH.transformVector(hipOffR, new pc.Vec3()));
+              const dMax = Math.max(pLH.distance(lAnkFixed), pRH.distance(rAnkFixed));
+              if (dMax <= maxReach) break;
+              const shrink = (maxReach - 0.004) / Math.max(1e-6, dMax);
+              pH.copy(midFixed).add(pH.clone().sub(midFixed).mulScalar(shrink));
+            }
+            eH.pos.x = pH.x;
+            eH.pos.y = pH.y - restHipY;
+            eH.pos.z = pH.z;
+
+            const qHInv = qH.clone().invert();
+            const pLH = pH.clone().add(qH.transformVector(hipOffL, new pc.Vec3()));
+            const pRH = pH.clone().add(qH.transformVector(hipOffR, new pc.Vec3()));
+
+            const ikL = solveLegIkPc(pLH, lAnkFixed, poleL, leftSign * 10);
+            const ikR = solveLegIkPc(pRH, rAnkFixed, poleR, -leftSign * 10);
+
+            const setBoneQ = (bName: string, qVal: pc.Quat) => {
+              const slot = `${bName}|${ms}`;
+              const ex = mergedByBoneTime.get(slot);
+              if (ex) {
+                ex.quat = qVal;
+              } else {
+                mergedByBoneTime.set(slot, {
+                  boneName: bName,
+                  time: eH.time,
+                  quat: qVal,
+                  pos: { x: 0, y: 0, z: 0 }
+                });
+              }
+            };
+
+            setBoneQ(anat.lUpLeg, new pc.Quat().mul2(qHInv, ikL.qThigh).normalize());
+            setBoneQ(anat.lLeg, new pc.Quat().mul2(ikL.qThigh.clone().invert(), ikL.qShin).normalize());
+            setBoneQ(anat.lFoot, new pc.Quat().mul2(ikL.qShin.clone().invert(), ikL.qFoot).normalize());
+
+            setBoneQ(anat.rUpLeg, new pc.Quat().mul2(qHInv, ikR.qThigh).normalize());
+            setBoneQ(anat.rLeg, new pc.Quat().mul2(ikR.qThigh.clone().invert(), ikR.qShin).normalize());
+            setBoneQ(anat.rFoot, new pc.Quat().mul2(ikR.qShin.clone().invert(), ikR.qFoot).normalize());
+          }
+        }
+      }
+    }
+
     mergedByBoneTime.forEach((entry) => {
       const e = entry.quat.getEulerAngles();
+      const clampedT = Math.round(Math.max(0, Math.min(rig.timeline.duration, entry.time)) * 1000) / 1000;
       const rot = {
-        x: Math.round(e.x * 10) / 10,
-        y: Math.round(e.y * 10) / 10,
-        z: Math.round(e.z * 10) / 10
+        x: Math.round(e.x * 100) / 100,
+        y: Math.round(e.y * 100) / 100,
+        z: Math.round(e.z * 100) / 100
       };
-      if (this.upsertBoneKeyframe(propId, entry.boneName, entry.time, rot, entry.pos)) {
-        addedCount++;
-      }
+      const pos = {
+        x: Math.round((Number(entry.pos?.x) || 0) * 1000) / 1000,
+        y: Math.round((Number(entry.pos?.y) || 0) * 1000) / 1000,
+        z: Math.round((Number(entry.pos?.z) || 0) * 1000) / 1000
+      };
+      rig.timeline.keyframes.push({
+        id: `kf_${baseIdStamp}_${seq++}`,
+        time: clampedT,
+        boneName: entry.boneName,
+        rot,
+        pos
+      });
+      addedCount++;
     });
 
     if (addedCount > 0) {
+      rig.timeline.keyframes.sort((a, b) => a.time - b.time);
+      const hasRootTravel = rig.timeline.keyframes.some(
+        (k) =>
+          k.boneName === '__root__' &&
+          k.pos &&
+          (Math.abs(k.pos.x || 0) > 0.05 || Math.abs(k.pos.z || 0) > 0.05)
+      );
+      if (hasRootTravel) {
+        rig.timeline.inPlace = false;
+      }
       rig.currentTime = 0;
       rig.timeline.playing = true;
       this.evaluatePropKeyframesAtTime(propId, 0);
@@ -4349,10 +5779,1152 @@ export class SontinhSceneService implements OnDestroy {
   }
 
   /**
+   * Trình biên dịch Kế hoạch Chuyển động do AI suy luận & biên đạo (`applyAiMotionPlan`):
+   * - AI (LLM) tự do hiểu và phân tích bất kỳ yêu cầu tự nhiên nào (1 bước hay chuỗi nhiều bước phức tạp) và trả về
+   *   mảng `segments` (`move` / `turn` / `arc` / `waypoints` / `figure8` / `pose` / `wait`) kết hợp tùy chọn `keyframes` khớp xương.
+   * - Engine thực thi tính toán hình học, động học quỹ đạo 3D liên tục trên `__root__`, xoay mượt SLERP không lật góc,
+   *   lăn/đánh lái bánh xe tự động không trượt, giữ cân bằng xe 4 bánh, và ghép dáng đi/chạy mocap (hoặc procedural)
+   *   đồng bộ với các tư thế pose của AI trên cùng một không gian `'rest'`.
+   */
+  applyAiMotionPlan(
+    propId: string,
+    plan: {
+      duration?: number;
+      loop?: boolean;
+      speed?: number;
+      poseSpace?: 'tpose' | 'rest';
+      prompt?: string;
+      segments?: Array<{
+        type: 'move' | 'turn' | 'arc' | 'waypoints' | 'figure8' | 'pose' | 'wait';
+        duration?: number;
+        distance?: number;
+        dy?: number;
+        angleDeg?: number;
+        radius?: number;
+        sweepDeg?: number;
+        width?: number;
+        centerOnOrigin?: boolean;
+        reverse?: boolean;
+        faceVelocity?: boolean;
+        leanDeg?: number;
+        points?: Array<{ x?: number; y?: number; z?: number }>;
+        relative?: boolean;
+        gait?: 'auto' | 'walk' | 'run' | 'embedded' | 'idle' | 'none';
+        clipName?: string;
+        keyframes?: Array<{
+          time: number;
+          boneName: string;
+          rot?: { x?: number; y?: number; z?: number };
+          pos?: { x?: number; y?: number; z?: number };
+        }>;
+      }>;
+      keyframes?: Array<{
+        time: number;
+        boneName: string;
+        rot?: { x?: number; y?: number; z?: number };
+        pos?: { x?: number; y?: number; z?: number };
+      }>;
+    }
+  ): number {
+    const rig = this._propRigMap.get(propId);
+    if (!rig || !plan) return 0;
+
+    const segments = Array.isArray(plan.segments) ? plan.segments.filter((s) => s && s.type) : [];
+    // Nếu AI chỉ trả về keyframes trực tiếp (động tác tại chỗ / nhảy / bắt chước video) -> áp trực tiếp
+    if (segments.length === 0) {
+      if (Array.isArray(plan.keyframes) && plan.keyframes.length > 0) {
+        return this.applyGeneratedBoneTimeline(propId, plan);
+      }
+      return 0;
+    }
+
+    const isHumanoid = rig.hasSkinnedSkeleton;
+    const isFourWheeler = !isHumanoid && rig.autoWheels.length >= 3;
+    const allowTurnLean = !isHumanoid && !isFourWheeler;
+    const meterScale = rig.meterScale || 1;
+    const forwardAxis = rig.forwardAxis || '+z';
+    const baseFwd = forwardAxis === '+x' ? new pc.Vec3(1, 0, 0) : new pc.Vec3(0, 0, 1);
+    const baseLeft = new pc.Vec3().cross(new pc.Vec3(0, 1, 0), baseFwd).normalize();
+
+    const getBasisAtYaw = (yawDeg: number) => {
+      const q = new pc.Quat().setFromEulerAngles(0, yawDeg, 0);
+      const fwd = q.transformVector(baseFwd, new pc.Vec3());
+      const left = q.transformVector(baseLeft, new pc.Vec3());
+      return { fwd, left };
+    };
+
+    const normBoneKey = (name: string): string =>
+      String(name || '').replace(/^mixamorig:?/i, '').replace(/[\s_.-]+/g, '').toLowerCase();
+
+    // Bộ đệm trích xuất clip mocap nhúng (ở không gian 'rest' để ghép chung 1:1 với mọi keyframe AI tự thiết kế!)
+    const embeddedClips = rig.clips.filter((c) => !c.isCustomKeyframeClip && !!c.resource);
+    const extractedClipCache = new Map<string, GlbSavedKeyframeClip | null>();
+    const getEmbeddedClipRest = (preferredName?: string, gaitHint?: string): GlbSavedKeyframeClip | null => {
+      if (!isHumanoid || embeddedClips.length === 0) return null;
+      let chosen = preferredName
+        ? embeddedClips.find((c) => c.name === preferredName || c.name.toLowerCase().includes(preferredName.toLowerCase()))
+        : undefined;
+      if (!chosen) {
+        const wantRun = gaitHint === 'run';
+        chosen = embeddedClips.find((c) => {
+          const n = String(c.name || '').toLowerCase();
+          return wantRun ? /run|jog|sprint/.test(n) : /walk|stride|stroll/.test(n);
+        });
+      }
+      if (!chosen && gaitHint === 'embedded' && embeddedClips.length > 0) {
+        chosen = embeddedClips[0];
+      }
+      if (!chosen && embeddedClips.length === 1) {
+        const pn = String(rig.propId || '').toLowerCase();
+        if ((gaitHint === 'run' && /run|jog/.test(pn)) || (gaitHint !== 'run' && /walk/.test(pn))) {
+          chosen = embeddedClips[0];
+        }
+      }
+      if (!chosen) return null;
+      if (!extractedClipCache.has(chosen.name)) {
+        try {
+          extractedClipCache.set(chosen.name, this.extractPortableClip(propId, chosen.name, undefined, 'rest'));
+        } catch (_) {
+          extractedClipCache.set(chosen.name, null);
+        }
+      }
+      return extractedClipCache.get(chosen.name) || null;
+    };
+
+    const estimateSegmentDur = (seg: any): number => {
+      const explicit = Number(seg.duration);
+      if (Number.isFinite(explicit) && explicit > 0.1) {
+        return Math.max(0.2, Math.min(45, explicit));
+      }
+      const gait = String(seg.gait || 'auto').toLowerCase();
+      const defaultSpeed = isHumanoid
+        ? (gait === 'run' ? 2.6 : 1.35)
+        : (isFourWheeler ? 4.2 : 3.2);
+      if (seg.type === 'move') {
+        const dist = Math.abs(Number(seg.distance) || 0);
+        const dy = Math.abs(Number(seg.dy) || 0);
+        const len = Math.hypot(dist, dy);
+        return Math.max(0.6, Math.min(30, len / Math.max(0.4, defaultSpeed)));
+      }
+      if (seg.type === 'turn') {
+        const ang = Math.abs(Number(seg.angleDeg) || 90);
+        return Math.max(0.45, Math.min(6.0, (ang / 180) * 0.85));
+      }
+      if (seg.type === 'arc') {
+        const r = Math.max(0.5, Math.abs(Number(seg.radius) || 4));
+        const sw = Math.abs(Number(seg.sweepDeg) || 90);
+        const arcLen = r * ((sw * Math.PI) / 180);
+        return Math.max(0.8, Math.min(35, arcLen / Math.max(0.4, defaultSpeed)));
+      }
+      if (seg.type === 'figure8') {
+        const w = Math.max(2, Math.abs(Number(seg.width) || 10));
+        return Math.max(2.5, Math.min(40, (w * 3.1) / Math.max(0.4, defaultSpeed)));
+      }
+      if (seg.type === 'waypoints' && Array.isArray(seg.points) && seg.points.length > 0) {
+        let len = 0;
+        let px = 0, py = 0, pz = 0;
+        for (const pt of seg.points) {
+          const nx = Number(pt?.x) || 0;
+          const ny = Number(pt?.y) || 0;
+          const nz = Number(pt?.z) || 0;
+          len += Math.hypot(nx - px, ny - py, nz - pz);
+          px = nx; py = ny; pz = nz;
+        }
+        return Math.max(1.0, Math.min(40, Math.max(1, len) / Math.max(0.4, defaultSpeed)));
+      }
+      if (Array.isArray(seg.keyframes) && seg.keyframes.length > 0) {
+        const maxLocalT = Math.max(...seg.keyframes.map((k: any) => Number(k?.time) || 0));
+        if (maxLocalT > 0.2) return Math.max(0.5, Math.min(20, maxLocalT));
+      }
+      return 1.5;
+    };
+
+    const rawDurs = segments.map((s) => estimateSegmentDur(s));
+    const rawTotal = rawDurs.reduce((a, b) => a + b, 0);
+    if (rawTotal <= 0.1) return 0;
+
+    let durScale = 1.0;
+    const requestedTotal = Number(plan.duration);
+    if (Number.isFinite(requestedTotal) && requestedTotal >= 0.5 && requestedTotal <= 58 && segments.every((s) => !(Number(s.duration) > 0))) {
+      durScale = requestedTotal / rawTotal;
+    } else if (rawTotal > 58) {
+      durScale = 58 / rawTotal;
+    }
+    const segDurs = rawDurs.map((d) => Math.max(0.15, d * durScale));
+    const totalDur = Math.round(segDurs.reduce((a, b) => a + b, 0) * 100) / 100;
+
+    const kfs: Array<{
+      time: number;
+      boneName: string;
+      rot: { x: number; y: number; z: number };
+      pos?: { x: number; y?: number; z?: number };
+    }> = [];
+
+    const lastWrittenMsByBone = new Map<string, number>();
+    const pushKfSafe = (
+      t: number,
+      boneName: string,
+      rot: { x: number; y: number; z: number },
+      pos: { x: number; y: number; z: number },
+      minGapMs = 12
+    ) => {
+      const clampedT = Math.round(Math.max(0, Math.min(totalDur, t)) * 1000) / 1000;
+      const ms = Math.round(clampedT * 1000);
+      const bKey = normBoneKey(boneName);
+      const prev = lastWrittenMsByBone.get(bKey);
+      if (prev !== undefined && Math.abs(ms - prev) < minGapMs) return;
+      lastWrittenMsByBone.set(bKey, ms);
+      kfs.push({ time: clampedT, boneName, rot, pos });
+    };
+
+    const pushRoot = (t: number, xM: number, yM: number, zM: number, yawDeg: number, leanDeg = 0) => {
+      const safeLean = allowTurnLean ? Math.max(-25, Math.min(25, Number(leanDeg) || 0)) : 0;
+      let rx = 0, ry = yawDeg, rz = 0;
+      if (Math.abs(safeLean) > 0.05) {
+        const qYaw = new pc.Quat().setFromEulerAngles(0, yawDeg, 0);
+        const qLean = forwardAxis === '+x'
+          ? new pc.Quat().setFromEulerAngles(safeLean, 0, 0)
+          : new pc.Quat().setFromEulerAngles(0, 0, safeLean);
+        const qFinal = new pc.Quat().mul2(qYaw, qLean).normalize();
+        const e = qFinal.getEulerAngles();
+        rx = Math.round(e.x * 100) / 100;
+        ry = Math.round(e.y * 100) / 100;
+        rz = Math.round(e.z * 100) / 100;
+      } else {
+        ry = Math.round(yawDeg * 100) / 100;
+      }
+      pushKfSafe(
+        t,
+        '__root__',
+        { x: rx, y: ry, z: rz },
+        {
+          x: Math.round(xM * meterScale * 1000) / 1000,
+          y: Math.round(yM * meterScale * 1000) / 1000,
+          z: Math.round(zM * meterScale * 1000) / 1000
+        },
+        10
+      );
+    };
+
+    const anat = isHumanoid ? this._resolveRigAnatomy(rig) : null;
+    const emitHumanoidGaitWindow = (
+      tStart: number,
+      tEnd: number,
+      gaitMode: 'walk' | 'run' | 'embedded',
+      clipName: string | undefined,
+      isPivotTurn: boolean,
+      skipBones: Set<string>
+    ) => {
+      if (!isHumanoid || !anat) return;
+      const winDur = tEnd - tStart;
+      if (winDur < 0.08) return;
+
+      const embedded = gaitMode === 'embedded'
+        ? getEmbeddedClipRest(clipName, 'embedded')
+        : getEmbeddedClipRest(clipName, gaitMode);
+
+      if (embedded && Array.isArray(embedded.keyframes) && embedded.keyframes.length > 0 && !isPivotTurn) {
+        const rawCycDur = Math.max(0.45, Math.min(2.5, Number(embedded.duration) || 1.07));
+        const wholeCycles = Math.max(1, Math.round(winDur / rawCycDur));
+        const effCycDur = Math.abs(winDur / wholeCycles - rawCycDur) <= rawCycDur * 0.25
+          ? (winDur / wholeCycles)
+          : rawCycDur;
+
+        const byTime = new Map<number, GlbBoneKeyframe[]>();
+        for (const bk of embedded.keyframes) {
+          if (!bk || bk.boneName === '__root__') continue;
+          if (skipBones.has(normBoneKey(bk.boneName))) continue;
+          const ms = Math.round((Number(bk.time) || 0) * 1000);
+          if (!byTime.has(ms)) byTime.set(ms, []);
+          byTime.get(ms)!.push(bk);
+        }
+        const uniqueMs = Array.from(byTime.keys()).sort((a, b) => a - b);
+        const framesPerCycle = wholeCycles >= 6 ? 8 : 10;
+        const strideStep = uniqueMs.length > framesPerCycle + 2 ? Math.ceil(uniqueMs.length / framesPerCycle) : 1;
+        const pickedMs: number[] = [];
+        for (let idx = 0; idx < uniqueMs.length; idx += strideStep) {
+          pickedMs.push(uniqueMs[idx]);
+        }
+
+        const nLoop = Math.ceil(winDur / effCycDur) + 1;
+        for (let cyc = 0; cyc < nLoop; cyc++) {
+          const baseT = tStart + cyc * effCycDur;
+          if (baseT > tEnd + 0.005) break;
+          for (const ms of pickedMs) {
+            const frac = Math.min(1, (ms / 1000) / rawCycDur);
+            if (frac >= 0.96 && cyc < nLoop - 1) continue;
+            const absT = Math.min(tEnd, baseT + frac * effCycDur);
+            if (absT > tEnd + 0.002) break;
+            const fl = byTime.get(ms) || [];
+            for (const bk of fl) {
+              pushKfSafe(
+                absT,
+                bk.boneName,
+                { x: bk.rot.x, y: bk.rot.y, z: bk.rot.z },
+                bk.pos ? { x: 0, y: bk.pos.y || 0, z: 0 } : { x: 0, y: 0, z: 0 },
+                14
+              );
+            }
+            if (absT >= tEnd - 0.004) break;
+          }
+        }
+        // Khép mốc cuối đoạn theo phase đầu để chuyển đoạn/lặp vòng hoàn toàn mượt
+        const firstList = pickedMs.length > 0 ? (byTime.get(pickedMs[0]) || []) : [];
+        for (const bk of firstList) {
+          pushKfSafe(
+            tEnd,
+            bk.boneName,
+            { x: bk.rot.x, y: bk.rot.y, z: bk.rot.z },
+            bk.pos ? { x: 0, y: bk.pos.y || 0, z: 0 } : { x: 0, y: 0, z: 0 },
+            14
+          );
+        }
+        return;
+      }
+
+      const isRun = gaitMode === 'run' && !isPivotTurn;
+      const baseCyc = isRun ? 0.72 : (isPivotTurn ? 0.65 : 1.04);
+      const wholeCycles = Math.max(1, Math.round(winDur / baseCyc));
+      const steps = wholeCycles * (isPivotTurn ? 6 : 8);
+      const swing = isPivotTurn ? 14 : (isRun ? 48 : 34);
+      const pushLimb = (bName: string, t: number, rx: number, ry: number, rz: number, py = 0) => {
+        if (!bName || bName === '__root__' || skipBones.has(normBoneKey(bName))) return;
+        pushKfSafe(
+          t,
+          bName,
+          { x: Math.round(rx * 10) / 10, y: Math.round(ry * 10) / 10, z: Math.round(rz * 10) / 10 },
+          { x: 0, y: Math.round(py * 1000) / 1000, z: 0 },
+          14
+        );
+      };
+      for (let i = 0; i <= steps; i++) {
+        const f = i / steps;
+        const t = i === steps ? tEnd : tStart + f * winDur;
+        const phase = f * wholeCycles * Math.PI * 2;
+        const s = Math.sin(phase);
+        const c = Math.cos(phase);
+        pushLimb(anat.hips, t, isRun ? 10 : 2, s * (isPivotTurn ? 4 : 7), c * 2.5, Math.abs(c) * (isRun ? 0.09 : 0.03));
+        pushLimb(anat.lowerSpine, t, isRun ? 8 : 2, -s * 6, 0);
+        if (anat.chest !== anat.lowerSpine) pushLimb(anat.chest, t, isRun ? 6 : 2, -s * 5, 0);
+        if (anat.head !== anat.chest) pushLimb(anat.head, t, isRun ? -5 : 0, s * 3, 0);
+        pushLimb(anat.lUpLeg, t, -s * swing, 0, 0);
+        pushLimb(anat.rUpLeg, t, s * swing, 0, 0);
+        if (anat.lLeg !== anat.lUpLeg) pushLimb(anat.lLeg, t, (s < 0 ? -s : 0.16) * (swing * 1.05), 0, 0);
+        if (anat.rLeg !== anat.rUpLeg) pushLimb(anat.rLeg, t, (s > 0 ? s : 0.16) * (swing * 1.05), 0, 0);
+        if (anat.lFoot !== anat.lLeg) pushLimb(anat.lFoot, t, s > 0 ? -10 * s : 12 * (-s), 0, 0);
+        if (anat.rFoot !== anat.rLeg) pushLimb(anat.rFoot, t, s < 0 ? 10 * s : 12 * s, 0, 0);
+        pushLimb(anat.lArm, t, s * (swing * 0.68), 0, -16);
+        pushLimb(anat.rArm, t, -s * (swing * 0.68), 0, 16);
+        if (anat.lForeArm !== anat.lArm) pushLimb(anat.lForeArm, t, isRun ? -62 : -22, 0, 0);
+        if (anat.rForeArm !== anat.rArm) pushLimb(anat.rForeArm, t, isRun ? -62 : -22, 0, 0);
+      }
+    };
+
+    const emitNeutralRestBones = (t: number, skipBones: Set<string>) => {
+      if (!isHumanoid || !anat) return;
+      const bodyBones = [
+        anat.hips, anat.lowerSpine, anat.midSpine, anat.chest, anat.neck, anat.head,
+        anat.lArm, anat.lForeArm, anat.rArm, anat.rForeArm,
+        anat.lUpLeg, anat.lLeg, anat.lFoot, anat.rUpLeg, anat.rLeg, anat.rFoot
+      ];
+      const seen = new Set<string>();
+      for (const bn of bodyBones) {
+        const nk = normBoneKey(bn);
+        if (!bn || bn === '__root__' || seen.has(nk) || skipBones.has(nk)) continue;
+        seen.add(nk);
+        pushKfSafe(t, bn, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, 14);
+      }
+    };
+
+    let curX = 0;
+    let curY = 0;
+    let curZ = 0;
+    let curYaw = 0;
+    let curT = 0;
+
+    for (let sIdx = 0; sIdx < segments.length; sIdx++) {
+      const seg = segments[sIdx];
+      const segDur = segDurs[sIdx];
+      const segStart = curT;
+      const segEnd = sIdx === segments.length - 1 ? totalDur : (curT + segDur);
+      const isReverse = !!seg.reverse;
+
+      if (seg.type === 'move') {
+        const rawDist = Number(seg.distance) || 0;
+        const dist = isReverse ? -Math.abs(rawDist) : rawDist;
+        const dy = Number(seg.dy) || 0;
+        const dYaw = Number(seg.angleDeg) || 0;
+        const steps = Math.max(6, Math.min(28, Math.ceil(Math.max(Math.abs(dist), Math.abs(dYaw) / 25) * 1.5)));
+        const { fwd } = getBasisAtYaw(curYaw);
+        const startX = curX, startY = curY, startZ = curZ, startYaw = curYaw;
+        for (let i = 0; i <= steps; i++) {
+          const f = i / steps;
+          const t = i === steps ? segEnd : segStart + f * segDur;
+          pushRoot(t, startX + fwd.x * dist * f, startY + dy * f, startZ + fwd.z * dist * f, startYaw + dYaw * f, 0);
+        }
+        curX = startX + fwd.x * dist;
+        curY = startY + dy;
+        curZ = startZ + fwd.z * dist;
+        curYaw = startYaw + dYaw;
+      } else if (seg.type === 'turn') {
+        const angle = Number(seg.angleDeg) || 0;
+        const steps = Math.max(2, Math.min(24, Math.ceil(Math.abs(angle) / 30)));
+        const startYaw = curYaw;
+        for (let i = 0; i <= steps; i++) {
+          const f = i / steps;
+          const t = i === steps ? segEnd : segStart + f * segDur;
+          pushRoot(t, curX, curY, curZ, startYaw + angle * f, 0);
+        }
+        curYaw = startYaw + angle;
+      } else if (seg.type === 'arc') {
+        const radius = Math.max(0.5, Math.min(80, Math.abs(Number(seg.radius) || 5)));
+        const rawSweep = Number(seg.sweepDeg);
+        const sweepDeg = Number.isFinite(rawSweep) && Math.abs(rawSweep) > 0.5 ? rawSweep : -360;
+        const side = sweepDeg >= 0 ? 1 : -1;
+        const dirSign = isReverse ? -1 : 1;
+        const absSweep = Math.abs(sweepDeg);
+        const steps = Math.max(8, Math.min(48, Math.ceil(absSweep / 10)));
+        const defaultLean = allowTurnLean
+          ? (seg.leanDeg !== undefined ? Number(seg.leanDeg) : side * 9)
+          : 0;
+        const centerOnOrigin = seg.centerOnOrigin !== undefined
+          ? !!seg.centerOnOrigin
+          : (segments.length === 1 && absSweep >= 355);
+
+        const { left: left0 } = getBasisAtYaw(curYaw);
+        const cx = centerOnOrigin ? 0 : (curX + side * radius * left0.x);
+        const cz = centerOnOrigin ? 0 : (curZ + side * radius * left0.z);
+        const startYaw = curYaw;
+        const startY = curY;
+        const dy = Number(seg.dy) || 0;
+
+        for (let i = 0; i <= steps; i++) {
+          const f = i / steps;
+          const t = i === steps ? segEnd : segStart + f * segDur;
+          const yaw = startYaw + dirSign * side * absSweep * f;
+          const { left } = getBasisAtYaw(yaw);
+          pushRoot(t, cx - side * radius * left.x, startY + dy * f, cz - side * radius * left.z, yaw, defaultLean);
+        }
+        curYaw = startYaw + dirSign * side * absSweep;
+        const { left: leftEnd } = getBasisAtYaw(curYaw);
+        curX = cx - side * radius * leftEnd.x;
+        curZ = cz - side * radius * leftEnd.z;
+        curY = startY + dy;
+      } else if (seg.type === 'figure8') {
+        const halfSpan = Math.max(1.5, Math.min(40, Math.abs(Number(seg.width) || 10) * 0.5));
+        const steps = 48;
+        const { fwd: f0, left: l0 } = getBasisAtYaw(curYaw);
+        const startX = curX, startY = curY, startZ = curZ, startYaw = curYaw;
+        const baseLeanAmp = allowTurnLean ? (seg.leanDeg !== undefined ? Math.abs(Number(seg.leanDeg)) : 10) : 0;
+        for (let i = 0; i <= steps; i++) {
+          const f = i / steps;
+          const th = f * Math.PI * 2;
+          const localFwd = halfSpan * Math.sin(th);
+          const localLeft = halfSpan * Math.sin(th) * Math.cos(th);
+          const dFwd = halfSpan * Math.cos(th);
+          const dLeft = halfSpan * (Math.cos(th) * Math.cos(th) - Math.sin(th) * Math.sin(th));
+          const x = startX + f0.x * localFwd + l0.x * localLeft;
+          const z = startZ + f0.z * localFwd + l0.z * localLeft;
+          const vx = f0.x * dFwd + l0.x * dLeft;
+          const vz = f0.z * dFwd + l0.z * dLeft;
+          const yaw = forwardAxis === '+x'
+            ? (Math.atan2(-vz, vx) * 180) / Math.PI
+            : (Math.atan2(vx, vz) * 180) / Math.PI;
+          pushRoot(i === steps ? segEnd : segStart + f * segDur, x, startY, z, yaw, Math.sin(th) * baseLeanAmp);
+        }
+        curX = startX;
+        curZ = startZ;
+        curYaw = startYaw;
+      } else if (seg.type === 'waypoints' && Array.isArray(seg.points) && seg.points.length > 0) {
+        const isRel = seg.relative !== false;
+        const { fwd: f0, left: l0 } = getBasisAtYaw(curYaw);
+        const pts: Array<{ x: number; y: number; z: number }> = [{ x: curX, y: curY, z: curZ }];
+        for (const p of seg.points) {
+          const px = Number(p?.x) || 0;
+          const py = Number(p?.y) || 0;
+          const pz = Number(p?.z) || 0;
+          if (isRel) {
+            pts.push({
+              x: curX + f0.x * pz + l0.x * px,
+              y: curY + py,
+              z: curZ + f0.z * pz + l0.z * px
+            });
+          } else {
+            pts.push({ x: px, y: py, z: pz });
+          }
+        }
+        const legLens: number[] = [];
+        let totLen = 0;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const d = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y, pts[i + 1].z - pts[i].z);
+          legLens.push(d);
+          totLen += d;
+        }
+        const faceVel = seg.faceVelocity !== false;
+        let accT = segStart;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const a = pts[i];
+          const b = pts[i + 1];
+          const len = legLens[i];
+          const legDur = totLen > 1e-4 ? (segDur * (len / totLen)) : (segDur / Math.max(1, pts.length - 1));
+          const dx = b.x - a.x;
+          const dz = b.z - a.z;
+          let targetYaw = curYaw;
+          if (faceVel && Math.hypot(dx, dz) > 0.02) {
+            const tx = isReverse ? -dx : dx;
+            const tz = isReverse ? -dz : dz;
+            targetYaw = forwardAxis === '+x'
+              ? (Math.atan2(-tz, tx) * 180) / Math.PI
+              : (Math.atan2(tx, tz) * 180) / Math.PI;
+          }
+          let dYaw = targetYaw - curYaw;
+          while (dYaw > 180) dYaw -= 360;
+          while (dYaw < -180) dYaw += 360;
+          const turnFrac = Math.abs(dYaw) > 35 ? Math.min(0.22, (Math.abs(dYaw) / 180) * 0.22) : 0;
+          const turnDur = legDur * turnFrac;
+          const walkDur = legDur - turnDur;
+          if (turnDur > 0.05) {
+            const tSteps = Math.max(2, Math.ceil(Math.abs(dYaw) / 30));
+            for (let k = 0; k <= tSteps; k++) {
+              pushRoot(accT + (k / tSteps) * turnDur, a.x, a.y, a.z, curYaw + (k / tSteps) * dYaw, 0);
+            }
+          }
+          curYaw += dYaw;
+          const moveSteps = Math.max(4, Math.min(18, Math.ceil(len * 1.5)));
+          for (let k = 0; k <= moveSteps; k++) {
+            const f = k / moveSteps;
+            const t = (i === pts.length - 2 && k === moveSteps) ? segEnd : (accT + turnDur + f * walkDur);
+            pushRoot(t, a.x + dx * f, a.y + (b.y - a.y) * f, a.z + dz * f, curYaw, 0);
+          }
+          accT += legDur;
+        }
+        const lastPt = pts[pts.length - 1];
+        curX = lastPt.x;
+        curY = lastPt.y;
+        curZ = lastPt.z;
+      } else {
+        pushRoot(segStart, curX, curY, curZ, curYaw, 0);
+        pushRoot(segEnd, curX, curY, curZ, curYaw, 0);
+      }
+
+      const segCustomBones = new Set<string>();
+      if (Array.isArray(seg.keyframes) && seg.keyframes.length > 0) {
+        const maxLocalT = Math.max(...seg.keyframes.map((k) => Number(k?.time) || 0));
+        const timeRatio = maxLocalT > segDur + 0.05 ? (segDur / maxLocalT) : 1.0;
+        for (const bk of seg.keyframes) {
+          if (!bk || !bk.boneName || bk.boneName === '__root__') continue;
+          segCustomBones.add(normBoneKey(bk.boneName));
+          const localT = Math.max(0, (Number(bk.time) || 0) * timeRatio);
+          pushKfSafe(
+            segStart + localT,
+            bk.boneName,
+            {
+              x: Number(bk.rot?.x) || 0,
+              y: Number(bk.rot?.y) || 0,
+              z: Number(bk.rot?.z) || 0
+            },
+            {
+              x: Number(bk.pos?.x) || 0,
+              y: Number(bk.pos?.y) || 0,
+              z: Number(bk.pos?.z) || 0
+            },
+            10
+          );
+        }
+      }
+
+      if (isHumanoid) {
+        const gaitRaw = String(seg.gait || 'auto').toLowerCase();
+        const isSpatialMove = seg.type === 'move' || seg.type === 'arc' || seg.type === 'figure8' || seg.type === 'waypoints';
+        const isTurnSeg = seg.type === 'turn';
+
+        if (isSpatialMove && gaitRaw !== 'none' && gaitRaw !== 'idle') {
+          const mode: 'walk' | 'run' | 'embedded' =
+            gaitRaw === 'run' ? 'run' : (gaitRaw === 'embedded' ? 'embedded' : 'walk');
+          emitHumanoidGaitWindow(segStart, segEnd, mode, seg.clipName, false, segCustomBones);
+        } else if (isTurnSeg && gaitRaw !== 'none' && gaitRaw !== 'idle') {
+          const mode: 'walk' | 'run' | 'embedded' =
+            gaitRaw === 'run' ? 'run' : (gaitRaw === 'embedded' ? 'embedded' : 'walk');
+          emitHumanoidGaitWindow(segStart, segEnd, mode, seg.clipName, true, segCustomBones);
+        } else if ((seg.type === 'pose' || seg.type === 'wait') && (gaitRaw === 'embedded' || gaitRaw === 'walk' || gaitRaw === 'run' || !!seg.clipName)) {
+          const mode: 'walk' | 'run' | 'embedded' =
+            gaitRaw === 'run' ? 'run' : (gaitRaw === 'walk' ? 'walk' : 'embedded');
+          emitHumanoidGaitWindow(segStart, segEnd, mode, seg.clipName, false, segCustomBones);
+        } else {
+          const pad = Math.min(0.14, segDur * 0.15);
+          emitNeutralRestBones(segStart + pad, segCustomBones);
+          if (segEnd - segStart > pad * 2.5) {
+            emitNeutralRestBones(segEnd - pad, segCustomBones);
+          }
+        }
+      }
+
+      curT = segEnd;
+    }
+
+    if (Array.isArray(plan.keyframes) && plan.keyframes.length > 0) {
+      for (const bk of plan.keyframes) {
+        if (!bk || !bk.boneName || bk.boneName === '__root__') continue;
+        pushKfSafe(
+          Number(bk.time) || 0,
+          bk.boneName,
+          {
+            x: Number(bk.rot?.x) || 0,
+            y: Number(bk.rot?.y) || 0,
+            z: Number(bk.rot?.z) || 0
+          },
+          {
+            x: Number(bk.pos?.x) || 0,
+            y: Number(bk.pos?.y) || 0,
+            z: Number(bk.pos?.z) || 0
+          },
+          10
+        );
+      }
+    }
+
+    const applied = this.applyGeneratedBoneTimeline(propId, {
+      duration: totalDur,
+      loop: plan.loop !== false,
+      speed: plan.speed,
+      poseSpace: 'rest',
+      keyframes: kfs
+    });
+    if (applied > 0) {
+      rig.timeline.lastAiSegments = JSON.parse(JSON.stringify(segments));
+      if (plan.prompt && String(plan.prompt).trim()) {
+        rig.timeline.lastAiPrompt = String(plan.prompt).trim();
+      }
+    }
+    return applied;
+  }
+
+  /**
    * Bộ tổng hợp chuyển động khớp xương thông minh dựa trên từ khóa kịch bản tiếng Việt/Anh
    * (hỗ trợ cả chuỗi hành động liên tiếp nhau như "vẫy tay rồi cúi chào", phân biệt trái/phải)
    * kết hợp dữ liệu khung hình Video mẫu (VideoFramePoseSample[]).
    */
+  /**
+   * Tổng hợp quỹ đạo chuyển động chuẩn vật lý/hình học (chạy vòng tròn, hình số 8, chạy thẳng)
+   * trên node gốc `__root__` cho xe cộ / vật thể cứng không có bộ xương khớp (hoặc khi người dùng
+   * yêu cầu di chuyển theo quỹ đạo), giữ nguyên 100% kết cấu sub-mesh của mô hình.
+   */
+  tryGenerateRigidPathMotion(
+    propId: string,
+    promptText: string,
+    preferredDuration?: number
+  ): { count: number; duration: number; explanation: string } | null {
+    const rig = this._propRigMap.get(propId);
+    if (!rig) return null;
+    const raw = (promptText || '').trim();
+    if (!raw) return null;
+    const lower = raw.toLowerCase();
+
+    const isCircle = /vòng\s*tròn|vong\s*tron|chạy\s*tròn|lượn\s*tròn|đi\s*tròn|xoay\s*vòng\s*rộng|circle|orbit/.test(lower);
+    const isFigure8 = /số\s*8|so\s*8|figure[\s-]*8/.test(lower);
+    const isStraight = /chạy\s*thẳng|đi\s*thẳng|tiến\s*thẳng|lướt\s*thẳng|chạy\s*tới\s*lui|straight/.test(lower);
+
+    if (!isCircle && !isFigure8 && !isStraight) {
+      return null;
+    }
+
+    // Trích xuất kích thước (mét) từ lệnh người dùng: phân biệt rõ "bán kính" vs "rộng / đường kính"
+    let radiusMeters = 5.0;
+    const radiusMatch = lower.match(/(?:bán\s*kính|ban\s*kinh|radius|\br\s*=)\s*(\d+(?:[.,]\d+)?)\s*(?:m|mét|met)?/i);
+    const diameterMatch = lower.match(/(?:đường\s*kính|duong\s*kinh|rộng|rong|diameter|wide)\s*(\d+(?:[.,]\d+)?)\s*(?:m|mét|met)?/i);
+    const genericMeterMatch = lower.match(/(\d+(?:[.,]\d+)?)\s*(?:m|mét|met)(?:\b|$)/i);
+
+    if (radiusMatch) {
+      radiusMeters = parseFloat(radiusMatch[1].replace(',', '.'));
+    } else if (diameterMatch) {
+      const val = parseFloat(diameterMatch[1].replace(',', '.'));
+      radiusMeters = isStraight ? val : val / 2;
+    } else if (genericMeterMatch) {
+      const val = parseFloat(genericMeterMatch[1].replace(',', '.'));
+      radiusMeters = isStraight ? val : val / 2;
+    } else {
+      radiusMeters = isStraight ? 8.0 : 4.0;
+    }
+    if (!Number.isFinite(radiusMeters) || radiusMeters <= 0) radiusMeters = 5.0;
+    radiusMeters = Math.max(0.5, Math.min(80, radiusMeters));
+
+    // Nếu người dùng nêu rõ thời lượng ("trong 8 giây", "8s") thì ưu tiên theo đó
+    const durMatch = lower.match(/(\d+(?:[.,]\d+)?)\s*(?:giây|giay|sec|s\b)/i);
+    let duration = durMatch ? parseFloat(durMatch[1].replace(',', '.')) : 0;
+
+    const meterScale = rig.meterScale || 1;
+    const forwardAxis = rig.forwardAxis || '+z';
+    const forwardYawOffset = forwardAxis === '+x' ? -90 : 0;
+    // Phân biệt chính xác xe 4 bánh (ô tô, SUV, xe tải: giữ thân xe bám phẳng 4 bánh trên đường, KHÔNG nghiêng kiểu xe đạp!)
+    // với xe 2 bánh (xe đạp, mô tô, xe máy: nghiêng vào tâm cua 10°).
+    const widthToHeight = Math.min(rig.modelSize.x, rig.modelSize.z) / Math.max(0.01, rig.modelSize.y);
+    const isFourWheeler =
+      (rig.autoWheels && rig.autoWheels.length >= 3) ||
+      /ô\s*tô|o\s*to|xe\s*hơi|xe\s*hoi|sedan|suv|car|truck|xe\s*tải|xe\s*tai|bus|xe\s*buýt|xe\s*khách|van\b|coupe|pickup|jeep|taxi/.test(lower) ||
+      (widthToHeight > 0.95 && !/xe\s*đạp|xe\s*dap|bmx|bike|bicycle|mô\s*tô|moto|xe\s*máy|xe\s*may|scooter/.test(lower));
+    const isTwoWheeler =
+      !isFourWheeler &&
+      (/xe\s*đạp|xe\s*dap|bmx|bike|bicycle|mô\s*tô|moto|xe\s*máy|xe\s*may|scooter/.test(lower) ||
+        (rig.autoWheels && rig.autoWheels.length === 2));
+
+    const kfs: Array<{
+      time: number;
+      boneName: string;
+      rot: { x: number; y: number; z: number };
+      pos: { x: number; y: number; z: number };
+    }> = [];
+
+    const composeRootRot = (yawDeg: number, leanDeg: number): { x: number; y: number; z: number } => {
+      const qYaw = new pc.Quat().setFromEulerAngles(0, yawDeg, 0);
+      const qLean =
+        forwardAxis === '+x'
+          ? new pc.Quat().setFromEulerAngles(leanDeg, 0, 0)
+          : new pc.Quat().setFromEulerAngles(0, 0, leanDeg);
+      const qTotal = new pc.Quat().mul2(qYaw, qLean).normalize();
+      const e = qTotal.getEulerAngles();
+      return {
+        x: Math.round(e.x * 100) / 100,
+        y: Math.round(e.y * 100) / 100,
+        z: Math.round(e.z * 100) / 100
+      };
+    };
+
+    let explanation = '';
+    const wheelNote = rig.autoWheels && rig.autoWheels.length > 0
+      ? ` — tự động quay ${rig.autoWheels.length} bánh xe và đánh lái bánh trước theo bán kính cua`
+      : ' — giữ nguyên 100% kết cấu mô hình';
+
+    if (isCircle) {
+      const circumference = 2 * Math.PI * radiusMeters;
+      if (!duration || !Number.isFinite(duration)) {
+        const autoDur = Math.max(4.0, Math.min(18.0, circumference / 5.0));
+        duration = preferredDuration && preferredDuration >= 4.0 ? preferredDuration : Math.round(autoDur * 10) / 10;
+      }
+      duration = Math.max(1.5, Math.min(60, duration));
+
+      const turnLeft = /ngược\s*chiều|nguoc\s*chieu|bên\s*trái|sang\s*trái|ccw/.test(lower);
+      const dir = turnLeft ? -1 : 1; // +1: quay thuận (tâm nằm bên phải hướng chạy)
+      const rLocal = radiusMeters * meterScale;
+      // Chỉ xe 2 bánh mới nghiêng vào tâm cua (+10°); ô tô & vật thể 4 bánh giữ phẳng hoàn toàn (0°) trên mặt đường
+      const leanDeg = isTwoWheeler ? (10 * dir) : 0;
+      const steps = 36; // mỗi bước 10° để slerp tròn mượt tuyệt đối
+
+      for (let i = 0; i <= steps; i++) {
+        const frac = i / steps;
+        const theta = frac * Math.PI * 2 * dir;
+        const px = rLocal * Math.cos(theta);
+        const pz = rLocal * Math.sin(theta);
+        // Tiếp tuyến (dx/dtheta, dz/dtheta) theo chiều chuyển động thực
+        const vx = -dir * Math.sin(theta);
+        const vz = dir * Math.cos(theta);
+        const yawDeg = (Math.atan2(vx, vz) * 180) / Math.PI + forwardYawOffset;
+
+        kfs.push({
+          time: Math.round(frac * duration * 1000) / 1000,
+          boneName: '__root__',
+          rot: composeRootRot(yawDeg, leanDeg),
+          pos: {
+            x: Math.round(px * 1000) / 1000,
+            y: 0,
+            z: Math.round(pz * 1000) / 1000
+          }
+        });
+      }
+      const diamStr = Number((radiusMeters * 2).toFixed(1));
+      explanation = `Đã tạo quỹ đạo chạy vòng tròn đường kính ${diamStr}m (bán kính ${Number(radiusMeters.toFixed(1))}m, ${duration}s)${wheelNote}.`;
+    } else if (isFigure8) {
+      const halfSpan = radiusMeters;
+      if (!duration || !Number.isFinite(duration)) {
+        duration = Math.max(6.0, Math.min(20.0, Math.round(halfSpan * 1.6 * 10) / 10));
+      }
+      duration = Math.max(2.0, Math.min(60, duration));
+      const a = halfSpan * meterScale;
+      const steps = 48;
+      for (let i = 0; i <= steps; i++) {
+        const frac = i / steps;
+        const th = frac * Math.PI * 2;
+        const px = a * Math.sin(th);
+        const pz = a * Math.sin(th) * Math.cos(th);
+        const vx = a * Math.cos(th);
+        const vz = a * (Math.cos(th) * Math.cos(th) - Math.sin(th) * Math.sin(th));
+        const yawDeg = (Math.atan2(vx, vz) * 180) / Math.PI + forwardYawOffset;
+        const leanDeg = isTwoWheeler ? (10 * Math.sin(th)) : 0;
+        kfs.push({
+          time: Math.round(frac * duration * 1000) / 1000,
+          boneName: '__root__',
+          rot: composeRootRot(yawDeg, leanDeg),
+          pos: {
+            x: Math.round(px * 1000) / 1000,
+            y: 0,
+            z: Math.round(pz * 1000) / 1000
+          }
+        });
+      }
+      explanation = `Đã tạo quỹ đạo chạy hình số 8 rộng ${Number((halfSpan * 2).toFixed(1))}m (${duration}s)${wheelNote}.`;
+    } else {
+      // Chạy thẳng
+      const distMeters = radiusMeters;
+      if (!duration || !Number.isFinite(duration)) {
+        duration = Math.max(2.5, Math.min(15.0, Math.round((distMeters / 3.5) * 10) / 10));
+      }
+      duration = Math.max(1.0, Math.min(60, duration));
+      const halfLocal = (distMeters * 0.5) * meterScale;
+      const steps = 16;
+      for (let i = 0; i <= steps; i++) {
+        const frac = i / steps;
+        const d = -halfLocal + frac * (halfLocal * 2);
+        kfs.push({
+          time: Math.round(frac * duration * 1000) / 1000,
+          boneName: '__root__',
+          rot: { x: 0, y: 0, z: 0 },
+          pos: forwardAxis === '+x'
+            ? { x: Math.round(d * 1000) / 1000, y: 0, z: 0 }
+            : { x: 0, y: 0, z: Math.round(d * 1000) / 1000 }
+        });
+      }
+      explanation = `Đã tạo quỹ đạo chạy thẳng ${Number(distMeters.toFixed(1))}m (${duration}s)${wheelNote}.`;
+    }
+
+    const count = this.applyGeneratedBoneTimeline(propId, {
+      duration,
+      loop: true,
+      keyframes: kfs
+    });
+    return count > 0 ? { count, duration, explanation } : null;
+  }
+
+  /**
+   * Tổng hợp chuyển động di chuyển thực tế trong không gian 3D cho NHÂN VẬT CÓ XƯƠNG (Humanoid Locomotion):
+   * - Hỗ trợ: "Đi bộ 10m rồi quay đầu lại đi bộ 10m", "đi thẳng 8m", "chạy 15m rồi quay lại", "đi bộ/chạy vòng tròn rộng 10m", "đi bộ hình số 8".
+   * - Di chuyển toàn bộ nhân vật trên `__root__` đúng số mét yêu cầu + xoay đầu mượt 180° khi quay lại.
+   * - Tự động tận dụng clip đi bộ/chạy gốc nhúng sẵn trong GLB (nếu nhân vật có sẵn như Meshy Walking) để bước chân tự nhiên như mocap,
+   *   hoặc tự sinh chu kỳ sải chân/đánh tay đồng bộ theo đúng vận tốc di chuyển (không bị đi bộ tại chỗ!).
+   */
+  tryGenerateHumanoidLocomotionMotion(
+    propId: string,
+    promptText: string,
+    preferredDuration?: number
+  ): { count: number; duration: number; explanation: string } | null {
+    const rig = this._propRigMap.get(propId);
+    if (!rig || !rig.hasSkinnedSkeleton) return null;
+    const raw = (promptText || '').trim();
+    if (!raw) return null;
+    const lower = raw.toLowerCase();
+
+    const isWalkOrRun = /đi\s*bộ|di\s*bo|đi\s*thẳng|di\s*thang|đi\s*tới|đi\s*lại|bước\s*đi|dạo\s*bước|walk|chạy|chay|run\b|jog/.test(lower);
+    if (!isWalkOrRun) return null;
+
+    const isTurnAround = /quay\s*đầu|quay\s*dau|quay\s*lại|quay\s*lai|vòng\s*lại|vong\s*lai|trở\s*lại|tro\s*lai|đi\s*lại|chạy\s*về|đi\s*về|turn\s*around|come\s*back|back\s*and\s*forth/.test(lower);
+    const isCircle = /vòng\s*tròn|vong\s*tron|chạy\s*tròn|đi\s*tròn|circle|orbit/.test(lower);
+    const isFigure8 = /số\s*8|so\s*8|figure[\s-]*8/.test(lower);
+    const meterMatches = Array.from(lower.matchAll(/(\d+(?:[.,]\d+)?)\s*(?:m|mét|met)(?:\b|$)/gi))
+      .map((m) => parseFloat(m[1].replace(',', '.')))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    const hasStraightCue = /thẳng|thang|tiến\s*lên|straight/.test(lower);
+
+    // Chỉ kích hoạt khi người dùng thực sự muốn di chuyển có quãng đường / quỹ đạo / quay đầu (không chặn đi bộ tại chỗ nếu cố tình ghi "tại chỗ")
+    if (/tại\s*chỗ|tai\s*cho|in[\s-]*place/.test(lower)) return null;
+    if (!isTurnAround && !isCircle && !isFigure8 && meterMatches.length === 0 && !hasStraightCue) {
+      return null;
+    }
+
+    const isRun = /chạy|chay|run\b|jog/.test(lower) && !/đi\s*bộ|di\s*bo|walk/.test(lower);
+    const meterScale = rig.meterScale || 1;
+
+    // Kiểm tra xem nhân vật có sẵn clip đi bộ/chạy nhúng trong GLB để tái sử dụng dáng đi mocap thật hay không
+    const embeddedClips = rig.clips.filter((c) => !c.isCustomKeyframeClip && !!c.resource);
+    let embeddedGaitClip = embeddedClips.find((c) => {
+      const n = String(c.name || '').toLowerCase();
+      return isRun ? /run|jog|sprint/.test(n) : /walk|stride|stroll/.test(n);
+    });
+    if (!embeddedGaitClip && embeddedClips.length === 1) {
+      const propNameLower = String(rig.propId || '').toLowerCase();
+      if ((isRun && /run|jog/.test(propNameLower)) || (!isRun && /walk/.test(propNameLower))) {
+        embeddedGaitClip = embeddedClips[0];
+      }
+    }
+
+    let extractedBaseCycle: GlbSavedKeyframeClip | null = null;
+    if (embeddedGaitClip) {
+      try {
+        extractedBaseCycle = this.extractPortableClip(propId, embeddedGaitClip.name);
+      } catch (_) {
+        extractedBaseCycle = null;
+      }
+    }
+
+    const cycleDur = extractedBaseCycle
+      ? Math.max(0.45, Math.min(2.5, Number(extractedBaseCycle.duration) || 1.07))
+      : (isRun ? 0.72 : 1.05);
+    // Vận tốc đồng bộ theo đúng độ dài sải chân 1 chu kỳ (2 bước ~ 1.42m đi bộ, ~ 2.4m chạy) để tránh trượt chân
+    const speedMps = isRun ? (2.4 / cycleDur) : (1.42 / cycleDur);
+
+    const kfs: Array<{
+      time: number;
+      boneName: string;
+      rot: { x: number; y: number; z: number };
+      pos?: { x: number; y: number; z: number };
+    }> = [];
+
+    let totalDur = 0;
+    let explanation = '';
+    const durMatch = lower.match(/(\d+(?:[.,]\d+)?)\s*(?:giây|giay|sec|s\b)/i);
+    const forcedDur = durMatch ? parseFloat(durMatch[1].replace(',', '.')) : 0;
+    const snapToCycles = (rawSec: number, minCycles = 2): number => {
+      if (forcedDur > 0) return Math.max(1.0, Math.min(58.0, Math.round(forcedDur * 100) / 100));
+      const clamped = Math.max(cycleDur * minCycles, Math.min(56.0, rawSec));
+      const nCyc = Math.max(minCycles, Math.round(clamped / cycleDur));
+      return Math.round(Math.min(58.0, nCyc * cycleDur) * 100) / 100;
+    };
+
+    if (isCircle) {
+      const radiusMatch = lower.match(/(?:bán\s*kính|ban\s*kinh|radius|\br\s*=)\s*(\d+(?:[.,]\d+)?)\s*(?:m|mét|met)?/i);
+      let radiusMeters = radiusMatch
+        ? parseFloat(radiusMatch[1].replace(',', '.'))
+        : (meterMatches.length > 0 ? meterMatches[0] / 2 : 4.0);
+      radiusMeters = Math.max(0.8, Math.min(50, radiusMeters));
+      const circ = 2 * Math.PI * radiusMeters;
+      totalDur = snapToCycles(Math.max(4.0, circ / speedMps), 3);
+      const turnLeft = /ngược\s*chiều|nguoc\s*chieu|bên\s*trái|sang\s*trái|ccw/.test(lower);
+      const dir = turnLeft ? -1 : 1;
+      const rLocal = radiusMeters * meterScale;
+      const steps = 36;
+      for (let i = 0; i <= steps; i++) {
+        const frac = i / steps;
+        const theta = frac * Math.PI * 2 * dir;
+        const px = rLocal * Math.cos(theta);
+        const pz = rLocal * Math.sin(theta);
+        const vx = -dir * Math.sin(theta);
+        const vz = dir * Math.cos(theta);
+        const yawDeg = (Math.atan2(vx, vz) * 180) / Math.PI;
+        kfs.push({
+          time: Math.round(frac * totalDur * 1000) / 1000,
+          boneName: '__root__',
+          rot: { x: 0, y: Math.round(yawDeg * 100) / 100, z: 0 },
+          pos: { x: Math.round(px * 1000) / 1000, y: 0, z: Math.round(pz * 1000) / 1000 }
+        });
+      }
+      explanation = `Đã tạo chuyển động ${isRun ? 'chạy' : 'đi bộ'} vòng tròn đường kính ${Number((radiusMeters * 2).toFixed(1))}m (${totalDur}s) với bước chân đồng bộ trên sàn.`;
+    } else if (isFigure8) {
+      const halfSpan = Math.max(1.5, Math.min(35, meterMatches.length > 0 ? meterMatches[0] / 2 : 5.0));
+      const approxLen = halfSpan * 6.0;
+      totalDur = snapToCycles(Math.max(5.0, approxLen / speedMps), 4);
+      const a = halfSpan * meterScale;
+      const steps = 48;
+      for (let i = 0; i <= steps; i++) {
+        const frac = i / steps;
+        const th = frac * Math.PI * 2;
+        const px = a * Math.sin(th);
+        const pz = a * Math.sin(th) * Math.cos(th);
+        const vx = a * Math.cos(th);
+        const vz = a * (Math.cos(th) * Math.cos(th) - Math.sin(th) * Math.sin(th));
+        const yawDeg = (Math.atan2(vx, vz) * 180) / Math.PI;
+        kfs.push({
+          time: Math.round(frac * totalDur * 1000) / 1000,
+          boneName: '__root__',
+          rot: { x: 0, y: Math.round(yawDeg * 100) / 100, z: 0 },
+          pos: { x: Math.round(px * 1000) / 1000, y: 0, z: Math.round(pz * 1000) / 1000 }
+        });
+      }
+      explanation = `Đã tạo chuyển động ${isRun ? 'chạy' : 'đi bộ'} hình số 8 rộng ${Number((halfSpan * 2).toFixed(1))}m (${totalDur}s).`;
+    } else if (isTurnAround) {
+      // Đi thẳng d1 mét -> quay đầu mượt 180° -> đi về d2 mét -> quay đầu mượt 180° khép vòng lặp
+      const d1 = Math.max(1.0, Math.min(60, meterMatches[0] || 10.0));
+      const d2 = Math.max(1.0, Math.min(60, meterMatches[1] || d1));
+      let tTurn1 = 0.85;
+      let tTurn2 = Math.abs(d1 - d2) < 0.25 ? 0.85 : 0;
+      let tLeg1 = Math.max(1.0, d1 / speedMps);
+      let tLeg2 = Math.max(1.0, d2 / speedMps);
+      const rawSum = tLeg1 + tTurn1 + tLeg2 + tTurn2;
+      totalDur = snapToCycles(rawSum, 3);
+      const scaleTime = totalDur / Math.max(0.1, rawSum);
+      tLeg1 *= scaleTime;
+      tTurn1 *= scaleTime;
+      tLeg2 *= scaleTime;
+      tTurn2 *= scaleTime;
+      const zEnd1 = d1 * meterScale;
+      const zEnd2 = (d1 - d2) * meterScale;
+
+      const pushRoot = (t: number, z: number, yaw: number) => {
+        kfs.push({
+          time: Math.round(Math.max(0, Math.min(totalDur, t)) * 1000) / 1000,
+          boneName: '__root__',
+          rot: { x: 0, y: yaw, z: 0 },
+          pos: { x: 0, y: 0, z: Math.round(z * 1000) / 1000 }
+        });
+      };
+
+      // Chặng 1: đi thẳng từ 0 -> +d1 (hướng +Z, yaw = 0°)
+      const leg1Steps = Math.max(8, Math.min(24, Math.ceil(d1)));
+      for (let i = 0; i <= leg1Steps; i++) {
+        const f = i / leg1Steps;
+        pushRoot(f * tLeg1, f * zEnd1, 0);
+      }
+
+      // Quay đầu mượt 180° (6 bước, mỗi bước 30° để SLERP quay thuận 1 chiều liên tục)
+      const turn1Start = tLeg1;
+      for (let i = 1; i <= 6; i++) {
+        const f = i / 6;
+        pushRoot(turn1Start + f * tTurn1, zEnd1, Math.round(f * 180 * 10) / 10);
+      }
+
+      // Chặng 2: quay đầu đi về từ +d1 -> +(d1 - d2) (hướng -Z, yaw = 180°)
+      const leg2Start = tLeg1 + tTurn1;
+      const leg2Steps = Math.max(8, Math.min(24, Math.ceil(d2)));
+      for (let i = 1; i <= leg2Steps; i++) {
+        const f = i / leg2Steps;
+        pushRoot(leg2Start + f * tLeg2, zEnd1 + f * (zEnd2 - zEnd1), 180);
+      }
+
+      // Nếu quay lại đúng điểm xuất phát (d1 ≈ d2): quay thêm 180° mượt để khép vòng lặp liên tục
+      if (tTurn2 > 0) {
+        const turn2Start = leg2Start + tLeg2;
+        for (let i = 1; i <= 6; i++) {
+          const f = i / 6;
+          const tVal = i === 6 ? totalDur : turn2Start + f * tTurn2;
+          pushRoot(tVal, zEnd2, Math.round((180 + f * 180) * 10) / 10);
+        }
+      }
+
+      explanation = `Đã tạo chuyển động ${isRun ? 'chạy' : 'đi bộ'} ${Number(d1.toFixed(1))}m rồi quay đầu ${isRun ? 'chạy' : 'đi bộ'} lại ${Number(d2.toFixed(1))}m (${totalDur}s)${extractedBaseCycle ? ' kết hợp dáng đi mocap gốc của nhân vật' : ''}.`;
+    } else {
+      // Đi thẳng 1 chiều d1 mét
+      const d1 = Math.max(1.0, Math.min(60, meterMatches[0] || 10.0));
+      totalDur = snapToCycles(Math.max(1.5, d1 / speedMps), 2);
+      const zEnd = d1 * meterScale;
+      const steps = Math.max(12, Math.min(28, Math.ceil(d1 * 1.5)));
+      for (let i = 0; i <= steps; i++) {
+        const f = i / steps;
+        kfs.push({
+          time: Math.round(f * totalDur * 1000) / 1000,
+          boneName: '__root__',
+          rot: { x: 0, y: 0, z: 0 },
+          pos: { x: 0, y: 0, z: Math.round(f * zEnd * 1000) / 1000 }
+        });
+      }
+      explanation = `Đã tạo chuyển động ${isRun ? 'chạy' : 'đi bộ'} thẳng ${Number(d1.toFixed(1))}m (${totalDur}s)${extractedBaseCycle ? ' kết hợp dáng đi mocap gốc của nhân vật' : ''}.`;
+    }
+
+    // Ghép lớp chuyển động thân/chân/tay đồng bộ với quãng đường trên __root__
+    if (extractedBaseCycle && Array.isArray(extractedBaseCycle.keyframes) && extractedBaseCycle.keyframes.length > 0) {
+      // Nhóm keyframe 1 chu kỳ theo mốc thời gian và lấy mẫu gọn (8-10 mốc/chu kỳ) để vừa nhẹ dữ liệu vừa mượt tuyệt đối
+      const byTime = new Map<number, GlbBoneKeyframe[]>();
+      for (const bk of extractedBaseCycle.keyframes) {
+        if (!bk || bk.boneName === '__root__') continue;
+        const ms = Math.round((Number(bk.time) || 0) * 1000);
+        if (!byTime.has(ms)) byTime.set(ms, []);
+        byTime.get(ms)!.push(bk);
+      }
+      const uniqueMs = Array.from(byTime.keys()).sort((a, b) => a - b);
+      const estCycles = Math.max(1, Math.round(totalDur / cycleDur));
+      const targetFramesPerCycle = estCycles >= 8 ? 8 : 10;
+      const strideStep = uniqueMs.length > targetFramesPerCycle + 2 ? Math.ceil(uniqueMs.length / targetFramesPerCycle) : 1;
+      const pickedMs: number[] = [];
+      for (let idx = 0; idx < uniqueMs.length; idx += strideStep) {
+        pickedMs.push(uniqueMs[idx]);
+      }
+
+      const numCycles = Math.ceil(totalDur / cycleDur) + 1;
+      const lastWrittenMsByBone = new Map<string, number>();
+
+      for (let cyc = 0; cyc < numCycles; cyc++) {
+        const baseT = cyc * cycleDur;
+        if (baseT > totalDur + 0.005) break;
+        const nextCycleStart = (cyc + 1) * cycleDur;
+        for (const ms of pickedMs) {
+          const localSec = ms / 1000;
+          // Tránh trùng mốc cuối chu kỳ trước với mốc 0 chu kỳ sau (gây nhân đôi quaternion)
+          if (localSec >= cycleDur - 0.025 && cyc < numCycles - 1) continue;
+          const absT = Math.min(totalDur, baseT + localSec);
+          const absMs = Math.round(absT * 1000);
+          if (absT > totalDur + 0.002) break;
+          const frameList = byTime.get(ms) || [];
+          for (const bk of frameList) {
+            const prevMs = lastWrittenMsByBone.get(bk.boneName);
+            if (prevMs !== undefined && Math.abs(absMs - prevMs) < 15) continue;
+            lastWrittenMsByBone.set(bk.boneName, absMs);
+            kfs.push({
+              time: Math.round(absT * 1000) / 1000,
+              boneName: bk.boneName,
+              rot: { x: bk.rot.x, y: bk.rot.y, z: bk.rot.z },
+              pos: bk.pos ? { x: 0, y: bk.pos.y || 0, z: 0 } : { x: 0, y: 0, z: 0 }
+            });
+          }
+          if (absT >= totalDur - 0.005) break;
+        }
+        if (nextCycleStart > totalDur) break;
+      }
+
+      // Khép mốc cuối tại đúng t = totalDur theo frame mở đầu chu kỳ (phase 0) để lặp lại hoàn toàn liền mạch
+      const firstFrameList = pickedMs.length > 0 ? (byTime.get(pickedMs[0]) || []) : [];
+      const endMs = Math.round(totalDur * 1000);
+      for (const bk of firstFrameList) {
+        const prevMs = lastWrittenMsByBone.get(bk.boneName);
+        if (prevMs !== undefined && Math.abs(endMs - prevMs) < 15) continue;
+        lastWrittenMsByBone.set(bk.boneName, endMs);
+        kfs.push({
+          time: totalDur,
+          boneName: bk.boneName,
+          rot: { x: bk.rot.x, y: bk.rot.y, z: bk.rot.z },
+          pos: bk.pos ? { x: 0, y: bk.pos.y || 0, z: 0 } : { x: 0, y: 0, z: 0 }
+        });
+      }
+
+      const count = this.applyGeneratedBoneTimeline(propId, {
+        duration: totalDur,
+        loop: true,
+        poseSpace: extractedBaseCycle.poseSpace || 'tpose',
+        keyframes: kfs
+      });
+      return count > 0 ? { count, duration: totalDur, explanation } : null;
+    }
+
+    // Fallback cho nhân vật không có sẵn clip đi bộ nhúng trong GLB: sinh chu kỳ bước chân procedural mượt đồng bộ theo tốc độ
+    const anat = this._resolveRigAnatomy(rig);
+    const swing = isRun ? 48 : 34;
+    const wholeCycles = Math.max(1, Math.round(totalDur / cycleDur));
+    const stepsPerCycle = 8;
+    const totalSteps = wholeCycles * stepsPerCycle;
+    const pushLimb = (boneName: string, t: number, rx: number, ry: number, rz: number, py = 0) => {
+      if (!boneName || boneName === '__root__') return;
+      kfs.push({
+        time: Math.round(t * 1000) / 1000,
+        boneName,
+        rot: { x: Math.round(rx * 10) / 10, y: Math.round(ry * 10) / 10, z: Math.round(rz * 10) / 10 },
+        pos: { x: 0, y: Math.round(py * 1000) / 1000, z: 0 }
+      });
+    };
+
+    for (let i = 0; i <= totalSteps; i++) {
+      const t = i === totalSteps ? totalDur : (i / totalSteps) * totalDur;
+      const phase = (i / totalSteps) * wholeCycles * Math.PI * 2;
+      const s = Math.sin(phase);
+      const c = Math.cos(phase);
+      pushLimb(anat.hips, t, isRun ? 10 : 3, s * 7, c * 3, Math.abs(c) * (isRun ? 0.1 : 0.04));
+      pushLimb(anat.lowerSpine, t, isRun ? 8 : 3, -s * 8, 0);
+      if (anat.chest !== anat.lowerSpine) pushLimb(anat.chest, t, isRun ? 6 : 2, -s * 6, 0);
+      if (anat.head !== anat.chest) pushLimb(anat.head, t, isRun ? -6 : 0, s * 4, 0);
+      pushLimb(anat.lUpLeg, t, -s * swing, 0, 0);
+      pushLimb(anat.rUpLeg, t, s * swing, 0, 0);
+      if (anat.lLeg !== anat.lUpLeg) pushLimb(anat.lLeg, t, (s < 0 ? -s : 0.18) * (swing * 1.08), 0, 0);
+      if (anat.rLeg !== anat.rUpLeg) pushLimb(anat.rLeg, t, (s > 0 ? s : 0.18) * (swing * 1.08), 0, 0);
+      if (anat.lFoot !== anat.lLeg) pushLimb(anat.lFoot, t, s > 0 ? -12 * s : 14 * (-s), 0, 0);
+      if (anat.rFoot !== anat.rLeg) pushLimb(anat.rFoot, t, s < 0 ? 12 * s : 14 * s, 0, 0);
+      pushLimb(anat.lArm, t, s * (swing * 0.72), 0, -16);
+      pushLimb(anat.rArm, t, -s * (swing * 0.72), 0, 16);
+      if (anat.lForeArm !== anat.lArm) pushLimb(anat.lForeArm, t, isRun ? -65 : -24, 0, 0);
+      if (anat.rForeArm !== anat.rArm) pushLimb(anat.rForeArm, t, isRun ? -65 : -24, 0, 0);
+    }
+
+    const count = this.applyGeneratedBoneTimeline(propId, {
+      duration: totalDur,
+      loop: true,
+      poseSpace: 'rest',
+      keyframes: kfs
+    });
+    return count > 0 ? { count, duration: totalDur, explanation } : null;
+  }
+
   generateSmartBoneMotion(
     propId: string,
     promptText: string,
@@ -4362,6 +6934,32 @@ export class SontinhSceneService implements OnDestroy {
   ): number {
     const rig = this._propRigMap.get(propId);
     if (!rig) return 0;
+
+    // Với mô hình cứng / phương tiện không có xương khớp (xe đạp, ô tô, đồ vật), ưu tiên bộ tạo quỹ đạo chuẩn vật lý trên __root__
+    if (!rig.hasSkinnedSkeleton) {
+      const rigidRes = this.tryGenerateRigidPathMotion(propId, promptText, duration);
+      if (rigidRes) return rigidRes.count;
+      // Fallback an toàn cho vật thể cứng: chỉ chuyển động nhẹ trên __root__, tuyệt đối không xoay các sub-mesh làm vỡ cấu trúc
+      const safeDur = Math.max(1.5, Math.min(20.0, Number(duration) || 3.0));
+      return this.applyGeneratedBoneTimeline(propId, {
+        duration: safeDur,
+        loop: true,
+        keyframes: [
+          { time: 0, boneName: '__root__', rot: { x: 0, y: 0, z: 0 }, pos: { x: 0, y: 0, z: 0 } },
+          { time: safeDur * 0.25, boneName: '__root__', rot: { x: 0, y: 90, z: 0 }, pos: { x: 0, y: 0, z: 0 } },
+          { time: safeDur * 0.5, boneName: '__root__', rot: { x: 0, y: 180, z: 0 }, pos: { x: 0, y: 0, z: 0 } },
+          { time: safeDur * 0.75, boneName: '__root__', rot: { x: 0, y: 270, z: 0 }, pos: { x: 0, y: 0, z: 0 } },
+          { time: safeDur, boneName: '__root__', rot: { x: 0, y: 360, z: 0 }, pos: { x: 0, y: 0, z: 0 } }
+        ]
+      });
+    }
+
+    // Với nhân vật có xương yêu cầu đi bộ / chạy có quãng đường, quay đầu hoặc quỹ đạo (vòng tròn, thẳng, số 8):
+    // di chuyển thực tế trên __root__ thay vì đi bộ tại chỗ!
+    if (!poseSamples || poseSamples.length < 3) {
+      const locoRes = this.tryGenerateHumanoidLocomotionMotion(propId, promptText, duration);
+      if (locoRes) return locoRes.count;
+    }
 
     const cleanPrompt = (promptText || '').trim();
     const lower = cleanPrompt.toLowerCase();
@@ -4837,7 +7435,20 @@ export class SontinhSceneService implements OnDestroy {
               this.onTimelineTimeUpdate(rig.propId, rig.currentTime, tl.playing);
             }
           }
-          this._applyRigRootMotionLock(rig);
+          // Với Clip Keyframe tùy chỉnh (đặc biệt MoCap 3D khóa 2 chân bám sàn), giữ nguyên dịch chuyển hông (Hips.pos x/y/z)
+          // và chỉ khóa glbEntity tại gốc (0,0,0) khi clip KHÔNG di chuyển trực tiếp __root__ (vd: xe chạy vòng tròn)
+          const hasRootPosMotion = tl.keyframes.some(
+            (k) =>
+              k.boneName === '__root__' &&
+              k.pos &&
+              (Math.abs(k.pos.x || 0) > 1e-4 || Math.abs(k.pos.y || 0) > 1e-4 || Math.abs(k.pos.z || 0) > 1e-4)
+          );
+          if (!hasRootPosMotion) {
+            const lp = rig.glbEntity.getLocalPosition();
+            if (Math.abs(lp.x) > 1e-5 || Math.abs(lp.y) > 1e-5 || Math.abs(lp.z) > 1e-5) {
+              rig.glbEntity.setLocalPosition(0, 0, 0);
+            }
+          }
           return;
         }
         if (rig.animComp?.baseLayer && tl.playing) {
@@ -7360,22 +9971,50 @@ export class SontinhSceneService implements OnDestroy {
       }
     };
 
+    function getPropSelectionCenterWorld(ent: pc.Entity, propId?: string | null): { x: number; y: number; z: number } {
+      const ep = ent.getPosition();
+      const pid = propId || (ent.name.startsWith('PropGLB_') ? ent.name.slice(8) : ent.name);
+      const rig = pid ? _svc._propRigMap.get(pid) : null;
+      if (rig?.hipsNode) {
+        const hp = rig.hipsNode.getPosition();
+        return { x: hp.x, y: ep.y, z: hp.z };
+      }
+      if (rig?.glbEntity) {
+        const localMin: pc.Vec3 | null = (ent as any)._localAabbMin || null;
+        const localMax: pc.Vec3 | null = (ent as any)._localAabbMax || null;
+        if (localMin && localMax) {
+          const cx = (localMin.x + localMax.x) * 0.5;
+          const cz = (localMin.z + localMax.z) * 0.5;
+          const wt = rig.glbEntity.getWorldTransform();
+          const worldCenter = wt.transformPoint(new pc.Vec3(cx, 0, cz), new pc.Vec3());
+          return { x: worldCenter.x, y: rig.glbEntity.getPosition().y, z: worldCenter.z };
+        }
+        const gp = rig.glbEntity.getPosition();
+        return { x: gp.x, y: gp.y, z: gp.z };
+      }
+      return { x: ep.x, y: ep.y, z: ep.z };
+    }
+
     function showSelRing(ent: pc.Entity) {
       ensureSelRing();
       if (!selRing) return;
+      const nm = ent.name;
+      const pid = nm.startsWith('PropGLB_') ? nm.slice(8) : nm;
       const bb = collectAabb(ent);
       const p = ent.getPosition();
+      const c = getPropSelectionCenterWorld(ent, pid);
       const bottomY = computeEntityBottomWorldY(ent);
+      const extraY = c.y - p.y;
       if (bb) {
         const r = Math.max(bb.halfExtents.x, bb.halfExtents.z) + 0.25;
         const d = Math.max(0.6, r * 2);
         selRing.setLocalScale(d, 0.25, d);
         ringOffsetY = bottomY !== null ? (p.y - bottomY) : (p.y - (bb.center.y - bb.halfExtents.y));
-        selRing.setPosition(p.x, p.y - ringOffsetY + 0.04, p.z);
+        selRing.setPosition(c.x, p.y - ringOffsetY + extraY + 0.04, c.z);
       } else {
         ringOffsetY = bottomY !== null ? (p.y - bottomY) : 0.4;
         selRing.setLocalScale(1.6, 0.25, 1.6);
-        selRing.setPosition(p.x, p.y - ringOffsetY + 0.04, p.z);
+        selRing.setPosition(c.x, p.y - ringOffsetY + extraY + 0.04, c.z);
       }
       selRingBaseD = selRing.getLocalScale().x;
       selRingBaseOffsetY = ringOffsetY;
@@ -7383,9 +10022,8 @@ export class SontinhSceneService implements OnDestroy {
       selRingBaseScaleXZ = Math.max(0.0001, (s0.x + s0.z) * 0.5);
       selRingBaseScaleY = Math.max(0.0001, s0.y);
       selRing.enabled = true;
-      const nm = ent.name;
-      selRingPropId = nm.startsWith('PropGLB_') ? nm.slice(8) : nm;
-      syncFloorGuide(ent, p.x, p.z);
+      selRingPropId = pid;
+      syncFloorGuide(ent, c.x, c.z);
     }
 
     function moveSelRing(ent: pc.Entity) {
@@ -7398,10 +10036,12 @@ export class SontinhSceneService implements OnDestroy {
       selRing.setLocalScale(d, 0.25, d);
       ringOffsetY = selRingBaseOffsetY * fY;
       const p = ent.getPosition();
+      const c = getPropSelectionCenterWorld(ent, selRingPropId);
       const bottomY = computeEntityBottomWorldY(ent);
-      const ringY = (bottomY !== null ? bottomY : p.y - ringOffsetY) + 0.04;
-      selRing.setPosition(p.x, ringY, p.z);
-      syncFloorGuide(ent, p.x, p.z);
+      const extraY = c.y - p.y;
+      const ringY = (bottomY !== null ? bottomY + extraY : p.y - ringOffsetY + extraY) + 0.04;
+      selRing.setPosition(c.x, ringY, c.z);
+      syncFloorGuide(ent, c.x, c.z);
     }
 
     function setupDragPlane(sx: number, sy: number, entPos: pc.Vec3, initialHitPoint?: pc.Vec3) {
@@ -13133,22 +15773,17 @@ export class SontinhSceneService implements OnDestroy {
       }
 
       // Đồng bộ vòng tròn chọn (selRing) bám theo tâm chân thực tế của nhân vật/đồ vật mỗi khung hình
-      // (kể cả khi tắt Khóa tại chỗ để chạy root motion tự do hoặc đang chạy hiệu ứng bounce/float)
+      // (kể cả khi tắt Khóa tại chỗ để chạy root motion tự do, khi __root__ di chuyển theo quỹ đạo vòng tròn, hoặc hiệu ứng bounce/float)
       if (selRing && selRing.enabled && selRingPropId && !propDragActive && !tScrubActive) {
         const selEnt = findPropEntityById(selRingPropId);
         if (selEnt && selEnt.enabled) {
           const ep = selEnt.getPosition();
+          const c = getPropSelectionCenterWorld(selEnt, selRingPropId);
           const bottomY = computeEntityBottomWorldY(selEnt);
-          const ringY = (bottomY !== null ? bottomY : ep.y - ringOffsetY) + 0.04;
-          const rig = _svc._propRigMap.get(selRingPropId);
-          if (rig?.hipsNode) {
-            const hp = rig.hipsNode.getPosition();
-            selRing.setPosition(hp.x, ringY, hp.z);
-            syncFloorGuide(selEnt, hp.x, hp.z);
-          } else {
-            selRing.setPosition(ep.x, ringY, ep.z);
-            syncFloorGuide(selEnt, ep.x, ep.z);
-          }
+          const extraY = c.y - ep.y;
+          const ringY = (bottomY !== null ? bottomY + extraY : ep.y - ringOffsetY + extraY) + 0.04;
+          selRing.setPosition(c.x, ringY, c.z);
+          syncFloorGuide(selEnt, c.x, c.z);
         }
       }
 

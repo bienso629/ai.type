@@ -250,11 +250,160 @@ ng-select {
     }
 }
 
+/* ================================================================== */
+/* Bulk Video Dialog                                                   */
+/* ================================================================== */
+.bulk-video-trigger-btn {
+    .mdc-button__label {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        line-height: 1 !important;
+    }
+}
+
+.bulk-video-chip-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 9999px;
+    background: transparent;
+    cursor: pointer;
+
+    svg {
+        display: block;
+        width: 10px;
+        height: 10px;
+    }
+}
+
+.bulk-video-slider {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    outline: none !important;
+    border: none !important;
+    height: 6px !important;
+    border-radius: 9999px !important;
+
+    &::-webkit-slider-thumb {
+        -webkit-appearance: none !important;
+        appearance: none !important;
+        width: 16px !important;
+        height: 16px !important;
+        border-radius: 50% !important;
+        background: #059669 !important;
+        border: 2px solid #ffffff !important;
+        box-shadow: 0 0 0 1px rgba(5, 150, 105, 0.35) !important;
+        cursor: pointer;
+    }
+
+    &::-moz-range-thumb {
+        width: 16px !important;
+        height: 16px !important;
+        border-radius: 50% !important;
+        background: #059669 !important;
+        border: 2px solid #ffffff !important;
+        box-shadow: 0 0 0 1px rgba(5, 150, 105, 0.35) !important;
+        cursor: pointer;
+    }
+}
+
 .btn-unsticky-bulk {
     background-color: #64748b !important;
     color: #ffffff !important;
 
     &:hover:not([disabled]) {
         background-color: #475569 !important;
+    }
+}
+
+/* Highlight sáng icon Kịch bản cho bài viết đã có kịch bản */
+.script-created-badge {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9999px;
+    background-color: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    color: #ef4444;
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+
+    .mat-icon {
+        color: currentColor;
+    }
+}
+
+button:hover .script-created-badge {
+    background-color: rgba(239, 68, 68, 0.2);
+    border-color: rgba(220, 38, 38, 0.65);
+}
+
+/* Highlight sáng icon Dựng video cho bài viết đã tạo video */
+.video-created-badge {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9999px;
+    background-color: rgba(37, 99, 235, 0.14);
+    border: 1px solid rgba(59, 130, 246, 0.45);
+    color: #2563eb;
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+
+    .mat-icon {
+        color: currentColor;
+    }
+}
+
+button:hover .video-created-badge {
+    background-color: rgba(37, 99, 235, 0.22);
+    border-color: rgba(37, 99, 235, 0.65);
+}
+
+.video-created-dot {
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background-color: #10b981;
+    border: 1.5px solid #ffffff;
+}
+
+.dark {
+    .script-created-badge {
+        background-color: rgba(239, 68, 68, 0.2);
+        border-color: rgba(248, 113, 113, 0.55);
+        color: #f87171;
+    }
+
+    button:hover .script-created-badge {
+        background-color: rgba(239, 68, 68, 0.3);
+        border-color: rgba(252, 165, 165, 0.75);
+    }
+
+    .video-created-badge {
+        background-color: rgba(59, 130, 246, 0.22);
+        border-color: rgba(96, 165, 250, 0.55);
+        color: #60a5fa;
+    }
+
+    button:hover .video-created-badge {
+        background-color: rgba(59, 130, 246, 0.32);
+        border-color: rgba(147, 197, 253, 0.75);
+    }
+
+    .video-created-dot {
+        border-color: #1e293b;
     }
 }

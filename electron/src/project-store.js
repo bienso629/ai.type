@@ -43,6 +43,58 @@ function getUserRoot(username) {
     return path.join(app.getPath("documents"), "ai.type", "data", "tts", safeUser);
 }
 
+function getExportsOutputRoot() {
+    return path.join(app.getPath("documents"), "ai.type", "data", "exports", "output");
+}
+
+const VIDEO_FILE_EXT_RE = /\.(mp4|mov|webm|mkv|avi|m4v)$/i;
+
+function resolveLocalFileUri(rawUrl) {
+    let p = String(rawUrl || "").trim();
+    if (!p) return null;
+    if (p.startsWith("http://") || p.startsWith("https://")) return null;
+    if (p.startsWith("file:///")) {
+        try {
+            p = decodeURIComponent(p.replace(/^file:\/\//, ""));
+        } catch (_) {
+            p = p.replace(/^file:\/\//, "");
+        }
+        if (/^\/[A-Za-z]:\//.test(p)) p = p.slice(1);
+    } else if (p.startsWith("file://")) {
+        try {
+            p = decodeURIComponent(p.replace(/^file:\/\//, ""));
+        } catch (_) {
+            p = p.replace(/^file:\/\//, "");
+        }
+    }
+    return p;
+}
+
+function hasValidVideoInTimeline(timeline) {
+    if (!timeline || !Array.isArray(timeline.scenes)) return false;
+    for (const sc of timeline.scenes) {
+        if (!sc) continue;
+        const urls = [];
+        if (sc.videoUrl) urls.push(sc.videoUrl);
+        if (sc.localVideoPath) urls.push(sc.localVideoPath);
+        if (Array.isArray(sc.videos)) {
+            for (const v of sc.videos) {
+                if (!v) continue;
+                if (v.videoUrl) urls.push(v.videoUrl);
+                if (v.localVideoPath) urls.push(v.localVideoPath);
+            }
+        }
+        for (const raw of urls) {
+            const u = String(raw || "").trim();
+            if (!u) continue;
+            if (u.startsWith("http://") || u.startsWith("https://")) return true;
+            const localP = resolveLocalFileUri(u);
+            if (localP && fs.existsSync(localP)) return true;
+        }
+    }
+    return false;
+}
+
 function getProjectDir(username, uuid) {
     const safeUuid = sanitizeSegment(uuid);
     if (!safeUuid) return null;
@@ -169,6 +221,85 @@ function registerProjectStoreHandlers() {
         } catch (e) {
             console.error("[project-store:list] Lỗi:", e);
             return { success: false, error: e.message, projects: [] };
+        }
+    });
+
+    // Quét nhanh danh sách UUID đã có video xuất ra (Documents/ai.type/data/exports/output/<uuid>/)
+    // hoặc có video cảnh còn tồn tại trong timeline.json để đánh dấu sáng icon Dựng video
+    ipcMain.handle("project-store:list-created-videos", async (event, payload) => {
+        try {
+            const username = payload && payload.username;
+            const videos = {};
+
+            // 1. Quét thư mục xuất video chính: Documents/ai.type/data/exports/output/<uuid>/
+            const outRoot = getExportsOutputRoot();
+            if (fs.existsSync(outRoot)) {
+                const entries = fs.readdirSync(outRoot, { withFileTypes: true });
+                for (const entry of entries) {
+                    if (!entry.isDirectory()) continue;
+                    const uuid = entry.name;
+                    const dirPath = path.join(outRoot, uuid);
+                    try {
+                        const files = fs.readdirSync(dirPath, { withFileTypes: true });
+                        let count = 0;
+                        let latestPath = null;
+                        let latestMtime = 0;
+                        for (const f of files) {
+                            if (!f.isFile() || !VIDEO_FILE_EXT_RE.test(f.name)) continue;
+                            const fullPath = path.join(dirPath, f.name);
+                            try {
+                                const st = fs.statSync(fullPath);
+                                if (st.size > 0) {
+                                    count++;
+                                    if (st.mtimeMs >= latestMtime) {
+                                        latestMtime = st.mtimeMs;
+                                        latestPath = fullPath;
+                                    }
+                                }
+                            } catch (_) {}
+                        }
+                        if (count > 0) {
+                            videos[uuid] = {
+                                exported: true,
+                                count,
+                                latestPath,
+                                updatedAt: latestMtime,
+                            };
+                        }
+                    } catch (_) {}
+                }
+            }
+
+            // 2. Bổ sung các dự án trong tts/<username>/<uuid>/timeline.json có scene video thực tế
+            const userRoot = getUserRoot(username);
+            if (fs.existsSync(userRoot)) {
+                const entries = fs.readdirSync(userRoot, { withFileTypes: true });
+                for (const entry of entries) {
+                    if (!entry.isDirectory()) continue;
+                    const uuid = entry.name;
+                    if (videos[uuid]) continue;
+                    const tlPath = path.join(userRoot, uuid, "timeline.json");
+                    if (!fs.existsSync(tlPath)) continue;
+                    const tl = readJsonSafe(tlPath);
+                    if (hasValidVideoInTimeline(tl)) {
+                        let mtime = 0;
+                        try {
+                            mtime = fs.statSync(tlPath).mtimeMs;
+                        } catch (_) {}
+                        videos[uuid] = {
+                            exported: false,
+                            hasSceneVideo: true,
+                            count: 1,
+                            updatedAt: mtime,
+                        };
+                    }
+                }
+            }
+
+            return { success: true, videos };
+        } catch (e) {
+            console.error("[project-store:list-created-videos] Lỗi:", e);
+            return { success: false, error: e.message, videos: {} };
         }
     });
 
