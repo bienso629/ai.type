@@ -4363,6 +4363,8 @@ export class VideoTimelineDialogComponent
                     startTime: nextStartTime,
                     duration: realDur,
                     maxDuration: realDur,
+                    sourceType: 'upload',
+                    isIndependentAudio: true,
                 };
 
                 targetScene.extractedAudios.splice(aIdx + 1, 0, newAudio);
@@ -4391,6 +4393,8 @@ export class VideoTimelineDialogComponent
             startTime: nextStartTime,
             duration: 5,
             maxDuration: 5,
+            sourceType: 'upload',
+            isIndependentAudio: true,
         };
 
         targetScene.extractedAudios.splice(aIdx + 1, 0, newAudio);
@@ -4674,6 +4678,8 @@ export class VideoTimelineDialogComponent
                     startTime: startTime,
                     duration: realDur,
                     maxDuration: realDur,
+                    sourceType: 'upload',
+                    isIndependentAudio: true,
                 };
 
                 targetScene.extractedAudios.push(newAudio);
@@ -4721,6 +4727,8 @@ export class VideoTimelineDialogComponent
             startTime: startTime,
             duration: 5,
             maxDuration: 5,
+            sourceType: 'upload',
+            isIndependentAudio: true,
         };
 
         targetScene.extractedAudios.push(newAudio);
@@ -4990,14 +4998,21 @@ export class VideoTimelineDialogComponent
                     startTime: startTime,
                     duration: realDur,
                     maxDuration: realDur,
+                    sourceType: 'tts',
+                    isIndependentAudio: true,
                 };
 
                 targetScene.extractedAudios.push(newAudio);
                 this.setActiveItem(newAudio);
                 this.updateTimelineTotalWidth();
                 this.updateRulerTicks();
+                this.updateTimelineSync(true);
                 this.saveData(true);
                 this.cd.detectChanges();
+                setTimeout(() => {
+                    this.initWaveSurfers();
+                    this.updateLines();
+                }, 200);
                 this.toastr.success(
                     'Đã tạo giọng đọc và chèn vào Track Âm thanh thành công!',
                 );
@@ -10591,6 +10606,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
     isAudioMuted(audio: any, scene?: any): boolean {
         if (!audio) return false;
         if (audio.muted || audio.disabled) return true;
+        // Giọng đọc TTS hoặc file âm thanh tải lên độc lập KHÔNG bị tắt tiếng theo nút mute của video
+        if (!this.isExtractedFromVideoAudio(audio)) return false;
         const parentScene =
             scene ||
             (this.projectData?.scenes
@@ -10624,13 +10641,16 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
         const vEnd = vStart + (video.duration || 5);
 
         if (this.projectData?.scenes) {
-            for (const scene of this.projectData.scenes) {
+            for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                const scene = this.projectData.scenes[sIdx];
                 if (
                     scene.videos &&
                     scene.videos.includes(video) &&
                     scene.extractedAudios
                 ) {
-                    for (const audio of scene.extractedAudios) {
+                    for (let aIdx = 0; aIdx < scene.extractedAudios.length; aIdx++) {
+                        const audio = scene.extractedAudios[aIdx];
+                        if (!this.isExtractedFromVideoAudio(audio)) continue;
                         const aStart = audio.startTime || 0;
                         const aEnd = aStart + (audio.duration || 5);
                         if (
@@ -10638,17 +10658,12 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                             (aEnd > vStart && aEnd <= vEnd + 0.05)
                         ) {
                             audio.muted = video.muted;
+                            if (video.muted) {
+                                const ws = this.wavesurfers[`waveform-${sIdx}-${aIdx}`];
+                                if (ws && ws.isPlaying()) ws.pause();
+                            }
                         }
                     }
-                }
-            }
-        }
-
-        // Tạm dừng ngay lập tức bất kỳ wavesurfer nào đang phát nếu bị mute
-        if (video.muted) {
-            for (const key in this.wavesurfers) {
-                if (this.wavesurfers[key].isPlaying()) {
-                    this.wavesurfers[key].pause();
                 }
             }
         }
@@ -10658,8 +10673,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
         this.cd.detectChanges();
         this.toastr.info(
             video.muted
-                ? 'Đã tắt âm thanh video và âm thanh gốc.'
-                : 'Đã bật lại âm thanh video và âm thanh gốc.',
+                ? 'Đã tắt âm thanh video.'
+                : 'Đã bật lại âm thanh video.',
         );
     }
 
@@ -10671,13 +10686,16 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
         const vEnd = vStart + (video.duration || 5);
 
         if (this.projectData?.scenes) {
-            for (const scene of this.projectData.scenes) {
+            for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                const scene = this.projectData.scenes[sIdx];
                 if (
                     scene.videos &&
                     scene.videos.includes(video) &&
                     scene.extractedAudios
                 ) {
-                    for (const audio of scene.extractedAudios) {
+                    for (let aIdx = 0; aIdx < scene.extractedAudios.length; aIdx++) {
+                        const audio = scene.extractedAudios[aIdx];
+                        if (!this.isExtractedFromVideoAudio(audio)) continue;
                         const aStart = audio.startTime || 0;
                         const aEnd = aStart + (audio.duration || 5);
                         if (
@@ -10685,16 +10703,12 @@ TRẢ VỀ DUY NHẤT MẢNG JSON CÓ CẤU TRÚC:
                             (aEnd > vStart && aEnd <= vEnd + 0.05)
                         ) {
                             audio.disabled = video.disabled;
+                            if (video.disabled) {
+                                const ws = this.wavesurfers[`waveform-${sIdx}-${aIdx}`];
+                                if (ws && ws.isPlaying()) ws.pause();
+                            }
                         }
                     }
-                }
-            }
-        }
-
-        if (video.disabled) {
-            for (const key in this.wavesurfers) {
-                if (this.wavesurfers[key].isPlaying()) {
-                    this.wavesurfers[key].pause();
                 }
             }
         }
@@ -11772,6 +11786,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                             startTime: segStart,
                             duration: segDur,
                             maxDuration: segDur,
+                            sourceType: 'extracted',
+                            isExtractedFromVideo: true,
                         });
 
                         // 2. Thêm vào Track Subtitles (Bảo đảm đầy đủ 1-1 tất cả các phân đoạn như audio)
@@ -11804,6 +11820,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                     startTime: videoStart,
                     duration: clipDuration,
                     maxDuration: clipDuration,
+                    sourceType: 'extracted',
+                    isExtractedFromVideo: true,
                 });
             }
 
@@ -11843,10 +11861,44 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
         }
     }
 
+    /**
+     * Phân biệt audio thực sự được bóc tách từ chính video gốc (cần mute track video để tránh vọng/nhân đôi tiếng)
+     * với giọng đọc TTS / nhạc nền / file âm thanh độc lập chèn thêm vào Track Âm thanh (KHÔNG được mute video gốc).
+     */
+    isExtractedFromVideoAudio(audio: any): boolean {
+        if (!audio) return false;
+        if (audio.isExtractedFromVideo === true || audio.sourceType === 'extracted') {
+            return true;
+        }
+        if (
+            audio.isIndependentAudio === true ||
+            audio.sourceType === 'tts' ||
+            audio.sourceType === 'upload'
+        ) {
+            return false;
+        }
+        // Tương thích ngược cho các dự án đã lưu trước đây:
+        // Giọng đọc TTS và file âm thanh chèn rời luôn có id dạng "audio_<timestamp>"
+        if (typeof audio.id === 'string' && audio.id.startsWith('audio_')) {
+            return false;
+        }
+        const urlLower = String(audio.audioUrl || audio.path || audio.url || '').toLowerCase();
+        if (/(?:^|[\\/])(tts_|voice_|standalone_tts)/i.test(urlLower)) {
+            return false;
+        }
+        return Boolean(
+            audio.originalText ||
+            audio.vietnameseText ||
+            audio.text === '[Âm thanh gốc]' ||
+            /extracted|audio_seg|segment_/i.test(urlLower),
+        );
+    }
+
     hasExtractedAudio(scene: any, video: any): boolean {
         if (!scene || !scene.extractedAudios || !video) return false;
         return scene.extractedAudios.some(
             (a: any) =>
+                this.isExtractedFromVideoAudio(a) &&
                 a.startTime >= (video.startTime || 0) &&
                 a.startTime < (video.startTime || 0) + (video.duration || 5),
         );
@@ -13899,6 +13951,8 @@ TRẢ VỀ DUY NHẤT MẢNG JSON THEO CẤU TRÚC:
                             startTime: segStart,
                             duration: segDur,
                             maxDuration: segDur,
+                            sourceType: 'extracted',
+                            isExtractedFromVideo: true,
                         });
                     }
 

@@ -20,6 +20,7 @@ export class UserService {
     // -----------------------------------------------------------------------------------------------------
 
     private _currentUser: User = null;
+    private _groupsSyncTimestamps: Map<string, number> = new Map<string, number>();
 
     /**
      * Setter & getter for user
@@ -39,6 +40,8 @@ export class UserService {
             } else {
                 value.avatar = null;
             }
+        } else {
+            this._groupsSyncTimestamps.clear();
         }
         this._currentUser = value;
         // Store the value
@@ -130,5 +133,104 @@ export class UserService {
         }
 
         return false;
+    }
+
+    private _normalizeGroupSlug(slug: string): string {
+        if (!slug) {
+            return '';
+        }
+        try {
+            return decodeURIComponent(String(slug)).normalize('NFC').trim().toLowerCase();
+        } catch {
+            return String(slug).normalize('NFC').trim().toLowerCase();
+        }
+    }
+
+    private _getUserSyncKey(user: User | null | undefined): string {
+        if (!user) {
+            return '';
+        }
+        return String(user.email || user.id || user.name || '').trim().toLowerCase();
+    }
+
+    public isGroupsSyncedRecently(user: User | null | undefined, ttlMs: number = 30000): boolean {
+        const key = this._getUserSyncKey(user);
+        if (!key) {
+            return false;
+        }
+        const ts = this._groupsSyncTimestamps.get(key);
+        return typeof ts === 'number' && (Date.now() - ts) < ttlMs;
+    }
+
+    public markGroupsSynced(user: User | null | undefined): void {
+        const key = this._getUserSyncKey(user);
+        if (key) {
+            this._groupsSyncTimestamps.set(key, Date.now());
+        }
+    }
+
+    public extractGroupsFromForumResponse(user: User | null | undefined, groupsData: any[]): string[] {
+        if (!user || !Array.isArray(groupsData)) {
+            return [];
+        }
+        const uidStr = user.id !== undefined && user.id !== null ? String(user.id) : '';
+        const unameLower = (user.name || '').trim().toLowerCase();
+        const slugs: string[] = [];
+
+        for (const g of groupsData) {
+            if (!g || !Array.isArray(g.members)) {
+                continue;
+            }
+            const matched = g.members.some((m: any) => {
+                if (!m) {
+                    return false;
+                }
+                if (uidStr && m.uid !== undefined && m.uid !== null && String(m.uid) === uidStr) {
+                    return true;
+                }
+                if (unameLower && typeof m.username === 'string' && m.username.trim().toLowerCase() === unameLower) {
+                    return true;
+                }
+                return false;
+            });
+            if (matched) {
+                const slug = g.slug || g.name;
+                if (slug && !slugs.includes(slug)) {
+                    slugs.push(slug);
+                }
+            }
+        }
+
+        if ((user as any).administrator === true && !slugs.some((s) => this._normalizeGroupSlug(s) === 'administrators')) {
+            slugs.push('administrators');
+        }
+
+        return slugs;
+    }
+
+    public hasGroup(user: User | null | undefined, groupSlug: string): boolean {
+        if (!user || !groupSlug || !Array.isArray(user.groups)) {
+            return false;
+        }
+        const target = this._normalizeGroupSlug(groupSlug);
+        return user.groups.some((g) => this._normalizeGroupSlug(g) === target);
+    }
+
+    public isAdmin(user: User | null | undefined): boolean {
+        if (!user) {
+            return false;
+        }
+        const name = (user.name || '').trim().toLowerCase();
+        const email = (user.email || '').trim().toLowerCase();
+        return (
+            name === 'admin' ||
+            email === 'noreply.typing.vn@gmail.com' ||
+            (user as any).administrator === true ||
+            this.hasGroup(user, 'administrators')
+        );
+    }
+
+    public canAccessProfile(user: User | null | undefined): boolean {
+        return this.isAdmin(user) || this.hasGroup(user, 'làm-phim');
     }
 }

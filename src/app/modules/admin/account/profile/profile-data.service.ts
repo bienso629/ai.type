@@ -17,6 +17,9 @@ export interface SceneProfile {
     cameraPreset: string;
     lightsOn: boolean;
     lighting?: Record<string, any>;
+    camera?: Record<string, any>;
+    aiVideo3d?: Record<string, any> | null;
+    activeDesignPresetId?: string | null;
 }
 
 export interface ProfileAsset {
@@ -123,6 +126,29 @@ export class ProfileDataService {
         return this.saveProfile({
             scene: { ...(current?.scene ?? {}), ...scene } as SceneProfile
         });
+    }
+
+    /**
+     * Lưu âm thầm một phần cấu hình scene (VD: dữ liệu/lịch sử VIDEO CẢNH 3D, activeDesignPresetId)
+     * xuống đĩa mà KHÔNG phát lại profile$ (tránh làm re-run applyProfile/mergeProps trên canvas 3D).
+     */
+    saveSceneSilent(scene: Partial<SceneProfile>): Observable<void> {
+        if (!this._username) this._username = 'admin';
+        const current = this._profile$.value;
+        const mergedScene = { ...(current?.scene ?? { cameraPreset: 'DESK_VIEW', lightsOn: true }), ...scene } as SceneProfile;
+        if (current) {
+            current.scene = mergedScene;
+        }
+        if (!window.electron?.saveProfile) {
+            return of(undefined);
+        }
+        return from(window.electron.saveProfile(this._username, { scene: mergedScene })).pipe(
+            map(() => undefined),
+            catchError(err => {
+                console.warn('[ProfileDataService] Lỗi lưu âm thầm scene:', err);
+                return of(undefined);
+            })
+        );
     }
 
     /** Lưu customization key bất kỳ */

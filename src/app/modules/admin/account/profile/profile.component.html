@@ -155,12 +155,13 @@
                     <div class="design-preset-list px-2 py-1.5">
                         @for (preset of filteredDesignPresets; track preset.id) {
                             <div
-                                class="design-preset-item flex items-center gap-2 py-1.5 border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/60 rounded"
+                                class="design-preset-item flex items-center gap-2 px-1.5 py-1.5 cursor-pointer rounded"
+                                [class.design-preset-item--active]="activeDesignPresetId === preset.id"
                                 (click)="applyDesignPreset(preset)"
                             >
                                 <!-- Thumbnail -->
                                 <div
-                                    class="design-preset-thumb w-12 h-12 min-w-[48px] min-h-[48px] rounded overflow-hidden bg-gray-200 dark:bg-gray-800 flex items-center justify-center"
+                                    class="design-preset-thumb w-11 h-11 min-w-[44px] min-h-[44px] rounded overflow-hidden bg-gray-200 dark:bg-gray-800 flex items-center justify-center shrink-0"
                                 >
                                     @if (designThumbUrl(preset); as thumbUrl) {
                                         <img
@@ -179,18 +180,28 @@
                                 <div class="min-w-0 flex-1">
                                     <div
                                         class="text-sm font-medium truncate"
+                                        [title]="preset.name"
                                     >
                                         {{ preset.name }}
                                     </div>
                                     @if (preset.description) {
                                         <div
                                             class="text-xs text-gray-500 truncate"
+                                            [title]="preset.description"
                                         >
                                             {{ preset.description }}
                                         </div>
                                     }
-                                    <div class="text-xs text-gray-400">
+                                    <div class="text-[11px] text-gray-400 truncate">
                                         {{ preset.propCount || 0 }} đồ vật
+                                        @if (preset.camKeyframeCount && preset.camKeyframeCount > 0) {
+                                            · <span class="design-preset-video-badge">{{ preset.camKeyframeCount }} góc máy</span>
+                                        }
+                                        @if (preset.videoCount && preset.videoCount > 0) {
+                                            · <span class="design-preset-video-badge">{{ preset.videoCount }} video</span>
+                                        } @else if (preset.hasVideoSetup && !(preset.camKeyframeCount && preset.camKeyframeCount > 0)) {
+                                            · <span class="design-preset-video-badge">có cấu hình video</span>
+                                        }
                                         @if (preset.updatedAt) {
                                             ·
                                             {{
@@ -201,47 +212,47 @@
                                     </div>
                                 </div>
 
-                                <!-- Hành động -->
-                                <div
-                                    class="flex items-center gap-0.5 shrink-0"
+                                <!-- Menu hành động gọn (1 nút 3 chấm) -->
+                                <button
+                                    type="button"
+                                    class="design-preset-more-btn shrink-0"
+                                    matTooltip="Tùy chọn"
+                                    [matMenuTriggerFor]="presetMenu"
+                                    (click)="$event.stopPropagation()"
                                 >
+                                    <mat-icon>more_vert</mat-icon>
+                                </button>
+                                <mat-menu #presetMenu="matMenu" xPosition="before">
                                     <button
                                         type="button"
-                                        mat-icon-button
-                                        matTooltip="Cập nhật mẫu này bằng cảnh hiện tại"
-                                        (click)="
-                                            updateDesignPreset(preset);
-                                            $event.stopPropagation()
-                                        "
+                                        mat-menu-item
+                                        (click)="updateDesignPreset(preset)"
                                     >
-                                        <mat-icon class="text-lg"
-                                            >sync</mat-icon
-                                        >
+                                        <mat-icon>sync</mat-icon>
+                                        <span>Cập nhật theo cảnh hiện tại</span>
                                     </button>
                                     <button
                                         type="button"
-                                        mat-icon-button
-                                        matTooltip="Nhân bản"
-                                        (click)="
-                                            duplicateDesignPreset(preset);
-                                            $event.stopPropagation()
-                                        "
+                                        mat-menu-item
+                                        [disabled]="duplicatingDesign"
+                                        matTooltip="Tạo cảnh nối tiếp: khung hình cuối của cảnh này thành khung hình đầu của cảnh mới"
+                                        matTooltipPosition="right"
+                                        (click)="duplicateDesignPreset(preset)"
                                     >
-                                        <mat-icon class="text-lg"
-                                            >content_copy</mat-icon
-                                        >
+                                        <mat-icon>content_copy</mat-icon>
+                                        <span>{{ duplicatingDesign ? 'Đang nhân bản...' : 'Nhân bản' }}</span>
                                     </button>
+                                    <mat-divider></mat-divider>
                                     <button
                                         type="button"
-                                        mat-icon-button
-                                        matTooltip="Xóa"
+                                        mat-menu-item
+                                        class="text-warn"
                                         (click)="deleteDesignPreset(preset, $event)"
                                     >
-                                        <mat-icon class="text-lg text-warn"
-                                            >delete</mat-icon
-                                        >
+                                        <mat-icon color="warn">delete</mat-icon>
+                                        <span>Xóa mẫu</span>
                                     </button>
-                                </div>
+                                </mat-menu>
                             </div>
                         } @empty {
                             <div
@@ -882,6 +893,42 @@
                     <mat-icon>wb_sunny</mat-icon>
                 </button>
 
+                <!-- 0c. Khóa zoom camera -->
+                <button
+                    mat-icon-button
+                    (click)="toggleCameraZoomLock()"
+                    class="scene-toolbar-btn"
+                    [class.scene-toolbar-btn--locked]="isCameraZoomLocked"
+                    [matTooltip]="
+                        isCameraZoomLocked
+                            ? 'Đang khóa zoom (bấm để mở khóa)'
+                            : 'Khóa zoom camera'
+                    "
+                >
+                    <mat-icon>zoom_in</mat-icon>
+                    @if (isCameraZoomLocked) {
+                        <mat-icon class="scene-toolbar-btn__badge">lock</mat-icon>
+                    }
+                </button>
+
+                <!-- 0d. Khóa xoay camera -->
+                <button
+                    mat-icon-button
+                    (click)="toggleCameraRotateLock()"
+                    class="scene-toolbar-btn"
+                    [class.scene-toolbar-btn--locked]="isCameraRotateLocked"
+                    [matTooltip]="
+                        isCameraRotateLocked
+                            ? 'Đang khóa xoay (bấm để mở khóa)'
+                            : 'Khóa xoay camera 3D'
+                    "
+                >
+                    <mat-icon>3d_rotation</mat-icon>
+                    @if (isCameraRotateLocked) {
+                        <mat-icon class="scene-toolbar-btn__badge">lock</mat-icon>
+                    }
+                </button>
+
                 <!-- 1. Full Screen -->
                 <button
                     mat-icon-button
@@ -894,32 +941,6 @@
                     <mat-icon>{{
                         isFullscreen ? "fullscreen_exit" : "fullscreen"
                     }}</mat-icon>
-                </button>
-
-                <!-- 2. Reload -->
-                <button
-                    mat-icon-button
-                    (click)="reloadScene()"
-                    class="scene-toolbar-btn"
-                    matTooltip="Tải lại 3D Scene"
-                >
-                    <mat-icon>refresh</mat-icon>
-                </button>
-
-                <!-- 3. Record / Export Video -->
-                <button
-                    mat-icon-button
-                    (click)="toggleVideoRecording()"
-                    class="scene-toolbar-btn"
-                    [class.scene-toolbar-btn--recording]="isRecording"
-                    [class.scene-toolbar-btn--primary]="!isRecording"
-                    [matTooltip]="
-                        isRecording
-                            ? 'Dừng & Lưu Video'
-                            : 'Bắt đầu Quay & Xuất Video'
-                    "
-                >
-                    <mat-icon>{{ isRecording ? "stop" : "videocam" }}</mat-icon>
                 </button>
             </div>
 
@@ -1201,6 +1222,15 @@
                                 <div class="prop-texture-studio__sub" [title]="aiVideo3dConfiguredModel">
                                     Mì Tôm AI &middot; {{ aiVideo3dConfiguredModel }}
                                 </div>
+                                @if (activeDesignPresetName) {
+                                    <div class="ai-video-3d__preset-tag" [title]="'Dữ liệu video & đường máy đang tự lưu theo mẫu: ' + activeDesignPresetName">
+                                        Mẫu: {{ activeDesignPresetName }}
+                                    </div>
+                                } @else {
+                                    <div class="ai-video-3d__preset-tag ai-video-3d__preset-tag--draft" title="Chọn 1 mẫu ở CỦA TÔI hoặc bấm Lưu để gắn dữ liệu đường máy riêng cho từng mẫu">
+                                        Bản nháp (chưa gắn mẫu)
+                                    </div>
+                                }
                             </div>
                         </div>
                         <button
@@ -1300,6 +1330,7 @@
                                                 <select
                                                     class="ai-video-3d__ref-select"
                                                     [(ngModel)]="img.targetKey"
+                                                    (ngModelChange)="scheduleSaveAiVideo3dState()"
                                                     title="Chọn đồ vật 3D hoặc bối cảnh mà ảnh này sẽ đắp lên"
                                                 >
                                                     @for (p of aiVideo3dSceneProps; track p.id) {
@@ -1365,23 +1396,39 @@
                                 </div>
                             }
 
+                            @if (aiVideo3dCapturedPreviewUrl && aiVideo3dCapturedHasCameraMotion) {
+                                <div class="ai-video-3d__cam-badge">
+                                    <mat-icon>videocam</mat-icon>
+                                    <span>Đã nhận diện chuyển động Camera &amp; Zoom — Video AI sẽ bám sát cú máy liên tục</span>
+                                </div>
+                            }
+
                             <div class="studio-lighting__sublabel">Khung hình camera khi ghi</div>
-                            <div class="studio-lighting__pills studio-lighting__pills--3">
+                            <div class="studio-lighting__pills ai-video-3d__cam-pills">
                                 <button
                                     type="button"
                                     class="prop-texture-studio__uv-pill"
                                     [class.prop-texture-studio__uv-pill--active]="aiVideo3dCameraMode === 'keep'"
-                                    title="Mặc định: Giữ nguyên 100% góc xoay và độ thu phóng camera bạn đang đặt trên canvas"
-                                    (click)="aiVideo3dCameraMode = 'keep'"
+                                    title="Giữ góc hiện tại hoặc tự xoay/zoom trực tiếp bằng chuột trong lúc đang ghi"
+                                    (click)="setAiVideo3dCameraMode('keep')"
                                 >
-                                    Giữ góc
+                                    Giữ / Tay
+                                </button>
+                                <button
+                                    type="button"
+                                    class="prop-texture-studio__uv-pill"
+                                    [class.prop-texture-studio__uv-pill--active]="aiVideo3dCameraMode === 'path'"
+                                    title="Camera tự chạy mượt qua các mốc góc quay + zoom in/out bạn đặt sẵn"
+                                    (click)="setAiVideo3dCameraMode('path')"
+                                >
+                                    Đường máy
                                 </button>
                                 <button
                                     type="button"
                                     class="prop-texture-studio__uv-pill"
                                     [class.prop-texture-studio__uv-pill--active]="aiVideo3dCameraMode === 'all'"
                                     title="Tự động căn camera gom gọn toàn bộ các đồ vật 3D đang hiển thị vào giữa khung hình"
-                                    (click)="aiVideo3dCameraMode = 'all'"
+                                    (click)="setAiVideo3dCameraMode('all')"
                                 >
                                     Cả cảnh
                                 </button>
@@ -1390,11 +1437,141 @@
                                     class="prop-texture-studio__uv-pill"
                                     [class.prop-texture-studio__uv-pill--active]="aiVideo3dCameraMode === 'selected'"
                                     title="Phóng cận vào duy nhất 1 nhân vật/đồ vật đang chọn"
-                                    (click)="aiVideo3dCameraMode = 'selected'"
+                                    (click)="setAiVideo3dCameraMode('selected')"
                                 >
                                     1 vật
                                 </button>
                             </div>
+
+                            <!-- Bộ đặt mốc Camera Keyframes (Xoay góc + Zoom in/out liên tục mượt mà) -->
+                            @if (aiVideo3dCameraMode === 'path' || aiVideo3dCameraKeyframes.length > 0) {
+                                <div class="ai-video-3d__cam-panel">
+                                    <div class="ai-video-3d__cam-panel-head">
+                                        <span>Vị trí &amp; Zoom ({{ aiVideo3dCameraKeyframes.length }})</span>
+                                        <div class="ai-video-3d__cam-panel-links">
+                                            @if (aiVideo3dCameraKeyframes.length >= 2) {
+                                                <button
+                                                    type="button"
+                                                    class="prop-texture-studio__link-btn"
+                                                    title="Tự cân đều tốc độ xoay và zoom quang học qua tất cả các mốc"
+                                                    (click)="distributeCameraKeyframesEvenly()"
+                                                >
+                                                    Cân đều tốc độ
+                                                </button>
+                                            }
+                                            @if (aiVideo3dCameraKeyframes.length > 0) {
+                                                <button
+                                                    type="button"
+                                                    class="prop-texture-studio__link-btn"
+                                                    (click)="clearCameraKeyframes()"
+                                                >
+                                                    Xóa hết
+                                                </button>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div class="ai-video-3d__cam-toolbar">
+                                        <button
+                                            type="button"
+                                            class="prop-texture-studio__btn-direct ai-video-3d__cam-btn"
+                                            [disabled]="aiVideo3dCapturing || aiVideo3dGenerating"
+                                            title="Xoay/zoom trên canvas tới góc mong muốn rồi bấm để lưu mốc"
+                                            (click)="addCameraKeyframeAtCurrentView()"
+                                        >
+                                            <mat-icon>add_a_photo</mat-icon>
+                                            <span>Lưu góc hiện tại</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="prop-texture-studio__btn-direct ai-video-3d__cam-btn"
+                                            [class.ai-video-3d__cam-btn--playing]="aiVideo3dCameraPreviewing"
+                                            [disabled]="aiVideo3dCapturing || aiVideo3dCameraKeyframes.length < 2"
+                                            title="Xem thử camera tự xoay & zoom mượt trên canvas 3D"
+                                            (click)="toggleCameraPathPreview()"
+                                        >
+                                            <mat-icon>{{ aiVideo3dCameraPreviewing ? 'stop' : 'play_arrow' }}</mat-icon>
+                                            <span>{{ aiVideo3dCameraPreviewing ? ('Dừng (' + aiVideo3dCameraPreviewSec.toFixed(1) + 's)') : 'Xem thử' }}</span>
+                                        </button>
+                                    </div>
+
+                                    @if (aiVideo3dCameraKeyframes.length > 0) {
+                                        <div class="ai-video-3d__cam-list">
+                                            @for (kf of aiVideo3dCameraKeyframes; track kf.id; let idx = $index) {
+                                                <div class="ai-video-3d__cam-item">
+                                                    <span class="ai-video-3d__cam-idx">#{{ idx + 1 }}</span>
+                                                    <div class="ai-video-3d__cam-time-wrap" title="Thời điểm (giây)">
+                                                        <input
+                                                            type="number"
+                                                            class="ai-video-3d__cam-time"
+                                                            [(ngModel)]="kf.time"
+                                                            [min]="0"
+                                                            [max]="aiVideo3dDuration"
+                                                            step="0.5"
+                                                            (change)="onCameraKeyframeTimeChange(kf)"
+                                                        />
+                                                        <span>s</span>
+                                                    </div>
+                                                    <div class="ai-video-3d__cam-meta" [title]="'Yaw ' + kf.yaw + '° · Pitch ' + kf.pitch + '° · Zoom ' + kf.distance">
+                                                        <span>{{ kf.label || ('Góc ' + (idx + 1)) }}</span>
+                                                        <small>{{ kf.yaw | number:'1.0-0' }}° · d={{ kf.distance | number:'1.1-1' }}</small>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        class="ai-video-3d__cam-icon"
+                                                        title="Nhảy tới góc quay này"
+                                                        (click)="jumpToCameraKeyframe(kf)"
+                                                    >
+                                                        <mat-icon>visibility</mat-icon>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="ai-video-3d__cam-icon"
+                                                        title="Cập nhật mốc này theo góc đang thấy trên canvas"
+                                                        (click)="updateCameraKeyframeFromCurrentView(kf)"
+                                                    >
+                                                        <mat-icon>my_location</mat-icon>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="ai-video-3d__cam-icon ai-video-3d__cam-icon--del"
+                                                        title="Xóa mốc này"
+                                                        (click)="removeCameraKeyframe(kf.id)"
+                                                    >
+                                                        <mat-icon>close</mat-icon>
+                                                    </button>
+                                                </div>
+                                            }
+                                        </div>
+                                    } @else {
+                                        <div class="ai-video-3d__cam-empty">
+                                            Xoay góc + zoom trên canvas rồi bấm <b>Lưu góc hiện tại</b> (từ 2 mốc trở lên), hoặc nhờ AI tự tạo đường máy bên dưới.
+                                        </div>
+                                    }
+
+                                    <!-- AI Đạo diễn Camera -->
+                                    <div class="ai-video-3d__cam-ai">
+                                        <input
+                                            type="text"
+                                            class="ai-video-3d__cam-ai-input"
+                                            [(ngModel)]="aiVideo3dCameraAiPrompt"
+                                            (ngModelChange)="scheduleSaveAiVideo3dState()"
+                                            [disabled]="aiVideo3dCameraAiLoading || aiVideo3dCapturing"
+                                            placeholder="AI đạo diễn máy: VD xoay vòng 180° rồi zoom cận mặt..."
+                                            (keydown.enter)="generateCameraKeyframesWithAi()"
+                                        />
+                                        <button
+                                            type="button"
+                                            class="ai-video-3d__cam-ai-btn"
+                                            [disabled]="aiVideo3dCameraAiLoading || aiVideo3dCapturing || !aiVideo3dCameraAiPrompt.trim()"
+                                            title="Nhờ AI tự tạo chuỗi mốc góc quay & zoom mượt"
+                                            (click)="generateCameraKeyframesWithAi()"
+                                        >
+                                            <mat-icon [class.animate-spin]="aiVideo3dCameraAiLoading">{{ aiVideo3dCameraAiLoading ? 'sync' : 'auto_awesome' }}</mat-icon>
+                                        </button>
+                                    </div>
+                                </div>
+                            }
 
                             <div class="ai-video-3d__capture-actions">
                                 <button
@@ -1420,11 +1597,11 @@
 
                             <div class="prop-texture-studio__checks">
                                 <label class="prop-texture-studio__check">
-                                    <input type="checkbox" [(ngModel)]="aiVideo3dShowViewfinder" />
+                                    <input type="checkbox" [(ngModel)]="aiVideo3dShowViewfinder" (ngModelChange)="scheduleSaveAiVideo3dState()" />
                                     <span>Hiện khung ngắm tỷ lệ ({{ aiVideo3dAspectRatio }}) trên canvas</span>
                                 </label>
                                 <label class="prop-texture-studio__check">
-                                    <input type="checkbox" [(ngModel)]="aiVideo3dHideGrid" />
+                                    <input type="checkbox" [(ngModel)]="aiVideo3dHideGrid" (ngModelChange)="scheduleSaveAiVideo3dState()" />
                                     <span>Ẩn lưới sàn &amp; tự tăng tương phản nền (lộ rõ tuyết/đồ vật) khi ghi</span>
                                 </label>
                             </div>
@@ -1440,6 +1617,7 @@
                                 class="prop-texture-studio__prompt"
                                 rows="3"
                                 [(ngModel)]="aiVideo3dPrompt"
+                                (ngModelChange)="scheduleSaveAiVideo3dState()"
                                 placeholder="Mô tả bối cảnh & phong cách (tuỳ chọn): VD: Phố mùa đông buổi tối tuyết rơi nhẹ, ánh đèn ấm phản chiếu lên lon nước đang xoay và trang phục nhân vật, ánh sáng điện ảnh..."
                             ></textarea>
 
@@ -1468,7 +1646,7 @@
                                 </label>
                                 <label class="ai-video-3d__param-col">
                                     <span>Độ phân giải</span>
-                                    <select [(ngModel)]="aiVideo3dResolution">
+                                    <select [(ngModel)]="aiVideo3dResolution" (ngModelChange)="scheduleSaveAiVideo3dState()">
                                         <option value="720p">720p (Nhanh)</option>
                                         <option value="1080p">1080p (Sắc nét)</option>
                                     </select>
@@ -1507,6 +1685,53 @@
                                         <mat-icon>folder_open</mat-icon>
                                         <span>Mở thư mục</span>
                                     </button>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- 5. Lịch sử Video AI của cảnh này -->
+                        @if (aiVideo3dHistory.length > 0) {
+                            <div class="prop-texture-studio__sec">
+                                <div class="prop-texture-studio__sec-head">
+                                    <span>Lịch sử Video cảnh này ({{ aiVideo3dHistory.length }})</span>
+                                </div>
+                                <div class="ai-video-3d__history-list">
+                                    @for (item of aiVideo3dHistory; track item.id) {
+                                        <div
+                                            class="ai-video-3d__history-item"
+                                            [class.ai-video-3d__history-item--active]="aiVideo3dActiveHistoryId === item.id"
+                                            (click)="loadAiVideo3dHistoryItem(item)"
+                                        >
+                                            <div class="ai-video-3d__history-play">
+                                                <mat-icon>play_arrow</mat-icon>
+                                            </div>
+                                            <div class="ai-video-3d__history-info">
+                                                <div class="ai-video-3d__history-top">
+                                                    <strong>{{ item.createdAt | date: 'dd/MM HH:mm' }}</strong>
+                                                    <span>&middot; {{ item.duration }}s &middot; {{ item.aspectRatio }} &middot; {{ item.resolution }}</span>
+                                                </div>
+                                                <div class="ai-video-3d__history-prompt" [title]="item.prompt || item.model || 'Video AI 3D'">
+                                                    {{ item.prompt || item.model || 'Video AI từ cảnh 3D' }}
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                class="ai-video-3d__cam-icon"
+                                                title="Nạp lại prompt và thông số của video này"
+                                                (click)="applyAiVideo3dHistoryPrompt(item, $event)"
+                                            >
+                                                <mat-icon>history</mat-icon>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="ai-video-3d__cam-icon ai-video-3d__cam-icon--del"
+                                                title="Xóa khỏi lịch sử"
+                                                (click)="deleteAiVideo3dHistoryItem(item, $event)"
+                                            >
+                                                <mat-icon>close</mat-icon>
+                                            </button>
+                                        </div>
+                                    }
                                 </div>
                             </div>
                         }
@@ -2348,6 +2573,183 @@
                             />
                         </div>
                     </div>
+
+                    <!-- Nhập prompt AI chỉnh tư thế nhân vật -->
+                    <div class="glb-pose-prompt">
+                        <input
+                            #poseRefFileInput
+                            type="file"
+                            accept="image/*,video/*,.json,.txt,.md"
+                            multiple
+                            style="display: none"
+                            (change)="onPoseRefFilesSelected($event)"
+                        />
+                        <div class="glb-pose-prompt__head">
+                            <span class="glb-pose-prompt__title">
+                                <mat-icon>accessibility_new</mat-icon>
+                                <span>AI Chỉnh tư thế</span>
+                            </span>
+                            <div class="glb-pose-prompt__actions">
+                                <button
+                                    type="button"
+                                    class="glb-mini-reset glb-mini-reset--save"
+                                    [disabled]="isApplyingAiPose"
+                                    (click)="openSavePoseBox()"
+                                    title="Lưu tư thế hiện tại thành mẫu dùng lại"
+                                >
+                                    <mat-icon>bookmark_add</mat-icon>
+                                    <span>Lưu tư thế</span>
+                                </button>
+                                @if (canUndoAiPose) {
+                                    <button
+                                        type="button"
+                                        class="glb-mini-reset"
+                                        [disabled]="isApplyingAiPose"
+                                        (click)="undoAiPose()"
+                                        title="Quay lại tư thế trước khi AI chỉnh"
+                                    >
+                                        Hoàn tác
+                                    </button>
+                                }
+                                <button
+                                    type="button"
+                                    class="glb-mini-reset"
+                                    [disabled]="isApplyingAiPose"
+                                    (click)="resetAllBonesPoseWithKey()"
+                                    title="Đưa toàn bộ khớp xương về tư thế gốc"
+                                >
+                                    Reset
+                                </button>
+                            </div>
+                        </div>
+                        @if (isPoseSaveBoxOpen) {
+                            <div class="glb-pose-prompt__save-bar">
+                                <input
+                                    type="text"
+                                    class="glb-pose-prompt__save-input"
+                                    [(ngModel)]="poseSaveNameDraft"
+                                    (keydown)="onSavePoseNameKeydown($event)"
+                                    placeholder="Đặt tên tư thế..."
+                                    autofocus
+                                />
+                                <button
+                                    type="button"
+                                    class="glb-pose-prompt__save-ok"
+                                    (click)="confirmSaveCurrentPose()"
+                                    title="Xác nhận lưu tư thế (Enter)"
+                                >
+                                    Lưu
+                                </button>
+                                <button
+                                    type="button"
+                                    class="glb-pose-prompt__save-cancel"
+                                    (click)="cancelSavePoseBox()"
+                                    title="Hủy (Esc)"
+                                >
+                                    <mat-icon>close</mat-icon>
+                                </button>
+                            </div>
+                        }
+                        @if (savedPoses.length > 0) {
+                            <div class="glb-pose-prompt__saved">
+                                @for (sp of savedPoses; track sp.id) {
+                                    <div
+                                        class="glb-pose-prompt__saved-chip"
+                                        [class.glb-pose-prompt__saved-chip--active]="activeSavedPoseId === sp.id"
+                                        (click)="applySavedPose(sp)"
+                                        [title]="'Áp dụng tư thế: ' + sp.name + ' (' + sp.bones.length + ' khớp)'"
+                                    >
+                                        <span>{{ sp.name }}</span>
+                                        <button
+                                            type="button"
+                                            class="glb-pose-prompt__saved-del"
+                                            (click)="deleteSavedPose(sp, $event)"
+                                            title="Xóa tư thế đã lưu"
+                                        >
+                                            <mat-icon>close</mat-icon>
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        @if (poseRefFiles.length > 0) {
+                            <div class="glb-pose-prompt__refs">
+                                @for (ref of poseRefFiles; track ref.id) {
+                                    @if (ref.kind === 'image' && ref.dataUrl) {
+                                        <div class="glb-pose-prompt__ref-thumb" [title]="ref.name">
+                                            <img [src]="ref.dataUrl" [alt]="ref.name" />
+                                            <button
+                                                type="button"
+                                                class="glb-pose-prompt__ref-remove"
+                                                (click)="removePoseRefFile(ref.id)"
+                                                title="Gỡ tệp mẫu"
+                                            >
+                                                <mat-icon>close</mat-icon>
+                                            </button>
+                                        </div>
+                                    } @else {
+                                        <div class="glb-pose-prompt__ref-chip" [title]="ref.name">
+                                            <mat-icon>description</mat-icon>
+                                            <span>{{ ref.name }}</span>
+                                            <button
+                                                type="button"
+                                                class="glb-pose-prompt__ref-chip-del"
+                                                (click)="removePoseRefFile(ref.id)"
+                                                title="Gỡ tệp mẫu"
+                                            >
+                                                <mat-icon>close</mat-icon>
+                                            </button>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        }
+                        <div
+                            class="glb-pose-prompt__box"
+                            [class.glb-pose-prompt__box--drag]="isPoseRefDragOver"
+                            (dragover)="onPoseRefDragOver($event)"
+                            (dragleave)="onPoseRefDragLeave($event)"
+                            (drop)="onPoseRefDrop($event)"
+                        >
+                            <textarea
+                                rows="2"
+                                spellcheck="false"
+                                class="glb-pose-prompt__input"
+                                [(ngModel)]="posePromptText"
+                                [disabled]="isApplyingAiPose"
+                                (keydown)="onPosePromptKeydown($event)"
+                                (paste)="onPosePromptPaste($event)"
+                                placeholder="Mô tả tư thế hoặc đính kèm/dán ảnh mẫu (Ctrl+V)..."
+                            ></textarea>
+                            <div class="glb-pose-prompt__inner-actions">
+                                <button
+                                    type="button"
+                                    class="glb-pose-prompt__attach"
+                                    [disabled]="isApplyingAiPose"
+                                    (click)="triggerPoseRefFileUpload()"
+                                    title="Đính kèm ảnh, video hoặc file JSON/TXT làm mẫu tư thế"
+                                >
+                                    <mat-icon>attach_file</mat-icon>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="glb-pose-prompt__submit"
+                                    [disabled]="isApplyingAiPose || (!posePromptText.trim() && poseRefFiles.length === 0)"
+                                    (click)="applyAiPosePrompt()"
+                                    title="Áp dụng tư thế bằng AI (Enter)"
+                                >
+                                    <mat-icon [class.glb-pose-prompt__spin]="isApplyingAiPose">
+                                        {{ isApplyingAiPose ? 'autorenew' : 'auto_awesome' }}
+                                    </mat-icon>
+                                </button>
+                            </div>
+                        </div>
+                        @if (lastAiPoseExplanation) {
+                            <div class="glb-pose-prompt__note" [title]="lastAiPoseExplanation">
+                                {{ lastAiPoseExplanation }}
+                            </div>
+                        }
+                    </div>
                 </div>
 
                 <!-- DOCK TIMELINE CHUYỂN ĐỘNG BÊN DƯỚI -->
@@ -2465,10 +2867,10 @@
                                 class="glb-tl-btn glb-tl-btn--ai"
                                 [class.glb-tl-btn--active]="isAiMotionBarOpen"
                                 (click)="toggleAiMotionBar()"
-                                title="Mở công cụ AI Agent tự thiết kế chuyển động từ Khớp xương & Video mẫu"
+                                title="Mở AI Agent thiết kế chuyển động, tương tác đồ vật trong cảnh & trích xuất từ Video mẫu"
                             >
                                 <mat-icon class="icon-size-4">auto_awesome</mat-icon>
-                                <span>AI Thiết kế từ Video</span>
+                                <span>AI Thiết kế chuyển động</span>
                             </button>
                             <button
                                 type="button"
@@ -2535,7 +2937,7 @@
                                     [(ngModel)]="aiMotionPrompt"
                                     (keydown.enter)="designMotionWithAi()"
                                     [disabled]="isDesigningAiMotion"
-                                    placeholder="Nhập mô tả chuyển động (VD: Đấm quyền anh, Vẫy tay...) hoặc chọn Video mẫu"
+                                    placeholder="Mô tả tự do (VD: Đi tới cầm chiếc điện thoại lên xem rồi quay đi 2m, Đấm quyền anh...) hoặc chọn Video mẫu"
                                     class="glb-ai-motion-input"
                                 />
 
@@ -2601,6 +3003,16 @@
                                                 title="Xóa Keyframe tại thời điểm hiện tại của khớp đang chọn"
                                             >
                                                 Xóa Keyframe này
+                                            </button>
+                                        }
+                                        @if (timelineHasActiveHandGrab) {
+                                            <button
+                                                type="button"
+                                                class="glb-preset-chip glb-preset-chip--danger"
+                                                (click)="clearActivePropHandGrabs()"
+                                                title="Gỡ liên kết tay cầm đồ và trả đồ vật về vị trí gốc"
+                                            >
+                                                Thả đồ về chỗ cũ
                                             </button>
                                         }
                                         @if (timelineData.keyframes.length > 0) {
@@ -2713,10 +3125,12 @@
                                                     </span>
                                                     @if (c.isCustom) {
                                                         <span
-                                                            class="glb-clip-action-btn text-slate-400 hover:text-rose-400 text-sm font-bold"
+                                                            class="glb-clip-action-btn text-slate-400 hover:text-rose-400"
                                                             title="Xóa Clip chuyển động này"
                                                             (click)="deleteTimelineCustomClip(c.name, $event)"
-                                                        >&times;</span>
+                                                        >
+                                                            <mat-icon class="icon-size-3.5">close</mat-icon>
+                                                        </span>
                                                     }
                                                 </div>
                                             }

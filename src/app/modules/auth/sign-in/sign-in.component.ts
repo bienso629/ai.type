@@ -208,27 +208,19 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
             .getGroups(server)
             .subscribe({
                 next: async (result) => {
-                    if (result && result.success && result.data) {
-                        result.data.groups?.map((g: any) => {
-                            if (g.slug === 'nhóm-đã-mua-ai-type') {
-                                this.multiAccountService.setItem(
-                                    'members',
-                                    g.members,
-                                );
-                            }
+                    this._userService.markGroupsSynced(user);
+                    if (result && result.success && result.data && Array.isArray(result.data.groups) && result.data.groups.length > 0) {
+                        const purchasedGroup = result.data.groups.find((g: any) => g?.slug === 'nhóm-đã-mua-ai-type');
+                        if (purchasedGroup?.members) {
+                            this.multiAccountService.setItem('members', purchasedGroup.members);
+                        }
 
-                            g.members?.map((m: any) => {
-                                if (m.uid === user.id) {
-                                    if (!user.groups) {
-                                        user.groups = [];
-                                    }
-                                    if (!user.groups.includes(g.slug)) {
-                                        user.groups.push(g.slug);
-                                    }
-                                }
-                            });
-                        });
-                        this.multiAccountService.saveAccount(user.email, { user: user, accessToken: token });
+                        const freshGroups = this._userService.extractGroupsFromForumResponse(user, result.data.groups);
+                        const updatedUser = { ...user, groups: freshGroups };
+                        const updatedToken = AuthUtils._generateJWTToken(updatedUser);
+                        this._authService.accessToken = updatedToken;
+                        this._userService.user = updatedUser;
+                        this.multiAccountService.saveAccount(updatedUser.email, { user: updatedUser, accessToken: updatedToken });
                     }
                 },
                 error: () => {}

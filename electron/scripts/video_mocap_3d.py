@@ -923,9 +923,168 @@ def run_video_mocap(
     return result
 
 
+def run_image_pose(
+    image_path: str,
+    out_json_path: str,
+    model_path: str,
+    debug_vis_path: str = "",
+) -> dict:
+    """
+    Trích xuất CHÍNH XÁC tư thế 3D toàn thân (20 khớp SMPL chuẩn Canonical T-Pose) từ một ảnh tham chiếu duy nhất
+    bằng mô hình NLF NeurIPS 2024 (test-time augmentation num_aug=5).
+    Giữ nguyên 100% góc nghiêng thân, bay/té ngã/nhào tới, quay người, góc tay/chân như trong ảnh tham chiếu.
+    """
+    t_start = time.time()
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"Không tìm thấy tệp ảnh tham chiếu: {image_path}")
+
+    emit_progress(5, "Đang đọc ảnh mẫu tư thế...")
+    raw_bgr = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    if raw_bgr is None or raw_bgr.size == 0:
+        raise RuntimeError(f"Không giải mã được tệp ảnh tham chiếu: {image_path}")
+
+    orig_h, orig_w = raw_bgr.shape[:2]
+    scale = min(1.0, 768.0 / max(orig_w, orig_h))
+    proc_w = max(128, int(round(orig_w * scale / 2.0) * 2))
+    proc_h = max(128, int(round(orig_h * scale / 2.0) * 2))
+    bgr = cv2.resize(raw_bgr, (proc_w, proc_h), interpolation=cv2.INTER_AREA) if (proc_w != orig_w or proc_h != orig_h) else raw_bgr
+
+    # Thêm viền đệm 18% (replicate) để phát hiện và ước lượng chính xác cả các ảnh nhân vật sát mép / đang bay ngang
+    pad_x = max(16, int(round(proc_w * 0.18 / 2.0) * 2))
+    pad_y = max(16, int(round(proc_h * 0.18 / 2.0) * 2))
+    bgr_pad = cv2.copyMakeBorder(bgr, pad_y, pad_y, pad_x, pad_x, cv2.BORDER_REPLICATE)
+    rgb_pad = cv2.cvtColor(bgr_pad, cv2.COLOR_BGR2RGB)
+    ph, pw = rgb_pad.shape[:2]
+
+    resolved_model = ensure_model(model_path)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    emit_progress(20, "Đang nạp bộ phân tích tư thế 3D SMPL...")
+    model = torch.jit.load(resolved_model, map_location=device).to(device).eval()
+
+    emit_progress(45, "Đang nhận diện nhân vật trong ảnh tham chiếu...")
+    detected_box = None
+    with torch.inference_mode():
+        t_img = torch.from_numpy(rgb_pad).unsqueeze(0).permute(0, 3, 1, 2).to(device)
+        t_lin = t_img.to(dtype=torch.float16).mul_(1.0 / 255.0).pow_(2.2) if device == "cuda" else (t_img.float() / 255.0).pow(2.2)
+
+        for thresh in (0.14, 0.06):
+            det_out = model.detector(t_lin, thresh, 0.7, 20, None, None, False, False, None)
+            raw_b = det_out[0].detach().cpu().numpy() if len(det_out[0]) > 0 else np.zeros((0, 5), dtype=np.float32)
+            picked = select_primary_box(raw_b, None, pw, ph)
+            if picked is not None:
+                detected_box = picked
+                break
+
+        if detected_box is not None:
+            box_for_est = clamp_and_pad_box(detected_box, pw, ph, pad_ratio=0.14)
+        else:
+            # Fallback: lấy đúng vùng ảnh gốc nằm giữa khung đã pad
+            box_for_est = np.array([float(pad_x), float(pad_y), float(proc_w), float(proc_h)], dtype=np.float32)
+
+        emit_progress(68, "Đang trích xuất góc xoay 3D của 20 khớp xương từ ảnh...")
+        t_boxes = [torch.from_numpy(box_for_est).unsqueeze(0).to(device)]
+        if device == "cuda":
+            with torch.device("cuda"):
+                pred = model.estimate_smpl_batched(t_img, t_boxes, num_aug=5, internal_batch_size=1)
+            torch.cuda.synchronize()
+        else:
+            pred = model.estimate_smpl_batched(t_img, t_boxes, num_aug=5, internal_batch_size=1)
+
+        p_list = pred["pose"][0]
+        j3_list = pred["joints3d"][0]
+        j2_list = pred["joints2d"][0]
+        if len(p_list) == 0 or len(j3_list) == 0:
+            raise RuntimeError("Không trích xuất được khung xương 3D từ ảnh tham chiếu.")
+
+        pose_rv = p_list[0].detach().cpu().numpy().reshape(24, 3).astype(np.float64)
+        joints3d = j3_list[0].detach().cpu().numpy()[:24].astype(np.float64)
+        joints2d = j2_list[0].detach().cpu().numpy()[:24].astype(np.float64)
+
+        del t_img, t_lin, t_boxes, pred
+        if device == "cuda":
+            torch.cuda.empty_cache()
+
+    if float(np.linalg.norm(joints3d)) < 1e-3:
+        raise RuntimeError("Dữ liệu tọa độ 3D trả về trống.")
+
+    emit_progress(88, "Đang chuyển đổi sang hệ trục khớp xương 3D...")
+    j_pc = (CV_TO_PC @ joints3d.T).T / 1000.0
+    hips_mat = CV_TO_PC @ R.from_rotvec(pose_rv[0]).as_matrix()
+
+    l_thigh = 0.5 * (float(np.linalg.norm(j_pc[4] - j_pc[1])) + float(np.linalg.norm(j_pc[5] - j_pc[2])))
+    l_shin = 0.5 * (float(np.linalg.norm(j_pc[7] - j_pc[4])) + float(np.linalg.norm(j_pc[8] - j_pc[5])))
+    l_thigh = float(np.clip(l_thigh, 0.34, 0.50))
+    l_shin = float(np.clip(l_shin, 0.34, 0.50))
+    ankle_h = 0.085
+    rest_hip_h = l_thigh + l_shin + ankle_h
+
+    # Tính độ cao hông (Hips.pos.y) sao cho điểm thấp nhất toàn thân (chân/tay/gối/đầu) luôn tựa sát sàn Y >= 0, không lún sàn
+    lowest_body_y = float(np.min(j_pc[:, 1]))
+    hips_above_lowest = float(j_pc[0, 1]) - lowest_body_y
+    hips_pos_y = float(np.clip((hips_above_lowest + 0.05) - rest_hip_h, -0.82, 0.50))
+
+    bones = []
+    for j_idx, bone_name in SMPL_JOINT_NAMES:
+        if j_idx == 0:
+            ex, ey, ez = R.from_matrix(hips_mat).as_euler("xyz", degrees=True)
+            bones.append({
+                "boneName": bone_name,
+                "rot": {
+                    "x": round(float(ex), 2),
+                    "y": round(float(ey), 2),
+                    "z": round(float(ez), 2),
+                },
+                "pos": {
+                    "x": 0.0,
+                    "y": round(float(hips_pos_y), 4),
+                    "z": 0.0,
+                },
+            })
+        else:
+            ex, ey, ez = R.from_rotvec(pose_rv[j_idx]).as_euler("xyz", degrees=True)
+            bones.append({
+                "boneName": bone_name,
+                "rot": {
+                    "x": round(float(ex), 2),
+                    "y": round(float(ey), 2),
+                    "z": round(float(ez), 2),
+                },
+            })
+
+    if debug_vis_path:
+        vis = bgr_pad.copy()
+        for a, c in SMPL_EDGES:
+            p1 = (int(round(joints2d[a, 0])), int(round(joints2d[a, 1])))
+            p2 = (int(round(joints2d[c, 0])), int(round(joints2d[c, 1])))
+            col = (0, 255, 120) if a in (1, 4, 7, 13, 16, 18, 20) else ((255, 180, 0) if a in (2, 5, 8, 14, 17, 19, 21) else (0, 220, 255))
+            cv2.line(vis, p1, p2, col, 2, cv2.LINE_AA)
+        cv2.imwrite(debug_vis_path, vis)
+
+    elapsed = round(time.time() - t_start, 2)
+    result = {
+        "success": True,
+        "engine": "nlf-smpl-3d-image",
+        "device": device,
+        "detectedPerson": detected_box is not None,
+        "poseSpace": "tpose",
+        "sourceLegLength": round(float(l_thigh + l_shin), 4),
+        "boneCount": len(bones),
+        "elapsedSec": elapsed,
+        "bones": bones,
+    }
+
+    Path(out_json_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(out_json_path, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False)
+
+    emit_progress(100, f"Hoàn tất trích xuất tư thế 3D ({len(bones)} khớp xương)!", 1, 1)
+    return result
+
+
 def main():
-    parser = argparse.ArgumentParser(description="AI.Type Adaptive 3D Video Motion Capture (NLF SMPL + Optical Flow + Auto Foot IK)")
-    parser.add_argument("--video", required=True, help="Đường dẫn tệp video mẫu")
+    parser = argparse.ArgumentParser(description="AI.Type Adaptive 3D Video/Image Motion & Pose Capture (NLF SMPL)")
+    parser.add_argument("--video", default="", help="Đường dẫn tệp video mẫu")
+    parser.add_argument("--image", default="", help="Đường dẫn tệp ảnh mẫu tư thế đơn")
     parser.add_argument("--out", required=True, help="Đường dẫn tệp JSON đầu ra")
     parser.add_argument("--model", default="", help="Đường dẫn tệp TorchScript NLF")
     parser.add_argument("--fps", type=float, default=0.0, help="Tần suất lấy mẫu khung hình (0 = tự động)")
@@ -935,11 +1094,37 @@ def main():
     parser.add_argument("--debug-vis", default="", help="Đường dẫn ảnh kiểm chứng tùy chọn")
     args = parser.parse_args()
 
+    if not args.video and not args.image:
+        print(json.dumps({"type": "error", "error": "Cần cung cấp --video hoặc --image"}, ensure_ascii=False), flush=True)
+        sys.exit(1)
+
     default_model = str(Path(__file__).resolve().parent.parent / "mocap-env" / "models" / "nlf_l_multi_0.3.2.torchscript")
     model_path = args.model.strip() if args.model else default_model
     foot_mode = args.foot_mode.strip() if args.foot_mode else ("free_stabilized" if args.stabilize_yaw else "auto")
 
     try:
+        if args.image:
+            res = run_image_pose(
+                image_path=args.image,
+                out_json_path=args.out,
+                model_path=model_path,
+                debug_vis_path=args.debug_vis,
+            )
+            print(
+                json.dumps(
+                    {
+                        "type": "done",
+                        "engine": res["engine"],
+                        "boneCount": res["boneCount"],
+                        "detectedPerson": res["detectedPerson"],
+                        "elapsedSec": res["elapsedSec"],
+                    },
+                    ensure_ascii=False,
+                ),
+                flush=True,
+            )
+            return
+
         res = run_video_mocap(
             video_path=args.video,
             out_json_path=args.out,

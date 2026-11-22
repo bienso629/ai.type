@@ -103,9 +103,11 @@ export const appRoutes: Route[] = [
             { path: 'synonym',        loadChildren: () => import('app/modules/admin/content/synonym/synonym.module').then(m => m.SynonymModule) },
             { path: 'payment',        loadChildren: () => import('app/modules/microsites/payment/payment.module').then(m => m.PaymentModule) },
             { path: 'settings',       loadChildren: () => import('app/modules/admin/account/settings/settings.module').then(m => m.SettingsModule) },
-            { path: 'profile',        loadChildren: () => import('app/modules/admin/account/profile/profile.module').then(m => m.ProfileModule) },
             { path: 'links',          loadChildren: () => import('app/modules/admin/marketing/seo-links/seo-links.module').then(m => m.LinksModule) },
             { path: 'gscr',           loadChildren: () => import('app/modules/admin/marketing/seo-report/seo-report.module').then(m => m.GSCReportModule) },
+
+            // --- Routes protected by admin hoặc nhóm làm-phim ---
+            { path: 'profile',     canActivate: [PermissionGuard], data: { requiredGroup: 'làm-phim', allowAdmin: true, deniedMessage: 'Bạn bị từ chối truy cập' }, loadChildren: () => import('app/modules/admin/account/profile/profile.module').then(m => m.ProfileModule) },
 
             // --- Routes protected by nhóm-đã-mua-ai-type ---
             { path: 'import',      canActivate: [PermissionGuard], data: { requiredGroup: 'nhóm-đã-mua-ai-type' }, loadChildren: () => import('app/modules/admin/content/sitemap/sitemap.module').then(m => m.SitemapModule) },

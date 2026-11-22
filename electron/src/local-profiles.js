@@ -715,6 +715,101 @@ function registerProfileHandlers(binaries = null) {
         }
     });
 
+    // Trích xuất chính xác tư thế 3D toàn thân (20 khớp SMPL) từ ảnh tham chiếu bằng NLF NeurIPS 2024
+    ipcMain.handle('mocap:extract-image-3d', async (event, { filePath, base64, buffer, filename } = {}) => {
+        const { spawn } = require('child_process');
+        const os = require('os');
+        let tmpImg = '';
+        let tmpOutJson = '';
+        try {
+            const stamp = `${Date.now()}_${Math.floor(Math.random() * 1e5)}`;
+            let inputImgPath = (typeof filePath === 'string' && filePath.trim() && fs.existsSync(filePath.trim()))
+                ? filePath.trim()
+                : '';
+
+            if (!inputImgPath) {
+                const ext = path.extname(String(filename || 'pose.jpg')) || '.jpg';
+                tmpImg = path.join(os.tmpdir(), `aitype_pose_in_${stamp}${ext}`);
+                if (typeof base64 === 'string' && base64.trim()) {
+                    const cleanB64 = base64.replace(/^data:[^;]+;base64,/, '');
+                    fs.writeFileSync(tmpImg, Buffer.from(cleanB64, 'base64'));
+                } else if (buffer) {
+                    fs.writeFileSync(tmpImg, Buffer.from(buffer));
+                } else {
+                    return { success: false, error: 'Thiếu ảnh tham chiếu đầu vào.' };
+                }
+                inputImgPath = tmpImg;
+            }
+
+            tmpOutJson = path.join(os.tmpdir(), `aitype_pose_out_${stamp}.json`);
+
+            const scriptCandidates = [
+                path.join(__dirname, '..', 'scripts', 'video_mocap_3d.py'),
+                path.join(process.resourcesPath || '', 'scripts', 'video_mocap_3d.py'),
+                path.join(process.cwd(), 'electron', 'scripts', 'video_mocap_3d.py')
+            ];
+            const scriptPath = scriptCandidates.find((p) => p && fs.existsSync(p));
+            if (!scriptPath) {
+                return { success: false, error: 'Không tìm thấy kịch bản trích xuất tư thế 3D (video_mocap_3d.py).' };
+            }
+
+            const pyCandidates = [
+                path.join(__dirname, '..', 'mocap-env', '.venv', 'bin', 'python'),
+                path.join(__dirname, '..', 'mocap-env', '.venv', 'Scripts', 'python.exe'),
+                path.join(process.cwd(), 'electron', 'mocap-env', '.venv', 'bin', 'python'),
+                path.join(process.cwd(), 'electron', 'mocap-env', '.venv', 'Scripts', 'python.exe'),
+                process.platform === 'win32' ? 'python' : 'python3'
+            ];
+            const pythonBin = pyCandidates.find((p) => p === 'python' || p === 'python3' || fs.existsSync(p)) || 'python3';
+
+            const modelCandidates = [
+                path.join(__dirname, '..', 'mocap-env', 'models', 'nlf_l_multi_0.3.2.torchscript'),
+                path.join(process.cwd(), 'electron', 'mocap-env', 'models', 'nlf_l_multi_0.3.2.torchscript'),
+                path.join(app.getPath('userData'), 'mocap-models', 'nlf_l_multi_0.3.2.torchscript')
+            ];
+            const modelPath = modelCandidates.find((p) => fs.existsSync(p)) || modelCandidates[0];
+
+            const args = [
+                scriptPath,
+                '--image', inputImgPath,
+                '--out', tmpOutJson,
+                '--model', modelPath
+            ];
+
+            await new Promise((resolve, reject) => {
+                const child = spawn(pythonBin, args, {
+                    windowsHide: true,
+                    env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUNBUFFERED: '1' }
+                });
+                let stderrBuf = '';
+                child.stderr.on('data', (chunk) => {
+                    stderrBuf += chunk.toString('utf8');
+                    if (stderrBuf.length > 6000) stderrBuf = stderrBuf.slice(-6000);
+                });
+                child.on('error', (err) => reject(err));
+                child.on('close', (code) => {
+                    if (code === 0) {
+                        resolve();
+                    } else {
+                        reject(new Error(`Trích xuất tư thế 3D từ ảnh thất bại (mã ${code}): ${stderrBuf.slice(-600)}`));
+                    }
+                });
+            });
+
+            if (!fs.existsSync(tmpOutJson)) {
+                return { success: false, error: 'Không tạo được tệp dữ liệu tư thế 3D đầu ra.' };
+            }
+            const parsed = JSON.parse(fs.readFileSync(tmpOutJson, 'utf8'));
+            try { if (tmpImg && fs.existsSync(tmpImg)) fs.unlinkSync(tmpImg); } catch (_) {}
+            try { if (tmpOutJson && fs.existsSync(tmpOutJson)) fs.unlinkSync(tmpOutJson); } catch (_) {}
+            return { success: true, data: parsed };
+        } catch (e) {
+            try { if (tmpImg && fs.existsSync(tmpImg)) fs.unlinkSync(tmpImg); } catch (_) {}
+            try { if (tmpOutJson && fs.existsSync(tmpOutJson)) fs.unlinkSync(tmpOutJson); } catch (_) {}
+            return { success: false, error: e.message || String(e) };
+        }
+    });
+
     // ─────────────────────────────────────────────────────────────
     // PROPS (đồ vật trong phòng)
     // ─────────────────────────────────────────────────────────────

@@ -1546,7 +1546,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         renderRafId = requestAnimationFrame(renderLoop);
 
         try {
-            console.log('[Chatbot] Đang gửi câu hỏi lên AI Agent (agent.type.vn) với dữ liệu FAISS cục bộ...');
+            console.log('[Chatbot] Đang gửi câu hỏi tới AI Agent (Local CLI) với dữ liệu FAISS cục bộ...');
             const sysInstruction = `Bạn là Trợ lý AI chuyên nghiệp phân tích và hỏi đáp tài liệu. Hãy trả lời câu hỏi của người dùng một cách mạch lạc, chi tiết, chính xác dựa trên các thông tin tài liệu đã trích xuất bên dưới. Đây là cuộc hội thoại nhiều lượt: khi người dùng dùng các từ thay thế như "nhân vật này", "người đó", "ông ấy", "cuốn này"... hãy dựa vào các lượt hỏi đáp trước để xác định đối tượng đang được nhắc tới, không hỏi lại nếu lịch sử đã rõ.`;
 
             // Dựng lịch sử hội thoại (bỏ placeholder, rút gọn bớt câu trả lời dài, gộp lượt trùng vai)
@@ -1679,7 +1679,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             if (renderRafId) cancelAnimationFrame(renderRafId);
 
             console.error('[Chatbot AI Agent Error]:', err);
-            fullText = `<span class="text-red-500 font-medium">Lỗi phản hồi từ AI Agent (agent.type.vn): ${err?.message || err}</span>`;
+            fullText = `<span class="text-red-500 font-medium">Lỗi phản hồi từ AI Agent (Local CLI): ${err?.message || err}</span>`;
             bubble.innerHTML = fullText;
             botMessage[3] = fullText;
             this.renderMessages(this.currentMessages);

@@ -159,6 +159,7 @@ if (isInternalAppOrigin) contextBridge.exposeInMainWorld('electron', {
     renameDesign: (payload) => ipcRenderer.invoke('designs:rename', payload),
     saveDesignThumbnail: (payload) => ipcRenderer.invoke('designs:save-thumbnail', payload),
     duplicateDesign: (payload) => ipcRenderer.invoke('designs:duplicate', payload),
+    patchDesignVideo: (payload) => ipcRenderer.invoke('designs:patch-video', payload),
     listLocalTasks: (payload) => ipcRenderer.invoke('list-local-tasks', payload),
     saveLocalTask: (payload) => ipcRenderer.invoke('save-local-task', payload),
     deleteLocalTask: (payload) => ipcRenderer.invoke('delete-local-task', payload),
@@ -240,8 +241,9 @@ if (isInternalAppOrigin) contextBridge.exposeInMainWorld('electron', {
     convertExportWebmToMp4: (username, buffer, aspectRatio, maxDurationSec)      => ipcRenderer.invoke('exports:convert-webm-to-mp4', { username, buffer, aspectRatio, maxDurationSec }),
     saveAiExportVideo:      (username, base64, filename)                         => ipcRenderer.invoke('exports:save-ai-video',      { username, base64, filename }),
 
-    // ── 3D Video Motion Capture (NLF SMPL 3D) ──
+    // ── 3D Video/Image Motion & Pose Capture (NLF SMPL 3D) ──
     extractVideoMocap3d:    (payload) => ipcRenderer.invoke('mocap:extract-video-3d', payload),
+    extractImagePose3d:     (payload) => ipcRenderer.invoke('mocap:extract-image-3d', payload),
     onMocapProgress:        (callback) => {
         if (typeof callback !== 'function') return () => {};
         const listener = (_event, data) => callback(data);
@@ -287,6 +289,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return () => ipcRenderer.removeListener('send-email-progress', listener);
     },
     toggleAiAgent: (enable, apiKey, extra) => ipcRenderer.invoke('toggle-ai-agent', enable, apiKey, extra),
+    detectLocalAiClis: (forceRefresh) => ipcRenderer.invoke('ai-agent:detect-clis', forceRefresh),
+    runLocalCliAgent: (payload) => ipcRenderer.invoke('ai-agent:run-cli', payload),
+    cancelLocalCliAgent: (requestId) => ipcRenderer.invoke('ai-agent:cancel-cli', requestId),
+    clearLocalCliSessions: () => ipcRenderer.invoke('ai-agent:clear-sessions'),
+    readFileBase64: (filePath) => ipcRenderer.invoke('read-file-base64', { filePath }),
+    onAiAgentCliStream: (callback) => {
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on('ai-agent:cli-stream', listener);
+        return () => ipcRenderer.removeListener('ai-agent:cli-stream', listener);
+    },
     toggleZaloPlugin: (enable, mode) => ipcRenderer.invoke('toggle-zalo-plugin', enable, mode),
     toggleTiktokPlugin: (enable) => ipcRenderer.invoke('toggle-tiktok-plugin', enable),
     toggleColabAgent: (enable) => ipcRenderer.invoke('toggle-colab-agent', enable),

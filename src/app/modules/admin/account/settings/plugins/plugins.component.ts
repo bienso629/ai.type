@@ -23,11 +23,18 @@ import { getSettings, updateUserSettingsCache } from 'app/_services/user-setting
 export class SettingsPluginsComponent implements OnInit, OnDestroy {
     plugins: any[] = [];
     zaloPluginMode: string = 'tool';
-    aiAgentApiKey: string = 'type-vn-local-agent-2026';
+    aiAgentApiKey: string = '';
+    aiAgentCliEngine: 'auto' | 'agy' | 'claude' = 'auto';
+    localCliStatus: {
+        agy: { installed: boolean; path?: string | null; version?: string };
+        claude: { installed: boolean; path?: string | null; version?: string };
+        recommended?: string | null;
+    } | null = null;
+    checkingLocalClis: boolean = false;
     showAiAgentKey: boolean = false;
     ttsVoice: string = 'vi-VN-HoaiMyNeural';
     ttsRate: string = '+0%';
-    aiAgentModel: string = 'glm-5.3';
+    aiAgentModel: string = 'gemini-3.8-flash-medium';
     aiAgentMaxTurns: number = 25;
     aiAgentPrompt: string = '';
 
@@ -74,6 +81,40 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             });
         this.getPluginsStatus();
         this.checkColabStatus();
+        this.checkLocalClis(false);
+    }
+
+    private normalizeLocalAgentModel(rawModel?: string): string {
+        const m = String(rawModel || '').trim();
+        if (!m || /^glm-/i.test(m)) return 'gemini-3.8-flash-medium';
+        const lower = m.toLowerCase();
+        if (lower === 'gemini-3.8-flash' || lower === 'gemini-3.7-flash') return 'gemini-3.8-flash-medium';
+        if (lower === 'gemini-3.7-flash-low' || lower === 'gemini-3.6-flash-low') return 'gemini-3.8-flash-low';
+        if (lower === 'gemini-3.7-flash-medium' || lower === 'gemini-3.6-flash-medium') return 'gemini-3.8-flash-medium';
+        if (lower === 'gemini-3.7-flash-high' || lower === 'gemini-3.6-flash-high') return 'gemini-3.8-flash-high';
+        if (lower === 'gemini-3.5-pro' || lower === 'gemini-3.1-pro') return 'gemini-4-neon-medium';
+        return m;
+    }
+
+    async checkLocalClis(forceRefresh: boolean = false) {
+        if (!(window as any).electronAPI || !(window as any).electronAPI.detectLocalAiClis) {
+            this.localCliStatus = null;
+            this.cd.detectChanges();
+            return;
+        }
+        this.checkingLocalClis = true;
+        this.cd.detectChanges();
+        try {
+            const res = await (window as any).electronAPI.detectLocalAiClis(forceRefresh);
+            if (res) {
+                this.localCliStatus = res;
+            }
+        } catch (err: any) {
+            console.warn('[AI Agent] Lỗi kiểm tra CLI cục bộ:', err);
+        } finally {
+            this.checkingLocalClis = false;
+            this.cd.detectChanges();
+        }
     }
 
     ngOnDestroy(): void {
@@ -155,10 +196,11 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             if (colabAgentPlugin) colabAgentPlugin.enabled = settings.colabPluginEnabled || false;
             
             this.zaloPluginMode = settings.zaloPluginMode || 'tool';
-            this.aiAgentApiKey = settings.aiAgentApiKey || 'type-vn-local-agent-2026';
+            this.aiAgentApiKey = settings.aiAgentApiKey || '';
+            this.aiAgentCliEngine = settings.aiAgentCliEngine || 'auto';
             this.ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
             this.ttsRate = settings.ttsRate || '+0%';
-            this.aiAgentModel = settings.aiAgentModel || 'glm-5.3';
+            this.aiAgentModel = this.normalizeLocalAgentModel(settings.aiAgentModel);
             this.aiAgentMaxTurns = settings.aiAgentMaxTurns !== undefined ? Number(settings.aiAgentMaxTurns) : 25;
             this.aiAgentPrompt = settings.aiAgentPrompt || '';
             this.cd.detectChanges();
@@ -183,18 +225,15 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 zalo.enabled = !!settings.zaloPluginEnabled;
             }
 
-            if (settings.aiAgentApiKey) {
-                this.aiAgentApiKey = settings.aiAgentApiKey;
-            } else if (aiAgent && aiAgent.apiKey) {
-                this.aiAgentApiKey = aiAgent.apiKey;
-            } else {
-                this.aiAgentApiKey = 'type-vn-local-agent-2026';
+            if (aiAgent?.cliStatus) {
+                this.localCliStatus = aiAgent.cliStatus;
             }
+            this.aiAgentCliEngine = settings.aiAgentCliEngine || aiAgent?.cliEngine || 'auto';
+            this.aiAgentApiKey = settings.aiAgentApiKey || aiAgent?.apiKey || '';
 
-            
             this.ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
             this.ttsRate = settings.ttsRate || '+0%';
-            this.aiAgentModel = settings.aiAgentModel || 'glm-5.3';
+            this.aiAgentModel = this.normalizeLocalAgentModel(settings.aiAgentModel);
             this.aiAgentMaxTurns = settings.aiAgentMaxTurns !== undefined ? Number(settings.aiAgentMaxTurns) : 25;
             this.aiAgentPrompt = settings.aiAgentPrompt || '';
             this.checkColabStatus();
@@ -316,17 +355,20 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             } else if (plugin.id === 'ai_agent') {
                 const settings = getSettings() || {};
                 const res = await (window as any).electronAPI.toggleAiAgent(event.checked, this.aiAgentApiKey, {
+                    cliEngine: this.aiAgentCliEngine,
+                    model: this.aiAgentModel,
+                    maxTurns: Number(this.aiAgentMaxTurns) || 25,
                     umodelverseUrl: settings.umodelverseUrl,
                     umodelverseKey: settings.umodelverseKey
                 });
                 if (res && res.success) {
                     plugin.enabled = event.checked;
                     settings.enableAiAgent = event.checked;
+                    settings.aiAgentCliEngine = this.aiAgentCliEngine;
                     updateUserSettingsCache(settings);
                     this.syncSettingsToBackend(settings);
 
-
-                    this.toastr.success(event.checked ? 'Đã kích hoạt AI Agent.' : 'Đã hủy kích hoạt AI Agent.');
+                    this.toastr.success(event.checked ? 'Đã kích hoạt AI Agent cục bộ (AGY / Claude CLI).' : 'Đã hủy kích hoạt AI Agent.');
                 } else {
                     this.toastr.error(res?.error || 'Không thể thay đổi trạng thái plugin.');
                 }
@@ -800,6 +842,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
     async saveAiAgentKey(plugin: any) {
         if (!(window as any).electronAPI) {
             const settings = getSettings() || {};
+            settings.aiAgentCliEngine = this.aiAgentCliEngine;
             settings.aiAgentApiKey = this.aiAgentApiKey;
             settings.ttsVoice = this.ttsVoice;
             settings.ttsRate = this.ttsRate;
@@ -807,13 +850,14 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             settings.aiAgentMaxTurns = Number(this.aiAgentMaxTurns) || 25;
             settings.aiAgentPrompt = this.aiAgentPrompt;
             updateUserSettingsCache(settings);
-                    this.syncSettingsToBackend(settings);
+            this.syncSettingsToBackend(settings);
 
-            this.toastr.success('Đã lưu cấu hình AI Agent trên trình duyệt/mobile.');
+            this.toastr.success('Đã lưu cấu hình AI Agent.');
             return;
         }
         try {
             const settings = getSettings() || {};
+            settings.aiAgentCliEngine = this.aiAgentCliEngine;
             settings.ttsVoice = this.ttsVoice;
             settings.ttsRate = this.ttsRate;
             settings.aiAgentApiKey = this.aiAgentApiKey;
@@ -821,15 +865,17 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             settings.aiAgentMaxTurns = Number(this.aiAgentMaxTurns) || 25;
             settings.aiAgentPrompt = this.aiAgentPrompt;
             updateUserSettingsCache(settings);
-                    this.syncSettingsToBackend(settings);
-
+            this.syncSettingsToBackend(settings);
 
             const res = await (window as any).electronAPI.toggleAiAgent(plugin.enabled, this.aiAgentApiKey, {
+                cliEngine: this.aiAgentCliEngine,
+                model: this.aiAgentModel,
+                maxTurns: Number(this.aiAgentMaxTurns) || 25,
                 umodelverseUrl: settings.umodelverseUrl,
                 umodelverseKey: settings.umodelverseKey
             });
             if (res && res.success) {
-                this.toastr.success('Đã lưu cấu hình. Hệ thống sẽ khởi động lại AI Agent nếu đang bật.');
+                this.toastr.success('Đã lưu cấu hình AI Agent cục bộ.');
             } else {
                 this.toastr.error(res?.error || 'Lỗi lưu cấu hình.');
             }

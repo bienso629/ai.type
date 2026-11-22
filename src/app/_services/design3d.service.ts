@@ -19,9 +19,13 @@ export interface Design3DPreset {
     /** Toàn bộ dữ liệu scene: props, character, room... */
     sceneData?: any;
     thumbnailPath?: string | null;
+    thumbnailDataUrl?: string | null;
     propCount?: number;
     hasCharacter?: boolean;
     hasRoom?: boolean;
+    videoCount?: number;
+    camKeyframeCount?: number;
+    hasVideoSetup?: boolean;
     createdAt?: string | null;
     updatedAt?: string | null;
 }
@@ -31,6 +35,7 @@ export interface Design3DSnapshot {
     props: any[];
     character?: any;
     scene?: any;
+    aiVideo3d?: any;
 }
 
 let options = {
@@ -77,8 +82,9 @@ export class Design3DService {
     }
 
     private get _useLocal(): boolean {
-        const isAutoSaveLocal = isAutoSaveLocalEnabled();
-        return isAutoSaveLocal && !!this._electron;
+        // Mẫu thiết kế 3D chứa đường dẫn tệp GLB cục bộ và dữ liệu boneTimeline lớn,
+        // luôn lưu trực tiếp qua Electron IPC (đồng nhất với ProfileDataService).
+        return !!(this._electron && typeof this._electron.saveDesign === 'function');
     }
 
     // ── SERVER REST (mã hóa AES giống tasks.ts) ─────────────────
@@ -89,9 +95,9 @@ export class Design3DService {
         fallback: any
     ): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info');
-        if (!activeInfo) { return of(null); }
+        if (!activeInfo) { return of(fallback); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo);
-        if (!activeInfo) return of(null);
+        if (!activeInfo) return of(fallback);
 
         dataForm.year = this.year;
         dataForm.appId = 'ai.typing';
@@ -208,6 +214,20 @@ export class Design3DService {
             username: this._username,
             design: { id: designId, thumbnail: base64 }
         }, 'saveThumbnail', { error: true });
+    }
+
+    /** Chỉ cập nhật dữ liệu & lịch sử VIDEO CẢNH 3D cho 1 mẫu thiết kế (không ghi đè bố cục props 3D) */
+    public patchVideoState(designId: string, aiVideo3d: any): Observable<any> {
+        if (this._useLocal && typeof this._electron.patchDesignVideo === 'function') {
+            return from(this._electron.patchDesignVideo({
+                username: this._username,
+                designId,
+                aiVideo3d
+            })).pipe(
+                catchError(this.handleError('patchVideoState', { success: false }))
+            );
+        }
+        return of({ success: false });
     }
 
     private handleError<T>(operation = 'operation', result?: T) {

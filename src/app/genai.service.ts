@@ -10,9 +10,6 @@ import { PdfTextService } from './_services/pdf-text.service';
 
 type Scope = string | number;
 
-// Domain máy chủ AI Agent Plugin
-const AI_AGENT_BASE_URL = 'https://agent.type.vn';
-
 import { getSettings } from './_services/user-settings.service';
 
 @Injectable({ providedIn: 'root' })
@@ -49,22 +46,14 @@ export class GenaiService {
     private static _modelsListInFlight = new Map<string, Promise<string[]>>();
     private static _lastVideoTaskSubmitMs = 0;
 
-    private localAgentAbortController?: AbortController;
+    private _activeLocalCliRequestId?: string;
 
     public cancelLocalAgent() {
-        if (this.localAgentAbortController) {
-            this.localAgentAbortController.abort();
-            this.localAgentAbortController = undefined;
-        }
-        
-        // Gửi lệnh qua IPC để khởi chạy lại process AI Agent ở Electron (port 54321) để hủy mọi tiến trình Python/C++ đang chạy ngầm
-        if ((window as any).electron && (window as any).electron.invoke) {
-            (window as any).electron.invoke('toggle-ai-agent', false).then(() => {
-                // Đợi 1.2 giây để hệ điều hành giải phóng hoàn toàn cổng 54321 rồi mới khởi chạy lại
-                setTimeout(() => {
-                    (window as any).electron.invoke('toggle-ai-agent', true);
-                }, 1200);
-            });
+        const reqId = this._activeLocalCliRequestId;
+        this._activeLocalCliRequestId = undefined;
+
+        if ((window as any).electronAPI && (window as any).electronAPI.cancelLocalCliAgent) {
+            (window as any).electronAPI.cancelLocalCliAgent(reqId || undefined).catch(() => {});
         }
     }
 
@@ -2172,7 +2161,7 @@ export class GenaiService {
         const bypassAiAgent = (params.config as any)?.bypassAiAgent === true;
 
         const isUModelverse = this.isUModelverseEnabled();
-        const configuredAgentModel = settingsRaw?.aiAgentModel || 'glm-5.3';
+        const configuredAgentModel = settingsRaw?.aiAgentModel || 'gemini-3.8-flash-medium';
 
         if (isUModelverse) {
             // Khi Mì Tôm AI được bật trong tài khoản, ưu tiên áp dụng model của Mì Tôm AI
@@ -2224,7 +2213,7 @@ export class GenaiService {
                 }
             }
 
-            // 2. Tầng Dự Phòng 2: AI Agent (agent.type.vn) nếu đang hoạt động
+            // 2. Tầng Dự Phòng 2: AI Agent cục bộ (AGY CLI / Claude CLI) nếu đang hoạt động
             if (isAiAgentActive && !isVideoRequest && !bypassAiAgent) {
                 try {
                     const agentRes = await this.generateWithAiAgent(params, scope);
@@ -2460,25 +2449,20 @@ export class GenaiService {
 
     public async generateWithAiAgent(params: GenerateContentParameters, scope?: Scope): Promise<any> {
         let promptText = '';
-        const formData = new FormData();
-
-        if (scope) {
-            formData.append('conversation_id', String(scope));
-        }
+        let historyText = '';
+        const attachedFiles: Array<{ fileName: string; mimeType: string; base64: string }> = [];
 
         const isFirstMessage = !Array.isArray(params.contents) || params.contents.length === 1;
-        formData.append('is_first_message', isFirstMessage ? 'true' : 'false');
 
         if (params.contents) {
-            let contentsArr: any[] = Array.isArray(params.contents) ? params.contents : [params.contents];
-            let historyText = '';
+            const contentsArr: any[] = Array.isArray(params.contents) ? params.contents : [params.contents];
             let latestText = '';
 
             for (let index = 0; index < contentsArr.length; index++) {
                 const content = contentsArr[index];
                 const isLast = (index === contentsArr.length - 1);
                 const role = (content.role === 'model' || content.role === 'assistant') ? 'AI Agent' : 'User';
-                
+
                 let textParts = '';
                 if (typeof content === 'string') {
                     textParts = content;
@@ -2492,19 +2476,15 @@ export class GenaiService {
                             } else if (p.text) {
                                 textParts += p.text + '\n';
                             }
-                            
+
                             if (isLast && p.inlineData) {
                                 const mimeType = p.inlineData.mimeType || 'image/jpeg';
                                 let b64Data = p.inlineData.data;
                                 if (b64Data && b64Data.startsWith('data:')) {
                                     b64Data = b64Data.split(',')[1];
                                 }
-                                
+
                                 if (b64Data) {
-                                    const dataUri = `data:${mimeType};base64,${b64Data}`;
-                                    const fileResp = await fetch(dataUri);
-                                    const blob = await fileResp.blob();
-                                    
                                     let ext = 'jpg';
                                     if (mimeType.includes('pdf')) ext = 'pdf';
                                     else if (mimeType.includes('png')) ext = 'png';
@@ -2520,14 +2500,17 @@ export class GenaiService {
                                     else if (mimeType.includes('plain') || mimeType.startsWith('text/')) ext = 'txt';
                                     const origName = (p as any).fileName || p.inlineData.fileName;
                                     const safeFileName = origName || `media_${Date.now()}_${i}.${ext}`;
-                                    const file = new File([blob], safeFileName, { type: mimeType });
-                                    formData.append('files', file);
+                                    attachedFiles.push({
+                                        fileName: safeFileName,
+                                        mimeType,
+                                        base64: b64Data
+                                    });
                                 }
                             }
                         }
                     }
                 }
-                
+
                 if (textParts.trim()) {
                     if (isLast) {
                         latestText = textParts.trim();
@@ -2536,27 +2519,26 @@ export class GenaiService {
                     }
                 }
             }
-            
-            // Bỏ việc nhồi lịch sử chat vào prompt vì AI Agent (agy) đã tự động quản lý qua conversation_id
+
             promptText = latestText;
         }
 
         let finalPrompt = promptText.trim() || 'Xin chào';
-        
+
         if (params.config && params.config.responseModalities) {
             if (params.config.responseModalities.includes('VIDEO')) {
                 finalPrompt = 'Bắt buộc tạo video: ' + finalPrompt;
             }
         }
-        // [PATCH 2026-10-16] SỬA ẢNH qua AI Agent: nhét chỉ thị cứng buộc dựa trên ảnh đính kèm, không vẽ mới
+        // SỬA ẢNH qua AI Agent: nhét chỉ thị cứng buộc dựa trên ảnh đính kèm, không vẽ mới
         const isImageEditAgent = (params.config as any)?.isImageEdit === true;
         if (isImageEditAgent) {
-            finalPrompt = 'Bắt buộc CHỈNH SỬA dựa trên ảnh người dùng đính kèm trong files (giữ nguyên bố cục, nhân vật, phong cách ảnh gốc; chỉ thay đổi đúng theo yêu cầu). Tuyệt đối không vẽ ảnh mới hoàn toàn. Yêu cầu chỉnh sửa: ' + finalPrompt;
+            finalPrompt = 'Bắt buộc CHỈNH SỬA dựa trên ảnh người dùng đính kèm (giữ nguyên bố cục, nhân vật, phong cách ảnh gốc; chỉ thay đổi đúng theo yêu cầu). Tuyệt đối không vẽ ảnh mới hoàn toàn. Yêu cầu chỉnh sửa: ' + finalPrompt;
         }
-        
+
         const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
 
-        let configRatio = (params.config as any)?.aspectRatio || (params.config as any)?.imageConfig?.aspectRatio;
+        const configRatio = (params.config as any)?.aspectRatio || (params.config as any)?.imageConfig?.aspectRatio;
         if (configRatio) {
             finalPrompt += `\n[Yêu cầu kỹ thuật: Tỉ lệ khung hình (Aspect Ratio) là ${configRatio}]`;
         }
@@ -2568,11 +2550,12 @@ export class GenaiService {
         if (imageSize && !finalPrompt.includes('kích thước là')) {
             finalPrompt += `\n[Yêu cầu kỹ thuật: Kích thước là ${imageSize}]`;
         }
-        
-        formData.append('prompt', finalPrompt);
+
         const settings = this.getSettingsFromStorage();
-        const configuredAgentModel = isImageRequest ? (params.model || 'gemini-3.7-flash') : (settings.aiAgentModel || params.model || 'gemini-3.7-flash');
-        formData.append('model', configuredAgentModel);
+        const configuredAgentModel = isImageRequest
+            ? (params.model || 'gemini-3.8-flash-medium')
+            : (settings.aiAgentModel || params.model || 'gemini-3.8-flash-medium');
+
         let sysContent = '';
         if (params.config && params.config.systemInstruction) {
             if (typeof params.config.systemInstruction === 'string') {
@@ -2590,86 +2573,62 @@ export class GenaiService {
             }
         }
 
-        formData.append('system_instructions', sysContent);
-
-        // Bổ sung max_turns và chế độ tắt suy luận trung gian cho Agent (nếu có)
         const maxTurns = (params.config as any)?.maxTurns || (params.config as any)?.max_turns || settings.aiAgentMaxTurns || 25;
-        formData.append('max_turns', String(maxTurns));
-        if ((params.config as any)?.disableThinking === true) {
-            formData.append('disable_thinking', 'true');
-        }
 
-        this.localAgentAbortController = new AbortController();
-        let isAiAgentActive = false;
-        let secretApiKey = 'type-vn-local-agent-2026';
-        const targetEndpoint = isImageRequest ? '/api/image' : '/api/chat';
-        let apiUrl = `${AI_AGENT_BASE_URL}${targetEndpoint}`;
+        let isAiAgentActive = settings.enableAiAgent === true;
+        let cliEngine: string = settings.aiAgentCliEngine || 'auto';
+        const electronAPI = (window as any).electronAPI;
 
-        if (settings.enableAiAgent === true) {
-            isAiAgentActive = true;
-        }
-
-        if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
+        if (electronAPI && electronAPI.getPluginsStatus) {
             try {
-                const list = await (window as any).electronAPI.getPluginsStatus();
+                const list = await electronAPI.getPluginsStatus();
                 const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
                 if (aiAgent && aiAgent.enabled !== undefined) {
                     isAiAgentActive = aiAgent.enabled === true || isAiAgentActive;
-                    if (aiAgent.apiKey) secretApiKey = aiAgent.apiKey;
                 }
-            } catch(e) {}
-            if (settings.aiAgentApiKey && (secretApiKey === 'type-vn-local-agent-2026' || !secretApiKey)) {
-                secretApiKey = settings.aiAgentApiKey;
-            }
-            if (secretApiKey && (secretApiKey.startsWith('http://') || secretApiKey.startsWith('https://'))) {
-                // Giả định cú pháp setting là: URL|API_KEY (VD: https://agent.type.vn|my-secret)
-                const parts = secretApiKey.split('|');
-                const baseUrlClean = parts[0].replace(/\/api\/(chat|image)\/?$/, '');
-                apiUrl = baseUrlClean + targetEndpoint;
-                secretApiKey = parts[1] || 'type-vn-local-agent-2026';
-            } else {
-                // AI Agent chạy hoàn toàn qua domain https://agent.type.vn (không dùng daemon cục bộ nữa)
-                apiUrl = `${AI_AGENT_BASE_URL}${targetEndpoint}`;
-            }
-        } else {
-            // Web / Mobile / Another Account fallback logic
-            if (settings.aiAgentApiKey) secretApiKey = settings.aiAgentApiKey;
-            
-            if (secretApiKey && (secretApiKey.startsWith('http://') || secretApiKey.startsWith('https://'))) {
-                const parts = secretApiKey.split('|');
-                const baseUrlClean = parts[0].replace(/\/api\/(chat|image)\/?$/, '');
-                apiUrl = baseUrlClean + targetEndpoint;
-                secretApiKey = parts[1] || 'type-vn-local-agent-2026';
-            }
+                if (!settings.aiAgentCliEngine && aiAgent?.cliEngine) {
+                    cliEngine = aiAgent.cliEngine;
+                }
+            } catch (e) {}
         }
 
         if (!isAiAgentActive) {
-            throw new Error("Plugin AI Agent chưa được bật.");
+            throw new Error('Plugin AI Agent chưa được bật.');
         }
-        
+
+        if (!electronAPI || !electronAPI.runLocalCliAgent) {
+            throw new Error('AI Agent cục bộ (AGY CLI / Claude CLI) chỉ khả dụng trên ứng dụng Desktop Electron.');
+        }
+
         let ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
         if (params.config && (params.config as any).ttsVoice !== undefined) {
             ttsVoice = (params.config as any).ttsVoice;
         }
         const ttsRate = settings.ttsRate || '+0%';
-        formData.append('tts_voice', ttsVoice === 'local' ? 'none' : ttsVoice);
-        formData.append('tts_rate', ttsRate);
-        
+        const skipTTS =
+            (params.config as any)?.skipTTS === true ||
+            finalPrompt.includes('===SPLIT===') ||
+            finalPrompt.toLowerCase().includes('tách đoạn');
+
+        const requestId = `cli_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        this._activeLocalCliRequestId = requestId;
+
+        let unsubscribeStream: (() => void) | null = null;
         try {
             const localTTSQueue = {
                 buffer: '',
                 play: function(force = false) {
                     if (ttsVoice !== 'local') return;
                     if (!window.speechSynthesis) return;
-                    
+
                     let match = this.buffer.match(/([^.?!:\n]+[.?!:\n]+)(.*)/);
                     if (force && this.buffer.trim()) {
-                         match = [this.buffer, this.buffer, ''];
+                        match = [this.buffer, this.buffer, ''];
                     }
                     if (match) {
                         const sentence = match[1].trim();
                         this.buffer = match[2] || '';
-                        
+
                         if (sentence) {
                             const utterance = new SpeechSynthesisUtterance(sentence);
                             utterance.lang = 'vi-VN';
@@ -2685,7 +2644,7 @@ export class GenaiService {
                     }
                 }
             };
-            // Audio queue để phát lần lượt các luồng TTS streaming
+
             const audioQueue = {
                 queue: [] as string[],
                 isPlaying: false,
@@ -2703,256 +2662,153 @@ export class GenaiService {
                     this.isPlaying = true;
                     const b64 = this.queue.shift();
                     const audio = new Audio('data:audio/mp3;base64,' + b64);
-                    
-                    // Boost the playback rate on frontend to make it faster
+
                     let rateMultiplier = 1.25;
                     if (ttsRate === '-10%') rateMultiplier = 1.0;
                     else if (ttsRate === '+10%') rateMultiplier = 1.45;
                     else if (ttsRate === '+25%') rateMultiplier = 1.7;
-                    
+
                     audio.playbackRate = rateMultiplier;
-                    
+
                     audio.onended = () => {
                         this.isPlaying = false;
                         this.playNext();
                     };
-                    audio.play().catch(e => {
+                    audio.play().catch(() => {
                         this.isPlaying = false;
                         this.playNext();
                     });
                 }
             };
 
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'x-api-key': secretApiKey
-                },
-                body: formData,
-                signal: this.localAgentAbortController.signal
-            });
-
-            if (!response.ok) {
-                let errDetail = '';
-                try {
-                    const errJson = await response.json();
-                    if (errJson && (errJson.detail || errJson.message || errJson.error)) {
-                        errDetail = errJson.detail || errJson.message || errJson.error;
-                    }
-                } catch(e) {
-                    try {
-                        errDetail = await response.text();
-                    } catch(e2) {}
-                }
-
-                if (response.status === 401 || response.status === 403) {
-                    throw new Error(`Xác thực AI Agent (${apiUrl}) thất bại (HTTP ${response.status}): ${errDetail || 'Sai hoặc thiếu Secret API Key'}. Vui lòng nhập đúng Secret API Key của máy chủ trong Cài đặt -> Plugins -> AI Agent.`);
-                }
-                throw new Error(`AI Agent (${apiUrl}) phản hồi lỗi HTTP ${response.status}${errDetail ? ': ' + errDetail : ''}`);
-            }
-
             let replyText = '';
             let imageBase64: string | undefined;
             let videoBase64: string | undefined;
             let audioBase64: string | undefined;
             let conversationId: string | undefined;
-            
-            if (response.body) {
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder("utf-8");
-                let buffer = '';
-                const startTime = Date.now();
-                let lastActiveTime = Date.now();
 
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    
-                    lastActiveTime = Date.now(); // Cập nhật thời gian nhận tín hiệu từ server
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop() || '';
-                    let batchStreamedContent = '';
-                    
-                    for (let line of lines) {
-                        line = line.trim();
-                        if (!line || line.startsWith(':')) continue;
-                        if (line.startsWith('data: ')) {
-                            line = line.slice(6).trim();
+            if (typeof electronAPI.onAiAgentCliStream === 'function') {
+                unsubscribeStream = electronAPI.onAiAgentCliStream((ev: any) => {
+                    if (!ev || ev.requestId !== requestId) return;
+                    if (ev.conversationId) {
+                        conversationId = ev.conversationId;
+                    }
+                    if (ev.type === 'delta' && ev.content) {
+                        if (ev.content.includes('waiting for background') || ev.content.includes('waiting for subagent')) {
+                            return;
                         }
-                        if (line === '[DONE]') continue;
-                        
-                        try {
-                            const chunk = JSON.parse(line);
-                            if (chunk.success === false) {
-                                throw new Error(chunk.error || 'AI Agent xử lý thất bại');
-                            }
-                            
-                            // Bỏ qua các tin nhắn waiting nội bộ của subagent/background task
-                            if (chunk.content && (chunk.content.includes('waiting for background') || chunk.content.includes('waiting for subagent'))) {
-                                continue;
-                            }
+                        replyText += ev.content;
 
-                            // Streaming chunk
-                            let shouldIgnoreTTS = false;
-                            const isSplitTask = replyText.includes('===SPLIT===') || finalPrompt.includes('===SPLIT===') || (params.config as any)?.skipTTS === true || finalPrompt.toLowerCase().includes('tách đoạn');
-                            if (chunk.content) {
-                                replyText += chunk.content;
-                                batchStreamedContent += chunk.content;
-                                
-                                const backticksCount = (replyText.match(/```/g) || []).length;
-                                const isInsideMarkdownCode = (backticksCount % 2 !== 0);
-                                const isRawJsonData = replyText.includes('"action": "save_to_outline"') || replyText.includes('"action":"save_to_outline"');
-                                shouldIgnoreTTS = isInsideMarkdownCode || isRawJsonData || isSplitTask;
-                                
-                                if (!shouldIgnoreTTS) {
-                                    localTTSQueue.buffer += chunk.content;
-                                    localTTSQueue.play();
-                                }
-                            }
-                            // Fallback cho luồng cũ (trả 1 lần)
-                            if (chunk.result !== undefined && !chunk.content) {
-                                replyText = chunk.result;
-                                if ((params.config as any)?.onStream) (params.config as any).onStream(chunk.result, true);
-                            }
-                            
-                            if (chunk.image_base64) imageBase64 = chunk.image_base64;
-                            if (chunk.video_base64) videoBase64 = chunk.video_base64;
-                            if (chunk.audio_base64 && !shouldIgnoreTTS) {
-                                audioQueue.add(chunk.audio_base64);
-                            }
-                            if (chunk.conversation_id) {
-                                conversationId = chunk.conversation_id;
-                            }
-                        } catch (e) {
-                            // Bỏ qua lỗi parse JSON nếu chunk chưa hoàn thiện
+                        const backticksCount = (replyText.match(/```/g) || []).length;
+                        const isInsideMarkdownCode = (backticksCount % 2 !== 0);
+                        const isRawJsonData = replyText.includes('"action": "save_to_outline"') || replyText.includes('"action":"save_to_outline"');
+                        const isSplitTask = skipTTS || replyText.includes('===SPLIT===');
+                        const shouldIgnoreTTS = isInsideMarkdownCode || isRawJsonData || isSplitTask;
+
+                        if (!shouldIgnoreTTS) {
+                            localTTSQueue.buffer += ev.content;
+                            localTTSQueue.play();
+                        }
+
+                        if ((params.config as any)?.onStream) {
+                            (params.config as any).onStream(ev.content, false);
+                        }
+                    } else if (ev.type === 'audio' && ev.audioBase64) {
+                        const backticksCount = (replyText.match(/```/g) || []).length;
+                        const isInsideMarkdownCode = (backticksCount % 2 !== 0);
+                        const isRawJsonData = replyText.includes('"action": "save_to_outline"') || replyText.includes('"action":"save_to_outline"');
+                        const shouldIgnoreTTS = isInsideMarkdownCode || isRawJsonData || skipTTS;
+                        if (!shouldIgnoreTTS) {
+                            audioQueue.add(ev.audioBase64);
                         }
                     }
-                    
-                    if (batchStreamedContent && (params.config as any)?.onStream) {
-                        (params.config as any).onStream(batchStreamedContent, false);
-                    }
-
-                    // Timeout nếu mất kết nối hoàn toàn (> 60s không nhận được cả ping) hoặc tổng thời gian > 180s
-                    if (Date.now() - lastActiveTime > 60000 || Date.now() - startTime > 180000) {
-                        reader.cancel();
-                        throw new Error("AI Agent phản hồi quá thời gian cho phép (mất kết nối hoặc quá 3 phút).");
-                    }
-                }
-                
-                // Xử lý nốt buffer cuối
-                if (buffer.trim()) {
-                    try {
-                        let line = buffer.trim();
-                        if (line.startsWith('data: ')) line = line.slice(6).trim();
-                        const chunk = JSON.parse(line);
-                        if (chunk.success === false) throw new Error(chunk.error);
-                        let shouldIgnoreTTS = false;
-                        if (chunk.content) {
-                            replyText += chunk.content;
-                            const backticksCount = (replyText.match(/```/g) || []).length;
-                            const isInsideMarkdownCode = (backticksCount % 2 !== 0);
-                            const isRawJsonData = replyText.includes('"action": "save_to_outline"') || replyText.includes('"action":"save_to_outline"');
-                            shouldIgnoreTTS = isInsideMarkdownCode || isRawJsonData;
-                            
-                            if (!shouldIgnoreTTS) {
-                                localTTSQueue.buffer += chunk.content;
-                            }
-                        }
-                        if (chunk.result !== undefined && !chunk.content) replyText = chunk.result;
-                        if (chunk.image_base64) imageBase64 = chunk.image_base64;
-                        if (chunk.video_base64) videoBase64 = chunk.video_base64;
-                        if (chunk.audio_base64 && !shouldIgnoreTTS) audioQueue.add(chunk.audio_base64);
-                        if (chunk.conversation_id) conversationId = chunk.conversation_id;
-                    } catch (e) {}
-                }
-            } else {
-                const data = await response.json();
-                if (!data.success) throw new Error(data.error || 'AI Agent xử lý thất bại');
-                replyText = data.result || '';
-                imageBase64 = data.image_base64;
-                videoBase64 = data.video_base64;
-                audioBase64 = data.audio_base64;
-                conversationId = data.conversation_id;
+                });
             }
-            
+
+            const cliRes = await electronAPI.runLocalCliAgent({
+                requestId,
+                engine: cliEngine,
+                model: configuredAgentModel,
+                prompt: finalPrompt,
+                historyText: historyText.trim(),
+                systemInstructions: sysContent,
+                maxTurns: Number(maxTurns) || 25,
+                conversationKey: scope ? String(scope) : '',
+                isFirstMessage,
+                isImageRequest: !!isImageRequest,
+                files: attachedFiles,
+                ttsVoice,
+                ttsRate,
+                skipTTS
+            });
+
+            if (!cliRes || cliRes.success !== true) {
+                throw new Error(cliRes?.error || 'AI Agent cục bộ (AGY/Claude CLI) xử lý thất bại.');
+            }
+
+            if (cliRes.conversationId) {
+                conversationId = cliRes.conversationId;
+            }
+            if (!replyText && typeof cliRes.result === 'string' && cliRes.result) {
+                replyText = cliRes.result;
+                if ((params.config as any)?.onStream) {
+                    (params.config as any).onStream(replyText, true);
+                }
+            } else if (typeof cliRes.result === 'string' && cliRes.result.length > replyText.length) {
+                replyText = cliRes.result;
+            }
+
             localTTSQueue.play(true);
 
-            // Xử lý nạp ảnh từ Local Storage nếu AI Agent trả về thẻ ảnh markdown chứa đường dẫn local
-            // Phục vụ cho AGY CLI trả về ![caption](/absolute/path/to/file.jpg) hoặc file:///
+            const readLocalBase64 = async (filePath: string): Promise<string> => {
+                if (electronAPI?.readFileBase64) {
+                    const res = await electronAPI.readFileBase64(filePath);
+                    return typeof res === 'string' ? res : (res?.data || res?.base64 || '');
+                }
+                if ((window as any).electron?.readFileBase64) {
+                    const res = await (window as any).electron.readFileBase64(filePath);
+                    return typeof res === 'string' ? res : (res?.data || res?.base64 || '');
+                }
+                return '';
+            };
+
+            // Nạp ảnh từ ổ đĩa cục bộ nếu AGY/Claude CLI trả về thẻ ảnh markdown ![caption](/abs/path.png) hoặc file:///
             const mdImageRegex = /!\[.*?\]\((file:\/\/\/|\/)([^\)]+)\)/g;
             let match;
-            let hasLocalImages = false;
-            
             while ((match = mdImageRegex.exec(replyText)) !== null) {
                 const prefix = match[1];
                 let filePath = match[2];
-                if (prefix === '/') filePath = '/' + filePath; // Khôi phục lại dấu / ở đầu nếu là absolute path
-                
+                if (prefix === '/') filePath = '/' + filePath;
+
                 try {
-                    // Trong môi trường Web/Electron, fetch 'file://' có thể bị chặn.
-                    // Thử dùng API electron đọc file nếu có
-                    let b64 = '';
-                    if ((window as any).electronAPI && (window as any).electronAPI.readFileBase64) {
-                        b64 = await (window as any).electronAPI.readFileBase64(filePath);
-                    } else {
-                        // Fallback dùng fetch (chỉ chạy trong một số cấu hình Electron lỏng lẻo)
-                        const fileResp = await fetch('file://' + filePath);
-                        const blob = await fileResp.blob();
-                        b64 = await new Promise((resolve) => {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                                const result = reader.result as string;
-                                resolve(result.split(',')[1]); // Lấy phần base64
-                            };
-                            reader.readAsDataURL(blob);
-                        });
-                    }
-                    
+                    const b64 = await readLocalBase64(filePath);
                     if (b64) {
                         const ext = filePath.split('.').pop()?.toLowerCase() || 'jpeg';
-                        const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+                        const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : 'image/jpeg');
                         const dataUri = `data:${mime};base64,${b64}`;
                         replyText = replyText.replace(match[0], match[0].replace(match[1] + match[2], dataUri));
-                        
                         if (!imageBase64) {
-                            imageBase64 = b64; // Gán cho output parts
+                            imageBase64 = b64;
                         }
-                        hasLocalImages = true;
                     }
                 } catch (e) {
                     console.error('[AI Agent] Lỗi đọc file local từ thẻ markdown:', filePath, e);
                 }
             }
-            
-            // Fallback tag cũ
+
             const oldMatch = replyText.match(/\[LOCAL_IMAGE:\s*(.+?)\]/);
             if (oldMatch && oldMatch[1]) {
-                const filePath = oldMatch[1];
+                const filePath = oldMatch[1].trim();
                 replyText = replyText.replace(oldMatch[0], '').trim();
                 try {
-                    let b64 = '';
-                    if ((window as any).electronAPI && (window as any).electronAPI.readFileBase64) {
-                        b64 = await (window as any).electronAPI.readFileBase64(filePath);
-                    } else {
-                        const fileResp = await fetch('file://' + filePath);
-                        const blob = await fileResp.blob();
-                        b64 = await new Promise((resolve) => {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                                const result = reader.result as string;
-                                resolve(result.split(',')[1]);
-                            };
-                            reader.readAsDataURL(blob);
-                        });
-                    }
+                    const b64 = await readLocalBase64(filePath);
                     if (b64) imageBase64 = b64;
                 } catch (e) {
                     console.error('[AI Agent] Lỗi đọc file local cũ:', filePath, e);
                 }
             }
 
-            // [PATCH 2026-10-17] KIỂM CHỨNG SỬA ẢNH qua AI Agent: nếu Agent vẽ ảnh mới bỏ qua file gốc thì NÉM LỖI (generateContent sẽ tự chuyển tầng dự phòng giữ ảnh gốc)
+            // KIỂM CHỨNG SỬA ẢNH qua AI Agent
             if (isImageEditAgent && imageBase64) {
                 let origB64: string | null = null;
                 try {
@@ -2969,12 +2825,14 @@ export class GenaiService {
                     }
                 }
             }
+
             if (replyText) {
                 replyText = replyText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
                 if (/<think>(?![\s\S]*<\/think>)/i.test(replyText)) {
                     replyText = replyText.replace(/<think>[\s\S]*$/i, '').trim();
                 }
             }
+
             const parts: any[] = [{ text: replyText }];
             if (imageBase64) {
                 parts.push({
@@ -3005,7 +2863,7 @@ export class GenaiService {
             }
 
             if (!replyText.trim() && !imageBase64 && !videoBase64) {
-                throw new Error("AI Agent phản hồi rỗng hoặc chưa nhận được kết quả.");
+                throw new Error('AI Agent cục bộ phản hồi rỗng hoặc chưa nhận được kết quả.');
             }
 
             return {
@@ -3023,10 +2881,15 @@ export class GenaiService {
                 ]
             };
         } catch (e: any) {
-            console.error('[AI Agent Error]', e);
-            throw new Error(`Không thể kết nối đến máy chủ AI Agent: ${e.message}`);
+            console.error('[AI Agent Local CLI Error]', e);
+            throw new Error(`AI Agent cục bộ lỗi: ${e?.message || e}`);
         } finally {
-            this.localAgentAbortController = undefined;
+            if (unsubscribeStream) {
+                try { unsubscribeStream(); } catch (_) {}
+            }
+            if (this._activeLocalCliRequestId === requestId) {
+                this._activeLocalCliRequestId = undefined;
+            }
         }
     }
 

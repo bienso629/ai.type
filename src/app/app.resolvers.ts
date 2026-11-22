@@ -12,7 +12,9 @@ import { UserService } from 'app/core/user/user.service';
 import { UserClientService } from 'app/_services/user';
 import { CrawlService } from 'app/_services/crawl';
 import { DomainService } from 'app/_services/domain';
+import { ForumService } from 'app/_services/forum';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { AuthUtils } from 'app/core/auth/auth.utils';
 import { isAutoSaveLocalEnabled, updateUserSettingsCache } from 'app/_services/user-settings.service';
 import { appConfig } from 'app/core/config/app.config';
 
@@ -42,6 +44,7 @@ export class InitialDataResolver
         private _userClientService: UserClientService,
         private _crawlService: CrawlService,
         private _domainService: DomainService,
+        private _forumService: ForumService,
         private _multiAccountService: MultiAccountService
     ) { }
 
@@ -221,11 +224,34 @@ export class InitialDataResolver
                         catchError(() => of(null))
                     );
 
-                // Chạy đồng bộ nền (non-blocking) cho profile / collections / statistics
+                // Đồng bộ lại danh sách nhóm (VD: làm-phim, nhóm-đã-mua-ai-type...) chạy nền cho phiên khôi phục
+                const groups$ = this._forumService.getGroups(user.server || 'vn.s3').pipe(
+                    tap(result => {
+                        const activeUser = this._userService.user;
+                        if (!activeUser || String(activeUser.id) !== String(user.id)) {
+                            return;
+                        }
+                        this._userService.markGroupsSynced(activeUser);
+                        if (result && result.success && result.data && Array.isArray(result.data.groups) && result.data.groups.length > 0) {
+                            const purchasedGroup = result.data.groups.find((g: any) => g?.slug === 'nhóm-đã-mua-ai-type');
+                            if (purchasedGroup?.members) {
+                                this._multiAccountService.setItem('members', purchasedGroup.members);
+                            }
+                            const freshGroups = this._userService.extractGroupsFromForumResponse(activeUser, result.data.groups);
+                            const updatedUser = { ...activeUser, groups: freshGroups };
+                            this._userService.user = updatedUser;
+                            this._multiAccountService.setItem('user', updatedUser);
+                            this._multiAccountService.setItem('accessToken', AuthUtils._generateJWTToken(updatedUser));
+                        }
+                    }),
+                    catchError(() => of(null))
+                );
+
+                // Chạy đồng bộ nền (non-blocking) cho profile / collections / statistics / groups
                 // để Router kích hoạt màn hình ngay lập tức, KHÔNG bao giờ treo giao diện chờ mạng/SQLite.
                 if (InitialDataResolver._backgroundSyncKey !== user.name) {
                     InitialDataResolver._backgroundSyncKey = user.name;
-                    forkJoin([profile$, collections$, statistics$]).pipe(
+                    forkJoin([profile$, collections$, statistics$, groups$]).pipe(
                         catchError(() => of(null))
                     ).subscribe();
                 }

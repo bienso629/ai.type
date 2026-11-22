@@ -12,18 +12,21 @@ import {
 } from '@angular/core';
 import { Subject } from 'rxjs';
 import { takeUntil, take } from 'rxjs/operators';
+import { Router } from '@angular/router';
 import { UserService } from 'app/core/user/user.service';
 import {
   SontinhSceneService,
   GlbBoneInfo,
   GlbBoneKeyframe,
   GlbPropTimelineData,
+  GlbSavedPose,
   VideoFramePoseSample,
   StudioLightingConfig,
   DEFAULT_STUDIO_LIGHTING,
   STUDIO_LIGHTING_PRESETS,
   CaptureScenePropInfo,
-  CaptureSceneSummary
+  CaptureSceneSummary,
+  CameraKeyframe
 } from './sontinh-scene.service';
 import { ProfileDataService, UserProfile } from './profile-data.service';
 import { GenaiService } from 'app/genai.service';
@@ -55,6 +58,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   @ViewChild('scriptFileInput') scriptFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('propGlbFileInput') propGlbFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('promptFileInput') promptFileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('poseRefFileInput') poseRefFileInput?: ElementRef<HTMLInputElement>;
   @ViewChild('promptInputArea') promptInputArea?: ElementRef<HTMLTextAreaElement>;
 
   isLoading    = true;
@@ -232,19 +236,51 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     private toastr: ToastrService,
     private genaiService: GenaiService,
     private _fuseConfirmationService: FuseConfirmationService,
-    private _design3dService: Design3DService
+    private _design3dService: Design3DService,
+    private router: Router
   ) {}
 
   async ngAfterViewInit(): Promise<void> {
     try {
-      // 1. Lấy username
-      const user = await this.userService.user$.pipe(take(1)).toPromise();
+      // 1. Lấy username và kiểm tra quyền truy cập màn hình Hồ sơ (chỉ admin hoặc nhóm "làm-phim")
+      const user = this.userService.user || await this.userService.user$.pipe(take(1)).toPromise();
+      if (!this.userService.canAccessProfile(user)) {
+        this.isLoading = false;
+        this.loadError = 'Bạn bị từ chối truy cập';
+        this.toastr.error('Bạn bị từ chối truy cập', '', {
+          timeOut: 4000,
+          positionClass: 'toast-top-center'
+        });
+        this.cdr.markForCheck();
+        this.router.navigate(['/tools']);
+        return;
+      }
+
+      // Theo dõi thay đổi quyền nhóm (VD: vừa bị thu hồi khỏi nhóm "làm-phim" sau đồng bộ nền)
+      this.userService.user$
+        .pipe(takeUntil(this._destroy$))
+        .subscribe((latestUser) => {
+          if (latestUser && !this.userService.canAccessProfile(latestUser)) {
+            this.isLoading = false;
+            this.loadError = 'Bạn bị từ chối truy cập';
+            this.toastr.error('Bạn bị từ chối truy cập', '', {
+              timeOut: 4000,
+              positionClass: 'toast-top-center'
+            });
+            this.cdr.markForCheck();
+            this.router.navigate(['/tools']);
+          }
+        });
       this.username = user?.name || 'admin';
 
       const savedSidebarState = localStorage.getItem('profile_sidebar_collapsed');
       if (savedSidebarState !== null) {
         this.isSidebarCollapsed = savedSidebarState === 'true';
       }
+      this.isCameraZoomLocked = localStorage.getItem('profile_camera_zoom_locked') === 'true';
+      this.isCameraRotateLocked = localStorage.getItem('profile_camera_rotate_locked') === 'true';
+      this.sceneService.setCameraZoomLocked(this.isCameraZoomLocked);
+      this.sceneService.setCameraRotateLocked(this.isCameraRotateLocked);
 
       // 2. Load profile từ đĩa qua Electron IPC
       const profile = await this.profileDataService.loadProfile(this.username).toPromise();
@@ -399,6 +435,16 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
       // 4c. Nạp lại các đồ vật GLB đã upload trước đó (dựa vào glbPath lưu trong props)
       this.loadSavedPropGlbs();
+
+      // 4d. Khôi phục mẫu thiết kế đang kích hoạt & toàn bộ trạng thái + lịch sử VIDEO CẢNH 3D sau F5
+      const savedSceneObj: any = (this.profile as any)?.scene || (this.profile as any)?.room || {};
+      this.activeDesignPresetId = savedSceneObj?.activeDesignPresetId || null;
+      if (savedSceneObj?.aiVideo3d) {
+        if (this.activeDesignPresetId) {
+          this._designAiVideo3dCache.set(this.activeDesignPresetId, JSON.parse(JSON.stringify(savedSceneObj.aiVideo3d)));
+        }
+        this.restoreAiVideo3dState(savedSceneObj.aiVideo3d);
+      }
 
       // 5. Subscribe profile changes
       this.profileDataService.profile$.pipe(takeUntil(this._destroy$)).subscribe(p => {
@@ -1709,6 +1755,47 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   timelineData: GlbPropTimelineData | null = null;
   private _lastUiTickMs = 0;
 
+  // AI Chỉnh tư thế nhân vật ngay trong bảng Khớp xương
+  posePromptText = '';
+  isApplyingAiPose = false;
+  lastAiPoseExplanation = '';
+  isPoseRefDragOver = false;
+  savedPoses: GlbSavedPose[] = [];
+  activeSavedPoseId: string | null = null;
+  isPoseSaveBoxOpen = false;
+  poseSaveNameDraft = '';
+  private _lastPoseLabelHint = '';
+  private _poseAutoSaveTimer: any = null;
+  poseRefFiles: Array<{
+    id: string;
+    name: string;
+    kind: 'image' | 'text';
+    dataUrl?: string;
+    base64?: string;
+    mimeType?: string;
+    textContent?: string;
+  }> = [];
+  private _aiPoseUndoStack: Array<{
+    propId: string;
+    time: number;
+    autoKey: boolean;
+    snapshot: {
+      bones: Array<{
+        boneName: string;
+        rot: { x: number; y: number; z: number };
+        pos: { x: number; y: number; z: number };
+      }>;
+      keyframes: GlbBoneKeyframe[];
+    };
+  }> = [];
+
+  get canUndoAiPose(): boolean {
+    return (
+      this._aiPoseUndoStack.length > 0 &&
+      this._aiPoseUndoStack[this._aiPoseUndoStack.length - 1].propId === this.timelinePropId
+    );
+  }
+
   get selectedPropHasRig(): boolean {
     const pid = this.selectedPropId || this.propActionAnchor.propId;
     return !!(pid && this.sceneService.hasPropRig(pid));
@@ -1718,6 +1805,22 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   // STUDIO TẠO VIDEO AI TỪ CẢNH 3D (ĐA ĐỒ VẬT + HIỆU ỨNG FX + ẢNH MẪU -> MÌ TÔM AI)
   // =========================================================================
   isAiVideo3dOpen = false;
+  isCameraZoomLocked = false;
+  isCameraRotateLocked = false;
+
+  toggleCameraZoomLock(): void {
+    this.isCameraZoomLocked = !this.isCameraZoomLocked;
+    this.sceneService.setCameraZoomLocked(this.isCameraZoomLocked);
+    try { localStorage.setItem('profile_camera_zoom_locked', String(this.isCameraZoomLocked)); } catch (_) {}
+    this.cdr.markForCheck();
+  }
+
+  toggleCameraRotateLock(): void {
+    this.isCameraRotateLocked = !this.isCameraRotateLocked;
+    this.sceneService.setCameraRotateLocked(this.isCameraRotateLocked);
+    try { localStorage.setItem('profile_camera_rotate_locked', String(this.isCameraRotateLocked)); } catch (_) {}
+    this.cdr.markForCheck();
+  }
   aiVideo3dCapturing = false;
   aiVideo3dGenerating = false;
   aiVideo3dStatusText = '';
@@ -1729,8 +1832,16 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   aiVideo3dResolution: '720p' | '1080p' = '720p';
   aiVideo3dHideGrid = true;
   aiVideo3dShowViewfinder = true;
-  /** Chế độ khung camera khi ghi 3D: 'keep' (mặc định) giữ nguyên 100% góc máy người dùng đang đặt, 'all' gom tất cả đồ vật, 'selected' cận 1 đối tượng */
-  aiVideo3dCameraMode: 'keep' | 'all' | 'selected' = 'keep';
+  /** Chế độ khung camera khi ghi 3D: 'keep' giữ góc / quay tay trực tiếp, 'path' chạy mượt qua Camera Keyframes, 'all' gom cả cảnh, 'selected' cận 1 vật */
+  aiVideo3dCameraMode: 'keep' | 'path' | 'all' | 'selected' = 'keep';
+  aiVideo3dCameraKeyframes: CameraKeyframe[] = [];
+  aiVideo3dCameraPreviewing = false;
+  aiVideo3dCameraPreviewSec = 0;
+  aiVideo3dCameraAiPrompt = '';
+  aiVideo3dCameraAiLoading = false;
+  aiVideo3dCapturedHasCameraMotion = false;
+  aiVideo3dCapturedCameraSummary = '';
+  private _aiVideo3dCameraPrePreviewSnap: { pivot: { x: number; y: number; z: number }; yaw: number; pitch: number; distance: number } | null = null;
   aiVideo3dSceneProps: CaptureScenePropInfo[] = [];
   aiVideo3dActiveFxNames: string[] = [];
   private _aiVideo3dCapturedSummary: CaptureSceneSummary | null = null;
@@ -1740,8 +1851,39 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   aiVideo3dResultPreviewUrl: string | null = null;
   aiVideo3dResultFilePath: string | null = null;
   aiVideo3dResultBase64: string | null = null;
+  aiVideo3dResultRemoteUrl: string | null = null;
+  aiVideo3dHistory: Array<{
+    id: string;
+    createdAt: number;
+    prompt: string;
+    duration: number;
+    aspectRatio: '16:9' | '9:16' | '1:1' | '3:4' | '4:3';
+    resolution: '720p' | '1080p';
+    model?: string;
+    capturedFilePath?: string | null;
+    resultFilePath?: string | null;
+    resultUrl?: string | null;
+    refImageCount?: number;
+    cameraMode?: 'keep' | 'path' | 'all' | 'selected';
+  }> = [];
+  aiVideo3dActiveHistoryId: string | null = null;
+  activeDesignPresetId: string | null = null;
+  private _aiVideo3dSaveTimer: any = null;
+  private _aiVideo3dRestoreSeq = 0;
+  private _aiVideo3dRestoring = false;
+  private _aiVideo3dHasSavedDuration = false;
+  private _applyDesignSeq = 0;
+  duplicatingDesign = false;
+  private _switchingDesignPreset = false;
+  private _designAiVideo3dCache = new Map<string, any>();
 
-  readonly aiVideo3dDurationOptions: number[] = [5, 6, 8, 10, 12];
+  get activeDesignPresetName(): string | null {
+    if (!this.activeDesignPresetId || !Array.isArray(this.designPresets)) return null;
+    const found = this.designPresets.find((p) => p && p.id === this.activeDesignPresetId);
+    return found?.name || null;
+  }
+
+  readonly aiVideo3dDurationOptions: number[] = [5, 6, 8, 10, 12, 15, 20, 25, 30];
   readonly aiVideo3dRatioOptions: Array<'16:9' | '9:16' | '1:1' | '3:4' | '4:3'> = ['16:9', '9:16', '1:1', '3:4', '4:3'];
 
   get aiVideo3dAspectRatioValue(): number {
@@ -1779,11 +1921,22 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     const summary = this.sceneService.getCaptureSceneSummary();
     this.aiVideo3dSceneProps = summary.props;
     this.aiVideo3dActiveFxNames = summary.fxNames;
-    // Nếu targetKey cũ trỏ tới prop đã ẩn/xóa thì chuyển về 'auto'
-    const validIds = new Set(summary.props.map((p) => p.id));
-    for (const img of this.aiVideo3dRefImages) {
-      if (img.targetKey && img.targetKey !== 'auto' && img.targetKey !== 'bg' && !validIds.has(img.targetKey)) {
-        img.targetKey = 'auto';
+    // Chỉ đặt lại targetKey khi scene đã nạp xong đồ vật và prop tương ứng thực sự không còn hiển thị
+    if (summary.props.length > 0) {
+      const validIds = new Set(summary.props.map((p) => p.id));
+      const roomVisibleIds = new Set(
+        (this.roomProps || []).filter((p) => p && p.visible !== false).map((p) => p.id)
+      );
+      for (const img of this.aiVideo3dRefImages) {
+        if (
+          img.targetKey &&
+          img.targetKey !== 'auto' &&
+          img.targetKey !== 'bg' &&
+          !validIds.has(img.targetKey) &&
+          !roomVisibleIds.has(img.targetKey)
+        ) {
+          img.targetKey = 'auto';
+        }
       }
     }
     this.cdr.markForCheck();
@@ -1810,11 +1963,35 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     requestAnimationFrame(() => this.refreshAiVideo3dSceneSummary());
   }
 
-  onAiVideo3dFormatChanged(): void {
-    // Xóa bản ghi cũ nếu đổi tỷ lệ khung hình hoặc thời lượng để lần tạo tiếp theo tự ghi đúng chuẩn mới
-    if (this.aiVideo3dCapturedMp4Base64) {
-      this.clearCaptured3dMotionVideo();
+  setAiVideo3dCameraMode(mode: 'keep' | 'path' | 'all' | 'selected'): void {
+    if (mode !== 'path') {
+      this.stopCameraPathPreview(false);
     }
+    this.aiVideo3dCameraMode = mode;
+    this.scheduleSaveAiVideo3dState(true);
+    this.cdr.markForCheck();
+  }
+
+  onAiVideo3dFormatChanged(): void {
+    this.stopCameraPathPreview(false);
+    this._aiVideo3dHasSavedDuration = true;
+    // Tự co giãn thời điểm các mốc Camera Keyframes theo thời lượng mới (nếu có >= 2 mốc)
+    const n = this.aiVideo3dCameraKeyframes.length;
+    if (n >= 2) {
+      const dur = Math.max(4, Number(this.aiVideo3dDuration) || 5);
+      const maxOld = Math.max(...this.aiVideo3dCameraKeyframes.map((k) => Number(k.time) || 0));
+      if (maxOld > 0.1) {
+        const ratio = dur / maxOld;
+        this.aiVideo3dCameraKeyframes.forEach((kf) => {
+          kf.time = Math.round(Math.max(0, Math.min(dur, (Number(kf.time) || 0) * ratio)) * 10) / 10;
+        });
+      }
+    }
+    // Xóa bản ghi cũ nếu đổi tỷ lệ khung hình hoặc thời lượng để lần tạo tiếp theo tự ghi đúng chuẩn mới
+    if (this.aiVideo3dCapturedMp4Base64 || this.aiVideo3dCapturedFilePath) {
+      this.clearCaptured3dMotionVideo(true);
+    }
+    this.scheduleSaveAiVideo3dState(true);
   }
 
   toggleAiVideo3dStudio(): void {
@@ -1829,15 +2006,22 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     this.isLightingStudioOpen = false;
     this.isTextureStudioOpen = false;
     this.refreshAiVideo3dSceneSummary();
-    // Tự gợi ý thời lượng theo clip 3D đang chạy (kẹp trong 5..12s)
-    const activePid = this.timelinePropId || this.selectedPropId || this.sceneService.getFirstRiggedPropId();
-    if (activePid) {
-      const tl = this.sceneService.getPropTimeline(activePid);
-      if (tl && typeof tl.duration === 'number' && tl.duration >= 4) {
-        const best = this.aiVideo3dDurationOptions.reduce((prev, curr) =>
-          Math.abs(curr - tl.duration) < Math.abs(prev - tl.duration) ? curr : prev
-        );
-        this.aiVideo3dDuration = best;
+    // Chỉ tự gợi ý thời lượng theo clip 3D nếu cảnh này chưa có cấu hình/video đã lưu trước đó
+    const hasCustomSetup =
+      this._aiVideo3dHasSavedDuration ||
+      this.aiVideo3dCameraKeyframes.length > 0 ||
+      !!this.aiVideo3dCapturedFilePath ||
+      this.aiVideo3dHistory.length > 0;
+    if (!hasCustomSetup) {
+      const activePid = this.timelinePropId || this.selectedPropId || this.sceneService.getFirstRiggedPropId();
+      if (activePid) {
+        const tl = this.sceneService.getPropTimeline(activePid);
+        if (tl && typeof tl.duration === 'number' && tl.duration >= 4) {
+          const best = this.aiVideo3dDurationOptions.reduce((prev, curr) =>
+            Math.abs(curr - tl.duration) < Math.abs(prev - tl.duration) ? curr : prev
+          );
+          this.aiVideo3dDuration = best;
+        }
       }
     }
     this.isAiVideo3dOpen = true;
@@ -1845,8 +2029,713 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   }
 
   closeAiVideo3dStudio(): void {
+    this.stopCameraPathPreview(false);
     this.isAiVideo3dOpen = false;
     this.cdr.markForCheck();
+  }
+
+  private _base64ToBlobUrl(b64: string, mime = 'video/mp4'): string | null {
+    try {
+      if (!b64 || typeof b64 !== 'string') return null;
+      const clean = b64.includes(',') ? b64.split(',')[1] : b64;
+      const bin = atob(clean);
+      const u8 = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      return URL.createObjectURL(new Blob([u8], { type: mime }));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /** Đóng gói toàn bộ dữ liệu & lịch sử VIDEO CẢNH 3D để lưu theo từng mẫu thiết kế và giữ qua F5 */
+  private _buildAiVideo3dState(): any {
+    const refImages = (this.aiVideo3dRefImages || []).slice(0, 4).map((img) => ({
+      name: img.name || 'anh_mau.png',
+      dataUrl: img.dataUrl,
+      mimeType: img.mimeType || 'image/png',
+      targetKey: img.targetKey || 'auto'
+    }));
+    const cameraKeyframes = (this.aiVideo3dCameraKeyframes || []).map((kf) => ({
+      id: kf.id,
+      time: Number(kf.time) || 0,
+      label: kf.label || '',
+      pivot: kf.pivot ? { x: Number(kf.pivot.x) || 0, y: Number(kf.pivot.y) || 0, z: Number(kf.pivot.z) || 0 } : { x: 0, y: 0, z: 0 },
+      yaw: Number(kf.yaw) || 0,
+      pitch: Number(kf.pitch) || 0,
+      distance: Number(kf.distance) || 12,
+      easing: kf.easing === 'linear' ? 'linear' : 'smooth'
+    }));
+    const history = (this.aiVideo3dHistory || []).slice(0, 20).map((h) => ({ ...h }));
+    return {
+      refImages,
+      prompt: this.aiVideo3dPrompt || '',
+      duration: Number(this.aiVideo3dDuration) || 5,
+      aspectRatio: this.aiVideo3dAspectRatio || '16:9',
+      resolution: this.aiVideo3dResolution || '720p',
+      hideGrid: !!this.aiVideo3dHideGrid,
+      showViewfinder: !!this.aiVideo3dShowViewfinder,
+      cameraMode: this.aiVideo3dCameraMode || 'keep',
+      cameraKeyframes,
+      cameraAiPrompt: this.aiVideo3dCameraAiPrompt || '',
+      capturedFilePath: this.aiVideo3dCapturedFilePath || null,
+      capturedHasCameraMotion: !!this.aiVideo3dCapturedHasCameraMotion,
+      capturedCameraSummary: this.aiVideo3dCapturedCameraSummary || '',
+      resultFilePath: this.aiVideo3dResultFilePath || null,
+      resultUrl: this.aiVideo3dResultRemoteUrl || null,
+      activeHistoryId: this.aiVideo3dActiveHistoryId || null,
+      history,
+      updatedAt: Date.now()
+    };
+  }
+
+  /** Lên lịch tự động lưu trạng thái & lịch sử VIDEO CẢNH 3D vào profile.json và mẫu thiết kế đang mở */
+  scheduleSaveAiVideo3dState(immediate = false): void {
+    if (this._aiVideo3dRestoring || this._switchingDesignPreset) return;
+    if (this._aiVideo3dSaveTimer) {
+      clearTimeout(this._aiVideo3dSaveTimer);
+      this._aiVideo3dSaveTimer = null;
+    }
+    if (immediate) {
+      this._flushSaveAiVideo3dState();
+      return;
+    }
+    this._aiVideo3dSaveTimer = setTimeout(() => {
+      this._aiVideo3dSaveTimer = null;
+      this._flushSaveAiVideo3dState();
+    }, 350);
+  }
+
+  private _flushSaveAiVideo3dState(): void {
+    void this._flushSaveAiVideo3dStateAsync();
+  }
+
+  private async _flushSaveAiVideo3dStateAsync(
+    overridePresetId?: string | null,
+    overrideState?: any
+  ): Promise<void> {
+    if (!overrideState && (this._aiVideo3dRestoring || this._switchingDesignPreset)) return;
+    const state = overrideState || this._buildAiVideo3dState();
+    const targetPresetId = overridePresetId !== undefined ? overridePresetId : this.activeDesignPresetId;
+
+    if (targetPresetId) {
+      // Cập nhật bộ nhớ đệm đồng bộ NGAY LẬP TỨC để không bao giờ mất dữ liệu khi bấm chuyển mẫu liên tục
+      this._designAiVideo3dCache.set(targetPresetId, JSON.parse(JSON.stringify(state)));
+      const item = this.designPresets?.find((p) => p && p.id === targetPresetId);
+      if (item) {
+        item.camKeyframeCount = Array.isArray(state.cameraKeyframes) ? state.cameraKeyframes.length : 0;
+        item.videoCount = Array.isArray(state.history) && state.history.length > 0
+          ? state.history.length
+          : ((state.resultFilePath || state.resultUrl) ? 1 : 0);
+        item.hasVideoSetup = !!(
+          item.videoCount > 0 ||
+          item.camKeyframeCount > 0 ||
+          (Array.isArray(state.refImages) && state.refImages.length > 0) ||
+          (state.prompt && String(state.prompt).trim()) ||
+          state.capturedFilePath
+        );
+        this.cdr.markForCheck();
+      }
+    }
+
+    if (!overridePresetId && this.profile) {
+      this.profile.scene = {
+        ...(this.profile.scene || { cameraPreset: 'DESK_VIEW', lightsOn: true }),
+        aiVideo3d: state,
+        activeDesignPresetId: this.activeDesignPresetId
+      };
+    }
+
+    const tasks: Array<Promise<any>> = [];
+    if (!overridePresetId) {
+      tasks.push(
+        this.profileDataService.saveSceneSilent({
+          aiVideo3d: state,
+          activeDesignPresetId: this.activeDesignPresetId
+        }).toPromise().catch(() => {})
+      );
+    }
+
+    if (targetPresetId) {
+      tasks.push(
+        this._design3dService.patchVideoState(targetPresetId, state).toPromise().then((res: any) => {
+          const meta = res?.data;
+          const item = this.designPresets?.find((p) => p && p.id === targetPresetId);
+          if (item && meta) {
+            if (typeof meta.videoCount === 'number') item.videoCount = meta.videoCount;
+            if (typeof meta.camKeyframeCount === 'number') item.camKeyframeCount = meta.camKeyframeCount;
+            if (typeof meta.hasVideoSetup === 'boolean') item.hasVideoSetup = meta.hasVideoSetup;
+            this.cdr.markForCheck();
+          }
+        }).catch(() => {})
+      );
+    }
+
+    if (tasks.length > 0) {
+      await Promise.all(tasks);
+    }
+  }
+
+  /** Khôi phục (hoặc đặt lại sạch) toàn bộ trạng thái, video bản ghi 3D, video AI và lịch sử của 1 cảnh */
+  async restoreAiVideo3dState(saved: any): Promise<void> {
+    const seq = ++this._aiVideo3dRestoreSeq;
+    this._aiVideo3dRestoring = true;
+    try {
+      this.stopCameraPathPreview(false);
+      if (this.aiVideo3dCapturedPreviewUrl && this.aiVideo3dCapturedPreviewUrl.startsWith('blob:')) {
+        try { URL.revokeObjectURL(this.aiVideo3dCapturedPreviewUrl); } catch (_) {}
+      }
+      if (this.aiVideo3dResultPreviewUrl && this.aiVideo3dResultPreviewUrl.startsWith('blob:')) {
+        try { URL.revokeObjectURL(this.aiVideo3dResultPreviewUrl); } catch (_) {}
+      }
+
+      this.aiVideo3dCapturedMp4Base64 = null;
+      this.aiVideo3dCapturedPreviewUrl = null;
+      this.aiVideo3dResultBase64 = null;
+      this.aiVideo3dResultPreviewUrl = null;
+      this.aiVideo3dStatusText = '';
+      this._aiVideo3dCapturedSummary = null;
+
+      if (!saved || typeof saved !== 'object') {
+        this.aiVideo3dRefImages = [];
+        this.aiVideo3dPrompt = '';
+        this.aiVideo3dDuration = 5;
+        this.aiVideo3dAspectRatio = '16:9';
+        this.aiVideo3dResolution = '720p';
+        this.aiVideo3dHideGrid = true;
+        this.aiVideo3dShowViewfinder = true;
+        this.aiVideo3dCameraMode = 'keep';
+        this.aiVideo3dCameraKeyframes = [];
+        this.aiVideo3dCameraAiPrompt = '';
+        this.aiVideo3dCapturedFilePath = null;
+        this.aiVideo3dCapturedHasCameraMotion = false;
+        this.aiVideo3dCapturedCameraSummary = '';
+        this.aiVideo3dResultFilePath = null;
+        this.aiVideo3dResultRemoteUrl = null;
+        this.aiVideo3dHistory = [];
+        this.aiVideo3dActiveHistoryId = null;
+        this._aiVideo3dHasSavedDuration = false;
+        this.cdr.markForCheck();
+        return;
+      }
+
+      this.aiVideo3dRefImages = Array.isArray(saved.refImages)
+        ? saved.refImages
+            .filter((img: any) => img && typeof img.dataUrl === 'string' && img.dataUrl.length > 0)
+            .slice(0, 4)
+            .map((img: any) => ({
+              name: String(img.name || 'anh_mau.png'),
+              dataUrl: img.dataUrl,
+              mimeType: String(img.mimeType || 'image/png'),
+              targetKey: String(img.targetKey || 'auto')
+            }))
+        : [];
+      this.aiVideo3dPrompt = typeof saved.prompt === 'string' ? saved.prompt : '';
+      const dur = Number(saved.duration);
+      this.aiVideo3dDuration = this.aiVideo3dDurationOptions.includes(dur) ? dur : 5;
+      this._aiVideo3dHasSavedDuration = Number.isFinite(dur) && dur > 0;
+      const validRatios: Array<'16:9' | '9:16' | '1:1' | '3:4' | '4:3'> = ['16:9', '9:16', '1:1', '3:4', '4:3'];
+      this.aiVideo3dAspectRatio = validRatios.includes(saved.aspectRatio) ? saved.aspectRatio : '16:9';
+      this.aiVideo3dResolution = saved.resolution === '1080p' ? '1080p' : '720p';
+      this.aiVideo3dHideGrid = saved.hideGrid !== undefined ? !!saved.hideGrid : true;
+      this.aiVideo3dShowViewfinder = saved.showViewfinder !== undefined ? !!saved.showViewfinder : true;
+      const validCamModes: Array<'keep' | 'path' | 'all' | 'selected'> = ['keep', 'path', 'all', 'selected'];
+      this.aiVideo3dCameraMode = validCamModes.includes(saved.cameraMode) ? saved.cameraMode : 'keep';
+      this.aiVideo3dCameraKeyframes = Array.isArray(saved.cameraKeyframes)
+        ? saved.cameraKeyframes.map((kf: any, idx: number) => ({
+            id: String(kf?.id || `camkf_${Date.now().toString(36)}_${idx}`),
+            time: Number(kf?.time) || 0,
+            label: String(kf?.label || `Góc ${idx + 1}`),
+            pivot: {
+              x: Number(kf?.pivot?.x) || 0,
+              y: Number(kf?.pivot?.y) || 0,
+              z: Number(kf?.pivot?.z) || 0
+            },
+            yaw: Number(kf?.yaw) || 0,
+            pitch: Number(kf?.pitch) || 0,
+            distance: Number(kf?.distance) || 12,
+            easing: kf?.easing === 'linear' ? 'linear' : 'smooth'
+          }))
+        : [];
+      this.aiVideo3dCameraAiPrompt = typeof saved.cameraAiPrompt === 'string' ? saved.cameraAiPrompt : '';
+      this.aiVideo3dCapturedFilePath = typeof saved.capturedFilePath === 'string' && saved.capturedFilePath ? saved.capturedFilePath : null;
+      this.aiVideo3dCapturedHasCameraMotion = !!saved.capturedHasCameraMotion;
+      this.aiVideo3dCapturedCameraSummary = typeof saved.capturedCameraSummary === 'string' ? saved.capturedCameraSummary : '';
+      this.aiVideo3dResultFilePath = typeof saved.resultFilePath === 'string' && saved.resultFilePath ? saved.resultFilePath : null;
+      this.aiVideo3dResultRemoteUrl = typeof saved.resultUrl === 'string' && saved.resultUrl ? saved.resultUrl : null;
+      this.aiVideo3dHistory = Array.isArray(saved.history)
+        ? saved.history.slice(0, 20).map((h: any, idx: number) => ({
+            id: String(h?.id || `vid_${Date.now().toString(36)}_${idx}`),
+            createdAt: Number(h?.createdAt) || Date.now(),
+            prompt: String(h?.prompt || ''),
+            duration: Number(h?.duration) || 5,
+            aspectRatio: validRatios.includes(h?.aspectRatio) ? h.aspectRatio : '16:9',
+            resolution: h?.resolution === '1080p' ? '1080p' : '720p',
+            model: h?.model ? String(h.model) : undefined,
+            capturedFilePath: h?.capturedFilePath || null,
+            resultFilePath: h?.resultFilePath || null,
+            resultUrl: h?.resultUrl || null,
+            refImageCount: typeof h?.refImageCount === 'number' ? h.refImageCount : undefined,
+            cameraMode: validCamModes.includes(h?.cameraMode) ? h.cameraMode : undefined
+          }))
+        : [];
+      this.aiVideo3dActiveHistoryId =
+        typeof saved.activeHistoryId === 'string' && this.aiVideo3dHistory.some((h) => h.id === saved.activeHistoryId)
+          ? saved.activeHistoryId
+          : (this.aiVideo3dHistory[0]?.id || null);
+
+      this.cdr.markForCheck();
+    } finally {
+      this._aiVideo3dRestoring = false;
+    }
+
+    // Nạp lại file MP4 xem trước từ đĩa (không khóa UI, kiểm tra seq chống race khi bấm chuyển mẫu nhanh)
+    await this._reloadAiVideo3dMediaFromDisk(seq, this.aiVideo3dCapturedFilePath, this.aiVideo3dResultFilePath, this.aiVideo3dResultRemoteUrl);
+  }
+
+  private async _reloadAiVideo3dMediaFromDisk(
+    seq: number,
+    capturedPath: string | null,
+    resultPath: string | null,
+    resultRemoteUrl: string | null
+  ): Promise<void> {
+    const electronWin = typeof window !== 'undefined' ? (window as any) : null;
+    const readBase64Fn = electronWin?.electron?.readFileBase64;
+
+    const tasks: Array<Promise<void>> = [];
+
+    if (capturedPath && typeof readBase64Fn === 'function') {
+      tasks.push(
+        readBase64Fn(capturedPath)
+          .then((res: any) => {
+            if (seq !== this._aiVideo3dRestoreSeq) return;
+            if (res?.success && res.base64) {
+              if (this.aiVideo3dCapturedPreviewUrl && this.aiVideo3dCapturedPreviewUrl.startsWith('blob:')) {
+                try { URL.revokeObjectURL(this.aiVideo3dCapturedPreviewUrl); } catch (_) {}
+              }
+              this.aiVideo3dCapturedMp4Base64 = res.base64;
+              this.aiVideo3dCapturedPreviewUrl = this._base64ToBlobUrl(res.base64, 'video/mp4');
+              this.cdr.markForCheck();
+            }
+          })
+          .catch(() => {})
+      );
+    }
+
+    if (resultPath && typeof readBase64Fn === 'function') {
+      tasks.push(
+        readBase64Fn(resultPath)
+          .then((res: any) => {
+            if (seq !== this._aiVideo3dRestoreSeq) return;
+            if (res?.success && res.base64) {
+              if (this.aiVideo3dResultPreviewUrl && this.aiVideo3dResultPreviewUrl.startsWith('blob:')) {
+                try { URL.revokeObjectURL(this.aiVideo3dResultPreviewUrl); } catch (_) {}
+              }
+              this.aiVideo3dResultBase64 = res.base64;
+              this.aiVideo3dResultPreviewUrl = this._base64ToBlobUrl(res.base64, 'video/mp4');
+              this.cdr.markForCheck();
+            } else if (resultRemoteUrl) {
+              this.aiVideo3dResultPreviewUrl = resultRemoteUrl;
+              this.cdr.markForCheck();
+            }
+          })
+          .catch(() => {
+            if (seq === this._aiVideo3dRestoreSeq && resultRemoteUrl) {
+              this.aiVideo3dResultPreviewUrl = resultRemoteUrl;
+              this.cdr.markForCheck();
+            }
+          })
+      );
+    } else if (resultRemoteUrl) {
+      if (seq === this._aiVideo3dRestoreSeq) {
+        this.aiVideo3dResultPreviewUrl = resultRemoteUrl;
+        this.cdr.markForCheck();
+      }
+    }
+
+    if (tasks.length > 0) {
+      await Promise.all(tasks);
+    }
+  }
+
+  /** Xem lại 1 video đã tạo trong lịch sử của cảnh hiện tại */
+  async loadAiVideo3dHistoryItem(item: {
+    id: string;
+    capturedFilePath?: string | null;
+    resultFilePath?: string | null;
+    resultUrl?: string | null;
+  }): Promise<void> {
+    if (!item) return;
+    const seq = ++this._aiVideo3dRestoreSeq;
+    this.aiVideo3dActiveHistoryId = item.id;
+    if (this.aiVideo3dResultPreviewUrl && this.aiVideo3dResultPreviewUrl.startsWith('blob:')) {
+      try { URL.revokeObjectURL(this.aiVideo3dResultPreviewUrl); } catch (_) {}
+    }
+    this.aiVideo3dResultPreviewUrl = null;
+    this.aiVideo3dResultBase64 = null;
+    this.aiVideo3dResultFilePath = item.resultFilePath || null;
+    this.aiVideo3dResultRemoteUrl = item.resultUrl || null;
+
+    if (item.capturedFilePath && item.capturedFilePath !== this.aiVideo3dCapturedFilePath) {
+      if (this.aiVideo3dCapturedPreviewUrl && this.aiVideo3dCapturedPreviewUrl.startsWith('blob:')) {
+        try { URL.revokeObjectURL(this.aiVideo3dCapturedPreviewUrl); } catch (_) {}
+      }
+      this.aiVideo3dCapturedPreviewUrl = null;
+      this.aiVideo3dCapturedMp4Base64 = null;
+      this.aiVideo3dCapturedFilePath = item.capturedFilePath;
+    }
+
+    this.cdr.markForCheck();
+    await this._reloadAiVideo3dMediaFromDisk(
+      seq,
+      item.capturedFilePath && !this.aiVideo3dCapturedPreviewUrl ? item.capturedFilePath : null,
+      this.aiVideo3dResultFilePath,
+      this.aiVideo3dResultRemoteUrl
+    );
+    this.scheduleSaveAiVideo3dState();
+  }
+
+  /** Nạp lại prompt & thông số xuất video từ 1 bản ghi lịch sử */
+  applyAiVideo3dHistoryPrompt(item: {
+    prompt: string;
+    duration: number;
+    aspectRatio: '16:9' | '9:16' | '1:1' | '3:4' | '4:3';
+    resolution: '720p' | '1080p';
+  }, event: Event): void {
+    event.stopPropagation();
+    if (!item) return;
+    this.aiVideo3dPrompt = item.prompt || '';
+    if (this.aiVideo3dDurationOptions.includes(item.duration)) {
+      this.aiVideo3dDuration = item.duration;
+      this._aiVideo3dHasSavedDuration = true;
+    }
+    if (this.aiVideo3dRatioOptions.includes(item.aspectRatio)) {
+      this.aiVideo3dAspectRatio = item.aspectRatio;
+    }
+    this.aiVideo3dResolution = item.resolution === '1080p' ? '1080p' : '720p';
+    this.scheduleSaveAiVideo3dState(true);
+    this.cdr.markForCheck();
+    this.toastr.info('Đã nạp lại prompt và thông số video từ lịch sử.', 'AI Video 3D');
+  }
+
+  /** Xóa 1 mục khỏi lịch sử video của cảnh hiện tại */
+  deleteAiVideo3dHistoryItem(item: { id: string; resultFilePath?: string | null }, event: Event): void {
+    event.stopPropagation();
+    if (!item) return;
+    this.aiVideo3dHistory = this.aiVideo3dHistory.filter((h) => h.id !== item.id);
+    if (this.aiVideo3dActiveHistoryId === item.id) {
+      this.aiVideo3dActiveHistoryId = this.aiVideo3dHistory[0]?.id || null;
+      if (item.resultFilePath && this.aiVideo3dResultFilePath === item.resultFilePath) {
+        if (this.aiVideo3dResultPreviewUrl && this.aiVideo3dResultPreviewUrl.startsWith('blob:')) {
+          try { URL.revokeObjectURL(this.aiVideo3dResultPreviewUrl); } catch (_) {}
+        }
+        this.aiVideo3dResultPreviewUrl = null;
+        this.aiVideo3dResultBase64 = null;
+        this.aiVideo3dResultFilePath = null;
+        this.aiVideo3dResultRemoteUrl = null;
+      }
+    }
+    this.scheduleSaveAiVideo3dState(true);
+    this.cdr.markForCheck();
+  }
+
+  /** Chia thời gian tự động theo đúng tốc độ quang học (góc xoay + tỷ lệ zoom logarit + dịch chuyển tâm) để cú máy lướt đều vận tốc từ đầu đến cuối */
+  private _rebalanceCameraKeyframeTimesBySpeed(list: CameraKeyframe[], duration: number): void {
+    const n = list.length;
+    if (n === 0) return;
+    if (n === 1) {
+      list[0].time = 0;
+      return;
+    }
+    const dur = Math.max(4, Number(duration) || 5);
+    const weights: number[] = [];
+    let totalW = 0;
+    for (let i = 0; i < n - 1; i++) {
+      const a = list[i];
+      const b = list[i + 1];
+      const dYaw = Math.abs((Number(b.yaw) || 0) - (Number(a.yaw) || 0)) / 45;
+      const dPitch = Math.abs((Number(b.pitch) || 0) - (Number(a.pitch) || 0)) / 35;
+      const distA = Math.max(0.5, Number(a.distance) || 12);
+      const distB = Math.max(0.5, Number(b.distance) || 12);
+      const dLogZoom = Math.abs(Math.log(distB / distA)) / 0.55;
+      const meanDist = Math.max(1.0, (distA + distB) * 0.5);
+      const dPivot = Math.hypot(
+        (b.pivot?.x || 0) - (a.pivot?.x || 0),
+        (b.pivot?.y || 0) - (a.pivot?.y || 0),
+        (b.pivot?.z || 0) - (a.pivot?.z || 0)
+      ) / meanDist;
+      const w = Math.max(0.18, Math.hypot(dYaw, dPitch, dLogZoom, dPivot));
+      weights.push(w);
+      totalW += w;
+    }
+    let acc = 0;
+    list[0].time = 0;
+    for (let i = 1; i < n - 1; i++) {
+      acc += weights[i - 1];
+      list[i].time = Math.round(((dur * acc) / Math.max(1e-4, totalW)) * 10) / 10;
+    }
+    list[n - 1].time = dur;
+  }
+
+  /** Lưu góc camera & độ zoom hiện tại trên Canvas 3D thành 1 mốc Camera Keyframe mới */
+  addCameraKeyframeAtCurrentView(): void {
+    const snap = this.sceneService.getCameraSnapshot();
+    if (!snap) {
+      this.toastr.warning('Chưa đọc được góc camera 3D hiện tại.', 'Camera Keyframe');
+      return;
+    }
+    this.stopCameraPathPreview(false);
+    const dur = Math.max(4, Number(this.aiVideo3dDuration) || 5);
+    const list = [...this.aiVideo3dCameraKeyframes].sort((a, b) => a.time - b.time);
+
+    const kf: CameraKeyframe = {
+      id: 'camkf_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 1e4).toString(36),
+      time: dur,
+      label: `Góc ${list.length + 1}`,
+      pivot: {
+        x: Math.round(snap.pivot.x * 100) / 100,
+        y: Math.round(snap.pivot.y * 100) / 100,
+        z: Math.round(snap.pivot.z * 100) / 100
+      },
+      yaw: Math.round(snap.yaw * 10) / 10,
+      pitch: Math.round(snap.pitch * 10) / 10,
+      distance: Math.round(snap.distance * 100) / 100,
+      easing: 'smooth'
+    };
+
+    list.push(kf);
+    this._rebalanceCameraKeyframeTimesBySpeed(list, dur);
+    this.aiVideo3dCameraKeyframes = list;
+    if (list.length >= 2) {
+      this.aiVideo3dCameraMode = 'path';
+    }
+    this.clearCaptured3dMotionVideo(true);
+    this.scheduleSaveAiVideo3dState(true);
+    this.cdr.markForCheck();
+    this.toastr.success(
+      `Đã lưu ${kf.label} tại ${kf.time.toFixed(1)}s (góc ${Math.round(kf.yaw)}°, khoảng cách ${kf.distance.toFixed(1)}).`,
+      'Camera Keyframe'
+    );
+  }
+
+  /** Cập nhật lại góc xoay & zoom của một mốc Camera Keyframe theo góc nhìn đang hiển thị trên Canvas */
+  updateCameraKeyframeFromCurrentView(kf: CameraKeyframe): void {
+    const snap = this.sceneService.getCameraSnapshot();
+    if (!snap || !kf) return;
+    this.stopCameraPathPreview(false);
+    kf.pivot = {
+      x: Math.round(snap.pivot.x * 100) / 100,
+      y: Math.round(snap.pivot.y * 100) / 100,
+      z: Math.round(snap.pivot.z * 100) / 100
+    };
+    kf.yaw = Math.round(snap.yaw * 10) / 10;
+    kf.pitch = Math.round(snap.pitch * 10) / 10;
+    kf.distance = Math.round(snap.distance * 100) / 100;
+    this.clearCaptured3dMotionVideo(true);
+    this.scheduleSaveAiVideo3dState(true);
+    this.cdr.markForCheck();
+    this.toastr.info(`Đã cập nhật lại góc nhìn cho mốc ${kf.time.toFixed(1)}s.`, 'Camera Keyframe');
+  }
+
+  /** Nhảy camera ngay lập tức tới góc quay đã lưu của 1 mốc */
+  jumpToCameraKeyframe(kf: CameraKeyframe): void {
+    if (!kf) return;
+    this.stopCameraPathPreview(false);
+    this.sceneService.restoreCameraSnapshot({
+      pivot: kf.pivot,
+      yaw: kf.yaw,
+      pitch: kf.pitch,
+      distance: kf.distance
+    });
+  }
+
+  /** Xóa 1 mốc Camera Keyframe */
+  removeCameraKeyframe(id: string): void {
+    this.stopCameraPathPreview(false);
+    this.aiVideo3dCameraKeyframes = this.aiVideo3dCameraKeyframes.filter((k) => k.id !== id);
+    if (this.aiVideo3dCameraKeyframes.length < 2 && this.aiVideo3dCameraMode === 'path') {
+      this.aiVideo3dCameraMode = 'keep';
+    }
+    this.clearCaptured3dMotionVideo(true);
+    this.scheduleSaveAiVideo3dState(true);
+    this.cdr.markForCheck();
+  }
+
+  /** Xóa toàn bộ mốc Camera Keyframes */
+  clearCameraKeyframes(): void {
+    this.stopCameraPathPreview(false);
+    this.aiVideo3dCameraKeyframes = [];
+    if (this.aiVideo3dCameraMode === 'path') {
+      this.aiVideo3dCameraMode = 'keep';
+    }
+    this.clearCaptured3dMotionVideo(true);
+    this.scheduleSaveAiVideo3dState(true);
+    this.cdr.markForCheck();
+  }
+
+  /** Chia đều tốc độ camera (tự phân bổ giây theo độ xoay & tỷ lệ zoom thực tế giữa từng cặp mốc) */
+  distributeCameraKeyframesEvenly(): void {
+    if (this.aiVideo3dCameraKeyframes.length < 2) return;
+    const dur = Math.max(4, Number(this.aiVideo3dDuration) || 5);
+    this._rebalanceCameraKeyframeTimesBySpeed(this.aiVideo3dCameraKeyframes, dur);
+    this.clearCaptured3dMotionVideo(true);
+    this.scheduleSaveAiVideo3dState(true);
+    this.cdr.markForCheck();
+    this.toastr.info('Đã cân đều tốc độ xoay & zoom mượt qua toàn bộ các mốc camera.', 'Camera Keyframe');
+  }
+
+  /** Chuẩn hóa & sắp xếp lại danh sách mốc khi người dùng chỉnh tay số giây */
+  onCameraKeyframeTimeChange(kf: CameraKeyframe): void {
+    const dur = Math.max(4, Number(this.aiVideo3dDuration) || 5);
+    kf.time = Math.round(Math.max(0, Math.min(dur, Number(kf.time) || 0)) * 10) / 10;
+    this.aiVideo3dCameraKeyframes = [...this.aiVideo3dCameraKeyframes].sort((a, b) => a.time - b.time);
+    this.clearCaptured3dMotionVideo(true);
+    this.scheduleSaveAiVideo3dState(true);
+    this.cdr.markForCheck();
+  }
+
+  /** Bật/tắt xem thử đường chạy Camera Keyframes mượt đồng bộ cùng chuyển động 3D trên Canvas */
+  toggleCameraPathPreview(): void {
+    if (this.aiVideo3dCameraPreviewing) {
+      this.stopCameraPathPreview(true);
+      return;
+    }
+    if (this.aiVideo3dCameraKeyframes.length < 2) {
+      this.toastr.warning('Cần lưu ít nhất 2 mốc góc quay để xem thử đường chạy camera.', 'Camera Keyframe');
+      return;
+    }
+    this._aiVideo3dCameraPrePreviewSnap = this.sceneService.getCameraSnapshot();
+    const dur = Math.max(4, Number(this.aiVideo3dDuration) || 5);
+    this.sceneService.syncAllRiggedPropsForCapture();
+    this.sceneService.onCameraPathTick = (t, playing) => {
+      this.aiVideo3dCameraPreviewSec = Math.round(t * 10) / 10;
+      if (!playing) {
+        this.aiVideo3dCameraPreviewing = false;
+      }
+      this.cdr.markForCheck();
+    };
+    this.aiVideo3dCameraPreviewing = true;
+    this.aiVideo3dCameraPreviewSec = 0;
+    this.sceneService.startCameraKeyframePlayback(this.aiVideo3dCameraKeyframes, dur, true, 0);
+    this.cdr.markForCheck();
+  }
+
+  stopCameraPathPreview(restorePrev = false): void {
+    this.sceneService.stopCameraKeyframePlayback();
+    this.sceneService.onCameraPathTick = null;
+    this.aiVideo3dCameraPreviewing = false;
+    this.aiVideo3dCameraPreviewSec = 0;
+    if (restorePrev && this._aiVideo3dCameraPrePreviewSnap) {
+      this.sceneService.restoreCameraSnapshot(this._aiVideo3dCameraPrePreviewSnap);
+    }
+    this._aiVideo3dCameraPrePreviewSnap = null;
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * AI Đạo diễn Camera: Người dùng mô tả ý tưởng cú máy (vd: "Xoay vòng 180 độ quanh nhân vật rồi zoom cận mặt"),
+   * Gemini tự suy luận và sinh chuỗi CameraKeyframes mượt từ góc camera hiện tại để xem thử & ghi 3D ngay.
+   */
+  async generateCameraKeyframesWithAi(): Promise<void> {
+    const prompt = (this.aiVideo3dCameraAiPrompt || '').trim();
+    if (!prompt || this.aiVideo3dCameraAiLoading || this.aiVideo3dCapturing) return;
+
+    const baseSnap = this.sceneService.getCameraSnapshot();
+    if (!baseSnap) {
+      this.toastr.warning('Chưa đọc được góc camera hiện tại.', 'AI Đạo diễn Camera');
+      return;
+    }
+
+    this.stopCameraPathPreview(false);
+    this.aiVideo3dCameraAiLoading = true;
+    this.cdr.markForCheck();
+
+    const dur = Math.max(4, Number(this.aiVideo3dDuration) || 5);
+    const summary = this.refreshAiVideo3dSceneSummary();
+
+    const systemPrompt = `Bạn là **Đạo diễn Hình ảnh & Camera 3D (3D Cinematographer AI)**.
+Nhiệm vụ: Dựa vào mô tả cú máy của người dùng, hãy thiết kế một chuỗi **Camera Keyframes** liên tục, mượt mà trong thời lượng \`${dur}s\` trên hệ tọa độ quỹ đạo cầu (Orbit Camera) của PlayCanvas.
+
+### TRẠNG THÁI CAMERA HIỆN TẠI (t = 0s):
+- \`pivot\`: { "x": ${baseSnap.pivot.x.toFixed(2)}, "y": ${baseSnap.pivot.y.toFixed(2)}, "z": ${baseSnap.pivot.z.toFixed(2)} } (tâm điểm camera đang nhìn vào)
+- \`yaw\`: ${baseSnap.yaw.toFixed(1)} (độ xoay ngang quanh nhân vật; tăng +90 là xoay vòng sang phải, giảm -90 là xoay vòng sang trái, +180 là vòng ra sau lưng, +360 là quay trọn 1 vòng)
+- \`pitch\`: ${baseSnap.pitch.toFixed(1)} (góc nghiêng cao độ tính bằng độ, phạm vi an toàn 4..65; thấp ~6-10 là góc nhìn thấp oai vệ, cao ~35-55 là góc trên cao nhìn xuống)
+- \`distance\`: ${baseSnap.distance.toFixed(2)} (khoảng cách camera tới pivot; giảm distance = **ZOOM IN** cận cảnh, tăng distance = **ZOOM OUT** toàn cảnh; phạm vi an toàn ${(Math.max(1.5, baseSnap.distance * 0.25)).toFixed(1)}..${(Math.max(25, baseSnap.distance * 2.8)).toFixed(1)})
+- Đồ vật đang có trong cảnh: ${JSON.stringify(summary.props.map((p) => p.name))}
+
+### QUY TẮC THIẾT KẾ CÚ MÁY ĐẸP:
+1. Tạo từ 3 đến 6 mốc \`keyframes\` từ \`time: 0\` đến \`time: ${dur}\`.
+2. Mốc đầu \`time: 0\` nên xuất phát từ góc gần với trạng thái hiện tại (trừ khi người dùng yêu cầu bắt đầu từ góc khác như từ trên cao hay từ cận mặt).
+3. Nếu zoom cận mặt nhân vật: tăng nhẹ \`pivot.y\` lên vùng đầu/ngực (cộng thêm ~1.2..2.2 so với pivot trung tâm) và giảm \`distance\` xuống ~35-50% khoảng cách ban đầu.
+4. Nếu xoay vòng 180° hoặc 360°: chia mốc trung gian mỗi 90°..120° với \`yaw\` tăng/giảm liên tục (vd: 0 -> 90 -> 180 -> 270 -> 360) để quay tròn mượt 1 chiều.
+5. Nếu muốn quay lia chậm đều không dừng nghỉ ở giữa, dùng \`"easing": "linear"\` ở mốc trung gian và \`"easing": "smooth"\` ở mốc cuối.
+
+### YÊU CẦU TỪ NGƯỜI DÙNG:
+- "${prompt}"
+
+### ĐẦU RA (CHỈ TRẢ VỀ JSON THUẦN TÚY):
+{
+  "explanation": "Mô tả ngắn gọn cú máy vừa biên đạo",
+  "keyframes": [
+    { "time": 0, "label": "Toàn cảnh", "pivot": { "x": ${baseSnap.pivot.x.toFixed(2)}, "y": ${baseSnap.pivot.y.toFixed(2)}, "z": ${baseSnap.pivot.z.toFixed(2)} }, "yaw": ${baseSnap.yaw.toFixed(1)}, "pitch": ${baseSnap.pitch.toFixed(1)}, "distance": ${baseSnap.distance.toFixed(2)}, "easing": "smooth" }
+  ]
+}`;
+
+    try {
+      const aiRes: any = await this.genaiService.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: [{ role: 'user', parts: [{ text: systemPrompt }] }],
+        config: {
+          bypassAiAgent: true,
+          disableThinking: true,
+          temperature: 0.25
+        } as any
+      });
+      const rawReply =
+        aiRes?.text ||
+        aiRes?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || '').join('') ||
+        '';
+      const parsed = this.extractJsonFromAiText(rawReply);
+      const rawKfs: any[] = Array.isArray(parsed?.keyframes) ? parsed.keyframes : [];
+
+      if (rawKfs.length < 2) {
+        this.toastr.warning('AI chưa tạo đủ mốc góc quay. Hãy mô tả rõ hơn góc quay hoặc thao tác zoom.', 'AI Đạo diễn Camera');
+        return;
+      }
+
+      const built: CameraKeyframe[] = rawKfs
+        .map((k: any, idx: number) => ({
+          id: 'camkf_' + Date.now().toString(36) + '_' + idx,
+          time: Math.round(Math.max(0, Math.min(dur, Number(k?.time) || 0)) * 10) / 10,
+          label: String(k?.label || `Góc ${idx + 1}`).slice(0, 24),
+          pivot: {
+            x: Math.round((Number(k?.pivot?.x) ?? baseSnap.pivot.x) * 100) / 100,
+            y: Math.round(Math.max(0, Number(k?.pivot?.y) ?? baseSnap.pivot.y) * 100) / 100,
+            z: Math.round((Number(k?.pivot?.z) ?? baseSnap.pivot.z) * 100) / 100
+          },
+          yaw: Math.round((Number(k?.yaw) ?? baseSnap.yaw) * 10) / 10,
+          pitch: Math.round(Math.max(2, Math.min(80, Number(k?.pitch) ?? baseSnap.pitch)) * 10) / 10,
+          distance: Math.round(Math.max(1.0, Math.min(180, Number(k?.distance) ?? baseSnap.distance)) * 100) / 100,
+          easing: (k?.easing === 'linear' ? 'linear' : 'smooth') as 'smooth' | 'linear'
+        }))
+        .sort((a, b) => a.time - b.time);
+
+      this.aiVideo3dCameraKeyframes = built;
+      this.aiVideo3dCameraMode = 'path';
+      this.clearCaptured3dMotionVideo(true);
+      this.scheduleSaveAiVideo3dState(true);
+      this.cdr.markForCheck();
+      this.toastr.success(
+        parsed?.explanation || `AI đã biên đạo xong đường camera gồm ${built.length} mốc (${dur}s)!`,
+        'AI Đạo diễn Camera'
+      );
+      this.toggleCameraPathPreview();
+    } catch (err: any) {
+      console.error('[AI Camera Director] Error:', err);
+      this.toastr.error(err?.message || 'Không thể kết nối AI để tạo đường camera.', 'AI Đạo diễn Camera');
+    } finally {
+      this.aiVideo3dCameraAiLoading = false;
+      this.cdr.markForCheck();
+    }
   }
 
   onAiVideo3dRefFileSelected(event: Event): void {
@@ -1920,6 +2809,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           mimeType: mimeMatch ? mimeMatch[1] : (file.type || 'image/png'),
           targetKey: this._pickDefaultRefTargetKey()
         });
+        this.scheduleSaveAiVideo3dState(true);
         this.cdr.markForCheck();
       }
     };
@@ -1929,10 +2819,11 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   removeAiVideo3dRefImage(idx: number): void {
     if (idx < 0 || idx >= this.aiVideo3dRefImages.length) return;
     this.aiVideo3dRefImages.splice(idx, 1);
+    this.scheduleSaveAiVideo3dState(true);
     this.cdr.markForCheck();
   }
 
-  clearCaptured3dMotionVideo(): void {
+  clearCaptured3dMotionVideo(silent = false): void {
     if (this.aiVideo3dCapturedPreviewUrl && this.aiVideo3dCapturedPreviewUrl.startsWith('blob:')) {
       try { URL.revokeObjectURL(this.aiVideo3dCapturedPreviewUrl); } catch (_) {}
     }
@@ -1940,6 +2831,11 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     this.aiVideo3dCapturedPreviewUrl = null;
     this.aiVideo3dCapturedFilePath = null;
     this._aiVideo3dCapturedSummary = null;
+    this.aiVideo3dCapturedHasCameraMotion = false;
+    this.aiVideo3dCapturedCameraSummary = '';
+    if (!silent) {
+      this.scheduleSaveAiVideo3dState(true);
+    }
     this.cdr.markForCheck();
   }
 
@@ -1968,8 +2864,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       return null;
     }
 
-    // Seedance 2.0/2.5 Video Editing yêu cầu video đầu vào dài tối thiểu 4 giây (4..30s)
-    const durSec = Math.max(4, Math.min(15, Number(this.aiVideo3dDuration) || 5));
+    // Seedance 2.0/2.5 Video Editing hỗ trợ video đầu vào 4..30 giây
+    const durSec = Math.max(4, Math.min(30, Number(this.aiVideo3dDuration) || 5));
+    this.stopCameraPathPreview(false);
     this.aiVideo3dCapturing = true;
     this.aiVideo3dCaptureSec = 0;
     this.aiVideo3dStatusText = `Đang ghi cảnh 3D (0/${durSec}s)...`;
@@ -1979,8 +2876,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
     const hasActiveFx = initialSummary.fxNames.length > 0;
 
     // Lưu góc camera + ánh sáng hiện tại để phục hồi nguyên vẹn ngay sau khi ghi xong
-    const shouldAutoFrame = this.aiVideo3dCameraMode !== 'keep';
-    const prevCameraSnap = shouldAutoFrame ? this.sceneService.getCameraSnapshot() : null;
+    const useCameraPath = this.aiVideo3dCameraMode === 'path' && this.aiVideo3dCameraKeyframes.length >= 2;
+    const shouldAutoFrame = this.aiVideo3dCameraMode === 'all' || this.aiVideo3dCameraMode === 'selected';
+    const prevCameraSnap = this.sceneService.getCameraSnapshot();
     const prevLighting = this.sceneService.getStudioLighting();
     const shouldTempHideGrid = this.aiVideo3dHideGrid && prevLighting.showGrid;
     const bgHex = String(prevLighting.bgColor || '').trim().toLowerCase();
@@ -2000,7 +2898,10 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
     // Đồng bộ tua toàn bộ nhân vật/đồ vật có khung xương về t=0 và chạy cùng lúc
     this.sceneService.syncAllRiggedPropsForCapture();
-    if (shouldAutoFrame) {
+    if (useCameraPath) {
+      // Đưa camera về đúng mốc t=0 trước khi mở MediaRecorder
+      this.sceneService.seekCameraKeyframesAtTime(this.aiVideo3dCameraKeyframes, 0);
+    } else if (shouldAutoFrame) {
       const activePid = this.timelinePropId || this.selectedPropId || this.sceneService.getFirstRiggedPropId();
       this.sceneService.autoFrameSceneForCapture(
         this.aiVideo3dCameraMode === 'selected' ? 'selected' : 'all',
@@ -2010,6 +2911,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       );
     }
 
+    const camSamples: Array<{ pivot: { x: number; y: number; z: number }; yaw: number; pitch: number; distance: number }> = [];
     let timer: any = null;
     try {
       // Đợi 3 frame để camera + nền tương phản + tắt lưới/ring + pose t=0 ổn định trước khi mở MediaRecorder
@@ -2017,6 +2919,8 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
       // Chụp lại bản đồ vị trí Trái/Giữa/Phải của các đồ vật theo đúng góc camera lúc ghi hình
       const capturedSummary = this.refreshAiVideo3dSceneSummary();
+      const firstCam = this.sceneService.getCameraSnapshot();
+      if (firstCam) camSamples.push(firstCam);
 
       const stream: MediaStream = (canvas as any).captureStream(30);
       const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
@@ -2037,16 +2941,29 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
 
       const startedAt = Date.now();
       recorder.start(120);
+      if (useCameraPath) {
+        // Khởi động đường chạy Camera Keyframes đồng bộ đúng thời điểm bắt đầu ghi hình
+        this.sceneService.startCameraKeyframePlayback(this.aiVideo3dCameraKeyframes, durSec, false, 0);
+      }
 
       timer = setInterval(() => {
         const elapsed = Math.min(durSec, Math.floor((Date.now() - startedAt) / 1000));
         this.aiVideo3dCaptureSec = elapsed;
-        this.aiVideo3dStatusText = `Đang ghi cảnh 3D (${elapsed}/${durSec}s)...`;
+        this.aiVideo3dStatusText = useCameraPath
+          ? `Đang ghi cảnh 3D theo đường Camera (${elapsed}/${durSec}s)...`
+          : `Đang ghi cảnh 3D (${elapsed}/${durSec}s)...`;
+        const curCam = this.sceneService.getCameraSnapshot();
+        if (curCam) camSamples.push(curCam);
         this.cdr.markForCheck();
       }, 250);
 
       // Cộng dư 380ms khi ghi WebM rồi FFmpeg cắt chuẩn -t durSec để chắc chắn video đầu ra đủ tối thiểu >= 4.0s
       await new Promise((r) => setTimeout(r, durSec * 1000 + 380));
+      const endCam = this.sceneService.getCameraSnapshot();
+      if (endCam) camSamples.push(endCam);
+      if (useCameraPath) {
+        this.sceneService.stopCameraKeyframePlayback();
+      }
       if (recorder.state !== 'inactive') {
         recorder.stop();
       }
@@ -2054,6 +2971,43 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       stream.getTracks().forEach((t) => { try { t.stop(); } catch (_) {} });
 
       if (timer) { clearInterval(timer); timer = null; }
+
+      // Phân tích tự động xem trong suốt quá trình ghi (dù bằng Camera Keyframes hay xoay/zoom tay trực tiếp) camera có di chuyển không
+      let totalYawTravel = 0;
+      let totalPitchTravel = 0;
+      let totalPivotTravel = 0;
+      let minDist = Infinity;
+      let maxDist = 0;
+      for (let i = 0; i < camSamples.length; i++) {
+        const c = camSamples[i];
+        if (c.distance < minDist) minDist = c.distance;
+        if (c.distance > maxDist) maxDist = c.distance;
+        if (i > 0) {
+          const prev = camSamples[i - 1];
+          totalYawTravel += Math.abs(c.yaw - prev.yaw);
+          totalPitchTravel += Math.abs(c.pitch - prev.pitch);
+          totalPivotTravel += Math.hypot(c.pivot.x - prev.pivot.x, c.pivot.y - prev.pivot.y, c.pivot.z - prev.pivot.z);
+        }
+      }
+      const distChangeRatio = minDist > 0 && Number.isFinite(minDist) ? (maxDist - minDist) / Math.max(0.5, minDist) : 0;
+      const hasCamMotion =
+        useCameraPath ||
+        totalYawTravel > 4.0 ||
+        totalPitchTravel > 3.0 ||
+        distChangeRatio > 0.06 ||
+        totalPivotTravel > 0.35;
+
+      const camParts: string[] = [];
+      if (totalYawTravel > 4.0) camParts.push(`orbits smoothly ~${Math.round(totalYawTravel)} deg horizontally`);
+      if (totalPitchTravel > 3.0) camParts.push(`tilts vertically ~${Math.round(totalPitchTravel)} deg`);
+      if (distChangeRatio > 0.06 && camSamples.length >= 2) {
+        const startD = camSamples[0].distance;
+        const endD = camSamples[camSamples.length - 1].distance;
+        if (endD < startD * 0.92) camParts.push('zooms IN smoothly closer to the subject');
+        else if (endD > startD * 1.08) camParts.push('zooms OUT smoothly to a wider framing');
+        else camParts.push('zooms in and out dynamically');
+      }
+      if (totalPivotTravel > 0.35) camParts.push('pans/tracks smoothly across the 3D scene');
 
       const webmBlob = new Blob(chunks, { type: mimeType || 'video/webm' });
       if (webmBlob.size < 1024) {
@@ -2087,7 +3041,12 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       this.aiVideo3dCapturedPreviewUrl = URL.createObjectURL(mp4Blob);
       this.aiVideo3dCapturedFilePath = conv.filePath || null;
       this._aiVideo3dCapturedSummary = capturedSummary;
+      this.aiVideo3dCapturedHasCameraMotion = hasCamMotion;
+      this.aiVideo3dCapturedCameraSummary = camParts.length > 0
+        ? camParts.join(', ')
+        : 'smoothly moves camera viewpoint and framing';
       this.aiVideo3dStatusText = '';
+      this.scheduleSaveAiVideo3dState(true);
       this.cdr.markForCheck();
       return conv.base64;
     } catch (err: any) {
@@ -2096,8 +3055,9 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
       return null;
     } finally {
       if (timer) { clearInterval(timer); timer = null; }
+      this.sceneService.stopCameraKeyframePlayback();
       this.sceneService.setSelectionRingTempHidden(false);
-      if (prevCameraSnap) {
+      if ((useCameraPath || shouldAutoFrame) && prevCameraSnap) {
         this.sceneService.restoreCameraSnapshot(prevCameraSnap);
       }
       const restorePatch: any = {};
@@ -2223,9 +3183,15 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
             ? `${describePropSpatialEng(matchedProp)} of ${videoRef}`
             : `in ${videoRef}`;
           if (matchedProp.hasRig) {
-            mappingLines.push(
-              `- ${tag}: replace ONLY the articulated 3D human mannequin "${matchedProp.name}" (${posDesc}) with the exact character, face, hair, body build, and clothing from ${tag}; strictly preserve 100% of its exact 2D screen position, depth layer, skeleton pose, limb angles, torso facing direction, and timing.`
-            );
+            if (matchedProp.hasActiveMotion === false) {
+              mappingLines.push(
+                `- ${tag}: replace ONLY the 3D human mannequin "${matchedProp.name}" (${posDesc}) with the exact character, face, hair, body build, and clothing from ${tag}; strictly HOLD its exact frozen/static pose, limb angles, torso facing direction, 2D screen position, and depth layer from ${videoRef} — do NOT add unrequested walking, gesturing, turning, or body choreography.`
+              );
+            } else {
+              mappingLines.push(
+                `- ${tag}: replace ONLY the articulated 3D human mannequin "${matchedProp.name}" (${posDesc}) with the exact character, face, hair, body build, and clothing from ${tag}; strictly preserve 100% of its exact 2D screen position, depth layer, skeleton pose, limb angles, torso facing direction, and timing.`
+              );
+            }
           } else {
             mappingLines.push(
               `- ${tag}: replace ONLY the 3D prop/object "${matchedProp.name}" (${posDesc}) with the exact subject/object appearance from ${tag}; keep it strictly at its EXACT 3D coordinates, depth layer, apparent perspective size, and independent motion/rotation from ${videoRef} — NEVER copy the foreground character's running/T-pose limbs onto it and NEVER relocate it side-by-side next to the foreground character.`
@@ -2243,9 +3209,14 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         ? `Keep all other visible 3D objects (${unmappedProps.map((p) => `"${p.name}" ${describePropSpatialEng(p)}`).join(', ')}) rendered realistically as their true object type in their EXACT 3D depth layer, occlusion order, scale, and motion from ${videoRef} — do NOT turn an unmapped prop into a second human and do NOT remove it.`
         : '';
 
-      const depthStructureRule = hasDepthStack
-        ? `STRICT FOREGROUND-TO-BACKGROUND DEPTH & OCCLUSION LOCK: ${videoRef} has a FRONT-AND-BACK 3D depth layout where the foreground subject stands IN FRONT of and partially overlaps the background object behind it. Preserve this EXACT front-to-back occlusion, depth separation, and exact (X, Y) pixel coordinates of every object throughout every frame. NEVER rearrange front-and-back objects into a side-by-side horizontal lineup!`
-        : `STRICT 2D & 3D LAYOUT LOCK: Preserve the exact (X, Y) screen coordinates, perspective depth, and relative apparent sizes of every object in ${videoRef} — NEVER reposition or rearrange objects.`;
+      const hasDynamicCamera = this.aiVideo3dCapturedHasCameraMotion;
+      const camMotionDesc = this.aiVideo3dCapturedCameraSummary || 'continuous orbit, pan, and zoom in/out';
+
+      const depthStructureRule = hasDynamicCamera
+        ? `CONTINUOUS 3D PERSPECTIVE & OCCLUSION SYNC: Follow the EXACT frame-by-frame 3D depth occlusion, parallax, and changing apparent scale of every object as the camera moves and zooms continuously in ${videoRef}. Keep every subject anchored accurately in 3D space relative to the ground plane.`
+        : (hasDepthStack
+            ? `STRICT FOREGROUND-TO-BACKGROUND DEPTH & OCCLUSION LOCK: ${videoRef} has a FRONT-AND-BACK 3D depth layout where the foreground subject stands IN FRONT of and partially overlaps the background object behind it. Preserve this EXACT front-to-back occlusion, depth separation, and exact (X, Y) pixel coordinates of every object throughout every frame. NEVER rearrange front-and-back objects into a side-by-side horizontal lineup!`
+            : `STRICT 2D & 3D LAYOUT LOCK: Preserve the exact (X, Y) screen coordinates, perspective depth, and relative apparent sizes of every object in ${videoRef} — NEVER reposition or rearrange objects.`);
 
       const fxRule = activeFxNames.length > 0
         ? `ENVIRONMENTAL & PARTICLE FX (${activeFxNames.join(', ')}): Strictly preserve and realistically render the active atmospheric/particle effects visible in ${videoRef} (such as falling snow, rain, or floating particles) matching the exact falling direction, speed, and depth across the entire frame.`
@@ -2257,27 +3228,44 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
             ? `Match the environment, lighting, and cinematic color grading of ${bgImageTags.join(', ')} with natural grounded shadows.`
             : `Clean cinematic background and realistic studio lighting matching the camera framing and grounded shadows of ${videoRef}.`);
 
+      const seedanceCameraRule = hasDynamicCamera
+        ? `DYNAMIC CAMERA MOTION & ZOOM TRANSFER: Strictly follow 100% of the continuous camera trajectory recorded in @Video 1 (${camMotionDesc}) frame-by-frame — match every orbit angle change, tilt, pan, and zoom in/out speed seamlessly with realistic 3D environment parallax and zero sudden cuts.`
+        : `LOCKED CAMERA PERSPECTIVE: Strictly preserve 100% of the exact camera angle, viewpoint elevation, focal length, framing distance, and horizon tilt of @Video 1 from start to finish — ZERO unrequested camera orbit, pan, zoom, or angle cuts.`;
+
+      const genericCameraRule = hasDynamicCamera
+        ? `DYNAMIC CAMERA FOLLOW: Strictly replicate 100% of the exact continuous camera rotation, pan, tilt, and zoom in/out trajectory from ${videoRef} (${camMotionDesc}) with realistic 3D parallax and zero cuts.`
+        : `LOCKED CAMERA: Strictly keep the exact same camera angle, distance, perspective, and framing as ${videoRef} with zero camera drift or angle changes.`;
+
+      const allRiggedAreStatic =
+        visibleProps.some((p) => p.hasRig) &&
+        visibleProps.filter((p) => p.hasRig).every((p) => p.hasActiveMotion === false);
+      const staticPoseRule = allRiggedAreStatic
+        ? `STATIC SUBJECT POSE LOCK: The 3D character(s) in ${videoRef} hold a deliberate fixed pose with NO body animation attached — keep their exact pose, limb angles, and body orientation unchanged throughout the video (no unrequested walking, waving, or invented actions).`
+        : '';
+
       let finalPrompt = '';
       if (isSeedanceTarget) {
         finalPrompt = [
           `STRICT 1:1 3D SCENE STRUCTURE, CAMERA & MOTION TRANSFER FROM @Video 1:`,
-          `LOCKED CAMERA PERSPECTIVE: Strictly preserve 100% of the exact camera angle, viewpoint elevation, focal length, framing distance, and horizon tilt of @Video 1 from start to finish — ZERO unrequested camera orbit, pan, zoom, or angle cuts.`,
+          seedanceCameraRule,
+          staticPoseRule,
           depthStructureRule,
           ...(mappingLines.length > 0 ? ['EXACT ELEMENT MAPPING:', ...mappingLines] : []),
           unmappedRule,
           fxRule,
           sceneDesc,
-          `CRITICAL RULES: Keep the EXACT camera angle, front-to-back occlusion order, screen positions, and individual motion of each element in @Video 1 at every second. Never move a background object beside a foreground character, never duplicate one character's pose onto another object, and never leave raw wooden mannequins or untextured 3D meshes.`
+          `CRITICAL RULES: Follow the EXACT camera motion/framing, front-to-back occlusion order, 3D positions, and individual motion of each element in @Video 1 at every second. Never move a background object beside a foreground character, never duplicate one character's pose onto another object, and never leave raw wooden mannequins or untextured 3D meshes.`
         ].filter(Boolean).join(' ');
       } else {
         finalPrompt = [
           sceneDesc,
-          `LOCKED CAMERA: Strictly keep the exact same camera angle, distance, perspective, and framing as ${videoRef} with zero camera drift or angle changes.`,
+          genericCameraRule,
+          staticPoseRule,
           depthStructureRule,
           ...mappingLines,
           unmappedRule,
           fxRule,
-          `Replace placeholder 3D models cleanly with realistic subjects and materials while keeping exact depth occlusion. No wooden mannequin, no wireframe.`
+          `Replace placeholder 3D models cleanly with realistic subjects and materials while keeping exact depth occlusion and camera movement. No wooden mannequin, no wireframe.`
         ].filter(Boolean).join(' ');
       }
 
@@ -2318,6 +3306,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
         try { URL.revokeObjectURL(this.aiVideo3dResultPreviewUrl); } catch (_) {}
       }
 
+      this.aiVideo3dResultRemoteUrl = outMeta.url || null;
       if (resultBase64) {
         const cleanB64 = resultBase64.includes(',') ? resultBase64.split(',')[1] : resultBase64;
         this.aiVideo3dResultBase64 = cleanB64;
@@ -2339,8 +3328,28 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
           }
         }
       } else if (outMeta.url) {
+        this.aiVideo3dResultFilePath = null;
         this.aiVideo3dResultPreviewUrl = outMeta.url;
       }
+
+      // Lưu bản ghi vào lịch sử Video AI của cảnh hiện tại (giữ tối đa 20 video gần nhất)
+      const histItem = {
+        id: 'vid_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 1e4).toString(36),
+        createdAt: Date.now(),
+        prompt: (this.aiVideo3dPrompt || '').trim(),
+        duration: Number(this.aiVideo3dDuration) || 5,
+        aspectRatio: this.aiVideo3dAspectRatio,
+        resolution: this.aiVideo3dResolution,
+        model: targetModel,
+        capturedFilePath: this.aiVideo3dCapturedFilePath || null,
+        resultFilePath: this.aiVideo3dResultFilePath || null,
+        resultUrl: this.aiVideo3dResultRemoteUrl || null,
+        refImageCount: this.aiVideo3dRefImages.length,
+        cameraMode: this.aiVideo3dCameraMode
+      };
+      this.aiVideo3dHistory = [histItem, ...this.aiVideo3dHistory].slice(0, 20);
+      this.aiVideo3dActiveHistoryId = histItem.id;
+      this.scheduleSaveAiVideo3dState(true);
 
       this.aiVideo3dStatusText = '';
       this.toastr.success('Mì Tôm AI đã tạo Video từ cảnh 3D thành công!', 'AI Video 3D');
@@ -3210,6 +4219,14 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
       this.toastr.info('Đồ vật này chưa nạp mô hình GLB trên canvas.', 'Timeline 3D');
       return;
     }
+    if (this.timelinePropId !== pid) {
+      this._aiPoseUndoStack = [];
+      this.lastAiPoseExplanation = '';
+      this.poseRefFiles = [];
+      this.isPoseSaveBoxOpen = false;
+      this.poseSaveNameDraft = '';
+      this.activeSavedPoseId = null;
+    }
     this.timelinePropId = pid;
     const prop = this.roomProps?.find((p) => p && p.id === pid);
     this.timelinePropName = prop?.name || pid;
@@ -3220,6 +4237,7 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
 
     this.timelineClips = this.sceneService.getPropClips(pid);
     this.timelineData = this.sceneService.getPropTimeline(pid);
+    this.savedPoses = [...this.sceneService.getPropSavedPoses(pid)];
     this.timelineCurrentTime = Math.round(this.sceneService.getPropCurrentTime(pid) * 100) / 100;
 
     // Ưu tiên chọn xương đầu tiên có trong danh sách (bỏ qua __root__ nếu mô hình có xương thật)
@@ -3227,6 +4245,22 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
     this.selectedBoneName = firstSkinned ? firstSkinned.name : '__root__';
     this.selectTimelineBone(this.selectedBoneName);
     this.isGlbTimelineOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  get timelineHasActiveHandGrab(): boolean {
+    return !!(this.timelineData?.handGrabs && this.timelineData.handGrabs.length > 0);
+  }
+
+  clearActivePropHandGrabs(): void {
+    const pid = this.timelinePropId;
+    if (!pid) return;
+    const cleared = this.sceneService.clearPropHandGrabs(pid, true);
+    if (cleared) {
+      this.timelineData = this.sceneService.getPropTimeline(pid);
+      this.saveTimelineToProp(true);
+      this.toastr.info('Đã thả liên kết tay và trả đồ vật về vị trí ban đầu.', 'Timeline 3D');
+    }
     this.cdr.markForCheck();
   }
 
@@ -3319,9 +4353,22 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
         this.boneRot,
         this.bonePos
       );
-      this.saveTimelineToProp(true);
     }
+    this.activeSavedPoseId = null;
+    this.scheduleSilentPoseSave();
     this.cdr.markForCheck();
+  }
+
+  private scheduleSilentPoseSave(): void {
+    if (this._poseAutoSaveTimer) {
+      clearTimeout(this._poseAutoSaveTimer);
+    }
+    this._poseAutoSaveTimer = setTimeout(() => {
+      this._poseAutoSaveTimer = null;
+      if (this.timelinePropId) {
+        this.saveTimelineToProp(true);
+      }
+    }, 280);
   }
 
   addCurrentBoneKeyframe(): void {
@@ -3378,8 +4425,9 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
         this.boneRot,
         this.bonePos
       );
-      this.saveTimelineToProp(true);
     }
+    this.activeSavedPoseId = null;
+    this.saveTimelineToProp(true);
     this.cdr.markForCheck();
   }
 
@@ -3388,7 +4436,785 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
     this.boneRot = { x: 0, y: 0, z: 0 };
     this.bonePos = { x: 0, y: 0, z: 0 };
     this.sceneService.resetBonePose(this.timelinePropId);
+    this.activeSavedPoseId = null;
+    this.saveTimelineToProp(true);
     this.cdr.markForCheck();
+  }
+
+  /** Reset toàn bộ dáng về gốc (lưu Hoàn tác + đồng bộ Keyframe tại mốc hiện tại nếu bật Auto-Key) */
+  resetAllBonesPoseWithKey(): void {
+    const pid = this.timelinePropId;
+    if (!pid || !this.sceneService.hasPropRig(pid)) return;
+    const prevSnapshot = this.sceneService.capturePoseSnapshot(pid);
+    this._aiPoseUndoStack.push({
+      propId: pid,
+      time: this.timelineCurrentTime,
+      autoKey: this.timelineAutoKey,
+      snapshot: prevSnapshot
+    });
+    if (this._aiPoseUndoStack.length > 15) {
+      this._aiPoseUndoStack.shift();
+    }
+    this.sceneService.resetBonePose(pid);
+    if (this.timelineAutoKey) {
+      const zeroRot = { x: 0, y: 0, z: 0 };
+      const zeroPos = { x: 0, y: 0, z: 0 };
+      const touched = new Set<string>(prevSnapshot.bones.map((b) => b.boneName));
+      for (const kf of prevSnapshot.keyframes) {
+        touched.add(kf.boneName);
+      }
+      for (const boneName of touched) {
+        this.sceneService.upsertBoneKeyframe(pid, boneName, this.timelineCurrentTime, zeroRot, zeroPos);
+      }
+    }
+    this.activeSavedPoseId = null;
+    this.saveTimelineToProp(true);
+    this.timelineData = this.sceneService.getPropTimeline(pid);
+    this.boneRot = { x: 0, y: 0, z: 0 };
+    this.bonePos = { x: 0, y: 0, z: 0 };
+    this.lastAiPoseExplanation = 'Đã đưa toàn bộ khớp xương về tư thế gốc.';
+    this.cdr.markForCheck();
+  }
+
+  openSavePoseBox(): void {
+    const pid = this.timelinePropId;
+    if (!pid || !this.sceneService.hasPropRig(pid)) return;
+    const refHint = this.poseRefFiles[0]?.name
+      ? this.poseRefFiles[0].name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim()
+      : '';
+    const promptHint = (this.posePromptText || this._lastPoseLabelHint || '').trim();
+    const defaultName =
+      (promptHint ? promptHint.slice(0, 36) : '') ||
+      (refHint ? refHint.slice(0, 36) : '') ||
+      `Tư thế #${this.savedPoses.length + 1}`;
+    this.poseSaveNameDraft = defaultName;
+    this.isPoseSaveBoxOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  cancelSavePoseBox(): void {
+    this.isPoseSaveBoxOpen = false;
+    this.poseSaveNameDraft = '';
+    this.cdr.markForCheck();
+  }
+
+  onSavePoseNameKeydown(event: KeyboardEvent): void {
+    event.stopPropagation();
+    if (event.key === 'Enter' && !(event as any).isComposing) {
+      event.preventDefault();
+      this.confirmSaveCurrentPose();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      this.cancelSavePoseBox();
+    }
+  }
+
+  confirmSaveCurrentPose(): void {
+    const pid = this.timelinePropId;
+    if (!pid || !this.sceneService.hasPropRig(pid)) return;
+    const name = (this.poseSaveNameDraft || '').trim() || `Tư thế #${this.savedPoses.length + 1}`;
+    const saved = this.sceneService.saveCurrentPosePreset(pid, name);
+    if (!saved) {
+      this.toastr.warning('Không thể lưu tư thế hiện tại.', 'Lưu tư thế');
+      return;
+    }
+    this.savedPoses = [...this.sceneService.getPropSavedPoses(pid)];
+    this.activeSavedPoseId = saved.id;
+    this.isPoseSaveBoxOpen = false;
+    this.poseSaveNameDraft = '';
+    this.saveTimelineToProp(true);
+    this.lastAiPoseExplanation = `Đã lưu tư thế "${saved.name}" (${saved.bones.length} khớp).`;
+    this.toastr.success(`Đã lưu tư thế "${saved.name}" (${saved.bones.length} khớp)!`, 'Lưu tư thế');
+    this.cdr.markForCheck();
+  }
+
+  applySavedPose(pose: GlbSavedPose): void {
+    const pid = this.timelinePropId;
+    if (!pid || !pose || !this.sceneService.hasPropRig(pid)) return;
+    const res = this.sceneService.applySavedPosePreset(pid, pose.id, {
+      time: this.timelineCurrentTime,
+      autoKey: this.timelineAutoKey
+    });
+    if (!res.pose) return;
+    this._aiPoseUndoStack.push({
+      propId: pid,
+      time: this.timelineCurrentTime,
+      autoKey: this.timelineAutoKey,
+      snapshot: res.previousSnapshot
+    });
+    if (this._aiPoseUndoStack.length > 15) {
+      this._aiPoseUndoStack.shift();
+    }
+    this.activeSavedPoseId = pose.id;
+    this.timelineData = this.sceneService.getPropTimeline(pid);
+    this.syncSelectedBoneSliders(pid);
+    this.saveTimelineToProp(true);
+    this.lastAiPoseExplanation = `Đã nạp tư thế "${pose.name}".`;
+    this.cdr.markForCheck();
+  }
+
+  deleteSavedPose(pose: GlbSavedPose, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    const pid = this.timelinePropId;
+    if (!pid || !pose) return;
+    if (this.sceneService.deleteSavedPosePreset(pid, pose.id)) {
+      this.savedPoses = [...this.sceneService.getPropSavedPoses(pid)];
+      if (this.activeSavedPoseId === pose.id) {
+        this.activeSavedPoseId = null;
+      }
+      this.saveTimelineToProp(true);
+      this.toastr.info(`Đã xóa tư thế "${pose.name}".`, 'Tư thế đã lưu');
+      this.cdr.markForCheck();
+    }
+  }
+
+  onPosePromptKeydown(event: KeyboardEvent): void {
+    event.stopPropagation();
+    if (event.key === 'Enter' && !event.shiftKey && !(event as any).isComposing) {
+      event.preventDefault();
+      this.applyAiPosePrompt();
+    }
+  }
+
+  triggerPoseRefFileUpload(): void {
+    if (this.isApplyingAiPose) return;
+    this.poseRefFileInput?.nativeElement?.click();
+  }
+
+  removePoseRefFile(id: string): void {
+    this.poseRefFiles = this.poseRefFiles.filter((f) => f.id !== id);
+    this.cdr.markForCheck();
+  }
+
+  onPosePromptPaste(event: ClipboardEvent): void {
+    const items = event.clipboardData?.items;
+    if (!items || items.length === 0) return;
+    const files: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.kind === 'file' && it.type.startsWith('image/')) {
+        const f = it.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length > 0) {
+      event.preventDefault();
+      this.ingestPoseRefFiles(files);
+    }
+  }
+
+  onPoseRefDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.isPoseRefDragOver) {
+      this.isPoseRefDragOver = true;
+      this.cdr.markForCheck();
+    }
+  }
+
+  onPoseRefDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.isPoseRefDragOver) {
+      this.isPoseRefDragOver = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  onPoseRefDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isPoseRefDragOver = false;
+    const fileList = event.dataTransfer?.files;
+    if (fileList && fileList.length > 0) {
+      this.ingestPoseRefFiles(Array.from(fileList));
+    }
+    this.cdr.markForCheck();
+  }
+
+  onPoseRefFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = input.files ? Array.from(input.files) : [];
+    input.value = '';
+    if (files.length > 0) {
+      this.ingestPoseRefFiles(files);
+    }
+  }
+
+  private async ingestPoseRefFiles(files: File[]): Promise<void> {
+    const maxTotal = 4;
+    let added = 0;
+
+    for (const file of files) {
+      if (this.poseRefFiles.length >= maxTotal) {
+        this.toastr.info(`Chỉ đính kèm tối đa ${maxTotal} tệp mẫu tư thế cùng lúc.`, 'AI Chỉnh tư thế');
+        break;
+      }
+
+      const id = 'pref_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 1e5).toString(36);
+      const fname = file.name || `anh-mau-${this.poseRefFiles.length + 1}.png`;
+
+      if (file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(fname)) {
+        try {
+          const encoded = await this.encodePoseRefImageFile(file);
+          this.poseRefFiles.push({
+            id,
+            name: fname,
+            kind: 'image',
+            dataUrl: encoded.dataUrl,
+            base64: encoded.base64,
+            mimeType: encoded.mimeType
+          });
+          added++;
+        } catch (e: any) {
+          this.toastr.warning(`Không đọc được ảnh "${fname}".`, 'AI Chỉnh tư thế');
+        }
+      } else if (file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v)$/i.test(fname)) {
+        try {
+          const frame = await this.extractSinglePoseFrameFromVideo(file);
+          this.poseRefFiles.push({
+            id,
+            name: fname,
+            kind: 'image',
+            dataUrl: frame.dataUrl,
+            base64: frame.base64,
+            mimeType: frame.mimeType
+          });
+          added++;
+        } catch (e: any) {
+          this.toastr.warning(`Không trích xuất được khung hình từ video "${fname}".`, 'AI Chỉnh tư thế');
+        }
+      } else if (file.type.startsWith('text/') || /\.(json|txt|md)$/i.test(fname)) {
+        try {
+          const text = (await file.text()).slice(0, 12000);
+          this.poseRefFiles.push({
+            id,
+            name: fname,
+            kind: 'text',
+            textContent: text
+          });
+          added++;
+        } catch (e: any) {
+          this.toastr.warning(`Không đọc được tệp văn bản "${fname}".`, 'AI Chỉnh tư thế');
+        }
+      } else {
+        this.toastr.warning(`Định dạng "${fname}" chưa hỗ trợ. Hãy chọn ảnh, video hoặc file JSON/TXT.`, 'AI Chỉnh tư thế');
+      }
+    }
+
+    if (added > 0) {
+      this.cdr.markForCheck();
+    }
+  }
+
+  private encodePoseRefImageFile(file: File): Promise<{ dataUrl: string; base64: string; mimeType: string }> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('FileReader error'));
+      reader.onload = () => {
+        const rawDataUrl = String(reader.result || '');
+        const img = new Image();
+        img.onerror = () => {
+          const mime = file.type || 'image/png';
+          const b64 = rawDataUrl.replace(/^data:[^;]+;base64,/, '');
+          resolve({ dataUrl: rawDataUrl, base64: b64, mimeType: mime });
+        };
+        img.onload = () => {
+          const maxDim = 1024;
+          const iw = img.naturalWidth || img.width || 512;
+          const ih = img.naturalHeight || img.height || 512;
+          const scale = Math.min(1, maxDim / Math.max(iw, ih));
+          const cw = Math.max(64, Math.round(iw * scale));
+          const ch = Math.max(64, Math.round(ih * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = cw;
+          canvas.height = ch;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            const mime = file.type || 'image/png';
+            resolve({ dataUrl: rawDataUrl, base64: rawDataUrl.replace(/^data:[^;]+;base64,/, ''), mimeType: mime });
+            return;
+          }
+          ctx.drawImage(img, 0, 0, cw, ch);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+          resolve({
+            dataUrl,
+            base64: dataUrl.replace(/^data:[^;]+;base64,/, ''),
+            mimeType: 'image/jpeg'
+          });
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  private extractSinglePoseFrameFromVideo(file: File): Promise<{ dataUrl: string; base64: string; mimeType: string }> {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const video = document.createElement('video');
+      video.preload = 'auto';
+      video.muted = true;
+      video.playsInline = true;
+      video.src = url;
+
+      let done = false;
+      const cleanup = () => {
+        if (done) return;
+        done = true;
+        try {
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+        } catch (_) {}
+        URL.revokeObjectURL(url);
+      };
+
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error('Timeout extracting video frame'));
+      }, 15000);
+
+      video.onerror = () => {
+        clearTimeout(timer);
+        cleanup();
+        reject(new Error('Video decode error'));
+      };
+
+      video.onloadedmetadata = () => {
+        const dur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
+        const targetT = Math.min(Math.max(0.1, dur * 0.35), Math.max(0.1, dur - 0.05));
+        video.onseeked = () => {
+          clearTimeout(timer);
+          try {
+            const maxDim = 1024;
+            const vw = video.videoWidth || 640;
+            const vh = video.videoHeight || 480;
+            const scale = Math.min(1, maxDim / Math.max(vw, vh));
+            const cw = Math.max(64, Math.round(vw * scale));
+            const ch = Math.max(64, Math.round(vh * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = cw;
+            canvas.height = ch;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error('Canvas unavailable');
+            ctx.drawImage(video, 0, 0, cw, ch);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+            cleanup();
+            resolve({
+              dataUrl,
+              base64: dataUrl.replace(/^data:[^;]+;base64,/, ''),
+              mimeType: 'image/jpeg'
+            });
+          } catch (err) {
+            cleanup();
+            reject(err);
+          }
+        };
+        try {
+          video.currentTime = targetT;
+        } catch (err) {
+          clearTimeout(timer);
+          cleanup();
+          reject(err);
+        }
+      };
+    });
+  }
+
+  undoAiPose(): void {
+    const pid = this.timelinePropId;
+    if (!pid || !this.canUndoAiPose) return;
+    const entry = this._aiPoseUndoStack.pop();
+    if (!entry) return;
+    this.sceneService.restorePoseSnapshot(pid, entry.snapshot);
+    this.timelineData = this.sceneService.getPropTimeline(pid);
+    if (this.selectedBoneName) {
+      const pose = this.sceneService.getBonePoseDelta(pid, this.selectedBoneName);
+      this.boneRot = {
+        x: Math.round(pose.rot.x * 10) / 10,
+        y: Math.round(pose.rot.y * 10) / 10,
+        z: Math.round(pose.rot.z * 10) / 10
+      };
+      this.bonePos = {
+        x: Math.round(pose.pos.x * 100) / 100,
+        y: Math.round(pose.pos.y * 100) / 100,
+        z: Math.round(pose.pos.z * 100) / 100
+      };
+    }
+    this.activeSavedPoseId = null;
+    this.saveTimelineToProp(true);
+    this.lastAiPoseExplanation = 'Đã hoàn tác về tư thế trước đó.';
+    this.toastr.info('Đã hoàn tác về tư thế trước đó.', 'AI Chỉnh tư thế');
+    this.cdr.markForCheck();
+  }
+
+  async applyAiPosePrompt(): Promise<void> {
+    const pid = this.timelinePropId;
+    const prompt = (this.posePromptText || '').trim();
+    const hasRefFiles = this.poseRefFiles.length > 0;
+    if (!pid || !this.sceneService.hasPropRig(pid)) {
+      this.toastr.warning('Vui lòng chọn một nhân vật hoặc mô hình 3D có khớp xương trước.', 'AI Chỉnh tư thế');
+      return;
+    }
+    if ((!prompt && !hasRefFiles) || this.isApplyingAiPose) {
+      return;
+    }
+
+    const poseCtx = this.sceneService.getPropPoseContext(pid);
+    if (!poseCtx) {
+      this.toastr.warning('Không đọc được cấu trúc khớp xương của mô hình này.', 'AI Chỉnh tư thế');
+      return;
+    }
+
+    this.isApplyingAiPose = true;
+    this.cdr.markForCheck();
+
+    try {
+      const refImages = this.poseRefFiles.filter((f) => f.kind === 'image' && !!f.base64);
+      const refTexts = this.poseRefFiles.filter((f) => f.kind === 'text' && !!f.textContent);
+
+      // =========================================================================
+      // BƯỚC 1 (ƯU TIÊN TUYỆT ĐỐI KHI CÓ ẢNH THAM CHIẾU):
+      // Dùng bộ ước lượng khung xương 3D SMPL thật (NLF NeurIPS 2024 qua Electron)
+      // để tái tạo CHÍNH XÁC 1:1 tư thế toàn thân 20 khớp trong ảnh tham chiếu!
+      // =========================================================================
+      let nlfApplied = false;
+      let undoSnapshotBeforeRun: any = null;
+      const elec = (window as any).electron;
+
+      if (refImages.length > 0 && poseCtx.hasSkinnedSkeleton && typeof elec?.extractImagePose3d === 'function') {
+        try {
+          this.lastAiPoseExplanation = 'Đang đo khung xương 3D chính xác từ ảnh tham chiếu...';
+          this.cdr.markForCheck();
+
+          const primaryImg = refImages[0];
+          const nlfRes = await elec.extractImagePose3d({
+            base64: primaryImg.base64,
+            filename: primaryImg.name || 'pose-ref.jpg'
+          });
+
+          if (nlfRes?.success && nlfRes?.data && Array.isArray(nlfRes.data.bones) && nlfRes.data.bones.length >= 8) {
+            const nlfApplyRes = this.sceneService.applyAiStaticPose(
+              pid,
+              {
+                mode: 'replace',
+                poseSpace: 'tpose',
+                sourceLegLength: Number(nlfRes.data.sourceLegLength) || 0,
+                bones: nlfRes.data.bones
+              },
+              {
+                time: this.timelineCurrentTime,
+                autoKey: this.timelineAutoKey
+              }
+            );
+
+            if (nlfApplyRes.appliedBones.length >= 6) {
+              nlfApplied = true;
+              undoSnapshotBeforeRun = nlfApplyRes.previousSnapshot;
+
+              // Nếu người dùng KHÔNG gõ thêm yêu cầu tinh chỉnh riêng (chỉ đính ảnh mẫu để bắt chước đúng tư thế),
+              // giữ nguyên 100% kết quả khung xương 3D SMPL chính xác tuyệt đối — không để LLM ước lượng lại làm sai góc!
+              if (!prompt) {
+                this._aiPoseUndoStack.push({
+                  propId: pid,
+                  time: this.timelineCurrentTime,
+                  autoKey: this.timelineAutoKey,
+                  snapshot: undoSnapshotBeforeRun
+                });
+                if (this._aiPoseUndoStack.length > 15) {
+                  this._aiPoseUndoStack.shift();
+                }
+
+                this.timelineData = this.sceneService.getPropTimeline(pid);
+                this.syncSelectedBoneSliders(pid);
+                this.activeSavedPoseId = null;
+                this._lastPoseLabelHint = (primaryImg.name || '').replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+                this.saveTimelineToProp(true);
+
+                const devLabel = String(nlfRes.data.device || 'gpu').toUpperCase();
+                const msg = `Đã sao chép chính xác tư thế 3D từ ảnh mẫu (${nlfApplyRes.appliedBones.length} khớp · SMPL ${devLabel}).`;
+                this.lastAiPoseExplanation = msg;
+                this.toastr.success(msg, 'AI Chỉnh tư thế');
+                return;
+              }
+            }
+          }
+        } catch (nlfErr) {
+          console.warn('[AI Pose] NLF 3D image pose fallback sang Vision AI:', nlfErr);
+        }
+      }
+
+      // Đọc lại ngữ cảnh tư thế mới nhất (sau khi NLF đã áp tư thế gốc từ ảnh nếu có)
+      const activePoseCtx = nlfApplied ? (this.sceneService.getPropPoseContext(pid) || poseCtx) : poseCtx;
+
+      const armRestNote = activePoseCtx.poseSpace === 'tpose'
+        ? 'Nhân vật đang ở hệ chuẩn T-Pose (góc 0° là hai cánh tay dang ngang 90° so với thân). Để hạ tay buông xuôi sát thân cần lArm.z ≈ -72°, rArm.z ≈ +72°.'
+        : activePoseCtx.restArmDropDeg >= 30
+          ? `Nhân vật ở tư thế nghỉ A-Pose (hai cánh tay gốc đã xuôi xuống sẵn ~${activePoseCtx.restArmDropDeg}° so với phương ngang). Để hạ tay xuôi sát thân chỉ cần lArm.z ≈ -${Math.max(10, 72 - activePoseCtx.restArmDropDeg)}°, rArm.z ≈ +${Math.max(10, 72 - activePoseCtx.restArmDropDeg)}°; để dang ngang chữ T cần lArm.z ≈ +${activePoseCtx.restArmDropDeg}°, rArm.z ≈ -${activePoseCtx.restArmDropDeg}°; để giơ tay thẳng lên trời cần lArm.z ≈ +${Math.min(165, 85 + activePoseCtx.restArmDropDeg)}°, rArm.z ≈ -${Math.min(165, 85 + activePoseCtx.restArmDropDeg)}°.`
+          : `Nhân vật ở tư thế nghỉ gần T-Pose (hai cánh tay gốc gần như dang ngang, góc hạ ~${activePoseCtx.restArmDropDeg}°). Để hạ tay xuôi sát thân cần lArm.z ≈ -${Math.max(55, 72 - activePoseCtx.restArmDropDeg)}°, rArm.z ≈ +${Math.max(55, 72 - activePoseCtx.restArmDropDeg)}°; để giơ tay thẳng lên trời cần lArm.z ≈ +85°, rArm.z ≈ -85°.`;
+
+      const fingerInfo = activePoseCtx.fingerBones.length > 0
+        ? `- Các khớp ngón tay (CHỈ chỉnh khi yêu cầu hoặc ảnh mẫu có cử chỉ nắm tay / chỉ tay / cầm nắm / xòe ngón rõ rệt): ${JSON.stringify(activePoseCtx.fingerBones)}`
+        : '- Mô hình không có khớp ngón tay riêng.';
+
+      const currentPoseJson = activePoseCtx.currentPose.length > 0
+        ? JSON.stringify(activePoseCtx.currentPose)
+        : '[] (đang ở tư thế nghỉ mặc định)';
+
+      // Nếu NLF SMPL 3D ĐÃ áp tư thế chuẩn từ ảnh mẫu và người dùng có gõ thêm prompt:
+      // chụp ảnh 3D hiện tại để AI đối chiếu ảnh mẫu + render 3D và CHỈ chỉnh phần sửa thêm / ngón tay theo đúng prompt!
+      let currentRenderSnap: { dataUrl: string; base64: string; mimeType: string } | null = null;
+      if (nlfApplied) {
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        currentRenderSnap = this.sceneService.captureSceneSnapshotBase64(640);
+      }
+
+      const refSectionParts: string[] = [];
+      if (refImages.length > 0) {
+        if (nlfApplied) {
+          refSectionParts.push(
+            `### TRẠNG THÁI ĐÃ TRÍCH XUẤT KHUNG XƯƠNG 3D SMPL TỪ ẢNH MẪU (${refImages.map((f) => f.name).join(', ')}):\n` +
+            `- Hệ thống thị giác 3D SMPL vừa đo chính xác 20 khớp thân từ Ảnh #1 (ảnh tham chiếu) và áp lên nhân vật 3D${currentRenderSnap ? ' (xem Ảnh cuối cùng là kết quả 3D hiện tại)' : ''}.\n` +
+            `- **QUY TẮC BẮT BUỘC**: LUÔN trả về \`"mode": "adjust"\`. KHÔNG ĐƯỢC reset hay phá hỏng tư thế 20 khớp thân đã khớp với ảnh tham chiếu!\n` +
+            `- Nếu yêu cầu của người dùng CHỈ muốn bắt chước đúng ảnh mẫu (và kết quả 3D đã khớp đúng dáng ảnh mẫu) thì trả về \`"bones": []\` (hoặc CHỈ tinh chỉnh nhẹ các ngón tay/bàn tay/góc đầu nếu thật sự lệch so với ảnh mẫu).\n` +
+            `- Nếu người dùng yêu cầu chỉnh SỬA THÊM (VD: "nhưng nắm chặt bàn tay phải", "quay đầu nhìn sang trái", "nâng chân cao hơn") thì CHỈ xuất các khớp cần sửa đổi thêm đó.`
+          );
+        } else {
+          refSectionParts.push(
+            `### ẢNH MẪU TƯ THẾ ĐÍNH KÈM (${refImages.length} ảnh: ${refImages.map((f) => f.name).join(', ')}):\n` +
+            `- BẮT BUỘC nhân vật 3D phải bắt chước CHÍNH XÁC tư thế trong ảnh mẫu:\n` +
+            `  1. Đo đúng góc nghiêng/bay/té ngã của toàn thân (\`hips.rot.x/y/z\`) và độ cao trọng tâm \`hips.pos.y\`.\n` +
+            `  2. Phân biệt CHÍNH XÁC bên TRÁI giải phẫu (\`lArm\`, \`lUpLeg\`) và bên PHẢI giải phẫu (\`rArm\`, \`rUpLeg\`) của chính nhân vật trong ảnh (lưu ý nếu ảnh nhìn từ phía trước thì phía bên trái của khung ảnh là tay PHẢI của nhân vật!).\n` +
+            `  3. Khớp chặt góc vai, bắp tay, khuỷu tay, cổ tay, đầu/cổ, đùi, đầu gối và cổ chân sao cho bóng dáng (silhouette) giống ảnh mẫu tối đa.`
+          );
+        }
+      }
+      if (refTexts.length > 0) {
+        refSectionParts.push(
+          `### TỆP DỮ LIỆU MẪU ĐÍNH KÈM:\n` +
+          refTexts.map((f) => `--- ${f.name} ---\n${f.textContent}`).join('\n\n')
+        );
+      }
+      const refSection = refSectionParts.length > 0 ? `\n${refSectionParts.join('\n\n')}\n` : '';
+      const effectivePrompt = prompt || 'Bắt chước chính xác tuyệt đối tư thế toàn thân của nhân vật trong ảnh mẫu đính kèm.';
+
+      const systemPrompt = `Bạn là **Chuyên gia Tạo dáng & Giải phẫu Nhân vật 3D (3D Character Rigging & Posing Artist)**.
+Nhiệm vụ: Thiết kế góc xoay (Euler độ) và dịch chuyển vị trí (mét) cho các khớp xương của nhân vật 3D để đạt ĐÚNG tư thế người dùng yêu cầu (bắt buộc bám sát ảnh/tệp mẫu đính kèm nếu có), tự nhiên, cân đối và không xuyên thấu thân thể.
+
+### THÔNG TIN BỘ XƯƠNG NHÂN VẬT HIỆN TẠI:
+- Loại mô hình: ${activePoseCtx.hasSkinnedSkeleton ? 'Nhân vật có khung xương mềm (Skinned Humanoid)' : 'Mô hình khớp cứng'}
+- Tư thế nghỉ gốc (0, 0, 0): ${armRestNote}
+- Ánh xạ khớp xương chính của riêng nhân vật này (ƯU TIÊN dùng đúng tên khớp thực trong bảng này):
+${JSON.stringify(activePoseCtx.anatomy, null, 2)}
+- Tất cả khớp thân an toàn: ${JSON.stringify(activePoseCtx.safeBoneNames)}
+${fingerInfo}
+- Khớp người dùng đang chọn trên bảng: "${this.selectedBoneName || '__root__'}"
+- Tư thế hiện tại của nhân vật (các khớp đang khác 0): ${currentPoseJson}
+
+### QUY ƯỚC HỆ TRỤC CHUẨN NHÂN VẬT (CHARACTER CARDINAL SPACE):
+Tất cả góc xoay \`rot: {x, y, z}\` đều tính bằng **độ (-180..180)** theo hệ trục chuẩn nhân vật (+X = sang TRÁI nhân vật, +Y = hướng ĐỈNH ĐẦU, +Z = hướng TRƯỚC MẶT):
+1. **Cột sống, cổ, đầu (\`hips\`, \`lowerSpine\`, \`midSpine\`, \`chest\`, \`neck\`, \`head\`)**:
+   - \`x > 0\` (+10..+85): cúi người / gật đầu / ngã nhào về trước; \`x < 0\` (-10..-45): ngửa người / ngẩng đầu.
+   - \`y > 0\` (+10..+45): xoay sang TRÁI; \`y < 0\` (-10..-45): xoay sang PHẢI.
+   - \`z > 0\`: nghiêng sang PHẢI; \`z < 0\`: nghiêng sang TRÁI.
+2. **Chân (\`lUpLeg\`, \`rUpLeg\`, \`lLeg\`, \`rLeg\`, \`lFoot\`, \`rFoot\`)**:
+   - Đùi (\`lUpLeg\`, \`rUpLeg\`): \`x < 0\` (-20..-105) nâng đùi lên trước (ngồi ghế ≈ -85..-95°); \`x > 0\` (+10..+55) duỗi chân ra sau; \`z > 0\` dang chân trái ra ngoài / khép chân phải, \`z < 0\` dang chân phải ra ngoài.
+   - Đầu gối (\`lLeg\`, \`rLeg\`): **LUÔN \`x >= 0\`** (+15..+125) gập cẳng chân ra sau (ngồi ghế ≈ +85..+95°; KHÔNG bao giờ dùng \`x < 0\`).
+   - Bàn chân (\`lFoot\`, \`rFoot\`): \`x > 0\` duỗi mũi chân xuống, \`x < 0\` gập mũi chân lên.
+3. **Cánh tay & Cẳng tay (\`lShoulder\`, \`rShoulder\`, \`lArm\`, \`rArm\`, \`lForeArm\`, \`rForeArm\`, \`lHand\`, \`rHand\`)**:
+   - Luôn tính góc delta so với tư thế nghỉ gốc đã mô tả ở trên!
+   - \`lArm\` (tay trái): \`z > 0\` nâng giang tay lên cao, \`z < 0\` hạ sát thân; \`y < 0\` đưa cánh tay về phía trước ngực, \`y > 0\` đưa ra sau lưng; \`x < 0\` xoay/nâng tay lên trước.
+   - \`rArm\` (tay phải): \`z < 0\` nâng giang tay lên cao, \`z > 0\` hạ sát thân; \`y > 0\` đưa cánh tay về phía trước ngực, \`y < 0\` đưa ra sau lưng; \`x < 0\` xoay/nâng tay lên trước.
+   - Khuỷu tay (\`lForeArm\`, \`rForeArm\`): gập cẳng tay tự nhiên về phía trước/trong (vd \`lForeArm\`: \`y: -55..-110\` hoặc \`x: -40..-90\`, \`rForeArm\`: \`y: +55..+110\` hoặc \`x: -40..-90\` tùy hướng xoay bắp tay).
+4. **Hạ thấp/nâng trọng tâm (\`hips.pos.y\`, đơn vị mét)**:
+   - Ngồi ghế: \`pos.y ≈ -0.35..-0.45\`; ngồi xổm/squat: \`pos.y ≈ -0.25..-0.42\`; quỳ/ngồi bệt/té ngã gần sàn: \`pos.y ≈ -0.55..-0.85\`; nhảy lên: \`pos.y ≈ +0.15..+0.35\`.
+
+### CHỌN CHẾ ĐỘ \`mode\`:
+- \`"replace"\`: Khi người dùng mô tả một tư thế toàn thân mới hoặc đính kèm ảnh mẫu toàn thân (CHỈ dùng khi chưa có SMPL 3D trích xuất sẵn).
+- \`"adjust"\`: Khi tinh chỉnh một bộ phận trên tư thế hiện tại (HOẶC BẮT BUỘC khi SMPL 3D đã trích xuất sẵn tư thế từ ảnh mẫu).
+${refSection}
+### YÊU CẦU TỪ NGƯỜI DÙNG:
+"${effectivePrompt}"
+
+### ĐỊNH DẠNG ĐẦU RA (CHỈ TRẢ VỀ JSON THUẦN TÚY, KHÔNG GIẢI THÍCH NGOÀI JSON):
+{
+  "mode": "${nlfApplied ? 'adjust' : 'replace'}",
+  "explanation": "Mô tả ngắn gọn 1 câu tiếng Việt về tư thế vừa chỉnh",
+  "bones": [
+    { "boneName": "${activePoseCtx.anatomy['hips'] || '__root__'}", "rot": { "x": 0, "y": 0, "z": 0 }, "pos": { "x": 0, "y": 0, "z": 0 } }
+  ]
+}`;
+
+      const parts: any[] = [{ text: systemPrompt }];
+      for (const img of refImages) {
+        parts.push({
+          inlineData: {
+            mimeType: img.mimeType || 'image/jpeg',
+            data: img.base64
+          }
+        });
+      }
+      if (currentRenderSnap) {
+        parts.push({
+          inlineData: {
+            mimeType: currentRenderSnap.mimeType,
+            data: currentRenderSnap.base64
+          }
+        });
+      }
+
+      const aiRes: any = await this.genaiService.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: [{ role: 'user', parts }],
+        config: {
+          bypassAiAgent: true,
+          disableThinking: true,
+          temperature: 0.15
+        } as any
+      });
+
+      const rawReply =
+        aiRes?.text ||
+        aiRes?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || '').join('') ||
+        '';
+      const parsed = this.extractJsonFromAiText(rawReply);
+
+      if (!nlfApplied && (!parsed || !Array.isArray(parsed.bones) || parsed.bones.length === 0)) {
+        this.toastr.warning('AI chưa trả về dữ liệu khớp xương hợp lệ. Hãy thử mô tả tư thế rõ ràng hơn.', 'AI Chỉnh tư thế');
+        return;
+      }
+
+      let appliedBonesCount = nlfApplied ? 20 : 0;
+      if (parsed && Array.isArray(parsed.bones) && parsed.bones.length > 0) {
+        const result = this.sceneService.applyAiStaticPose(
+          pid,
+          {
+            mode: nlfApplied ? 'adjust' : (parsed.mode === 'adjust' ? 'adjust' : 'replace'),
+            poseSpace: 'rest',
+            bones: parsed.bones
+          },
+          {
+            time: this.timelineCurrentTime,
+            autoKey: this.timelineAutoKey
+          }
+        );
+        if (!undoSnapshotBeforeRun) {
+          undoSnapshotBeforeRun = result.previousSnapshot;
+        }
+        appliedBonesCount = nlfApplied ? Math.max(20, result.appliedBones.length) : result.appliedBones.length;
+
+        // Vòng đối chiếu trực quan tự động (chỉ chạy ở chế độ fallback không có NLF SMPL khi có ảnh mẫu):
+        // chụp ảnh 3D vừa dựng, so sánh với ảnh tham chiếu và tự chỉnh lại các khớp còn sai lệch!
+        if (!nlfApplied && refImages.length > 0 && result.appliedBones.length > 0) {
+          try {
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+            const renderSnap = this.sceneService.captureSceneSnapshotBase64(640);
+            const postCtx = this.sceneService.getPropPoseContext(pid);
+            if (renderSnap && postCtx) {
+              this.lastAiPoseExplanation = 'Đang đối chiếu trực quan 3D với ảnh mẫu để tinh chỉnh sát hơn...';
+              this.cdr.markForCheck();
+              const verifyPrompt = `Bạn đang kiểm định chất lượng tư thế 3D so với ảnh mẫu.
+- Ảnh #1: Ảnh tham chiếu gốc mà nhân vật BẮT BUỘC phải bắt chước chính xác tư thế.
+- Ảnh #2: Ảnh chụp kết quả nhân vật 3D hiện tại trên sân khấu.
+- Góc xoay các khớp hiện tại (Character Cardinal Space): ${JSON.stringify(postCtx.currentPose)}
+- Ánh xạ tên khớp chuẩn của nhân vật: ${JSON.stringify(postCtx.anatomy)}
+
+Hãy so sánh THẬT KỸ Ảnh #2 với Ảnh #1:
+1. Góc nghiêng toàn thân (\`hips.rot.x/y/z\`) đã giống hướng bay/ngã/nghiêng trong Ảnh #1 chưa?
+2. Tay trái (\`lArm\`, \`lForeArm\`) và tay phải (\`rArm\`, \`rForeArm\`) có bị ngược trái-phải hoặc chưa vươn/gập đúng góc như Ảnh #1 không?
+3. Hai chân (\`lUpLeg\`, \`lLeg\`, \`rUpLeg\`, \`rLeg\`) và đầu (\`head\`) có khớp silhouette Ảnh #1 chưa?
+
+Trả về JSON thuần túy với \`"mode": "adjust"\` chỉ chứa các khớp CẦN SỬA LẠI góc TỔNG MỚI để Ảnh #2 khớp sát Ảnh #1 nhất (nếu đã khớp tốt thì trả về \`"bones": []\`):
+{
+  "mode": "adjust",
+  "explanation": "Mô tả ngắn các khớp vừa căn chỉnh lại cho khớp ảnh mẫu",
+  "bones": []
+}`;
+              const verifyRes: any = await this.genaiService.generateContent({
+                model: 'gemini-3.8-flash',
+                contents: [{
+                  role: 'user',
+                  parts: [
+                    { text: verifyPrompt },
+                    { inlineData: { mimeType: refImages[0].mimeType || 'image/jpeg', data: refImages[0].base64 } },
+                    { inlineData: { mimeType: renderSnap.mimeType, data: renderSnap.base64 } }
+                  ]
+                }],
+                config: { bypassAiAgent: true, disableThinking: true, temperature: 0.1 } as any
+              });
+              const vRaw =
+                verifyRes?.text ||
+                verifyRes?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || '').join('') ||
+                '';
+              const vParsed = this.extractJsonFromAiText(vRaw);
+              if (vParsed && Array.isArray(vParsed.bones) && vParsed.bones.length > 0) {
+                this.sceneService.applyAiStaticPose(
+                  pid,
+                  { mode: 'adjust', poseSpace: 'rest', bones: vParsed.bones },
+                  { time: this.timelineCurrentTime, autoKey: this.timelineAutoKey }
+                );
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (appliedBonesCount === 0) {
+        this.toastr.warning('Không khớp được tên khớp xương nào trên mô hình hiện tại.', 'AI Chỉnh tư thế');
+        return;
+      }
+
+      if (undoSnapshotBeforeRun) {
+        this._aiPoseUndoStack.push({
+          propId: pid,
+          time: this.timelineCurrentTime,
+          autoKey: this.timelineAutoKey,
+          snapshot: undoSnapshotBeforeRun
+        });
+        if (this._aiPoseUndoStack.length > 15) {
+          this._aiPoseUndoStack.shift();
+        }
+      }
+
+      this.timelineData = this.sceneService.getPropTimeline(pid);
+      this.syncSelectedBoneSliders(pid);
+      this.activeSavedPoseId = null;
+      this._lastPoseLabelHint = prompt || (refImages[0]?.name || '').replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+      this.saveTimelineToProp(true);
+
+      const summaryMsg =
+        (typeof parsed?.explanation === 'string' && parsed.explanation.trim()) ||
+        (nlfApplied
+          ? 'Đã bắt chước chính xác tư thế 3D từ ảnh tham chiếu và áp dụng tinh chỉnh.'
+          : `Đã chỉnh tư thế trên ${appliedBonesCount} khớp xương.`);
+      this.lastAiPoseExplanation = summaryMsg;
+      this.posePromptText = '';
+      this.toastr.success(summaryMsg, 'AI Chỉnh tư thế');
+    } catch (err: any) {
+      this.toastr.error(err?.message || 'Không thể chỉnh tư thế bằng AI lúc này.', 'AI Chỉnh tư thế');
+    } finally {
+      this.isApplyingAiPose = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private syncSelectedBoneSliders(pid: string): void {
+    if (!this.selectedBoneName) return;
+    const pose = this.sceneService.getBonePoseDelta(pid, this.selectedBoneName);
+    this.boneRot = {
+      x: Math.round(pose.rot.x * 10) / 10,
+      y: Math.round(pose.rot.y * 10) / 10,
+      z: Math.round(pose.rot.z * 10) / 10
+    };
+    this.bonePos = {
+      x: Math.round(pose.pos.x * 100) / 100,
+      y: Math.round(pose.pos.y * 100) / 100,
+      z: Math.round(pose.pos.z * 100) / 100
+    };
   }
 
   clearTimelineKeyframes(): void {
@@ -3567,6 +5393,9 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
         }
       }
     }
+
+    // Luôn đồng bộ ảnh chụp tư thế tĩnh & mốc thời gian hiện tại vào timeline trước khi ghi props.json (để F5 không bị mất tư thế)
+    this.sceneService.syncStaticPoseToTimeline(this.timelinePropId);
 
     const tl = this.sceneService.getPropTimeline(this.timelinePropId);
     const prop = this.roomProps?.find((p) => p && p.id === this.timelinePropId);
@@ -3848,6 +5677,7 @@ ${userExtra ? `5. USER SPECIFIC INSTRUCTIONS: ${userExtra}` : ''}`;
     const isRigidModel = rigSummary.isRigidModel;
     const autoWheelCount = rigSummary.autoWheelCount || 0;
     const embeddedClips = rigSummary.embeddedClipNames || [];
+    const editSceneTargets = !isRigidModel ? this.sceneService.getScenePropsForInteraction(pid) : [];
     const boneNames = rigSummary.safeBoneNames?.length
       ? rigSummary.safeBoneNames
       : this.sceneService.getPropBones(pid).map((b) => b.name);
@@ -3873,6 +5703,7 @@ Nhiệm vụ của bạn: Đọc kỹ dữ liệu Clip hiện tại bên dưới
 - Hướng tiến gốc: ${rigSummary.forwardAxis}, kích thước X=${rigSummary.modelSize.x.toFixed(2)}, Y=${rigSummary.modelSize.y.toFixed(2)}, Z=${rigSummary.modelSize.z.toFixed(2)}
 - Các khớp/node an toàn: ${JSON.stringify(boneNames)}
 - Các clip mocap gốc nhúng sẵn trong GLB: ${JSON.stringify(embeddedClips)}
+${editSceneTargets.length > 0 ? `- Bản đồ các đồ vật / nhân vật khác trong cảnh 3D (tọa độ tương đối theo nhân vật): ${JSON.stringify(editSceneTargets.map((t) => ({ id: t.id, name: t.name, isHumanoid: t.isHumanoid, distanceMeters: t.distanceMeters, angleDeg: t.angleDeg, forwardM: t.relForwardMeters, leftM: t.relLeftMeters, heightM: t.heightMeters, height: t.heightLabel })))}` : ''}
 
 ### DỮ LIỆU CLIP CHUYỂN ĐỘNG HIỆN TẠI CẦN SỬA:
 ${currentClipJson}
@@ -3881,16 +5712,20 @@ ${currentClipJson}
 - "${instruction}"
 
 ### HƯỚNG DẪN CHỈNH SỬA CHÍNH XÁC:
-1. Nếu Clip hiện tại đã có \`currentSegments\` hoặc có quỹ đạo di chuyển không gian (\`rootTrajectorySamples\` có dịch chuyển X/Z hoặc người dùng yêu cầu sửa quãng đường/hướng rẽ/góc quay/tốc độ/thêm hành động nối tiếp):
+1. Nếu Clip hiện tại đã có \`currentSegments\` hoặc có quỹ đạo di chuyển không gian (\`rootTrajectorySamples\` có dịch chuyển X/Z hoặc người dùng yêu cầu sửa quãng đường/hướng rẽ/góc quay/tốc độ/thêm hành động nối tiếp/tương tác đồ vật trong cảnh):
    - Hãy trả về mảng \`segments\` đã được chỉnh sửa hoàn chỉnh!
-   - Các loại đoạn hợp lệ:
+   - Các loại đoạn hợp lệ (tự do ghép nối theo mọi thứ tự):
      * \`{ "type": "move", "distance": number (mét, âm hoặc reverse:true=lùi), "duration": number, "dy": 0, "angleDeg": 0, "reverse": false, "gait": "${isRigidModel ? 'none' : (embeddedClips.length > 0 ? 'embedded' : 'walk')}" | "walk" | "run" | "none"${embeddedClips.length > 0 ? `, "clipName": "${embeddedClips[0]}"` : ''}, "keyframes": [] }\`
      * \`{ "type": "turn", "angleDeg": number (+ quay TRÁI, - quay PHẢI, 180 = quay đầu), "duration": number, "gait": "${isRigidModel ? 'none' : 'walk'}" | "none" }\`
      * \`{ "type": "arc", "radius": number (bán kính = đường kính / 2), "sweepDeg": number (+ cua TRÁI, - cua PHẢI, vòng tròn = -360/+360), "duration": number, "reverse": false, "leanDeg": ${autoWheelCount >= 3 || !isRigidModel ? '0' : '9'}, "centerOnOrigin": true/false, "gait": "${isRigidModel ? 'none' : (embeddedClips.length > 0 ? 'embedded' : 'walk')}" }\`
      * \`{ "type": "waypoints", "points": [{"x":0,"y":0,"z":5},...], "relative": true, "duration": number, "faceVelocity": true, "reverse": false, "gait": "${isRigidModel ? 'none' : (embeddedClips.length > 0 ? 'embedded' : 'walk')}" }\`
      * \`{ "type": "figure8", "width": number, "duration": number, "leanDeg": ${autoWheelCount >= 3 || !isRigidModel ? '0' : '10'}, "gait": "${isRigidModel ? 'none' : (embeddedClips.length > 0 ? 'embedded' : 'walk')}" }\`
      * \`{ "type": "pose", "duration": number, "keyframes": [ { "time": 0, "boneName": "...", "rot": {"x":0,"y":0,"z":0}, "pos": {"x":0,"y":0,"z":0} } ] }\`
-     * \`{ "type": "wait", "duration": number }\`
+     * \`{ "type": "wait", "duration": number }\`${!isRigidModel ? `
+     * \`{ "type": "approach", "targetPropId": "<id>", "stopDistance": 0.55, "gait": "walk" | "run", "duration": number }\` — tự quay mặt và đi/chạy tới sát đồ vật/nhân vật đích trong cảnh.
+     * \`{ "type": "reach_and_grab", "targetPropId": "<id>", "hand": "right" | "left", "attach": true, "duration": 0.55 }\` — giải 2-Bone IK đưa tay chạm đúng món đồ, gập ngón nắm và gắn đồ đi theo tay xuyên suốt các đoạn sau.
+     * \`{ "type": "reach_pose", "hand": "right" | "left", "targetOffset": { "forward": 0.35, "up": 1.25, "side": 0.14 }, "duration": 0.75, "keyframes": [] }\` — giải 2-Bone IK đưa tay (cùng món đồ đang cầm) tới vị trí 3D bất kỳ (giơ lên cao, đưa trước mặt xem, hạ xuống sàn, hoặc truyền \`targetPropId\` để đưa tới đồ/người khác).
+     * \`{ "type": "release", "targetPropId": "<id>", "hand": "right" | "left", "duration": 0.35 }\` — mở ngón tay và thả món đồ tại đúng vị trí hiện tại.` : ''}
 2. Nếu Clip hiện tại là động tác khớp xương thuần tại chỗ (\`currentKeyframes\` không di chuyển \`__root__\`):
    - Trả về mảng \`keyframes\` đã hiệu chỉnh trực tiếp các góc xoay/vị trí khớp xương theo đúng yêu cầu (giữ nguyên các khớp không liên quan).
    - Quy ước Character Cardinal Space: Đùi x ÂM (-20..-100) nâng lên trước, Đầu gối x DƯƠNG (+15..+100) gập về sau, Tay & Khuỷu x ÂM (-20..-100) đưa/gập lên trước, Thân/Đầu x DƯƠNG cúi trước; LeftArm z DƯƠNG nâng cao tay trái, RightArm z ÂM nâng cao tay phải; Hips.pos.y dương bật nhảy, âm ngồi/nhún.
@@ -4692,7 +6527,13 @@ ${currentClipJson}
       return;
     }
 
-    if (this.aiMotionVideoFile || this.aiMotionVideoPath) {
+    // CHỈ chạy trích xuất Mocap 3D tại chỗ thuần túy khi người dùng KHÔNG nhập prompt mô tả.
+    // Khi người dùng đã nhập prompt kịch bản (VD: "Đi tới cầm chiếc điện thoại lên và xem"),
+    // LUÔN chạy qua AI Motion Director (không bỏ qua prompt!) và tự tái sử dụng clip mocap từ video mẫu làm dáng bước chân.
+    const hasVideoAttached = !!(this.aiMotionVideoFile || this.aiMotionVideoPath);
+    const hasTextPrompt = prompt.length > 0;
+
+    if (hasVideoAttached && !hasTextPrompt) {
       const mocapRes = await this.runReal3dVideoMocap(pid, this.aiMotionVideoFile, this.aiMotionVideoPath);
       if (mocapRes.ok) {
         return;
@@ -4703,6 +6544,28 @@ ${currentClipJson}
       );
     }
 
+    // Nếu người dùng vừa có video mẫu đính kèm (VD: video dáng đi bộ) vừa nhập prompt kịch bản,
+    // đảm bảo clip mocap của video mẫu đã được trích sẵn để AI tái sử dụng làm dáng bước chân rồi đi tiếp sang AI Director!
+    let reusableVideoClipName = '';
+    if (hasVideoAttached && hasTextPrompt) {
+      const baseVidName = (this.aiMotionVideoName || '').replace(/\.[^/.]+$/, '').trim().toLowerCase();
+      const existingClips = this.sceneService.getPropClips(pid) || [];
+      const alreadyExtracted = existingClips.find((c) => {
+        const cn = String(c?.name || '').toLowerCase();
+        return baseVidName && (cn.includes(baseVidName.slice(0, 18)) || cn.startsWith('video:'));
+      });
+      if (alreadyExtracted) {
+        reusableVideoClipName = alreadyExtracted.name;
+      } else {
+        const mocapRes = await this.runReal3dVideoMocap(pid, this.aiMotionVideoFile, this.aiMotionVideoPath);
+        if (mocapRes.ok) {
+          const latestClips = this.sceneService.getPropClips(pid) || [];
+          const found = latestClips.find((c) => String(c?.name || '').toLowerCase().startsWith('video:'));
+          reusableVideoClipName = found?.name || '';
+        }
+      }
+    }
+
     this.isDesigningAiMotion = true;
     this.cdr.markForCheck();
 
@@ -4710,29 +6573,43 @@ ${currentClipJson}
     const isRigidModel = !!rigSummary?.isRigidModel;
     const autoWheelCount = rigSummary?.autoWheelCount || 0;
     const embeddedClips = rigSummary?.embeddedClipNames || [];
+    // Thu thập thêm các clip dáng đi/chạy mocap đã trích từ Video mẫu trên nhân vật để AI có thể tái sử dụng làm gait!
+    const customGaitClipNames = (this.sceneService.getPropClips(pid) || [])
+      .filter((c) => c.isCustom && /video:|walk|run|đi bộ|di bo|chạy|chay/i.test(c.name) && !/điện thoại|cầm|nắm|\d+m/i.test(c.name))
+      .map((c) => c.name);
+    const allReusableGaitClips = Array.from(new Set([
+      ...(reusableVideoClipName ? [reusableVideoClipName] : []),
+      ...embeddedClips,
+      ...customGaitClipNames
+    ]));
+    const sceneInteractTargets = !isRigidModel ? this.sceneService.getScenePropsForInteraction(pid) : [];
     const boneNames = rigSummary?.safeBoneNames?.length
       ? rigSummary.safeBoneNames
       : this.sceneService.getPropBones(pid).map((b) => b.name);
-    const targetDur = this.aiMotionVideoDuration > 0
+    const targetDur = !hasTextPrompt && this.aiMotionVideoDuration > 0
       ? this.aiMotionVideoDuration
-      : (this.timelineData?.duration || 2.4);
+      : (this.timelineData?.duration || 3.5);
 
     try {
       this.toastr.info('AI Agent đang phân tích mô hình và biên đạo kế hoạch chuyển động...', 'AI Motion Studio', { timeOut: 2500 });
 
-      // Chọn tối đa 8 ảnh đại diện phân bố đều để gửi lên Vision LLM tránh quá tải payload
+      // Khi người dùng nhập prompt kịch bản có vật thể khác trong cảnh, gửi ảnh chụp cảnh 3D trực tiếp
+      // (không gửi 8 khung hình video dáng đi tại chỗ tránh làm AI hiểu nhầm thành bắt chước tại chỗ)
+      const useVideoVisionFrames = (!hasTextPrompt || sceneInteractTargets.length === 0) && this.aiMotionVideoFrames.length > 0;
       const maxVisionFrames = 8;
-      const visionFrames = this.aiMotionVideoFrames.length <= maxVisionFrames
-        ? this.aiMotionVideoFrames
-        : Array.from({ length: maxVisionFrames }, (_, idx) => {
-            const fIdx = Math.min(
-              this.aiMotionVideoFrames.length - 1,
-              Math.round((idx / (maxVisionFrames - 1)) * (this.aiMotionVideoFrames.length - 1))
-            );
-            return this.aiMotionVideoFrames[fIdx];
-          });
+      const visionFrames = !useVideoVisionFrames
+        ? []
+        : (this.aiMotionVideoFrames.length <= maxVisionFrames
+            ? this.aiMotionVideoFrames
+            : Array.from({ length: maxVisionFrames }, (_, idx) => {
+                const fIdx = Math.min(
+                  this.aiMotionVideoFrames.length - 1,
+                  Math.round((idx / (maxVisionFrames - 1)) * (this.aiMotionVideoFrames.length - 1))
+                );
+                return this.aiMotionVideoFrames[fIdx];
+              }));
 
-      const poseTelemetrySummary = this.aiMotionPoseSamples.length > 0
+      const poseTelemetrySummary = useVideoVisionFrames && this.aiMotionPoseSamples.length > 0
         ? `\n- Dữ liệu đo tư thế tự động qua từng thời điểm của Video mẫu: ` +
           JSON.stringify(
             this.aiMotionPoseSamples.map((s) => ({
@@ -4756,7 +6633,9 @@ ${currentClipJson}
         ? `Người dùng đã đính kèm ${visionFrames.length} khung hình trích xuất theo trình tự thời gian từ Video mẫu "${this.aiMotionVideoName}" (tổng thời lượng ${targetDur}s): ` +
           visionFrames.map((f, idx) => `Ảnh #${idx + 1} tại t=${f.time.toFixed(2)}s`).join(', ') +
           `. Hãy quan sát kỹ tư thế người trong từng khung hình kết hợp thông số đo tư thế để tái tạo chuẩn xác động tác của video.${poseTelemetrySummary}`
-        : `Hãy tự do suy nghĩ, phân tích và biên đạo kế hoạch chuyển động chuẩn xác nhất theo đúng mô tả của người dùng.`;
+        : (sceneInteractTargets.length > 0
+            ? `Đã đính kèm 1 ảnh chụp trực tiếp khung cảnh 3D hiện tại cùng bản đồ tọa độ 3D của các đồ vật/nhân vật khác. Hãy quan sát ảnh và biên đạo đầy đủ mảng \`segments\` (di chuyển, tiếp cận, nắm/cầm/nâng/thả đồ vật...) đáp ứng chính xác kịch bản của người dùng.`
+            : `Hãy tự do suy nghĩ, phân tích và biên đạo kế hoạch chuyển động chuẩn xác nhất theo đúng mô tả của người dùng.`);
 
       const systemPrompt = isRigidModel
         ? `Bạn là **Đạo diễn & Chuyên gia Diễn hoạt Vật thể / Phương tiện 3D (3D Rigid-Body & Vehicle Motion Director)**.
@@ -4797,16 +6676,23 @@ Nhiệm vụ: Tự do suy nghĩ, hiểu sâu mọi kịch bản tự nhiên củ
 
 ### THÔNG TIN NHÂN VẬT HIỆN TẠI:
 - Các khớp xương an toàn (CHỈ dùng tên trong danh sách này): ${JSON.stringify(boneNames)}
-- Clip chuyển động gốc nhúng sẵn trong file GLB: ${JSON.stringify(embeddedClips)} ${embeddedClips.length > 0 ? '(Có thể gán `gait: "embedded"` và `clipName` trong các đoạn di chuyển để tái sử dụng dáng bước chân mocap thật của nhân vật!)' : '(Không có clip nhúng — dùng `gait: "walk"` hoặc `"run"` để engine đồng bộ bước chân theo tốc độ)'}
+- Các clip dáng đi/chạy mocap có sẵn trên nhân vật (gồm cả clip nhúng GLB và clip đã trích từ video mẫu): ${JSON.stringify(allReusableGaitClips)} ${allReusableGaitClips.length > 0 ? `(KHUYÊN DÙNG: gán \`"gait": "embedded"\` và \`"clipName": "${allReusableGaitClips[0]}"\` trong các đoạn \`approach\` / \`move\` / \`waypoints\` / \`arc\` để tái sử dụng dáng bước chân mocap thật của nhân vật!)` : '(Không có clip mocap sẵn — dùng `gait: "walk"` hoặc `"run"` để engine đồng bộ bước chân theo tốc độ)'}
+${sceneInteractTargets.length > 0 ? `- Bản đồ các đồ vật / nhân vật khác đang có trong cảnh 3D (tính trong hệ tọa độ của chính nhân vật đang chọn: \`forwardM\` dương=trước mặt, \`leftM\` dương=bên trái, \`angleDeg\` dương=quay trái / âm=quay phải, \`heightM\`=độ cao tính từ sàn): ${JSON.stringify(sceneInteractTargets.map((t) => ({ id: t.id, name: t.name, isHumanoid: t.isHumanoid, distanceMeters: t.distanceMeters, angleDeg: t.angleDeg, forwardM: t.relForwardMeters, leftM: t.relLeftMeters, heightM: t.heightMeters, height: t.heightLabel })))}` : ''}
 
-### HỆ THỐNG BIÊN ĐẠO KẾT HỢP (\`segments\` + \`keyframes\`):
-- **Khi yêu cầu có di chuyển không gian, quãng đường (mét), quay đầu, rẽ hướng, hoặc chuỗi nhiều hành động nối tiếp**: trả về mảng \`segments\` nối tiếp nhau liên tục (engine tự nối tọa độ & hướng, ghép dáng đi/chạy đồng bộ không trượt chân, và chuyển mượt sang tư thế \`pose\` do bạn thiết kế):
-  1. \`{ "type": "move", "distance": number (mét, dương=tiến tới, âm hoặc reverse:true=đi lùi), "duration": number (ước lượng ~distance/1.35 cho đi bộ, ~distance/2.5 cho chạy), "gait": "${embeddedClips.length > 0 ? 'embedded' : 'walk'}" | "walk" | "run" | "none", ${embeddedClips.length > 0 ? `"clipName": "${embeddedClips[0]}", ` : ''}"keyframes": [/* tùy chọn: cử chỉ tay/đầu khi đang đi */] }\`
+### HỆ THỐNG BIÊN ĐẠO TỰ DO (\`segments\` + \`keyframes\` — TỰ DO GHÉP NỐI MỌI KỊCH BẢN):
+- **Khi yêu cầu có di chuyển không gian, tương tác/nắm đồ vật trong cảnh, đi vòng tránh vật cản, quay đầu, hoặc chuỗi nhiều hành động nối tiếp**: trả về mảng \`segments\` nối tiếp nhau liên tục (engine tự nối tọa độ & hướng, ghép dáng đi/chạy đồng bộ không trượt chân, giải 2-Bone IK chạm đúng đồ vật và tự giữ ổn định tay đang cầm đồ xuyên suốt các đoạn sau):
+  1. \`{ "type": "move", "distance": number (mét, dương=tiến tới, âm hoặc reverse:true=đi lùi), "duration": number (~distance/1.35 cho đi bộ, ~distance/2.5 cho chạy), "gait": "${allReusableGaitClips.length > 0 ? 'embedded' : 'walk'}" | "walk" | "run" | "none", ${allReusableGaitClips.length > 0 ? `"clipName": "${allReusableGaitClips[0]}", ` : ''}"keyframes": [/* tùy chọn: cử chỉ tay/đầu khi đang đi */] }\`
   2. \`{ "type": "turn", "angleDeg": number (độ xoay tại chỗ: dương = quay TRÁI, âm = quay PHẢI, quay đầu 180° = 180), "duration": 0.85, "gait": "walk" | "none" }\`
-  3. \`{ "type": "arc", "radius": number (bán kính mét; đường kính D => radius = D/2), "sweepDeg": number (dương=cua trái, âm=cua phải; vòng tròn kín = -360 hoặc +360), "duration": number, "gait": "${embeddedClips.length > 0 ? 'embedded' : 'walk'}" | "run", "centerOnOrigin": true/false }\`
-  4. \`{ "type": "waypoints", "points": [{"x": 0, "y": 0, "z": 5}, ...], "relative": true, "duration": number, "gait": "${embeddedClips.length > 0 ? 'embedded' : 'walk'}" | "run" }\` — đi theo đường gấp khúc bất kỳ (zig-zag, hình vuông, tam giác...).
-  5. \`{ "type": "figure8", "width": number, "duration": number, "gait": "${embeddedClips.length > 0 ? 'embedded' : 'walk'}" | "run" }\`
-  6. \`{ "type": "pose", "duration": number, "keyframes": [ { "time": 0.0, "boneName": "RightArm", "rot": {"x": -35, "y": 0, "z": -70} }, ... ] }\` — đứng lại tại vị trí hiện tại để thực hiện động tác khớp xương do bạn thiết kế (vẫy tay, cúi chào, nhảy, đấm, đá, ngồi squat, nhìn quanh, ăn mừng...; \`time\` tính từ \`0\` đến \`duration\` của riêng đoạn đó).
+  3. \`{ "type": "arc", "radius": number (bán kính mét; đường kính D => radius = D/2), "sweepDeg": number (dương=cua trái, âm=cua phải; vòng tròn kín = -360 hoặc +360), "duration": number, "gait": "${allReusableGaitClips.length > 0 ? 'embedded' : 'walk'}" | "run", ${allReusableGaitClips.length > 0 ? `"clipName": "${allReusableGaitClips[0]}", ` : ''}"centerOnOrigin": true/false }\`
+  4. \`{ "type": "waypoints", "points": [{"x": 0, "y": 0, "z": 5}, ...], "relative": true, "duration": number, "gait": "${allReusableGaitClips.length > 0 ? 'embedded' : 'walk'}" | "run"${allReusableGaitClips.length > 0 ? `, "clipName": "${allReusableGaitClips[0]}"` : ''} }\` — đi theo đường gấp khúc / vòng tránh người hoặc vật cản (\`x\` dương=sang trái, \`z\` dương=tiến trước theo hướng nhân vật).
+  5. \`{ "type": "figure8", "width": number, "duration": number, "gait": "${allReusableGaitClips.length > 0 ? 'embedded' : 'walk'}" | "run" }\`
+  6. \`{ "type": "pose", "duration": number, "keyframes": [ { "time": 0.0, "boneName": "RightArm", "rot": {"x": -35, "y": 0, "z": -70} }, ... ] }\` — đứng tại chỗ diễn tả cảm xúc/cử chỉ khớp xương tự do (vẫy tay, cúi chào, nhảy, đấm, đá, nhìn quanh, ăn mừng...).
+  7. \`{ "type": "approach", "targetPropId": "<id chính xác từ bản đồ cảnh>", "stopDistance": 0.55, "gait": "${allReusableGaitClips.length > 0 ? 'embedded' : 'walk'}" | "walk" | "run"${allReusableGaitClips.length > 0 ? `, "clipName": "${allReusableGaitClips[0]}"` : ''}, "duration": number }\` — tự xoay mặt và đi/chạy tới sát đồ vật hoặc nhân vật đích trong cảnh (có thể ghép sau \`waypoints\` nếu cần đi vòng tránh vật cản trước!).
+  8. \`{ "type": "reach_and_grab", "targetPropId": "<id chính xác từ bản đồ cảnh>", "hand": "right" | "left", "attach": true, "duration": 0.55 }\` — tự giải 2-Bone Analytical IK đưa bàn tay chạm chính xác tâm món đồ (tự cúi/vươn theo độ cao thật), gập ngón tay nắm và gắn dính món đồ đi theo bàn tay. Từ sau đoạn này, món đồ tự di chuyển theo tay qua mọi đoạn tiếp theo!
+  9. \`{ "type": "reach_pose", "hand": "right" | "left", "targetOffset": { "forward": 0.34, "up": 1.28, "side": 0.12 }, "duration": 0.75, "keyframes": [/* tùy chọn: xoay đầu/thân/tay kia */] }\` — tự giải 2-Bone IK đưa bàn tay (cùng món đồ đang cầm) đến vị trí 3D bất kỳ theo ý bạn (\`forward\`: mét phía trước mặt, \`up\`: độ cao tính từ sàn 0.15m=sàn .. 1.25m=ngực .. 1.95m=giơ cao trên đầu, \`side\`: lệch sang phía tay cầm; hoặc truyền \`targetPropId\` thay \`targetOffset\` để đưa món đồ tới gần nhân vật/vật thể khác!).
+  10. \`{ "type": "release", "targetPropId": "<id>", "hand": "right" | "left", "duration": 0.35 }\` — mở ngón tay và thả món đồ đang cầm xuống đúng vị trí hiện tại của bàn tay (sau đó có thể đi tiếp tay không!).
+  11. \`{ "type": "wait", "duration": number }\` — dừng giữ tư thế hiện tại (kể cả khi đang cầm đồ).
+- **Lưu ý đạo diễn tương tác đồ vật**: Tự do biên đạo trọn vẹn ý đồ người dùng bằng cách ghép nối các đoạn trên (VD: \`waypoints\` vòng qua người -> \`approach\` -> \`reach_and_grab\` -> \`reach_pose\` giơ lên xem hoặc giơ cao ăn mừng -> \`turn\` -> \`move\` mang đi -> \`reach_pose\` hạ thấp -> \`release\` đặt xuống!). Đặt \`"loop": false\` khi kịch bản là một hành động tương tác có đầu có cuối (lấy đồ, đặt đồ, mang đi...).
 - **Khi yêu cầu là động tác thuần tại chỗ hoặc bắt chước Video mẫu** (nhảy múa, đấm bốc, đá, moonwalk, cúi chào, tạo dáng... không có quãng đường): trả về trực tiếp \`keyframes\` (35-90 keyframes phân bố đều trên các khớp chính từ \`0\` đến \`duration\`).
 - **Mẹo khép vòng lặp mượt**: Nếu muốn kịch bản quay đầu khép kín vòng lặp \`loop: true\` (vd: đi 10m rồi quay đầu đi lại 10m), hãy thêm 1 đoạn \`turn\` 180° ở cuối để nhân vật xoay lại đúng hướng ban đầu trước khi lặp!
 
@@ -4831,13 +6717,26 @@ Nhiệm vụ: Tự do suy nghĩ, hiểu sâu mọi kịch bản tự nhiên củ
 }`;
 
       const parts: any[] = [{ text: systemPrompt }];
-      for (const f of visionFrames) {
-        parts.push({
-          inlineData: {
-            mimeType: f.mimeType || 'image/jpeg',
-            data: f.base64
-          }
-        });
+      if (visionFrames.length > 0) {
+        for (const f of visionFrames) {
+          parts.push({
+            inlineData: {
+              mimeType: f.mimeType || 'image/jpeg',
+              data: f.base64
+            }
+          });
+        }
+      } else if (sceneInteractTargets.length > 0) {
+        // Đính kèm 1 ảnh chụp khung cảnh 3D hiện tại để AI Vision quan sát trực tiếp bố cục các nhân vật và đồ vật trong cảnh
+        const sceneSnap = this.sceneService.captureSceneSnapshotBase64(640);
+        if (sceneSnap?.base64) {
+          parts.push({
+            inlineData: {
+              mimeType: sceneSnap.mimeType || 'image/jpeg',
+              data: sceneSnap.base64
+            }
+          });
+        }
       }
 
       let appliedCount = 0;
@@ -6203,22 +8102,51 @@ ${JSON.stringify({
     });
   }
 
-  /** Snapshot dữ liệu scene hiện tại để lưu */
+  /** Snapshot dữ liệu scene hiện tại để lưu (đồng bộ luôn tư thế tĩnh mới nhất, ánh sáng & góc máy) */
   private _buildDesignSnapshot(): Design3DSnapshot {
     const currentProfile: any = this.profile || {};
+    const cleanProps = (this.roomProps || []).map((p: any) => {
+      if (!p || typeof p !== 'object') return p;
+      if (this.sceneService.hasPropRig(p.id)) {
+        this.sceneService.syncStaticPoseToTimeline(p.id);
+        const liveTl = this.sceneService.getPropTimeline(p.id);
+        if (liveTl) {
+          p.boneTimeline = JSON.parse(JSON.stringify(liveTl));
+        }
+      }
+      const copy = JSON.parse(JSON.stringify(p));
+      delete copy._inserting;
+      delete copy._glbLoaded;
+      if (copy.customTexturePath) {
+        delete copy.customTextureDataUrl;
+      }
+      return copy;
+    });
+
+    const baseScene = currentProfile.scene ? JSON.parse(JSON.stringify(currentProfile.scene)) : {};
+    const camSnap = this.sceneService.getCameraSnapshot();
+    const lightSnap = this.sceneService.getStudioLighting();
+    const aiVideo3dSnap = this._buildAiVideo3dState();
+    if (camSnap) baseScene.camera = camSnap;
+    if (lightSnap) baseScene.lighting = lightSnap;
+    baseScene.aiVideo3d = aiVideo3dSnap;
+
     return {
-      props: JSON.parse(JSON.stringify(this.roomProps || [])),
+      props: cleanProps,
       character: currentProfile.character ? JSON.parse(JSON.stringify(currentProfile.character)) : undefined,
-      scene: currentProfile.scene ? JSON.parse(JSON.stringify(currentProfile.scene)) : undefined
+      scene: baseScene,
+      aiVideo3d: aiVideo3dSnap
     };
   }
 
-  /** Chụp thumbnail từ canvas 3D (PNG base64) */
+  /** Chụp thumbnail gọn nhẹ (JPEG 320px) từ canvas 3D */
   private _captureThumbnail(): string | null {
     try {
+      const snap = this.sceneService.captureSceneSnapshotBase64(320);
+      if (snap?.dataUrl) return snap.dataUrl;
       const canvas = this.canvasRef?.nativeElement;
       if (!canvas) return null;
-      return canvas.toDataURL('image/png');
+      return canvas.toDataURL('image/jpeg', 0.82);
     } catch (_) {
       return null;
     }
@@ -6260,10 +8188,18 @@ ${JSON.stringify({
 
     save$.subscribe((res: any) => {
       this.savingDesign = false;
-      const ok = res?.success !== false && res?.error === undefined || res?.success === true;
+      const ok = !!res && (res.success === true || (res.success !== false && !res.error));
       if (ok) {
         // Xác định designId: ưu tiên res.data, sau đó pendingDesignId, sau đó tự sinh
         const designId = res?.data?.id || res?.data?.designId || this.pendingDesignId || ('design_' + Date.now());
+        this.activeDesignPresetId = designId;
+        if (snapshot.aiVideo3d) {
+          this._designAiVideo3dCache.set(designId, JSON.parse(JSON.stringify(snapshot.aiVideo3d)));
+        }
+        this.profileDataService.saveSceneSilent({
+          aiVideo3d: snapshot.aiVideo3d,
+          activeDesignPresetId: designId
+        }).subscribe();
         const thumb = this._captureThumbnail();
         if (thumb) {
           this._design3dService.saveThumbnail(designId, thumb).subscribe(() => {
@@ -6276,45 +8212,135 @@ ${JSON.stringify({
         this.pendingDesignId = null;
         this.toastr.success(`Đã lưu mẫu thiết kế "${name}".`, 'Thành công');
       } else {
-        this.toastr.error('Không thể lưu mẫu thiết kế. Vui lòng thử lại.', 'Lỗi');
+        const reason = typeof res?.error === 'string' && res.error.trim() ? ` (${res.error.trim()})` : '';
+        this.toastr.error(`Không thể lưu mẫu thiết kế${reason}. Vui lòng thử lại.`, 'Lỗi');
       }
       this.cdr.markForCheck();
     });
   }
 
-  /** Nạp 1 mẫu thiết kế vào cảnh hiện tại */
+  /** Nạp 1 mẫu thiết kế vào cảnh hiện tại (chống race khi bấm chuyển qua lại liên tục trong CỦA TÔI) */
   async applyDesignPreset(preset: Design3DPreset): Promise<void> {
     if (!preset?.id) return;
-    const res: any = await this._design3dService.get(preset.id).toPromise();
-    const sceneData = res?.data?.sceneData || res?.data?.data || res?.sceneData;
+
+    // 1. Chốt & chờ lưu xong hoàn toàn trạng thái VIDEO CẢNH 3D (đường máy, ảnh mẫu, prompt, lịch sử) của mẫu trước đó
+    if (this._aiVideo3dSaveTimer) {
+      clearTimeout(this._aiVideo3dSaveTimer);
+      this._aiVideo3dSaveTimer = null;
+    }
+    if (!this._switchingDesignPreset && !this._aiVideo3dRestoring && this.activeDesignPresetId) {
+      const prevId = this.activeDesignPresetId;
+      const prevState = this._buildAiVideo3dState();
+      await this._flushSaveAiVideo3dStateAsync(prevId, prevState);
+    }
+
+    const mySeq = ++this._applyDesignSeq;
+    const prevActiveId = this.activeDesignPresetId;
+    this._switchingDesignPreset = true;
+    this.activeDesignPresetId = preset.id;
+    this.cdr.markForCheck();
+
+    let res: any;
+    try {
+      res = await this._design3dService.get(preset.id).toPromise();
+    } catch (e) {
+      if (mySeq === this._applyDesignSeq) {
+        this.activeDesignPresetId = prevActiveId;
+        this._switchingDesignPreset = false;
+        this.cdr.markForCheck();
+      }
+      this.toastr.error('Không đọc được dữ liệu mẫu thiết kế.', 'Lỗi');
+      return;
+    }
+
+    if (mySeq !== this._applyDesignSeq) return;
+
+    const sceneData =
+      res?.data?.sceneData ||
+      res?.data?.data ||
+      (Array.isArray(res?.data?.props) ? res.data : null) ||
+      res?.sceneData;
     if (!sceneData || !Array.isArray(sceneData.props)) {
+      this.activeDesignPresetId = prevActiveId;
+      this._switchingDesignPreset = false;
+      this.cdr.markForCheck();
       this.toastr.error('Mẫu thiết kế không có dữ liệu hợp lệ.', 'Lỗi');
       return;
     }
+
     try {
-      // 1. Cập nhật state props trong component
+      // 2. Nạp NGAY dữ liệu VIDEO CẢNH 3D & đường máy của mẫu mới (ưu tiên bản mới hơn giữa đĩa sidecar và cache RAM)
+      const diskAiVideo3d = sceneData.aiVideo3d || sceneData.scene?.aiVideo3d || null;
+      const cachedAiVideo3d = this._designAiVideo3dCache.get(preset.id) || null;
+      let presetAiVideo3d: any = diskAiVideo3d;
+      if (cachedAiVideo3d && (!diskAiVideo3d || (Number(cachedAiVideo3d.updatedAt) || 0) >= (Number(diskAiVideo3d.updatedAt) || 0))) {
+        presetAiVideo3d = cachedAiVideo3d;
+      }
+      if (presetAiVideo3d) {
+        this._designAiVideo3dCache.set(preset.id, JSON.parse(JSON.stringify(presetAiVideo3d)));
+      }
+
+      // Khôi phục toàn bộ trường đường máy / ảnh mẫu / prompt / lịch sử ngay trước khi nạp GLB nặng (không đợi đọc MP4 khóa UI)
+      const restorePromise = this.restoreAiVideo3dState(presetAiVideo3d);
+      if (mySeq === this._applyDesignSeq) {
+        this._switchingDesignPreset = false;
+      }
+
+      // 3. Cập nhật state props, character, scene trong component
       this.roomProps = this.mergeProps(sceneData.props);
       (this.profile as any).props = this.roomProps;
 
-      // 2. Nếu có character thì áp vào profile
       if (sceneData.character && this.profile) {
         this.profile.character = { ...this.profile.character, ...sceneData.character };
       }
+      if (sceneData.scene && this.profile) {
+        this.profile.scene = { ...(this.profile.scene || {} as any), ...sceneData.scene };
+      }
 
-      // 3. Áp vào scene 3D
+      // 4. Áp vào scene 3D, nạp GLB và khôi phục tư thế (boneTimeline/staticPose), ánh sáng, camera
       this.sceneService.applyProfile(this.profile, { skipCamera: true });
-
-      // 4. Nạp GLB cho các đồ vật dùng model GLB
       await this.loadSavedPropGlbs();
+      if (mySeq !== this._applyDesignSeq) return;
 
-      // 5. Lưu profile hiện hành + refresh panel đồ vật
-      this.profileDataService.saveProps(this.roomProps).subscribe();
-      this.profileDataService.saveProfile({ props: this.roomProps } as any).subscribe();
+      for (const prop of this.roomProps) {
+        if (prop && prop.visible !== false && this.sceneService.hasPropRig(prop.id)) {
+          this.sceneService.applySavedTimelineToRig(prop.id, prop.boneTimeline);
+        }
+      }
+      if (sceneData.scene?.lighting) {
+        this.sceneService.applyStudioLighting(sceneData.scene.lighting);
+        this.lightingConfig = this.sceneService.getStudioLighting();
+      }
+      if (sceneData.scene?.camera) {
+        this.sceneService.restoreCameraSnapshot(sceneData.scene.camera);
+      }
+
+      await restorePromise;
+      if (mySeq !== this._applyDesignSeq) return;
+
+      if (this.isAiVideo3dOpen) {
+        this.refreshAiVideo3dSceneSummary();
+      }
+
+      // 5. Lưu tuần tự props rồi mới lưu scene mới nhất (đọc tươi _buildAiVideo3dState để không bao giờ ghi đè bằng bản cũ)
+      this.profileDataService.saveProps(this.roomProps).subscribe(() => {
+        if (mySeq !== this._applyDesignSeq) return;
+        const freshScenePatch: any = {
+          ...(sceneData.scene?.lighting ? { lighting: sceneData.scene.lighting } : {}),
+          ...(sceneData.scene?.camera ? { camera: sceneData.scene.camera } : {}),
+          aiVideo3d: this._buildAiVideo3dState(),
+          activeDesignPresetId: preset.id
+        };
+        this.profileDataService.saveSceneSilent(freshScenePatch).subscribe();
+      });
       this.onSearchChange();
       this.cdr.markForCheck();
 
       this.toastr.success(`Đã nạp mẫu thiết kế "${preset.name}".`, 'Thành công');
     } catch (e) {
+      if (mySeq === this._applyDesignSeq) {
+        this._switchingDesignPreset = false;
+      }
       console.error('[Profile] Nạp mẫu thiết kế lỗi:', e);
       this.toastr.error('Không nạp được mẫu thiết kế.', 'Lỗi');
     }
@@ -6330,7 +8356,187 @@ ${JSON.stringify({
   }
 
   /** Nhân bản mẫu thiết kế */
-  duplicateDesignPreset(preset: Design3DPreset): void {
+  /**
+   * Nhân bản mẫu thiết kế theo kiểu "cảnh nối tiếp": khung hình cuối cùng của cảnh gốc
+   * (tư thế cuối của từng nhân vật/đồ vật + góc camera cuối) trở thành khung hình đầu tiên của cảnh mới.
+   */
+  async duplicateDesignPreset(preset: Design3DPreset): Promise<void> {
+    if (!preset?.id || this.duplicatingDesign) return;
+
+    const canUseCanvas =
+      !!this.canvasRef?.nativeElement &&
+      typeof (this.sceneService as any).captureRigsEndFramePoses === 'function';
+    if (!canUseCanvas) {
+      this._duplicateDesignPresetRaw(preset);
+      return;
+    }
+
+    this.duplicatingDesign = true;
+    this.cdr.markForCheck();
+    try {
+      // 1. Bảo đảm cảnh gốc đang hiển thị trên canvas để đọc đúng khung hình cuối
+      if (this.activeDesignPresetId !== preset.id) {
+        await this.applyDesignPreset(preset);
+        if (this.activeDesignPresetId !== preset.id) {
+          throw new Error('Không nạp được mẫu gốc.');
+        }
+        await this._waitFrames(3);
+      }
+      this.stopCameraPathPreview(false);
+
+      // 2. Chụp trạng thái cảnh gốc
+      const srcAiVideo = this._buildAiVideo3dState();
+      const snapshot = this._buildDesignSnapshot();
+      const sceneDur = Math.max(1, Number(srcAiVideo.duration) || 5);
+
+      // 3. Khung hình cuối của mọi nhân vật / đồ vật có khung xương (kèm vị trí cuối của các đồ vật đang bị cầm trên tay)
+      const endPoses = await this.sceneService.captureRigsEndFramePoses(sceneDur);
+      const grabEndTransforms = this.sceneService.captureHandGrabEndTransforms(sceneDur);
+
+      // 4. Góc camera cuối (cuối Đường máy nếu có, ngược lại là góc camera đang dùng để ghi)
+      let endCam: any = null;
+      if (srcAiVideo.cameraMode === 'path' && Array.isArray(srcAiVideo.cameraKeyframes) && srcAiVideo.cameraKeyframes.length >= 2) {
+        endCam = this.sceneService.evaluateCameraKeyframesAtTime(srcAiVideo.cameraKeyframes, sceneDur);
+      }
+      if (!endCam) {
+        endCam = this.sceneService.getCameraSnapshot();
+      }
+
+      // 5. Dựng dữ liệu cảnh mới: tư thế cuối => keyframe t = 0 + tư thế tĩnh
+      const stamp = Date.now().toString(36);
+      let posedCount = 0;
+      const newProps = (snapshot.props || []).map((p: any) => {
+        if (!p || !p.id) return p;
+        const grabEnd = grabEndTransforms.get(p.id);
+        const pose = endPoses.get(p.id);
+        let updated: any = p;
+        if (grabEnd) {
+          updated = {
+            ...updated,
+            position: { ...grabEnd.pos },
+            rotation: { ...grabEnd.rot },
+            _customPositionSet: true,
+            _customRotationSet: true
+          };
+        }
+        if (!pose) return updated;
+        posedCount++;
+        const srcTl = updated.boneTimeline || {};
+        const startKeyframes = pose.map((b, i) => ({
+          id: `kf_${stamp}_${i}`,
+          time: 0,
+          boneName: b.boneName,
+          rot: { ...b.rot },
+          pos: b.pos ? { ...b.pos } : { x: 0, y: 0, z: 0 }
+        }));
+        const nextTl: any = {
+          ...srcTl,
+          enabled: true,
+          playing: false,
+          mode: 'keyframes',
+          poseSpace: 'rest',
+          savedTime: 0,
+          staticPose: pose,
+          handGrabs: [],
+          keyframes: startKeyframes
+        };
+        delete nextTl.lastAiPrompt;
+        delete nextTl.lastAiSegments;
+        return { ...updated, boneTimeline: nextTl };
+      });
+
+      const startCamKeyframes = endCam
+        ? [{
+            id: `camkf_${stamp}_0`,
+            time: 0,
+            label: 'Nối từ cảnh trước',
+            pivot: {
+              x: Math.round(endCam.pivot.x * 100) / 100,
+              y: Math.round(endCam.pivot.y * 100) / 100,
+              z: Math.round(endCam.pivot.z * 100) / 100
+            },
+            yaw: Math.round(endCam.yaw * 10) / 10,
+            pitch: Math.round(endCam.pitch * 10) / 10,
+            distance: Math.round(endCam.distance * 100) / 100,
+            easing: 'smooth'
+          }]
+        : [];
+
+      const newAiVideo = {
+        ...srcAiVideo,
+        cameraMode: 'keep',
+        cameraKeyframes: startCamKeyframes,
+        cameraAiPrompt: '',
+        capturedFilePath: null,
+        capturedHasCameraMotion: false,
+        capturedCameraSummary: '',
+        resultFilePath: null,
+        resultUrl: null,
+        activeHistoryId: null,
+        history: [],
+        updatedAt: Date.now()
+      };
+      const newScene: any = { ...(snapshot.scene || {}), aiVideo3d: newAiVideo };
+      if (startCamKeyframes.length > 0) {
+        const k0 = startCamKeyframes[0];
+        newScene.camera = { pivot: { ...k0.pivot }, yaw: k0.yaw, pitch: k0.pitch, distance: k0.distance };
+      }
+      delete newScene.activeDesignPresetId;
+
+      const newId = 'design_' + Date.now();
+      const newName = `${preset.name} (tiếp nối)`;
+      const saveRes: any = await this._design3dService.save({
+        id: newId,
+        name: newName,
+        description: preset.description || '',
+        sceneData: { props: newProps, character: snapshot.character, scene: newScene, aiVideo3d: newAiVideo }
+      }).toPromise();
+      const ok = !!saveRes && (saveRes.success === true || (saveRes.success !== false && !saveRes.error));
+      if (!ok) {
+        throw new Error(typeof saveRes?.error === 'string' ? saveRes.error : 'Không lưu được cảnh nhân bản.');
+      }
+      const savedId = saveRes?.data?.id || newId;
+      this._designAiVideo3dCache.set(savedId, JSON.parse(JSON.stringify(newAiVideo)));
+
+      // 6. Mở ngay cảnh mới (bắt đầu từ khung hình cuối của cảnh gốc) và chụp thumbnail
+      await this.applyDesignPreset({ id: savedId, name: newName, description: preset.description || '' } as Design3DPreset);
+      await this._waitFrames(3);
+      const thumb = this._captureThumbnail();
+      if (thumb) {
+        await this._design3dService.saveThumbnail(savedId, thumb).toPromise().catch(() => null);
+      }
+      this.loadDesignPresets();
+
+      this.toastr.success(
+        posedCount > 0
+          ? `Đã nhân bản "${preset.name}": khung hình cuối (${posedCount} nhân vật/đồ vật + góc camera) là khung hình đầu của cảnh mới.`
+          : `Đã nhân bản "${preset.name}": góc camera cuối là khung hình đầu của cảnh mới.`,
+        'Nhân bản cảnh nối tiếp',
+        { timeOut: 5000 }
+      );
+    } catch (e: any) {
+      console.error('[Profile] Nhân bản cảnh nối tiếp lỗi:', e);
+      this.toastr.error(e?.message || 'Không thể nhân bản mẫu thiết kế.', 'Lỗi');
+    } finally {
+      this.duplicatingDesign = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private _waitFrames(n = 2): Promise<void> {
+    return new Promise<void>((resolve) => {
+      let left = Math.max(1, n);
+      const step = () => {
+        left--;
+        if (left <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  }
+
+  /** Nhân bản thô 1:1 qua Electron (dự phòng khi không có canvas 3D) */
+  private _duplicateDesignPresetRaw(preset: Design3DPreset): void {
     this._design3dService.duplicate(preset.id).subscribe((res: any) => {
       if (res?.success !== false) {
         this.toastr.success(`Đã nhân bản "${preset.name}".`, 'Thành công');
@@ -6358,6 +8564,11 @@ ${JSON.stringify({
       if (result !== 'confirmed') return;
       this._design3dService.delete(preset.id).subscribe((res: any) => {
         if (res?.success !== false) {
+          this._designAiVideo3dCache.delete(preset.id);
+          if (this.activeDesignPresetId === preset.id) {
+            this.activeDesignPresetId = null;
+            this.profileDataService.saveSceneSilent({ activeDesignPresetId: null }).subscribe();
+          }
           this.toastr.success(`Đã xóa mẫu "${preset.name}".`, 'Thành công');
           this.loadDesignPresets();
         } else {
@@ -6379,14 +8590,33 @@ ${JSON.stringify({
 
   /** Đường dẫn thumbnail hiển thị */
   designThumbUrl(preset: Design3DPreset): string | null {
+    if (preset.thumbnailDataUrl) return preset.thumbnailDataUrl;
     if (preset.sceneData?.thumbnail) return preset.sceneData.thumbnail;
-    if (preset.thumbnailPath) return preset.thumbnailPath;
+    if (preset.thumbnailPath && /^(https?:|data:|blob:)/i.test(preset.thumbnailPath)) return preset.thumbnailPath;
     return null;
   }
 
   get dataService(): ProfileDataService { return this.profileDataService; }
 
   ngOnDestroy(): void {
+    if (this._poseAutoSaveTimer) {
+      clearTimeout(this._poseAutoSaveTimer);
+      this._poseAutoSaveTimer = null;
+      if (this.timelinePropId) {
+        try { this.saveTimelineToProp(true); } catch (_) {}
+      }
+    }
+    if (this._aiVideo3dSaveTimer) {
+      clearTimeout(this._aiVideo3dSaveTimer);
+      this._aiVideo3dSaveTimer = null;
+      try { this._flushSaveAiVideo3dState(); } catch (_) {}
+    }
+    if (this.aiVideo3dCapturedPreviewUrl && this.aiVideo3dCapturedPreviewUrl.startsWith('blob:')) {
+      try { URL.revokeObjectURL(this.aiVideo3dCapturedPreviewUrl); } catch (_) {}
+    }
+    if (this.aiVideo3dResultPreviewUrl && this.aiVideo3dResultPreviewUrl.startsWith('blob:')) {
+      try { URL.revokeObjectURL(this.aiVideo3dResultPreviewUrl); } catch (_) {}
+    }
     if (this._recordingTimerInterval) clearInterval(this._recordingTimerInterval);
     if (this._frameExportInterval) clearInterval(this._frameExportInterval);
     if (this._unsubMocapProgress) {

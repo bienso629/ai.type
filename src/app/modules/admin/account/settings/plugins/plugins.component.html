@@ -380,46 +380,83 @@
                             <div
                                 class="text-sm text-gray-400 font-normal mt-0.5"
                             >
-                                Bật hệ thống AI Agent hỗ trợ viết kịch bản và
-                                kết nối điều khiển qua Mobile App
+                                Bật hệ thống AI Agent chạy trực tiếp qua AGY CLI
+                                hoặc Claude CLI trên máy cục bộ
                             </div>
                         </mat-label>
                     </mat-slide-toggle>
                 </div>
             </div>
 
-            <div class="w-full mt-4">
-                <!-- Secret Key -->
+            <div class="w-full flex flex-col md:flex-row items-start md:items-end gap-4 mt-4">
+                <!-- CLI cục bộ -->
                 <mat-form-field
                     class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                     [subscriptSizing]="'dynamic'"
                 >
-                    <mat-label>Secret API Key (Cloud / Mobile App)</mat-label>
+                    <mat-label>CLI thực thi cục bộ (Local CLI)</mat-label>
                     <mat-icon
                         class="icon-size-4"
-                        [svgIcon]="'heroicons_outline:key'"
+                        [svgIcon]="'heroicons_outline:terminal'"
                         matPrefix
                     ></mat-icon>
-                    <input
-                        [(ngModel)]="aiAgentApiKey"
-                        [type]="showAiAgentKey ? 'text' : 'password'"
-                        matInput
-                        placeholder="Nhập Secret API Key của máy chủ Agent"
-                    />
+                    <mat-select [(ngModel)]="aiAgentCliEngine">
+                        <mat-option value="auto"
+                            >Tự động (Ưu tiên AGY CLI, dự phòng Claude
+                            CLI)</mat-option
+                        >
+                        <mat-option value="agy"
+                            >AGY CLI (Antigravity cục bộ)</mat-option
+                        >
+                        <mat-option value="claude"
+                            >Claude CLI (Claude Code cục bộ)</mat-option
+                        >
+                    </mat-select>
+                </mat-form-field>
+
+                <!-- Trạng thái phát hiện CLI dưới máy -->
+                <div class="local-cli-status-bar flex items-center gap-2 flex-wrap pb-0.5">
+                    <span
+                        class="local-cli-chip"
+                        [class.local-cli-chip--ok]="localCliStatus?.agy?.installed"
+                        [matTooltip]="localCliStatus?.agy?.path || 'Chưa phát hiện lệnh agy trong PATH'"
+                    >
+                        <span class="local-cli-chip__dot"></span>
+                        <span>AGY CLI</span>
+                        @if (localCliStatus?.agy?.installed) {
+                            <span class="local-cli-chip__ver">{{ localCliStatus?.agy?.version || 'Sẵn sàng' }}</span>
+                        } @else {
+                            <span class="local-cli-chip__ver">Chưa cài</span>
+                        }
+                    </span>
+
+                    <span
+                        class="local-cli-chip"
+                        [class.local-cli-chip--ok]="localCliStatus?.claude?.installed"
+                        [matTooltip]="localCliStatus?.claude?.path || 'Chưa phát hiện lệnh claude trong PATH'"
+                    >
+                        <span class="local-cli-chip__dot"></span>
+                        <span>Claude CLI</span>
+                        @if (localCliStatus?.claude?.installed) {
+                            <span class="local-cli-chip__ver">{{ localCliStatus?.claude?.version || 'Sẵn sàng' }}</span>
+                        } @else {
+                            <span class="local-cli-chip__ver">Chưa cài</span>
+                        }
+                    </span>
+
                     <button
                         mat-icon-button
                         type="button"
-                        matSuffix
-                        (click)="showAiAgentKey = !showAiAgentKey"
+                        [disabled]="checkingLocalClis"
+                        (click)="checkLocalClis(true)"
+                        matTooltip="Quét lại AGY CLI và Claude CLI trên máy"
                     >
-                        <mat-icon class="icon-size-4">{{
-                            showAiAgentKey ? "visibility_off" : "visibility"
-                        }}</mat-icon>
+                        <mat-icon class="icon-size-4">refresh</mat-icon>
                     </button>
-                </mat-form-field>
-                <div class="mt-1 text-sm text-gray-400">
-                    Mã khóa bí mật dùng để xác thực khi kết nối với máy chủ AI Agent trực tuyến (agent.type.vn) hoặc qua Mobile App.
                 </div>
+            </div>
+            <div class="mt-1 text-sm text-gray-400">
+                Gọi trực tiếp lệnh <code>agy</code> hoặc <code>claude</code> ngay trên máy cục bộ, không cần máy chủ trung gian hay Secret API Key.
             </div>
 
             <div class="w-full flex gap-4 mt-4">
@@ -435,76 +472,59 @@
                         matPrefix
                     ></mat-icon>
                     <mat-select [(ngModel)]="aiAgentModel">
-                        <mat-optgroup label="Tadu Cloud AI Agent">
-                            <mat-option value="glm-5.3"
-                                >GLM-5.3 (Mới nhất, thông minh & siêu
-                                nhanh)</mat-option
-                            >
-                            <mat-option value="glm-5">GLM-5</mat-option>
-                            <mat-option value="glm-4-plus"
-                                >GLM-4 Plus</mat-option
+                        <mat-optgroup label="Tự động">
+                            <mat-option value="default"
+                                >Mặc định theo cấu hình CLI</mat-option
                             >
                         </mat-optgroup>
-                        <mat-optgroup label="Gemini (Google)">
-                            <mat-option value="gemini-3.8-flash"
-                                >Gemini 3.8 Flash (Mới nhất, siêu nhanh)</mat-option
-                            >
+                        <mat-optgroup label="AGY CLI (Antigravity)">
                             <mat-option value="gemini-3.8-flash-low"
-                                >Gemini 3.8 Flash - Low (Rất nhanh)</mat-option
+                                >Gemini 3.8 Flash - Low (Siêu nhanh)</mat-option
                             >
                             <mat-option value="gemini-3.8-flash-medium"
-                                >Gemini 3.8 Flash - Medium (Cân bằng, chất lượng)</mat-option
+                                >Gemini 3.8 Flash - Medium (Khuyên dùng, cân
+                                bằng)</mat-option
                             >
                             <mat-option value="gemini-3.8-flash-high"
                                 >Gemini 3.8 Flash - High (Tư duy sâu)</mat-option
                             >
-                            <mat-option value="gemini-3.7-flash-low"
-                                >Gemini 3.7 Flash - Low (Khuyên dùng, rất
-                                nhanh)</mat-option
-                            >
-                            <mat-option value="gemini-3.7-flash-medium"
-                                >Gemini 3.7 Flash - Medium (Cân bằng, chất
-                                lượng)</mat-option
-                            >
-                            <mat-option value="gemini-3.7-flash-high"
-                                >Gemini 3.7 Flash - High (Tư duy
-                                sâu)</mat-option
-                            >
-                            <mat-option value="gemini-3.6-flash-low"
-                                >Gemini 3.6 Flash - Low (Nhanh)</mat-option
-                            >
-                            <mat-option value="gemini-3.6-flash-medium"
-                                >Gemini 3.6 Flash - Medium (Cân bằng, chất
-                                lượng)</mat-option
-                            >
-                            <mat-option value="gemini-3.6-flash-high"
-                                >Gemini 3.6 Flash - High (Tư duy
-                                sâu)</mat-option
-                            >
-                            <mat-option value="gemini-3.5-pro"
-                                >Gemini 3.5 Pro (Cũ, chậm, chất lượng
+                            <mat-option value="gemini-4-neon-medium"
+                                >Gemini 4 Neon - Medium (Chất lượng
                                 cao)</mat-option
                             >
-                            <mat-option value="gemini-3.1-pro"
-                                >Gemini 3.1 Pro (Cũ, chất lượng ổn
-                                định)</mat-option
+                            <mat-option value="gemini-4-neon-high"
+                                >Gemini 4 Neon - High (Suy luận mạnh)</mat-option
+                            >
+                            <mat-option value="gemini-4-carbon-medium"
+                                >Gemini 4 Carbon - Medium</mat-option
+                            >
+                            <mat-option value="gemini-4-carbon-high"
+                                >Gemini 4 Carbon - High</mat-option
+                            >
+                            <mat-option value="claude-sonnet-5-5-medium"
+                                >Claude Sonnet 5.5 - Medium (qua AGY)</mat-option
+                            >
+                            <mat-option value="claude-opus-5-5-medium"
+                                >Claude Opus 5.5 - Medium (qua AGY)</mat-option
+                            >
+                            <mat-option value="claude-opus-5-5-high"
+                                >Claude Opus 5.5 - High (qua AGY)</mat-option
                             >
                         </mat-optgroup>
-                        <mat-optgroup label="Claude (Anthropic)">
-                            <mat-option value="fable"
-                                >Claude Fable 5 (Mạnh nhất, sáng tạo
-                                cao)</mat-option
-                            >
-                            <mat-option value="opus"
-                                >Claude Opus 5 (Chất lượng cao, suy luận
-                                sâu)</mat-option
-                            >
+                        <mat-optgroup label="Claude CLI (Claude Code)">
                             <mat-option value="sonnet"
-                                >Claude Sonnet 5 (Cân bằng tốc độ & chất
+                                >Claude Sonnet (Cân bằng tốc độ & chất
                                 lượng)</mat-option
                             >
+                            <mat-option value="opus"
+                                >Claude Opus (Chất lượng cao, suy luận
+                                sâu)</mat-option
+                            >
                             <mat-option value="haiku"
-                                >Claude Haiku 4.5 (Nhanh, tiết kiệm)</mat-option
+                                >Claude Haiku (Nhanh, tiết kiệm)</mat-option
+                            >
+                            <mat-option value="fable"
+                                >Claude Fable (Sáng tạo cao)</mat-option
                             >
                         </mat-optgroup>
                     </mat-select>

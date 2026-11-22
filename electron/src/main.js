@@ -34,6 +34,7 @@ const { registerFontsHandlers } = require("./fonts");
 const { registerWorkspaceFoldersHandlers } = require("./workspace-folders");
 const { generateEdgeAudio } = require("./edge-tts-v2");
 const { registerOperaCodecHandlers } = require("./opera-codec");
+const { registerLocalCliAgentHandlers, detectLocalClis, cancelAllLocalCliAgents } = require("./local-cli-agent");
 const { initDatabase } = require("./database");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { exec, execFile, spawn, execSync } = require("child_process");
@@ -4631,65 +4632,34 @@ function isAiAgentEnabled() {
 }
 
 function startAiAgent() {
-    // AI Agent chạy hoàn toàn trên máy chủ https://sontinh.type.vn,
-    // không còn dò/khởi chạy file binary trong Documents/ai.type/plugins nữa.
-    console.log('[AI Agent] Sử dụng máy chủ từ xa https://sontinh.type.vn (không khởi chạy tiến trình cục bộ).');
+    // AI Agent chạy trực tiếp qua AGY CLI hoặc Claude CLI trên máy cục bộ
+    console.log('[AI Agent] Sử dụng CLI cục bộ (AGY CLI / Claude CLI).');
 }
 
 function stopAiAgent() {
-    try {
-        // Luôn gọi shutdown API kể cả khi aiAgentProcess = null (zombie)
-        const http = require('http');
-        const req = http.get('http://127.0.0.1:54321/api/shutdown', (res) => {});
-        req.on('error', () => {});
-    } catch (e) { }
-
+    cancelAllLocalCliAgents();
     if (aiAgentProcess) {
         try {
             aiAgentProcess.kill('SIGKILL');
             aiAgentProcess = null;
         } catch (e) { }
     }
-    
-    // Fallback dọn dẹp port 54321
-    try {
-        const cp = require('child_process');
-        if (process.platform === 'win32') {
-            cp.exec('netstat -ano | findstr :54321', (err, stdout) => {
-                if (stdout) {
-                    const lines = stdout.trim().split('\n');
-                    for (const line of lines) {
-                        const parts = line.trim().split(/\s+/);
-                        const pid = parts[parts.length - 1];
-                        if (pid && pid !== '0') cp.exec(`taskkill /f /pid ${pid}`);
-                    }
-                }
-            });
-        } else {
-            cp.exec('fuser -k 54321/tcp');
-            cp.exec('killall -9 ai_agent_linux');
-        }
-    } catch (e) {}
-    
-    console.log('[AI Agent] Đã tắt');
+    console.log('[AI Agent] Đã tắt và dừng mọi tiến trình CLI cục bộ.');
 }
-
-
 
 ipcMain.handle('toggle-ai-agent', (event, enable, apiKey, extra) => {
     try {
-        const configData = { enable };
-        if (apiKey) configData.apiKey = apiKey;
+        const prev = readAiAgentConfig();
+        const configData = { ...prev, enable: !!enable };
+        if (apiKey !== undefined) configData.apiKey = apiKey;
+        if (extra && extra.cliEngine) configData.cliEngine = extra.cliEngine;
+        if (extra && extra.model) configData.model = extra.model;
+        if (extra && extra.maxTurns !== undefined) configData.maxTurns = Number(extra.maxTurns) || 25;
         if (extra && extra.umodelverseUrl) configData.umodelverseUrl = extra.umodelverseUrl;
         if (extra && extra.umodelverseKey) configData.umodelverseKey = extra.umodelverseKey;
         writeAiAgentConfig(configData);
         if (enable) {
-            if (aiAgentProcess) {
-                stopAiAgent();
-                setTimeout(startAiAgent, 300);
-            } else {
-                startAiAgent();
-            }
+            startAiAgent();
         } else {
             stopAiAgent();
         }
@@ -4701,15 +4671,17 @@ ipcMain.handle('toggle-ai-agent', (event, enable, apiKey, extra) => {
 
 ipcMain.handle('is-ai-agent-active', async () => {
     try {
-        // AI Agent dùng domain https://sontinh.type.vn, không phụ thuộc file binary cục bộ
-        const exists = true;
+        const cliStatus = await detectLocalClis(false);
+        const exists = !!(cliStatus.agy.installed || cliStatus.claude.installed);
         const enabled = isAiAgentEnabled();
-        let apiKey = 'type-vn-local-agent-2026';
+        let cliEngine = 'auto';
+        let apiKey = '';
         try {
             const data = readAiAgentConfig();
+            if (data.cliEngine) cliEngine = data.cliEngine;
             if (data.apiKey) apiKey = data.apiKey;
         } catch(e) {}
-        return { exists, enabled, active: enabled, apiKey };
+        return { exists, enabled, active: enabled && exists, cliEngine, cliStatus, apiKey };
     } catch (e) {
         return { exists: false, enabled: false, active: false };
     }
@@ -5048,9 +5020,10 @@ ipcMain.handle('get-plugins-status', async (event) => {
         const canInstall = fs.existsSync(devBinaryPath) || fs.existsSync(devScriptPath);
         const enabled = isZaloPluginEnabled();
         
-        // AI Agent Plugin: chạy hoàn toàn qua domain https://sontinh.type.vn, không kiểm tra file binary
-        const agentInstalled = true;
-        // Chỉ hiện nút Gỡ cài đặt khi có file binary trong Documents/ai.type/plugins
+        // AI Agent Plugin: chạy trực tiếp qua AGY CLI hoặc Claude CLI trên máy cục bộ
+        const cliStatus = await detectLocalClis(false);
+        const agentInstalled = !!(cliStatus.agy.installed || cliStatus.claude.installed);
+        // Chỉ hiện nút Gỡ cài đặt khi có file binary cũ trong Documents/ai.type/plugins
         const agentBinaryName = process.platform === 'win32' ? 'ai_agent_win.exe' : (process.platform === 'darwin' ? 'ai_agent_macos' : 'ai_agent_linux');
         const agentHasBinary = [
             path.join(userPluginsDir, agentBinaryName),
@@ -5060,10 +5033,12 @@ ipcMain.handle('get-plugins-status', async (event) => {
         ].some(p => fs.existsSync(p));
         const agentCanInstall = true;
         const agentEnabled = isAiAgentEnabled();
-        let agentApiKey = 'type-vn-local-agent-2026';
+        let agentApiKey = '';
+        let agentCliEngine = 'auto';
         try {
             const data = readAiAgentConfig();
             if (data.apiKey) agentApiKey = data.apiKey;
+            if (data.cliEngine) agentCliEngine = data.cliEngine;
         } catch(e) {}
 
         // Colab Agent Plugin
@@ -5132,13 +5107,15 @@ ipcMain.handle('get-plugins-status', async (event) => {
             {
                 id: 'ai_agent',
                 name: 'AI Agent',
-                description: 'Hỗ trợ viết kịch bản phim, sinh nội dung và tự động hóa tác vụ AI.',
+                description: 'Chạy trực tiếp qua AGY CLI hoặc Claude CLI trên máy cục bộ.',
                 installed: agentInstalled,
                 hasBinary: agentHasBinary,
                 canInstall: agentCanInstall,
                 enabled: agentEnabled,
                 apiKey: agentApiKey,
-                version: '1.0'
+                cliEngine: agentCliEngine,
+                cliStatus,
+                version: '2.0'
             },
             {
                 id: 'colab_agent',
@@ -5185,8 +5162,14 @@ ipcMain.handle('install-plugin', async (event, pluginId) => {
             }
             return { success: false, error: 'Không tìm thấy file nguồn cài đặt plugin.' };
         } else if (pluginId === 'ai_agent') {
-            // Không cần cài file binary: AI Agent dùng máy chủ https://sontinh.type.vn
-            return { success: true, message: 'Plugin AI Agent đã sẵn sàng (kết nối qua sontinh.type.vn).' };
+            const cliStatus = await detectLocalClis(true);
+            const found = [];
+            if (cliStatus.agy.installed) found.push(`AGY CLI (${cliStatus.agy.version || cliStatus.agy.path})`);
+            if (cliStatus.claude.installed) found.push(`Claude CLI (${cliStatus.claude.version || cliStatus.claude.path})`);
+            if (found.length > 0) {
+                return { success: true, message: `AI Agent cục bộ đã sẵn sàng: ${found.join(', ')}.` };
+            }
+            return { success: false, error: 'Chưa tìm thấy lệnh "agy" hoặc "claude" trên máy. Vui lòng cài đặt AGY CLI hoặc Claude CLI trước.' };
         } else if (pluginId === 'colab_agent') {
             const binaryName = process.platform === 'win32' ? 'colab-agent-win.exe' : (process.platform === 'darwin' ? 'colab-agent-macos' : 'colab-agent-linux');
             const legacyBinaryName = process.platform === 'win32' ? 'colab_agent.exe' : (process.platform === 'darwin' ? 'colab_agent_macos' : 'colab_agent_linux');
@@ -5827,6 +5810,7 @@ app.whenReady().then(async () => {
     registerFontsHandlers();
     registerWorkspaceFoldersHandlers();
     registerOperaCodecHandlers(ipcMain);
+    registerLocalCliAgentHandlers(ipcMain);
     initDatabase(app, ipcMain);
     if (process.platform === 'win32') {
         app.setAppUserModelId("ai.type.vn"); // Thay bằng id app của bạn
@@ -11340,6 +11324,7 @@ function startCrmServices() {
 }
 
 app.on('will-quit', () => {
+    cancelAllLocalCliAgents();
     if (crmPhpProcess) crmPhpProcess.kill();
     if (crmMariaDbProcess) crmMariaDbProcess.kill();
     try { require('child_process').exec('taskkill /f /im mariadbd.exe'); } catch(e){}
