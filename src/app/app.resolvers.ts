@@ -233,15 +233,30 @@ export class InitialDataResolver
                         }
                         this._userService.markGroupsSynced(activeUser);
                         if (result && result.success && result.data && Array.isArray(result.data.groups) && result.data.groups.length > 0) {
-                            const purchasedGroup = result.data.groups.find((g: any) => g?.slug === 'nhóm-đã-mua-ai-type');
+                            const purchasedGroup = result.data.groups.find((g: any) =>
+                                this._userService.hasPurchasedGroupDefinition([g]),
+                            );
                             if (purchasedGroup?.members) {
                                 this._multiAccountService.setItem('members', purchasedGroup.members);
                             }
                             const freshGroups = this._userService.extractGroupsFromForumResponse(activeUser, result.data.groups);
                             const updatedUser = { ...activeUser, groups: freshGroups };
-                            this._userService.user = updatedUser;
                             this._multiAccountService.setItem('user', updatedUser);
                             this._multiAccountService.setItem('accessToken', AuthUtils._generateJWTToken(updatedUser));
+
+                            // Nếu máy chủ xác nhận tài khoản không còn trong "nhóm-đã-mua-ai-type" -> buộc đăng xuất ngay
+                            if (
+                                this._userService.hasPurchasedGroupDefinition(result.data.groups) &&
+                                !this._userService.hasPurchasedGroup(updatedUser)
+                            ) {
+                                this._userService.notifyPurchasedGroupRevoked(
+                                    updatedUser,
+                                    'Tài khoản của bạn không còn thuộc nhóm "nhóm-đã-mua-ai-type".',
+                                );
+                                return;
+                            }
+
+                            this._userService.user = updatedUser;
                         }
                     }),
                     catchError(() => of(null))

@@ -16,7 +16,9 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { AuthUtils } from 'app/core/auth/auth.utils';
 import { DeviceUUID } from 'device-uuid';
 import { UserService } from './core/user/user.service';
-import { Subject, takeUntil, take, filter } from 'rxjs';
+import { AuthService } from './core/auth/auth.service';
+import { ForumService } from './_services/forum';
+import { Subject, takeUntil, take, filter, timeout } from 'rxjs';
 import { User } from './core/user/user.types';
 import { MatDialog } from '@angular/material/dialog';
 import { MultiAccountService } from './_services/multi-account.service';
@@ -44,6 +46,19 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Biến để lưu ID của timer giúp dọn dẹp sau này
     private intervalId: any;
+    private _groupCheckIntervalId: any;
+    private _isCheckingPurchasedGroup = false;
+    private _isForcingGroupLogout = false;
+    private _lastGroupCheckedUserKey = '';
+    private readonly _purchasedGroupCheckIntervalMs = 1000 * 20;
+    private readonly _onWindowFocusOrOnline = () => {
+        this._verifyPurchasedGroupMembership(false, 3000);
+    };
+    private readonly _onVisibilityChange = () => {
+        if (typeof document !== 'undefined' && !document.hidden) {
+            this._verifyPurchasedGroupMembership(false, 3000);
+        }
+    };
 
     // 5 phút kiểm tra một lần
     private readonly ONE_HOUR_MS = 1000 * 60 * 5;
@@ -466,6 +481,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
      */
     constructor(
         private _userService: UserService,
+        private _authService: AuthService,
+        private _forumService: ForumService,
         private _fuseConfirmationService: FuseConfirmationService,
         public dialog: MatDialog,
         private router: Router,
@@ -506,17 +523,23 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     ngOnInit() {
-        // Lắng nghe sự kiện chuyển trang để cập nhật tiêu đề chuẩn cho Window
+        // Lắng nghe sự kiện chuyển trang để cập nhật tiêu đề chuẩn cho Window & kiểm tra quyền nhóm "nhóm-đã-mua-ai-type"
         this.router.events
             .pipe(
                 filter((event) => event instanceof NavigationEnd),
                 takeUntil(this._unsubscribeAll),
             )
             .subscribe((event: any) => {
+                const targetUrl = event.urlAfterRedirects || event.url || '';
                 if (this._titleService instanceof AppTitleService) {
-                    this._titleService.handleRouteChange(
-                        event.urlAfterRedirects || event.url,
-                    );
+                    this._titleService.handleRouteChange(targetUrl);
+                }
+                if (
+                    !targetUrl.startsWith('/sign-in') &&
+                    !targetUrl.startsWith('/sign-out') &&
+                    !targetUrl.startsWith('/sign-up')
+                ) {
+                    this._verifyPurchasedGroupMembership(false, 5000);
                 }
             });
 
@@ -531,6 +554,13 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // Đã xóa bộ đếm chu kỳ kiểm tra license
 
+        // Lắng nghe sự kiện thu hồi quyền nhóm "nhóm-đã-mua-ai-type" từ bất kỳ Guard / Resolver / kiểm tra nền nào
+        this._userService.purchasedGroupRevoked$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe(({ user, reason }) => {
+                this._forceLogoutMissingPurchasedGroup(user, reason);
+            });
+
         // Subscribe to user changes
         this._userService.user$
             .pipe(takeUntil(this._unsubscribeAll))
@@ -538,7 +568,31 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.user = user;
                 // Run updateTime after user is loaded so syncActiveInfo has user data
                 this.updateTime();
+
+                if (user && (user.email || user.id || user.name)) {
+                    const uKey = String(user.email || user.id || user.name).trim().toLowerCase();
+                    const curUrl = this.router.url || '';
+                    const isAuthRoute =
+                        curUrl.startsWith('/sign-in') ||
+                        curUrl.startsWith('/sign-out') ||
+                        curUrl.startsWith('/sign-up');
+                    if (uKey !== this._lastGroupCheckedUserKey && !isAuthRoute) {
+                        this._lastGroupCheckedUserKey = uKey;
+                        this._isForcingGroupLogout = false;
+                        this._verifyPurchasedGroupMembership(true);
+                    }
+                } else {
+                    this._lastGroupCheckedUserKey = '';
+                }
             });
+
+        // Định kỳ 20 giây, khi chuyển tab/lấy lại focus hoặc có mạng trở lại: kiểm tra tài khoản còn trong "nhóm-đã-mua-ai-type" hay không
+        this._groupCheckIntervalId = setInterval(() => {
+            this._verifyPurchasedGroupMembership(true);
+        }, this._purchasedGroupCheckIntervalMs);
+        window.addEventListener('focus', this._onWindowFocusOrOnline);
+        window.addEventListener('online', this._onWindowFocusOrOnline);
+        document.addEventListener('visibilitychange', this._onVisibilityChange);
 
         // Lắng nghe sự kiện toggle webview từ main.js qua phím tắt
         if ((window as any).electron) {
@@ -1460,11 +1514,180 @@ if tunnel_url:
         }, 500); // Đợi DOM sẵn sàng chút xíu
     }
 
+    private _verifyPurchasedGroupMembership(force = false, minCooldownMs = 10000): void {
+        const activeUser = this._userService.user;
+        if (!activeUser || (!activeUser.id && !activeUser.name && !activeUser.email)) {
+            return;
+        }
+        if (this._isCheckingPurchasedGroup || this._isForcingGroupLogout) {
+            return;
+        }
+        const currentUrl = this.router.url || '';
+        if (
+            currentUrl.startsWith('/sign-in') ||
+            currentUrl.startsWith('/sign-out') ||
+            currentUrl.startsWith('/sign-up')
+        ) {
+            return;
+        }
+        if (!force && this._userService.isGroupsSyncedRecently(activeUser, minCooldownMs)) {
+            return;
+        }
+
+        const expectedUserId = String(activeUser.id ?? '');
+        const expectedUserEmail = String(activeUser.email || '').trim().toLowerCase();
+        const server = activeUser.server || 'vn.s3';
+        this._isCheckingPurchasedGroup = true;
+
+        this._forumService
+            .getGroups(server)
+            .pipe(take(1), timeout(25000), takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (result) => {
+                    this._isCheckingPurchasedGroup = false;
+                    const currentUser = this._userService.user;
+                    if (!currentUser) return;
+                    if (
+                        (expectedUserId && String(currentUser.id ?? '') !== expectedUserId) ||
+                        (expectedUserEmail && String(currentUser.email || '').trim().toLowerCase() !== expectedUserEmail)
+                    ) {
+                        return;
+                    }
+
+                    if (
+                        result &&
+                        result.success &&
+                        result.data &&
+                        this._userService.hasPurchasedGroupDefinition(result.data.groups)
+                    ) {
+                        this._userService.markGroupsSynced(currentUser);
+                        const purchasedGroup = result.data.groups.find((g: any) =>
+                            this._userService.hasPurchasedGroupDefinition([g]),
+                        );
+                        if (purchasedGroup?.members) {
+                            this.multiAccountService.setItem('members', purchasedGroup.members);
+                        }
+
+                        const freshGroups = this._userService.extractGroupsFromForumResponse(
+                            currentUser,
+                            result.data.groups,
+                        );
+                        const updatedUser: User = { ...currentUser, groups: freshGroups };
+
+                        if (!this._userService.hasPurchasedGroup(updatedUser)) {
+                            console.warn(
+                                '[Auth] Tài khoản không còn trong nhóm "nhóm-đã-mua-ai-type", tự động đăng xuất:',
+                                currentUser.name || currentUser.email,
+                            );
+                            this._forceLogoutMissingPurchasedGroup(
+                                updatedUser,
+                                'Tài khoản của bạn không còn thuộc nhóm "nhóm-đã-mua-ai-type" nên đã tự động đăng xuất.',
+                            );
+                            return;
+                        }
+
+                        const prevKey = JSON.stringify([...(currentUser.groups || [])].sort());
+                        const nextKey = JSON.stringify([...freshGroups].sort());
+                        if (prevKey !== nextKey) {
+                            const updatedToken = AuthUtils._generateJWTToken(updatedUser);
+                            this._authService.accessToken = updatedToken;
+                            this._userService.user = updatedUser;
+                            this.multiAccountService.setItem('user', updatedUser);
+                            if (updatedUser.email) {
+                                this.multiAccountService.saveAccount(updatedUser.email, {
+                                    user: updatedUser,
+                                    profile: updatedUser,
+                                    accessToken: updatedToken,
+                                });
+                            }
+                        }
+                    }
+                },
+                error: () => {
+                    this._isCheckingPurchasedGroup = false;
+                },
+            });
+    }
+
+    private _forceLogoutMissingPurchasedGroup(userSnapshot?: User | null, reason?: string): void {
+        if (this._isForcingGroupLogout) {
+            return;
+        }
+        this._isForcingGroupLogout = true;
+        this._lastGroupCheckedUserKey = '';
+
+        const targetUser = userSnapshot || this._userService.user;
+        const doSignOutAndRedirect = () => {
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+            } catch (_) {}
+
+            this._authService
+                .signOut()
+                .pipe(take(1))
+                .subscribe({
+                    next: () => {
+                        this._finishForcedLogoutRedirect(reason);
+                    },
+                    error: () => {
+                        this._finishForcedLogoutRedirect(reason);
+                    },
+                });
+        };
+
+        // Cập nhật cache nhóm mới nhất (không còn "nhóm-đã-mua-ai-type") vào danh sách tài khoản đã lưu trước khi xóa phiên active
+        if (targetUser?.email) {
+            const cleanUser = {
+                ...targetUser,
+                groups: (targetUser.groups || []).filter(
+                    (g) => String(g || '').normalize('NFC').trim().toLowerCase() !== UserService.PURCHASED_GROUP_SLUG,
+                ),
+            };
+            this.multiAccountService
+                .saveAccount(targetUser.email, { user: cleanUser, profile: cleanUser, accessToken: null })
+                .then(() => this.multiAccountService.forceSave())
+                .then(() => doSignOutAndRedirect())
+                .catch(() => doSignOutAndRedirect());
+        } else {
+            doSignOutAndRedirect();
+        }
+    }
+
+    private _finishForcedLogoutRedirect(reason?: string): void {
+        this.ngZone.run(() => {
+            this.toastr.warning(
+                reason ||
+                    'Tài khoản của bạn không còn thuộc nhóm "nhóm-đã-mua-ai-type" nên đã tự động đăng xuất.',
+                'Phiên đăng nhập kết thúc',
+                { timeOut: 6000 },
+            );
+            this.router
+                .navigate(['/sign-in'], {
+                    queryParams: { reason: 'missing_purchased_group' },
+                    replaceUrl: true,
+                })
+                .finally(() => {
+                    setTimeout(() => {
+                        this._isForcingGroupLogout = false;
+                    }, 1200);
+                });
+        });
+    }
+
     ngOnDestroy() {
         // 3. QUAN TRỌNG: Xóa timer khi component bị hủy để tránh rò rỉ bộ nhớ (memory leak)
         if (this.intervalId) {
             clearInterval(this.intervalId);
         }
+        if (this._groupCheckIntervalId) {
+            clearInterval(this._groupCheckIntervalId);
+        }
+        window.removeEventListener('focus', this._onWindowFocusOrOnline);
+        window.removeEventListener('online', this._onWindowFocusOrOnline);
+        document.removeEventListener('visibilitychange', this._onVisibilityChange);
+        this._unsubscribeAll.next(null);
+        this._unsubscribeAll.complete();
     }
 
     error(message?: string) {

@@ -3421,7 +3421,10 @@ export class SontinhSceneService implements OnDestroy {
     const defaultMode: 'keyframes' | 'clip' = savedTl?.mode
       ? savedTl.mode
       : (clips.length > 0 ? 'clip' : 'keyframes');
-    const defaultClipName = savedTl?.activeClipName || (clips.length > 0 ? clips[0].name : null);
+    const hasSavedStaticPose = Array.isArray(savedTl?.staticPose) && savedTl!.staticPose!.length > 0;
+    const defaultClipName = savedTl?.activeClipName
+      ? savedTl.activeClipName
+      : (defaultMode === 'clip' && !hasSavedStaticPose && clips.length > 0 ? clips[0].name : null);
     const matchedClip = clips.find((c) => c.name === defaultClipName) || clips[0];
     const defaultDuration = savedTl?.duration
       ? Math.max(0.5, Number(savedTl.duration))
@@ -5039,7 +5042,7 @@ export class SontinhSceneService implements OnDestroy {
   }
 
   /** Xóa một Clip Keyframe tùy chỉnh đã lưu khỏi danh sách Clip Chuyển động */
-  deletePropCustomClip(propId: string, clipName: string): boolean {
+  deletePropCustomClip(propId: string, clipName: string, opts?: { isSecondaryProp?: boolean }): boolean {
     const rig = this._propRigMap.get(propId);
     if (!rig || !clipName) return false;
     let removed = false;
@@ -5057,16 +5060,41 @@ export class SontinhSceneService implements OnDestroy {
       return false;
     }
     if (rig.timeline.activeClipName === clipName) {
-      // Xóa sạch bộ keyframe cũ đang tải trên timeline để tránh bị đóng gói lại thành "Clip Keyframe #1" khi bấm Lưu
+      const staticPose = Array.isArray(rig.timeline.staticPose) ? rig.timeline.staticPose : [];
+      const isInStaticPose =
+        !rig.timeline.playing &&
+        staticPose.length > 0 &&
+        (rig.timeline.mode !== 'clip' || rig.timeline.keyframes.length === 0);
+      const isSecondaryIdle =
+        !!opts?.isSecondaryProp &&
+        !(rig.timeline.mode === 'clip' && rig.timeline.playing);
+
+      // Không bao giờ reset tư thế xương của nhân vật/đồ vật đang giữ tư thế tĩnh (staticPose)
+      // hoặc của các đồ vật khác trong phòng không thực sự đang phát clip bị xóa
+      if (isInStaticPose || isSecondaryIdle) {
+        rig.timeline.activeClipName = null;
+        return true;
+      }
+
+      // Xóa sạch bộ keyframe & liên kết tay cũ của clip đang phát để tránh đóng gói lại thành "Clip Keyframe #1"
+      this.clearPropHandGrabs(propId, true);
       rig.timeline.keyframes = [];
       rig.currentTime = 0;
-      rig.timeline.activeClipName = rig.clips[0]?.name || null;
+      rig.timeline.activeClipName = rig.timeline.mode === 'clip' ? (rig.clips[0]?.name || null) : null;
       if (rig.timeline.mode === 'clip' && rig.timeline.activeClipName) {
         this.playPropClip(propId, rig.timeline.activeClipName);
       } else {
         this._stopRigClipAnim(rig);
         rig.timeline.playing = false;
         this.resetBonePose(propId);
+        // Nếu nhân vật có lưu tư thế tĩnh trước đó thì khôi phục lại thay vì đưa về T-Pose cứng
+        if (staticPose.length > 0) {
+          for (const entry of staticPose) {
+            if (entry?.boneName) {
+              this.setBonePoseDelta(propId, entry.boneName, entry.rot, entry.pos);
+            }
+          }
+        }
       }
       removed = true;
     }

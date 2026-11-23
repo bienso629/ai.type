@@ -21,7 +21,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertType } from '@fuse/components/alert';
 import { AuthService } from 'app/core/auth/auth.service';
-import { Subject, takeUntil } from 'rxjs';
+import { firstValueFrom, Subject, take, takeUntil, timeout } from 'rxjs';
 
 import { ForumService } from 'app/_services/forum';
 import { UserService } from 'app/core/user/user.service';
@@ -156,7 +156,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
                     if (user.server && this.signInForm?.get('server')) {
                         this.signInForm.get('server').setValue(user.server);
                     }
-                    this.checkAccount(user);
+                    this.checkAccount(user, true);
                 }
             }
         } catch (err) {
@@ -181,17 +181,107 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
             });
     }
 
-    async checkAccount(user: any) {
+    async checkAccount(user: any, isSavedAccount: boolean = false) {
+        const server = user?.server || this.signInForm?.get('server')?.value || 'vn.s3';
+        let finalUser = user;
+
+        // Xác minh bắt buộc tài khoản thuộc nhóm "nhóm-đã-mua-ai-type" từ máy chủ trước khi cho phép vào ứng dụng
+        try {
+            const result: any = await firstValueFrom(
+                this._forumService.getGroups(server).pipe(take(1), timeout(25000)),
+            );
+            this._userService.markGroupsSynced(user);
+            if (
+                result &&
+                result.success &&
+                result.data &&
+                this._userService.hasPurchasedGroupDefinition(result.data.groups)
+            ) {
+                const purchasedGroup = result.data.groups.find((g: any) =>
+                    this._userService.hasPurchasedGroupDefinition([g]),
+                );
+                if (purchasedGroup?.members) {
+                    this.multiAccountService.setItem('members', purchasedGroup.members);
+                }
+
+                const freshGroups = this._userService.extractGroupsFromForumResponse(
+                    user,
+                    result.data.groups,
+                );
+                finalUser = { ...user, groups: freshGroups };
+
+                if (!this._userService.hasPurchasedGroup(finalUser)) {
+                    // Cập nhật lại danh sách nhóm đã gỡ khỏi cache tài khoản rồi đăng xuất ngay
+                    try {
+                        if (finalUser.email) {
+                            await this.multiAccountService.saveAccount(finalUser.email, {
+                                user: finalUser,
+                                profile: finalUser,
+                                accessToken: null,
+                            });
+                            await this.multiAccountService.forceSave();
+                        }
+                    } catch (_) {}
+                    try {
+                        await firstValueFrom(this._authService.signOut());
+                    } catch (_) {}
+
+                    this._ngZone.run(() => {
+                        this.signInForm?.enable();
+                        this.alert = {
+                            type: 'error',
+                            message:
+                                'Tài khoản của bạn không còn thuộc nhóm "nhóm-đã-mua-ai-type" nên không thể đăng nhập.',
+                        };
+                        this.showAlert = true;
+                        this._changeDetectorRef.markForCheck();
+                    });
+                    return;
+                }
+            } else if (!isSavedAccount || !this._userService.hasPurchasedGroup(user)) {
+                try {
+                    await firstValueFrom(this._authService.signOut());
+                } catch (_) {}
+                this._ngZone.run(() => {
+                    this.signInForm?.enable();
+                    this.alert = {
+                        type: 'error',
+                        message:
+                            'Không thể xác minh quyền nhóm "nhóm-đã-mua-ai-type" từ máy chủ. Vui lòng thử lại.',
+                    };
+                    this.showAlert = true;
+                    this._changeDetectorRef.markForCheck();
+                });
+                return;
+            }
+        } catch (_) {
+            // Nếu mất mạng khi bấm lại tài khoản đã lưu từng được xác thực trước đó thì tạm cho vào để AppComponent kiểm tra lại khi có mạng
+            if (!isSavedAccount || !this._userService.hasPurchasedGroup(user)) {
+                try {
+                    await firstValueFrom(this._authService.signOut());
+                } catch (_) {}
+                this._ngZone.run(() => {
+                    this.signInForm?.enable();
+                    this.alert = {
+                        type: 'error',
+                        message:
+                            'Không thể kết nối máy chủ để xác minh nhóm "nhóm-đã-mua-ai-type". Vui lòng thử lại.',
+                    };
+                    this.showAlert = true;
+                    this._changeDetectorRef.markForCheck();
+                });
+                return;
+            }
+        }
+
         // Đánh dấu xác thực ngay lập tức để Guard và UI thông qua
-        const token = AuthUtils._generateJWTToken(user);
+        const token = AuthUtils._generateJWTToken(finalUser);
         this._authService.authenticated = true;
         this._authService.accessToken = token;
-        this._userService.user = user;
-
-        const server = user?.server || this.signInForm?.get('server')?.value || 'vn.s3';
+        this._userService.user = finalUser;
 
         // Đảm bảo lưu xong session xuống DB và localStorage trước khi chuyển trang
-        await this.multiAccountService.saveAccount(user.email, { user: user, accessToken: token });
+        await this.multiAccountService.saveAccount(finalUser.email, { user: finalUser, accessToken: token });
         await this.multiAccountService.forceSave();
 
         // Điều hướng ngay lập tức trong NgZone
@@ -202,29 +292,6 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
                 ) || '/signed-in-redirect';
             this._router.navigateByUrl(redirectURL);
         });
-
-        // Đồng bộ nhóm từ forum chạy ngầm trong background, không chặn luồng đăng nhập
-        this._forumService
-            .getGroups(server)
-            .subscribe({
-                next: async (result) => {
-                    this._userService.markGroupsSynced(user);
-                    if (result && result.success && result.data && Array.isArray(result.data.groups) && result.data.groups.length > 0) {
-                        const purchasedGroup = result.data.groups.find((g: any) => g?.slug === 'nhóm-đã-mua-ai-type');
-                        if (purchasedGroup?.members) {
-                            this.multiAccountService.setItem('members', purchasedGroup.members);
-                        }
-
-                        const freshGroups = this._userService.extractGroupsFromForumResponse(user, result.data.groups);
-                        const updatedUser = { ...user, groups: freshGroups };
-                        const updatedToken = AuthUtils._generateJWTToken(updatedUser);
-                        this._authService.accessToken = updatedToken;
-                        this._userService.user = updatedUser;
-                        this.multiAccountService.saveAccount(updatedUser.email, { user: updatedUser, accessToken: updatedToken });
-                    }
-                },
-                error: () => {}
-            });
     }
 
     /**
@@ -316,6 +383,16 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
      * On init
      */
     ngOnInit(): void {
+        const logoutReason = this._activatedRoute.snapshot.queryParamMap.get('reason');
+        if (logoutReason === 'missing_purchased_group') {
+            this.alert = {
+                type: 'error',
+                message:
+                    'Tài khoản của bạn không còn thuộc nhóm "nhóm-đã-mua-ai-type" nên đã tự động đăng xuất.',
+            };
+            this.showAlert = true;
+        }
+
         // Create the form
         this.signInForm = this._formBuilder.group({
             username: ['', [Validators.required, Validators.email]],

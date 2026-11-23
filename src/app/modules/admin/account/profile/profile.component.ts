@@ -5889,7 +5889,7 @@ ${currentClipJson}
         continue;
       }
       if (this.sceneService.hasPropRig(p.id)) {
-        if (this.sceneService.deletePropCustomClip(p.id, clipName)) {
+        if (this.sceneService.deletePropCustomClip(p.id, clipName, { isSecondaryProp: true })) {
           removed = true;
         }
         const otherTl = this.sceneService.getPropTimeline(p.id);
@@ -5905,13 +5905,18 @@ ${currentClipJson}
         }
         if (bt.activeClipName === clipName) {
           removed = true;
-          const nextSaved = Array.isArray(bt.savedClips) && bt.savedClips.length > 0 ? bt.savedClips[0] : null;
-          bt.activeClipName = nextSaved ? nextSaved.name : null;
-          if (!nextSaved) {
-            bt.playing = false;
-            bt.keyframes = [];
-          } else if (bt.mode === 'clip') {
-            bt.keyframes = Array.isArray(nextSaved.keyframes) ? JSON.parse(JSON.stringify(nextSaved.keyframes)) : [];
+          const isStaticHidden = !bt.playing && bt.mode !== 'clip' && Array.isArray(bt.staticPose) && bt.staticPose.length > 0;
+          if (isStaticHidden) {
+            bt.activeClipName = null;
+          } else {
+            const nextSaved = Array.isArray(bt.savedClips) && bt.savedClips.length > 0 ? bt.savedClips[0] : null;
+            bt.activeClipName = bt.mode === 'clip' && nextSaved ? nextSaved.name : null;
+            if (!nextSaved || bt.mode !== 'clip') {
+              bt.playing = false;
+              bt.keyframes = [];
+            } else {
+              bt.keyframes = Array.isArray(nextSaved.keyframes) ? JSON.parse(JSON.stringify(nextSaved.keyframes)) : [];
+            }
           }
         }
       }

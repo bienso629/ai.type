@@ -217,10 +217,18 @@ export class ForumService {
     }
 
     public groups(dataForm: any): Observable<any> {
-        const url = `${this.config.settings.api[dataForm.server]}/forum/groups`;
+        const serverKey = dataForm?.server || 'vn.s3';
+        const baseUrl =
+            this.config?.settings?.api?.[serverKey] ||
+            this.config?.settings?.api?.['vn.s3'] ||
+            'https://apiv3.type.vn/v1';
+        const genKey =
+            this.config?.settings?.gen ||
+            '31d0a5e6e04fc470418db218464e8ac165816e8309afdd801725e3c2f42c43b8';
+        const url = `${baseUrl}/forum/groups`;
 
         let data = {
-            params: this._h.encrypt(dataForm, this.config.settings.gen)
+            params: this._h.encrypt(dataForm, genKey)
         };
 
         return this.http.post<any>(url, data, options).pipe(
@@ -270,8 +278,19 @@ export class ForumService {
         const targetServer = (server && this.config?.settings?.api?.[server]) ? server : 'vn.s3';
         return this.groups({
             server: targetServer
-        })
-            .pipe(takeUntil(this._unsubscribeAll))
+        }).pipe(
+            switchMap((res: any) => {
+                if (res && res.success && res.data && Array.isArray(res.data.groups) && res.data.groups.length > 0) {
+                    return of(res);
+                }
+                // Nếu server được chọn (vn.s1 / vn.s2 / local) lỗi hoặc ngừng phản hồi -> tự động fallback về vn.s3
+                if (targetServer !== 'vn.s3') {
+                    return this.groups({ server: 'vn.s3' });
+                }
+                return of(res);
+            }),
+            takeUntil(this._unsubscribeAll)
+        );
     }
 
     public createTopic(dataForm: any): Observable<any> {

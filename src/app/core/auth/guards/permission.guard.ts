@@ -99,6 +99,17 @@ export class PermissionGuard {
                                 this._userService.user = updatedUser;
                                 this._multiAccountService.setItem('user', updatedUser);
                                 this._multiAccountService.setItem('accessToken', AuthUtils._generateJWTToken(updatedUser));
+                                // Nếu máy chủ xác nhận tài khoản không còn trong "nhóm-đã-mua-ai-type" -> đăng xuất ngay
+                                if (
+                                    this._userService.hasPurchasedGroupDefinition(result.data.groups) &&
+                                    !this._userService.hasPurchasedGroup(updatedUser)
+                                ) {
+                                    this._userService.notifyPurchasedGroupRevoked(
+                                        updatedUser,
+                                        'Tài khoản của bạn không còn thuộc nhóm "nhóm-đã-mua-ai-type".',
+                                    );
+                                    return false;
+                                }
                                 return hasAccess(updatedUser) ? true : deny();
                             }
                             return deny();

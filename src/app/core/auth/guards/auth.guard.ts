@@ -117,6 +117,24 @@ export class AuthGuard  {
                         return of(this._router.createUrlTree(['/sign-in'], { queryParams: { redirectURL } }));
                     }
 
+                    // Nếu tài khoản đã có danh sách nhóm xác thực nhưng không thuộc "nhóm-đã-mua-ai-type" -> buộc đăng xuất
+                    const currentUser = this._userService.user;
+                    const hasSyncedGroups =
+                        !!currentUser &&
+                        ((Array.isArray(currentUser.groups) && currentUser.groups.length > 0) ||
+                            this._userService.isGroupsSyncedRecently(currentUser, 60 * 60 * 1000));
+                    if (hasSyncedGroups && !this._userService.hasPurchasedGroup(currentUser)) {
+                        this._userService.notifyPurchasedGroupRevoked(
+                            currentUser,
+                            'Tài khoản của bạn không còn thuộc nhóm "nhóm-đã-mua-ai-type".',
+                        );
+                        return of(
+                            this._router.createUrlTree(['/sign-in'], {
+                                queryParams: { reason: 'missing_purchased_group' },
+                            }),
+                        );
+                    }
+
                     // Allow the access once authenticated
                     return of(true);
                 })

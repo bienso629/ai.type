@@ -1,13 +1,16 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { map, Observable, ReplaySubject, tap } from 'rxjs';
+import { map, Observable, ReplaySubject, Subject, tap } from 'rxjs';
 import { User } from 'app/core/user/user.types';
 
 @Injectable({
     providedIn: 'root'
 })
 export class UserService {
+    public static readonly PURCHASED_GROUP_SLUG = 'nhóm-đã-mua-ai-type';
+
     private _user: ReplaySubject<User> = new ReplaySubject<User>(1);
+    private _purchasedGroupRevoked: Subject<{ user: User | null; reason?: string }> = new Subject();
 
     /**
      * Constructor
@@ -54,6 +57,14 @@ export class UserService {
 
     get user$(): Observable<User> {
         return this._user.asObservable();
+    }
+
+    get purchasedGroupRevoked$(): Observable<{ user: User | null; reason?: string }> {
+        return this._purchasedGroupRevoked.asObservable();
+    }
+
+    public notifyPurchasedGroupRevoked(user: User | null | undefined, reason?: string): void {
+        this._purchasedGroupRevoked.next({ user: user || null, reason });
     }
 
     // -----------------------------------------------------------------------------------------------------
@@ -216,6 +227,27 @@ export class UserService {
         }
         const target = this._normalizeGroupSlug(groupSlug);
         return user.groups.some((g) => this._normalizeGroupSlug(g) === target);
+    }
+
+    public hasPurchasedGroup(user: User | null | undefined): boolean {
+        return this.hasGroup(user, UserService.PURCHASED_GROUP_SLUG);
+    }
+
+    /**
+     * Xác nhận phản hồi nhóm từ máy chủ có thực sự chứa định nghĩa nhóm "nhóm-đã-mua-ai-type"
+     * (tránh đăng xuất nhầm khi phản hồi lỗi/rỗng hoặc bị gián đoạn mạng).
+     */
+    public hasPurchasedGroupDefinition(groupsData: any[]): boolean {
+        if (!Array.isArray(groupsData) || groupsData.length === 0) {
+            return false;
+        }
+        const target = this._normalizeGroupSlug(UserService.PURCHASED_GROUP_SLUG);
+        return groupsData.some(
+            (g: any) =>
+                g &&
+                (this._normalizeGroupSlug(g.slug || '') === target ||
+                    this._normalizeGroupSlug(g.name || '') === target),
+        );
     }
 
     public isAdmin(user: User | null | undefined): boolean {

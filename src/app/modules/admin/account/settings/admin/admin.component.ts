@@ -569,6 +569,26 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         
         row._originalGroups = [...newSelectedGroups];
         this.toastr.success(`Đã cập nhật nhóm cho ${row.username}`);
+
+        // Nếu vừa chỉnh nhóm cho chính tài khoản đang đăng nhập và gỡ khỏi "nhóm-đã-mua-ai-type" -> đăng xuất ngay lập tức
+        const currentUser = this._userService.user || this.user;
+        const isCurrentUser =
+            !!currentUser &&
+            ((row.uid !== undefined && currentUser.id !== undefined && String(row.uid) === String(currentUser.id)) ||
+                (row.username &&
+                    currentUser.name &&
+                    String(row.username).trim().toLowerCase() === String(currentUser.name).trim().toLowerCase()));
+        if (isCurrentUser) {
+            const updatedUser = { ...currentUser, groups: [...newSelectedGroups] };
+            if (!this._userService.hasPurchasedGroup(updatedUser)) {
+                this._userService.notifyPurchasedGroupRevoked(
+                    updatedUser,
+                    'Tài khoản của bạn không còn thuộc nhóm "nhóm-đã-mua-ai-type" nên đã tự động đăng xuất.',
+                );
+            } else {
+                this._userService.user = updatedUser;
+            }
+        }
     }
 
     async sendEmailToSelected() {
