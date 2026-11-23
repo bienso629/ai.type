@@ -225,47 +225,9 @@ function buildEncryptedVault(bytecodeObfConfig) {
     return keyDistJs;
 }
 
-function batchCompileToBytecode(jsFiles, electronPath) {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitype-v8-batch-'));
-    const jobsPath = path.join(tmpDir, 'jobs.json');
-    const compilerScriptPath = path.join(tmpDir, 'batch-compiler.js');
-
-    const jobs = jsFiles.map((jsPath) => ({
-        input: jsPath,
-        output: jsPath.replace(/\.js$/, '.jsc'),
-    }));
-    fs.writeFileSync(jobsPath, JSON.stringify(jobs), 'utf8');
-
-    const isDarwin = process.platform === 'darwin';
-
-    // Trên macOS: chạy bên trong Electron Main Process thực (app.whenReady) để vượt qua Hardened Runtime
-    // chặn ELECTRON_RUN_AS_NODE=1 trên castLabs Electron macOS.
-    // Trên Windows / Linux: chạy nhanh với ELECTRON_RUN_AS_NODE=1 (không cần X11 / GUI).
-    const compilerCore = `
-const fs = require('fs');
-const Module = require('module');
-const vm = require('vm');
-const v8 = require('v8');
-
-v8.setFlagsFromString('--no-lazy');
-v8.setFlagsFromString('--no-flush-bytecode');
-
-function compileAll() {
-    const jobs = JSON.parse(fs.readFileSync(${JSON.stringify(jobsPath)}, 'utf8'));
-    for (const job of jobs) {
-        const raw = fs.readFileSync(job.input, 'utf8').replace(/^#!.*/, '');
-        const wrapped = Module.wrap(raw);
-        const script = new vm.Script(wrapped, { produceCachedData: true });
-        const buf = typeof script.createCachedData === 'function' ? script.createCachedData() : script.cachedData;
-        if (!buf || buf.length === 0) {
-            throw new Error('Empty V8 bytecode generated for: ' + job.input);
-        }
-        fs.writeFileSync(job.output, buf);
-    }
-}
-`;
-
-    const runnerScript = isDarwin
+function runSingleCompileAttempt(electronPath, mode, compilerCore, tmpDir) {
+    const compilerScriptPath = path.join(tmpDir, `batch-compiler-${mode}.js`);
+    const runnerScript = mode === 'main'
         ? `${compilerCore}
 const { app } = require('electron');
 if (typeof app.disableHardwareAcceleration === 'function') app.disableHardwareAcceleration();
@@ -292,8 +254,11 @@ try {
     fs.writeFileSync(compilerScriptPath, runnerScript, 'utf8');
 
     const env = Object.assign({}, process.env);
+    // Tránh NODE_OPTIONS của bước build Angular (--max-old-space-size) làm lỗi V8 của Electron
+    delete env.NODE_OPTIONS;
+
     let args;
-    if (isDarwin) {
+    if (mode === 'main') {
         delete env.ELECTRON_RUN_AS_NODE;
         args = ['--no-sandbox', '--user-data-dir=' + path.join(tmpDir, 'userdata'), compilerScriptPath];
     } else {
@@ -301,20 +266,88 @@ try {
         args = [compilerScriptPath];
     }
 
-    try {
-        const res = spawnSync(electronPath, args, {
-            env,
-            encoding: 'utf8',
-            maxBuffer: 16 * 1024 * 1024,
-            timeout: 180000,
-        });
+    return spawnSync(electronPath, args, {
+        env,
+        encoding: 'utf8',
+        maxBuffer: 16 * 1024 * 1024,
+        timeout: 180000,
+    });
+}
 
-        if (res.error) {
-            throw res.error;
+function batchCompileToBytecode(jsFiles, electronPath) {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitype-v8-batch-'));
+    const jobsPath = path.join(tmpDir, 'jobs.json');
+
+    const jobs = jsFiles.map((jsPath) => ({
+        input: jsPath,
+        output: jsPath.replace(/\.js$/, '.jsc'),
+    }));
+    fs.writeFileSync(jobsPath, JSON.stringify(jobs), 'utf8');
+
+    const isDarwin = process.platform === 'darwin';
+
+    const compilerCore = `
+const fs = require('fs');
+const Module = require('module');
+const vm = require('vm');
+const v8 = require('v8');
+
+v8.setFlagsFromString('--no-lazy');
+v8.setFlagsFromString('--no-flush-bytecode');
+
+function compileAll() {
+    const jobs = JSON.parse(fs.readFileSync(${JSON.stringify(jobsPath)}, 'utf8'));
+    for (const job of jobs) {
+        const raw = fs.readFileSync(job.input, 'utf8').replace(/^#!.*/, '');
+        const wrapped = Module.wrap(raw);
+        const script = new vm.Script(wrapped, { produceCachedData: true });
+        const buf = typeof script.createCachedData === 'function' ? script.createCachedData() : script.cachedData;
+        if (!buf || buf.length === 0) {
+            throw new Error('Empty V8 bytecode generated for: ' + job.input);
         }
-        if (res.status !== 0) {
+        fs.writeFileSync(job.output, buf);
+    }
+}
+`;
+
+    try {
+        let res = runSingleCompileAttempt(electronPath, 'node', compilerCore, tmpDir);
+
+        if (isDarwin && (res.error || res.status !== 0)) {
+            console.warn(
+                `[compile-bytecode] macOS attempt 1 (ELECTRON_RUN_AS_NODE) failed (status=${res.status}, signal=${res.signal}): ${(res.stderr || res.stdout || '').trim()}`
+            );
+
+            // Thử ký lại ad-hoc cho Electron.app trên Apple Silicon rồi thử lại ELECTRON_RUN_AS_NODE
+            const appIdx = electronPath.indexOf('.app');
+            if (appIdx !== -1) {
+                const appBundle = electronPath.slice(0, appIdx + 4);
+                spawnSync('codesign', ['--force', '--deep', '--sign', '-', appBundle], { encoding: 'utf8' });
+                res = runSingleCompileAttempt(electronPath, 'node', compilerCore, tmpDir);
+            }
+        }
+
+        if (isDarwin && (res.error || res.status !== 0)) {
+            console.warn(
+                `[compile-bytecode] macOS attempt 2 failed (status=${res.status}, signal=${res.signal}), trying Electron main process...`
+            );
+            res = runSingleCompileAttempt(electronPath, 'main', compilerCore, tmpDir);
+        }
+
+        if (res.error || res.status !== 0) {
+            const detail = res.error ? res.error.message : (res.stderr || res.stdout || '').trim();
+            if (isDarwin) {
+                // Trên runner macOS CI headless không hỗ trợ khởi chạy Electron.app: giữ nguyên JS đã obfuscate + vault.bin AES-256-GCM + @electron/fuses
+                console.warn(
+                    `[compile-bytecode] Cảnh báo: không thể biên dịch .jsc trên macOS CI (status=${res.status}, signal=${res.signal}): ${detail}. Giữ nguyên bản JS đã obfuscate kèm vault.bin AES-256-GCM.`
+                );
+                for (const job of jobs) {
+                    try { if (fs.existsSync(job.output)) fs.unlinkSync(job.output); } catch (_) {}
+                }
+                return false;
+            }
             throw new Error(
-                `Biên dịch V8 Bytecode thất bại (platform=${process.platform}, exit=${res.status}, signal=${res.signal}):\n${(res.stderr || res.stdout || '').trim()}`
+                `Biên dịch V8 Bytecode thất bại (platform=${process.platform}, exit=${res.status}, signal=${res.signal}):\n${detail}`
             );
         }
 
@@ -327,6 +360,7 @@ try {
             const loaderCode = `'use strict';require('bytenode');module.exports=require('./${baseName}.jsc');\n`;
             fs.writeFileSync(job.input, loaderCode, 'utf8');
         }
+        return true;
     } finally {
         try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
     }
