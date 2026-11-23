@@ -144,7 +144,9 @@
                         }
                         <!-- Plugins -->
                         @case ("plugins") {
-                            <settings-plugins></settings-plugins>
+                            @if (canUsePlugins) {
+                                <settings-plugins></settings-plugins>
+                            }
                         }
                         <!-- Font chữ -->
                         @case ("font") {

@@ -2932,40 +2932,109 @@
                                     </span>
                                 }
 
-                                <input
-                                    type="text"
-                                    [(ngModel)]="aiMotionPrompt"
-                                    (keydown.enter)="designMotionWithAi()"
-                                    [disabled]="isDesigningAiMotion"
-                                    placeholder="Mô tả tự do (VD: Đi tới cầm chiếc điện thoại lên xem rồi quay đi 2m, Đấm quyền anh...) hoặc chọn Video mẫu"
-                                    class="glb-ai-motion-input"
-                                />
+                                <div class="glb-ai-motion-input-wrap">
+                                    @if (showAiMotionMentionMenu) {
+                                        <div class="glb-ai-mention-menu">
+                                            <div class="glb-ai-mention-menu__header">
+                                                <span>Chọn đồ vật / nhân vật trong cảnh (@mention)</span>
+                                                <span class="glb-ai-mention-menu__hint">Enter / Tab để chọn</span>
+                                            </div>
+                                            @if (filteredAiMotionMentionProps.length > 0) {
+                                                <div class="glb-ai-mention-menu__list custom-scrollbar">
+                                                    @for (item of filteredAiMotionMentionProps; track item.id; let i = $index) {
+                                                        <button
+                                                            type="button"
+                                                            class="glb-ai-mention-item"
+                                                            [class.glb-ai-mention-item--active]="i === aiMotionMentionIndex"
+                                                            (mousedown)="$event.preventDefault(); selectAiMotionMention(item)"
+                                                            (mouseenter)="aiMotionMentionIndex = i"
+                                                        >
+                                                            <mat-icon class="icon-size-4 shrink-0 glb-ai-mention-item__icon">
+                                                                {{ item.isHumanoid ? 'accessibility_new' : 'view_in_ar' }}
+                                                            </mat-icon>
+                                                            <span class="glb-ai-mention-item__name" [title]="item.name">@{{ item.name }}</span>
+                                                            <span class="glb-ai-mention-item__meta">
+                                                                {{ item.distanceMeters }}m · {{ item.dirLabel }}{{ !item.isHumanoid ? (' · ' + item.heightLabel) : '' }}
+                                                            </span>
+                                                        </button>
+                                                    }
+                                                </div>
+                                            } @else {
+                                                <div class="glb-ai-mention-empty">
+                                                    Không tìm thấy đồ vật nào đang hiển thị khớp với "{{ '@' + aiMotionMentionQuery }}"
+                                                </div>
+                                            }
+                                        </div>
+                                    }
 
-                                <button
-                                    type="button"
-                                    class="glb-tl-btn glb-tl-btn--accent"
-                                    (click)="designMotionWithAi()"
-                                    [disabled]="isDesigningAiMotion"
-                                >
-                                    <mat-icon class="icon-size-4" [class.animate-spin]="isDesigningAiMotion">
-                                        {{ isDesigningAiMotion ? 'sync' : 'auto_awesome' }}
-                                    </mat-icon>
-                                    <span>
-                                        @if (isDesigningAiMotion) {
-                                            {{ aiMotionProgressPercent > 0 ? ('Đang tạo ' + aiMotionProgressPercent + '%') : 'Đang tạo...' }}
-                                        } @else {
-                                            Tạo chuyển động
-                                        }
+                                    <input
+                                        #aiMotionPromptInput
+                                        type="text"
+                                        [(ngModel)]="aiMotionPrompt"
+                                        (input)="onAiMotionPromptInput($event)"
+                                        (keydown)="onAiMotionPromptKeydown($event)"
+                                        (blur)="onAiMotionPromptBlur()"
+                                        [disabled]="isDesigningAiMotion"
+                                        placeholder="Mô tả chuyển động (gõ @ để chọn chính xác đồ vật trong cảnh) hoặc chọn Video mẫu"
+                                        class="glb-ai-motion-input"
+                                    />
+
+                                    <button
+                                        type="button"
+                                        class="glb-ai-mention-trigger"
+                                        [disabled]="isDesigningAiMotion"
+                                        (mousedown)="$event.preventDefault(); triggerAiMotionMentionInsert()"
+                                        title="Chèn @mention để chọn chính xác đồ vật trong cảnh"
+                                    >@</button>
+                                </div>
+
+                                @if (isDesigningAiMotion) {
+                                    <span class="glb-ai-status-pill">
+                                        <mat-icon class="icon-size-4 animate-spin">sync</mat-icon>
+                                        <span>{{ aiMotionProgressPercent > 0 ? ('Đang tạo ' + aiMotionProgressPercent + '%') : 'Đang tạo...' }}</span>
                                     </span>
-                                </button>
+                                    <button
+                                        type="button"
+                                        class="glb-tl-btn glb-tl-btn--stop"
+                                        (click)="stopAiMotionDesign()"
+                                        title="Dừng tạo chuyển động AI ngay lập tức"
+                                    >
+                                        <mat-icon class="icon-size-4">stop_circle</mat-icon>
+                                        <span>Dừng</span>
+                                    </button>
+                                } @else {
+                                    <button
+                                        type="button"
+                                        class="glb-tl-btn glb-tl-btn--accent"
+                                        (click)="designMotionWithAi()"
+                                    >
+                                        <mat-icon class="icon-size-4">auto_awesome</mat-icon>
+                                        <span>Tạo chuyển động</span>
+                                    </button>
+                                }
                             </div>
 
                             @if (isDesigningAiMotion && aiMotionProgressStage) {
                                 <div class="glb-ai-progress">
-                                    <div class="glb-ai-progress__bar">
-                                        <div class="glb-ai-progress__fill" [style.width.%]="aiMotionProgressPercent"></div>
-                                    </div>
+                                    @if (aiMotionProgressPercent > 0) {
+                                        <div class="glb-ai-progress__bar">
+                                            <div class="glb-ai-progress__fill" [style.width.%]="aiMotionProgressPercent"></div>
+                                        </div>
+                                    }
                                     <span class="glb-ai-progress__text">{{ aiMotionProgressStage }}</span>
+                                </div>
+                            }
+
+                            @if (aiMotionError && !isDesigningAiMotion) {
+                                <div class="glb-ai-error">
+                                    <mat-icon class="icon-size-4 shrink-0">error_outline</mat-icon>
+                                    <span class="glb-ai-error__text">{{ aiMotionError }}</span>
+                                    <button
+                                        type="button"
+                                        class="glb-ai-error__close"
+                                        (click)="aiMotionError = ''"
+                                        title="Đóng thông báo lỗi"
+                                    >&times;</button>
                                 </div>
                             }
 

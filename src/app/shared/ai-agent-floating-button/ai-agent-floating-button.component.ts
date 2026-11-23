@@ -9,6 +9,7 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AiAgentKnowledgeService } from '../../core/services/ai-agent-knowledge.service';
+import { UserService } from '../../core/user/user.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -24,9 +25,11 @@ export class AiAgentFloatingButtonComponent implements OnInit, OnDestroy {
     isAnimating = false;
     isCoolingDown = false;
     private sub: Subscription | null = null;
+    private userSub: Subscription | null = null;
 
     constructor(
         public aiKnowledgeService: AiAgentKnowledgeService,
+        private _userService: UserService,
         private cd: ChangeDetectorRef,
     ) {}
 
@@ -42,27 +45,32 @@ export class AiAgentFloatingButtonComponent implements OnInit, OnDestroy {
             this.cd.detectChanges();
         });
 
-        if (
-            (window as any).electronAPI &&
-            (window as any).electronAPI.getPluginsStatus
-        ) {
-            try {
-                const list = await (
-                    window as any
-                ).electronAPI.getPluginsStatus();
-                const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
-                if (
-                    aiAgent &&
-                    aiAgent.installed === true &&
-                    aiAgent.enabled === true
-                ) {
-                    this.isPluginInstalled = true;
-                    this.cd.detectChanges();
-                }
-            } catch (e) {
-                console.error('[AI Agent]', e);
+        this.userSub = this._userService.user$.subscribe(async (user) => {
+            if (!this._userService.canAccessPlugins(user)) {
+                this.isPluginInstalled = false;
+                this.cd.detectChanges();
+                return;
             }
-        }
+            if (
+                (window as any).electronAPI &&
+                (window as any).electronAPI.getPluginsStatus
+            ) {
+                try {
+                    const list = await (
+                        window as any
+                    ).electronAPI.getPluginsStatus();
+                    const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
+                    this.isPluginInstalled = !!(
+                        aiAgent &&
+                        aiAgent.installed === true &&
+                        aiAgent.enabled === true
+                    );
+                    this.cd.detectChanges();
+                } catch (e) {
+                    console.error('[AI Agent]', e);
+                }
+            }
+        });
     }
 
     onAnimationIteration(event: any) {
@@ -88,6 +96,9 @@ export class AiAgentFloatingButtonComponent implements OnInit, OnDestroy {
     ngOnDestroy() {
         if (this.sub) {
             this.sub.unsubscribe();
+        }
+        if (this.userSub) {
+            this.userSub.unsubscribe();
         }
     }
 }

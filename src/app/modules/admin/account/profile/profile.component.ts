@@ -60,6 +60,7 @@ export class ProfileComponent implements AfterViewInit, OnDestroy {
   @ViewChild('promptFileInput') promptFileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('poseRefFileInput') poseRefFileInput?: ElementRef<HTMLInputElement>;
   @ViewChild('promptInputArea') promptInputArea?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('aiMotionPromptInput') aiMotionPromptInput?: ElementRef<HTMLInputElement>;
 
   isLoading    = true;
   isProcessingPrompt = false;
@@ -2685,7 +2686,7 @@ Nhiệm vụ: Dựa vào mô tả cú máy của người dùng, hãy thiết k�
         model: 'gemini-3.8-flash',
         contents: [{ role: 'user', parts: [{ text: systemPrompt }] }],
         config: {
-          bypassAiAgent: true,
+          skipTTS: true,
           disableThinking: true,
           temperature: 0.25
         } as any
@@ -5071,7 +5072,7 @@ ${refSection}
         model: 'gemini-3.8-flash',
         contents: [{ role: 'user', parts }],
         config: {
-          bypassAiAgent: true,
+          skipTTS: true,
           disableThinking: true,
           temperature: 0.15
         } as any
@@ -5144,7 +5145,7 @@ Trả về JSON thuần túy với \`"mode": "adjust"\` chỉ chứa các khớp
                     { inlineData: { mimeType: renderSnap.mimeType, data: renderSnap.base64 } }
                   ]
                 }],
-                config: { bypassAiAgent: true, disableThinking: true, temperature: 0.1 } as any
+                config: { skipTTS: true, disableThinking: true, temperature: 0.1 } as any
               });
               const vRaw =
                 verifyRes?.text ||
@@ -5745,7 +5746,7 @@ ${currentClipJson}
         model: 'gemini-3.8-flash',
         contents: [{ role: 'user', parts: [{ text: systemPrompt }] }],
         config: {
-          bypassAiAgent: true,
+          skipTTS: true,
           disableThinking: true,
           temperature: 0.2
         } as any
@@ -5952,11 +5953,32 @@ ${currentClipJson}
   // ============================================================================
   isAiMotionBarOpen = false;
   isDesigningAiMotion = false;
+  aiMotionError = '';
   aiMotionPrompt = '';
+  showAiMotionMentionMenu = false;
+  aiMotionMentionQuery = '';
+  aiMotionMentionAtIndex = -1;
+  aiMotionMentionIndex = 0;
+  filteredAiMotionMentionProps: Array<{
+    id: string;
+    name: string;
+    hasRig: boolean;
+    isHumanoid: boolean;
+    distanceMeters: number;
+    angleDeg: number;
+    relForwardMeters: number;
+    relLeftMeters: number;
+    heightMeters: number;
+    heightLabel: string;
+    dirLabel: string;
+  }> = [];
+  private _aiMotionMentionBlurTimer: any = null;
   aiMotionVideoName = '';
   aiMotionVideoDuration = 0;
   aiMotionVideoFile: File | null = null;
   aiMotionVideoPath = '';
+  private _aiMotionAbortController: AbortController | null = null;
+  private _aiMotionRunSeq = 0;
   aiMotionProgressPercent = 0;
   aiMotionProgressStage = '';
   aiMotionLastEngine = '';
@@ -5972,7 +5994,348 @@ ${currentClipJson}
 
   toggleAiMotionBar(): void {
     this.isAiMotionBarOpen = !this.isAiMotionBarOpen;
+    if (!this.isAiMotionBarOpen) {
+      this.showAiMotionMentionMenu = false;
+    }
     this.cdr.markForCheck();
+  }
+
+  private _getActiveMotionActorId(): string | null {
+    return (
+      this.timelinePropId ||
+      this.selectedPropId ||
+      this.roomProps.find((p) => p && p.visible && this.sceneService.hasPropRig(p.id))?.id ||
+      null
+    );
+  }
+
+  private _normalizeMentionText(text: string): string {
+    return String(text || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'd')
+      .toLowerCase()
+      .replace(/[\s_.-]+/g, '');
+  }
+
+  private _formatMentionDirLabel(angleDeg: number): string {
+    const a = Number(angleDeg) || 0;
+    if (Math.abs(a) <= 35) return 'trước mặt';
+    if (Math.abs(a) >= 145) return 'phía sau';
+    return a > 0 ? 'bên trái' : 'bên phải';
+  }
+
+  private _getAiMotionMentionCandidates(actorPropId: string | null) {
+    const rawTargets = this.sceneService.getScenePropsForInteraction(actorPropId);
+    const propNameById = new Map<string, string>();
+    for (const p of this.roomProps || []) {
+      if (p?.id && p?.name) propNameById.set(p.id, String(p.name));
+    }
+    return rawTargets.map((t) => ({
+      ...t,
+      name: propNameById.get(t.id) || t.name,
+      dirLabel: this._formatMentionDirLabel(t.angleDeg)
+    }));
+  }
+
+  onAiMotionPromptInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input) return;
+    const value = input.value || '';
+    const cursor = input.selectionStart ?? value.length;
+    const textBeforeCursor = value.slice(0, cursor);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex >= 0) {
+      const charBeforeAt = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : '';
+      const validBoundary = lastAtIndex === 0 || /[\s,.;:!?(\[{'"/-]/.test(charBeforeAt);
+      const query = textBeforeCursor.slice(lastAtIndex + 1);
+      if (validBoundary && !query.includes('\n') && !/\s{2,}/.test(query)) {
+        const candidates = this._getAiMotionMentionCandidates(this._getActiveMotionActorId());
+        const qLower = query.trim().toLowerCase();
+        const qNorm = this._normalizeMentionText(query);
+        const matched = qLower.length === 0
+          ? candidates
+          : candidates.filter((item) => {
+              const nameLower = item.name.toLowerCase();
+              const idLower = item.id.toLowerCase();
+              return (
+                nameLower.includes(qLower) ||
+                idLower.includes(qLower) ||
+                (qNorm.length > 0 && (
+                  this._normalizeMentionText(item.name).includes(qNorm) ||
+                  this._normalizeMentionText(item.id).includes(qNorm)
+                ))
+              );
+            });
+
+        // Nếu người dùng đã gõ xong khoảng trắng sau 1 mention không còn khớp gì, tự đóng menu để không cản trở gõ tiếp
+        if (query.includes(' ') && matched.length === 0) {
+          this.showAiMotionMentionMenu = false;
+          this.aiMotionMentionAtIndex = -1;
+          this.cdr.markForCheck();
+          return;
+        }
+
+        this.aiMotionMentionQuery = query;
+        this.aiMotionMentionAtIndex = lastAtIndex;
+        this.filteredAiMotionMentionProps = matched;
+        this.aiMotionMentionIndex = 0;
+        this.showAiMotionMentionMenu = candidates.length > 0;
+        this.cdr.markForCheck();
+        return;
+      }
+    }
+
+    this.showAiMotionMentionMenu = false;
+    this.aiMotionMentionAtIndex = -1;
+    this.cdr.markForCheck();
+  }
+
+  onAiMotionPromptKeydown(event: KeyboardEvent): void {
+    if (this.showAiMotionMentionMenu) {
+      if (event.key === 'ArrowDown' && this.filteredAiMotionMentionProps.length > 0) {
+        event.preventDefault();
+        this.aiMotionMentionIndex = (this.aiMotionMentionIndex + 1) % this.filteredAiMotionMentionProps.length;
+        this.cdr.markForCheck();
+        return;
+      }
+      if (event.key === 'ArrowUp' && this.filteredAiMotionMentionProps.length > 0) {
+        event.preventDefault();
+        this.aiMotionMentionIndex =
+          (this.aiMotionMentionIndex - 1 + this.filteredAiMotionMentionProps.length) % this.filteredAiMotionMentionProps.length;
+        this.cdr.markForCheck();
+        return;
+      }
+      if ((event.key === 'Enter' || event.key === 'Tab') && this.filteredAiMotionMentionProps.length > 0) {
+        event.preventDefault();
+        const picked = this.filteredAiMotionMentionProps[this.aiMotionMentionIndex] || this.filteredAiMotionMentionProps[0];
+        if (picked) this.selectAiMotionMention(picked);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.showAiMotionMentionMenu = false;
+        this.aiMotionMentionAtIndex = -1;
+        this.cdr.markForCheck();
+        return;
+      }
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.showAiMotionMentionMenu = false;
+      this.designMotionWithAi();
+    }
+  }
+
+  onAiMotionPromptBlur(): void {
+    if (this._aiMotionMentionBlurTimer) clearTimeout(this._aiMotionMentionBlurTimer);
+    this._aiMotionMentionBlurTimer = setTimeout(() => {
+      this.showAiMotionMentionMenu = false;
+      this.cdr.markForCheck();
+    }, 150);
+  }
+
+  triggerAiMotionMentionInsert(): void {
+    if (this.isDesigningAiMotion) return;
+    if (this._aiMotionMentionBlurTimer) clearTimeout(this._aiMotionMentionBlurTimer);
+    const input = this.aiMotionPromptInput?.nativeElement;
+    const value = this.aiMotionPrompt || '';
+    const cursor = input ? (input.selectionStart ?? value.length) : value.length;
+    const before = value.slice(0, cursor);
+    const after = value.slice(cursor);
+    const needsLeadingSpace = before.length > 0 && !/\s$/.test(before) && !before.endsWith('@');
+    const insertStr = before.endsWith('@') ? '' : (needsLeadingSpace ? ' @' : '@');
+    const nextVal = before + insertStr + after;
+    const nextCursor = before.length + insertStr.length;
+    this.aiMotionPrompt = nextVal;
+    const candidates = this._getAiMotionMentionCandidates(this._getActiveMotionActorId());
+    this.aiMotionMentionQuery = '';
+    this.aiMotionMentionAtIndex = nextCursor - 1;
+    this.filteredAiMotionMentionProps = candidates;
+    this.aiMotionMentionIndex = 0;
+    this.showAiMotionMentionMenu = candidates.length > 0;
+    if (candidates.length === 0) {
+      this.toastr.info('Chưa có đồ vật hoặc nhân vật nào khác đang hiển thị trong cảnh 3D.', 'AI Motion Studio');
+    }
+    this.cdr.markForCheck();
+    setTimeout(() => {
+      if (this.aiMotionPromptInput?.nativeElement) {
+        const el = this.aiMotionPromptInput.nativeElement;
+        el.focus();
+        el.setSelectionRange(nextCursor, nextCursor);
+      }
+    }, 0);
+  }
+
+  selectAiMotionMention(item: { id: string; name: string }): void {
+    if (!item) return;
+    if (this._aiMotionMentionBlurTimer) clearTimeout(this._aiMotionMentionBlurTimer);
+    const input = this.aiMotionPromptInput?.nativeElement;
+    const value = this.aiMotionPrompt || '';
+    const cursor = input ? (input.selectionStart ?? value.length) : value.length;
+    const atIdx =
+      this.aiMotionMentionAtIndex >= 0 && value[this.aiMotionMentionAtIndex] === '@'
+        ? this.aiMotionMentionAtIndex
+        : value.slice(0, cursor).lastIndexOf('@');
+
+    const inserted = `@${item.name} `;
+    let nextVal = value;
+    let nextCursor = value.length;
+    if (atIdx >= 0) {
+      const suffix = value.slice(cursor);
+      const cleanSuffix = suffix.startsWith(' ') ? suffix.slice(1) : suffix;
+      nextVal = value.slice(0, atIdx) + inserted + cleanSuffix;
+      nextCursor = atIdx + inserted.length;
+    } else {
+      const prefix = value.trim() ? value.trim() + ' ' : '';
+      nextVal = prefix + inserted;
+      nextCursor = nextVal.length;
+    }
+
+    this.aiMotionPrompt = nextVal;
+    this.showAiMotionMentionMenu = false;
+    this.aiMotionMentionQuery = '';
+    this.aiMotionMentionAtIndex = -1;
+    this.cdr.markForCheck();
+
+    setTimeout(() => {
+      if (this.aiMotionPromptInput?.nativeElement) {
+        const el = this.aiMotionPromptInput.nativeElement;
+        el.focus();
+        el.setSelectionRange(nextCursor, nextCursor);
+      }
+    }, 0);
+  }
+
+  private _resolveAiMotionMentionTargets(
+    prompt: string,
+    targets: ReturnType<SontinhSceneService['getScenePropsForInteraction']>
+  ): Array<{
+    mentionText: string;
+    target: ReturnType<SontinhSceneService['getScenePropsForInteraction']>[number];
+  }> {
+    if (!prompt || !Array.isArray(targets) || targets.length === 0) return [];
+    const propNameById = new Map<string, string>();
+    for (const p of this.roomProps || []) {
+      if (p?.id && p?.name) propNameById.set(p.id, String(p.name));
+    }
+    const enriched = targets.map((t) => ({
+      ...t,
+      name: propNameById.get(t.id) || t.name
+    }));
+
+    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const foundByPos: Array<{ pos: number; end: number; mentionText: string; target: (typeof enriched)[number] }> = [];
+    const claimedRanges: Array<[number, number]> = [];
+    const overlaps = (s: number, e: number) => claimedRanges.some(([a, b]) => s < b && e > a);
+
+    // 1. Khớp chính xác @<tên đầy đủ> (kể cả tên có khoảng trắng như "@human-base-rigged 2") hoặc @<id>, ưu tiên tên dài trước
+    const byLongestName = [...enriched].sort((a, b) => b.name.length - a.name.length);
+    for (const t of byLongestName) {
+      for (const candidateLabel of [t.name, t.id]) {
+        if (!candidateLabel) continue;
+        const re = new RegExp(`@${escapeRegex(candidateLabel)}(?=$|[\\s,.;:!?()\\[\\]{}'"\\/])`, 'gi');
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(prompt)) !== null) {
+          const start = m.index;
+          const end = start + m[0].length;
+          if (!overlaps(start, end)) {
+            claimedRanges.push([start, end]);
+            foundByPos.push({ pos: start, end, mentionText: m[0], target: t });
+          }
+        }
+      }
+    }
+
+    // 2. Fallback cho các @token người dùng tự gõ ngắn (vd "@titan", "@black") chưa khớp ở bước 1
+    const tokenRe = /@([^\s,.;:!?()\[\]{}'"]+)/g;
+    let tm: RegExpExecArray | null;
+    while ((tm = tokenRe.exec(prompt)) !== null) {
+      const start = tm.index;
+      const end = start + tm[0].length;
+      if (overlaps(start, end)) continue;
+      const qNorm = this._normalizeMentionText(tm[1]);
+      if (!qNorm) continue;
+      const match = enriched.find((t) => {
+        const nNorm = this._normalizeMentionText(t.name);
+        const idNorm = this._normalizeMentionText(t.id);
+        return nNorm === qNorm || idNorm === qNorm || nNorm.includes(qNorm) || idNorm.includes(qNorm);
+      });
+      if (match) {
+        claimedRanges.push([start, end]);
+        foundByPos.push({ pos: start, end, mentionText: tm[0], target: match });
+      }
+    }
+
+    foundByPos.sort((a, b) => a.pos - b.pos);
+    const seenIds = new Set<string>();
+    const ordered: Array<{ mentionText: string; target: (typeof enriched)[number] }> = [];
+    for (const entry of foundByPos) {
+      if (seenIds.has(entry.target.id)) continue;
+      seenIds.add(entry.target.id);
+      ordered.push({ mentionText: entry.mentionText, target: entry.target });
+    }
+    return ordered;
+  }
+
+  private _normalizePlanSegmentTargets(
+    segments: any[],
+    resolvedMentions: Array<{ mentionText: string; target: { id: string; name: string } }>,
+    allTargets: Array<{ id: string; name: string }>
+  ): void {
+    if (!Array.isArray(segments) || allTargets.length === 0) return;
+    const validIdSet = new Set(allTargets.map((t) => t.id));
+    const lookupByLabel = (raw: string): string | null => {
+      const cleaned = String(raw || '').trim().replace(/^@+/, '');
+      if (!cleaned) return null;
+      if (validIdSet.has(cleaned)) return cleaned;
+      const cLower = cleaned.toLowerCase();
+      const cNorm = this._normalizeMentionText(cleaned);
+      const pools = [resolvedMentions.map((m) => m.target), allTargets];
+      for (const pool of pools) {
+        const exact = pool.find((t) => t.id.toLowerCase() === cLower || t.name.toLowerCase() === cLower);
+        if (exact) return exact.id;
+        const fuzzy = pool.find(
+          (t) =>
+            this._normalizeMentionText(t.name) === cNorm ||
+            this._normalizeMentionText(t.id) === cNorm ||
+            (cNorm.length >= 3 && (this._normalizeMentionText(t.name).includes(cNorm) || this._normalizeMentionText(t.id).includes(cNorm)))
+        );
+        if (fuzzy) return fuzzy.id;
+      }
+      return null;
+    };
+
+    const singleMentionId = resolvedMentions.length === 1 ? resolvedMentions[0].target.id : null;
+    const mentionedIdSet = new Set(resolvedMentions.map((m) => m.target.id));
+
+    for (const seg of segments) {
+      if (!seg || typeof seg !== 'object') continue;
+      const isTargetSeg =
+        seg.type === 'approach' ||
+        seg.type === 'reach_and_grab' ||
+        seg.type === 'release' ||
+        seg.type === 'walk_and_grab';
+
+      if (typeof seg.targetPropId === 'string' && seg.targetPropId.trim()) {
+        const mapped = lookupByLabel(seg.targetPropId);
+        if (mapped) {
+          seg.targetPropId = mapped;
+        } else if (singleMentionId && isTargetSeg) {
+          seg.targetPropId = singleMentionId;
+        }
+      } else if (singleMentionId && isTargetSeg) {
+        seg.targetPropId = singleMentionId;
+      }
+
+      // Nếu người dùng chỉ @mention đúng 1 đồ vật duy nhất, bảo đảm approach/reach_and_grab/release luôn nhắm đúng đồ vật đó
+      if (singleMentionId && isTargetSeg && seg.targetPropId && !mentionedIdSet.has(seg.targetPropId)) {
+        seg.targetPropId = singleMentionId;
+      }
+    }
   }
 
   clearMotionVideo(): void {
@@ -6511,6 +6874,48 @@ ${currentClipJson}
     }
   }
 
+  stopAiMotionDesign(silent = false): void {
+    this._aiMotionRunSeq++;
+    if (this._aiMotionAbortController) {
+      try { this._aiMotionAbortController.abort(); } catch (_) {}
+      this._aiMotionAbortController = null;
+    }
+    try { this.genaiService.cancelLocalAgent(); } catch (_) {}
+    if (this._unsubMocapProgress) {
+      try { this._unsubMocapProgress(); } catch (_) {}
+      this._unsubMocapProgress = null;
+    }
+    const wasRunning = this.isDesigningAiMotion;
+    this.isDesigningAiMotion = false;
+    this.aiMotionProgressPercent = 0;
+    this.aiMotionProgressStage = '';
+    this.cdr.detectChanges();
+    if (wasRunning && !silent) {
+      this.toastr.info('Đã dừng tạo chuyển động AI.', 'AI Thiết kế chuyển động');
+    }
+  }
+
+  private formatAiMotionError(err: any): string {
+    const raw = String(err?.message || err || '').trim();
+    // Giữ nguyên thông báo chi tiết nếu có lỗi từ AI Agent cục bộ (AGY / Claude CLI) để không che nguyên nhân gốc
+    if (/AI Agent|AGY|Claude|CLI|nhóm-x-cms/i.test(raw)) {
+      return raw;
+    }
+    if (/503|UNAVAILABLE|overloaded|high demand/i.test(raw)) {
+      return 'Máy chủ AI (Gemini) đang quá tải (HTTP 503). Vui lòng thử lại sau ít giây hoặc bật Mì Tôm AI / AI Agent.';
+    }
+    if (/429|RESOURCE_EXHAUSTED|quota|hạn mức/i.test(raw)) {
+      return 'API Key đã chạm giới hạn hạn mức (HTTP 429). Vui lòng chờ hoặc thêm API Key khác.';
+    }
+    if (/401|403|API key|API_KEY_INVALID|chưa được cấu hình/i.test(raw)) {
+      return 'API Key không hợp lệ hoặc chưa được cấu hình. Vui lòng kiểm tra trong mục Cài đặt.';
+    }
+    if (/Failed to fetch|NetworkError|timeout|quá thời gian/i.test(raw)) {
+      return 'Mất kết nối hoặc hết thời gian chờ máy chủ AI. Vui lòng kiểm tra mạng và thử lại.';
+    }
+    return raw || 'Không thể thiết kế chuyển động AI do lỗi máy chủ.';
+  }
+
   async designMotionWithAi(): Promise<void> {
     const pid =
       this.timelinePropId ||
@@ -6526,6 +6931,9 @@ ${currentClipJson}
       this.toastr.warning('Hãy chọn một Video mẫu hoặc nhập mô tả chuyển động để AI tạo.', 'AI Thiết kế chuyển động');
       return;
     }
+
+    this.aiMotionError = '';
+    this.showAiMotionMentionMenu = false;
 
     // CHỈ chạy trích xuất Mocap 3D tại chỗ thuần túy khi người dùng KHÔNG nhập prompt mô tả.
     // Khi người dùng đã nhập prompt kịch bản (VD: "Đi tới cầm chiếc điện thoại lên và xem"),
@@ -6545,14 +6953,15 @@ ${currentClipJson}
     }
 
     // Nếu người dùng vừa có video mẫu đính kèm (VD: video dáng đi bộ) vừa nhập prompt kịch bản,
-    // đảm bảo clip mocap của video mẫu đã được trích sẵn để AI tái sử dụng làm dáng bước chân rồi đi tiếp sang AI Director!
+    // đảm bảo clip mocap của video mẫu đã được trích sẵn để AI tái sử dụng làm dáng bước chân và giữ nguyên tư thế tay/thân rồi đi tiếp sang AI Director!
     let reusableVideoClipName = '';
     if (hasVideoAttached && hasTextPrompt) {
       const baseVidName = (this.aiMotionVideoName || '').replace(/\.[^/.]+$/, '').trim().toLowerCase();
       const existingClips = this.sceneService.getPropClips(pid) || [];
-      const alreadyExtracted = existingClips.find((c) => {
+      const alreadyExtracted = [...existingClips].reverse().find((c) => {
         const cn = String(c?.name || '').toLowerCase();
-        return baseVidName && (cn.includes(baseVidName.slice(0, 18)) || cn.startsWith('video:'));
+        if (!cn.startsWith('video:')) return false;
+        return baseVidName ? cn.includes(baseVidName.slice(0, 18)) : true;
       });
       if (alreadyExtracted) {
         reusableVideoClipName = alreadyExtracted.name;
@@ -6560,14 +6969,39 @@ ${currentClipJson}
         const mocapRes = await this.runReal3dVideoMocap(pid, this.aiMotionVideoFile, this.aiMotionVideoPath);
         if (mocapRes.ok) {
           const latestClips = this.sceneService.getPropClips(pid) || [];
-          const found = latestClips.find((c) => String(c?.name || '').toLowerCase().startsWith('video:'));
+          const found = [...latestClips].reverse().find((c) => {
+            const cn = String(c?.name || '').toLowerCase();
+            if (!cn.startsWith('video:')) return false;
+            return baseVidName ? cn.includes(baseVidName.slice(0, 18)) : true;
+          });
           reusableVideoClipName = found?.name || '';
         }
       }
+    } else if (!hasVideoAttached && hasTextPrompt) {
+      // Nếu người dùng vừa chạy trích xuất video mẫu trước đó (clip đang phát bắt đầu bằng "Video:"), vẫn tự động kế thừa clip đó!
+      const curActiveClip = String(this.timelineData?.activeClipName || '').trim();
+      if (/^video:/i.test(curActiveClip)) {
+        reusableVideoClipName = curActiveClip;
+      }
     }
 
+    const runSeq = ++this._aiMotionRunSeq;
+    const abortCtrl = new AbortController();
+    this._aiMotionAbortController = abortCtrl;
     this.isDesigningAiMotion = true;
+    this.aiMotionProgressPercent = 0;
+    this.aiMotionProgressStage = 'Đang xác định nguồn AI ưu tiên...';
     this.cdr.markForCheck();
+
+    try {
+      const activeProviderLabel = await this.genaiService.getActiveAiProviderLabel(false);
+      if (this._aiMotionRunSeq === runSeq) {
+        this.aiMotionProgressStage = `Đang biên đạo qua ${activeProviderLabel}...`;
+        this.cdr.markForCheck();
+      }
+    } catch (_) {
+      this.aiMotionProgressStage = 'AI đang phân tích cảnh 3D và biên đạo chuyển động...';
+    }
 
     const rigSummary = this.sceneService.getPropRigSummary(pid);
     const isRigidModel = !!rigSummary?.isRigidModel;
@@ -6575,14 +7009,42 @@ ${currentClipJson}
     const embeddedClips = rigSummary?.embeddedClipNames || [];
     // Thu thập thêm các clip dáng đi/chạy mocap đã trích từ Video mẫu trên nhân vật để AI có thể tái sử dụng làm gait!
     const customGaitClipNames = (this.sceneService.getPropClips(pid) || [])
-      .filter((c) => c.isCustom && /video:|walk|run|đi bộ|di bo|chạy|chay/i.test(c.name) && !/điện thoại|cầm|nắm|\d+m/i.test(c.name))
+      .filter(
+        (c) =>
+          c.isCustom &&
+          (/^video:/i.test(c.name) || (/walk|run|đi bộ|di bo|chạy|chay/i.test(c.name) && !/điện thoại|cầm|nắm|\d+m/i.test(c.name)))
+      )
       .map((c) => c.name);
     const allReusableGaitClips = Array.from(new Set([
       ...(reusableVideoClipName ? [reusableVideoClipName] : []),
       ...embeddedClips,
       ...customGaitClipNames
     ]));
-    const sceneInteractTargets = !isRigidModel ? this.sceneService.getScenePropsForInteraction(pid) : [];
+    const propNameById = new Map<string, string>();
+    for (const p of this.roomProps || []) {
+      if (p?.id && p?.name) propNameById.set(p.id, String(p.name));
+    }
+    const sceneInteractTargets = this.sceneService.getScenePropsForInteraction(pid).map((t) => ({
+      ...t,
+      name: propNameById.get(t.id) || t.name
+    }));
+    const resolvedMentionTargets = this._resolveAiMotionMentionTargets(prompt, sceneInteractTargets);
+    const mentionDirectiveBlock = resolvedMentionTargets.length > 0
+      ? `\n- **ĐỒ VẬT / NHÂN VẬT ĐƯỢC NGƯỜI DÙNG CHỈ ĐỊNH CHÍNH XÁC QUA @MENTION (BẮT BUỘC DÙNG ĐÚNG \`targetPropId\` NÀY)**: ${JSON.stringify(
+          resolvedMentionTargets.map((m) => ({
+            mention: m.mentionText,
+            targetPropId: m.target.id,
+            name: m.target.name,
+            isHumanoid: m.target.isHumanoid,
+            distanceMeters: m.target.distanceMeters,
+            angleDeg: m.target.angleDeg,
+            forwardM: m.target.relForwardMeters,
+            leftM: m.target.relLeftMeters,
+            heightM: m.target.heightMeters,
+            height: m.target.heightLabel
+          }))
+        )}\n  QUY TẮC BẮT BUỘC VỚI @MENTION: Mọi đoạn \`approach\`, \`reach_and_grab\`, \`reach_pose\`, \`release\` tương tác với \`@mention\` PHẢI truyền chính xác chuỗi \`"targetPropId"\` từ danh sách trên (KHÔNG dùng tên hay chuỗi \`@...\`, KHÔNG tự chọn nhầm đồ vật khác).`
+      : '';
     const boneNames = rigSummary?.safeBoneNames?.length
       ? rigSummary.safeBoneNames
       : this.sceneService.getPropBones(pid).map((b) => b.name);
@@ -6593,23 +7055,33 @@ ${currentClipJson}
     try {
       this.toastr.info('AI Agent đang phân tích mô hình và biên đạo kế hoạch chuyển động...', 'AI Motion Studio', { timeOut: 2500 });
 
-      // Khi người dùng nhập prompt kịch bản có vật thể khác trong cảnh, gửi ảnh chụp cảnh 3D trực tiếp
-      // (không gửi 8 khung hình video dáng đi tại chỗ tránh làm AI hiểu nhầm thành bắt chước tại chỗ)
-      const useVideoVisionFrames = (!hasTextPrompt || sceneInteractTargets.length === 0) && this.aiMotionVideoFrames.length > 0;
-      const maxVisionFrames = 8;
-      const visionFrames = !useVideoVisionFrames
+      // Gửi khung hình Video mẫu phù hợp theo kịch bản:
+      // - Chỉ có video mẫu (không prompt): gửi tối đa 8 khung hình + thông số đo tư thế
+      // - Có cả video mẫu + prompt + tương tác cảnh 3D: gửi 1 khung hình đại diện tư thế Video mẫu CÙNG 1 ảnh chụp cảnh 3D
+      //   để AI nhìn thấy rõ dáng tay/thân mà video mẫu đã trích mocap sẵn (tránh bịa keyframes đè hỏng mocap video!)
+      const hasExtractedVideoClip = !!reusableVideoClipName;
+      const useFullVideoVision = !hasTextPrompt && this.aiMotionVideoFrames.length > 0;
+      const maxVisionFrames = useFullVideoVision ? 8 : (sceneInteractTargets.length > 0 ? 1 : (hasExtractedVideoClip ? 2 : 6));
+      const visionFrames = this.aiMotionVideoFrames.length === 0
         ? []
-        : (this.aiMotionVideoFrames.length <= maxVisionFrames
-            ? this.aiMotionVideoFrames
-            : Array.from({ length: maxVisionFrames }, (_, idx) => {
-                const fIdx = Math.min(
-                  this.aiMotionVideoFrames.length - 1,
-                  Math.round((idx / (maxVisionFrames - 1)) * (this.aiMotionVideoFrames.length - 1))
-                );
-                return this.aiMotionVideoFrames[fIdx];
-              }));
+        : (useFullVideoVision
+            ? (this.aiMotionVideoFrames.length <= maxVisionFrames
+                ? this.aiMotionVideoFrames
+                : Array.from({ length: maxVisionFrames }, (_, idx) => {
+                    const fIdx = Math.min(
+                      this.aiMotionVideoFrames.length - 1,
+                      Math.round((idx / (maxVisionFrames - 1)) * (this.aiMotionVideoFrames.length - 1))
+                    );
+                    return this.aiMotionVideoFrames[fIdx];
+                  }))
+            : (maxVisionFrames === 1
+                ? [this.aiMotionVideoFrames[Math.min(2, this.aiMotionVideoFrames.length - 1)]]
+                : [
+                    this.aiMotionVideoFrames[Math.floor(this.aiMotionVideoFrames.length * 0.25)],
+                    this.aiMotionVideoFrames[Math.floor(this.aiMotionVideoFrames.length * 0.65)]
+                  ].filter(Boolean)));
 
-      const poseTelemetrySummary = useVideoVisionFrames && this.aiMotionPoseSamples.length > 0
+      const poseTelemetrySummary = useFullVideoVision && this.aiMotionPoseSamples.length > 0
         ? `\n- Dữ liệu đo tư thế tự động qua từng thời điểm của Video mẫu: ` +
           JSON.stringify(
             this.aiMotionPoseSamples.map((s) => ({
@@ -6629,13 +7101,18 @@ ${currentClipJson}
           )
         : '';
 
-      const frameMetaDesc = visionFrames.length > 0
+      const includeSceneSnap = sceneInteractTargets.length > 0 && !useFullVideoVision;
+      const frameMetaDesc = useFullVideoVision && visionFrames.length > 0
         ? `Người dùng đã đính kèm ${visionFrames.length} khung hình trích xuất theo trình tự thời gian từ Video mẫu "${this.aiMotionVideoName}" (tổng thời lượng ${targetDur}s): ` +
           visionFrames.map((f, idx) => `Ảnh #${idx + 1} tại t=${f.time.toFixed(2)}s`).join(', ') +
           `. Hãy quan sát kỹ tư thế người trong từng khung hình kết hợp thông số đo tư thế để tái tạo chuẩn xác động tác của video.${poseTelemetrySummary}`
-        : (sceneInteractTargets.length > 0
-            ? `Đã đính kèm 1 ảnh chụp trực tiếp khung cảnh 3D hiện tại cùng bản đồ tọa độ 3D của các đồ vật/nhân vật khác. Hãy quan sát ảnh và biên đạo đầy đủ mảng \`segments\` (di chuyển, tiếp cận, nắm/cầm/nâng/thả đồ vật...) đáp ứng chính xác kịch bản của người dùng.`
-            : `Hãy tự do suy nghĩ, phân tích và biên đạo kế hoạch chuyển động chuẩn xác nhất theo đúng mô tả của người dùng.`);
+        : (hasExtractedVideoClip
+            ? (visionFrames.length > 0
+                ? `${visionFrames.map((f, idx) => `Ảnh #${idx + 1}: khung hình đại diện tư thế gốc của Video mẫu "${this.aiMotionVideoName}" tại t=${f.time.toFixed(2)}s`).join('; ')}${includeSceneSnap ? `; Ảnh #${visionFrames.length + 1}: ảnh chụp trực tiếp khung cảnh 3D hiện tại cùng bản đồ tọa độ 3D của các đồ vật/nhân vật khác` : ''}. Toàn bộ chuyển động 3D thật (chân, hông, cột sống, vai và 2 tay đúng như Video mẫu) ĐÃ được trích xuất sẵn vào clip "${reusableVideoClipName}". Hãy kế thừa trực tiếp clip này bằng \`"gait": "embedded", "clipName": "${reusableVideoClipName}"\` và dùng \`"keepFromClip"\` khi cần giữ nguyên tay/dáng từ video ở các đoạn sau.`
+                : `Clip mocap 3D toàn thân thật "${reusableVideoClipName}" ĐÃ trích xuất sẵn chuyển động từ Video mẫu (gồm cả bước chân, hông, cột sống, vai và 2 tay).${includeSceneSnap ? ' Đã đính kèm 1 ảnh chụp trực tiếp khung cảnh 3D hiện tại.' : ''} Hãy kế thừa trực tiếp clip "${reusableVideoClipName}" và dùng \`"keepFromClip"\` khi cần giữ nguyên tư thế tay/thân của video.`)
+            : (includeSceneSnap
+                ? `Đã đính kèm 1 ảnh chụp trực tiếp khung cảnh 3D hiện tại cùng bản đồ tọa độ 3D của các đồ vật/nhân vật khác. Hãy quan sát ảnh và biên đạo đầy đủ mảng \`segments\` (di chuyển, tiếp cận, nắm/cầm/nâng/thả đồ vật...) đáp ứng chính xác kịch bản của người dùng.`
+                : `Hãy tự do suy nghĩ, phân tích và biên đạo kế hoạch chuyển động chuẩn xác nhất theo đúng mô tả của người dùng.`));
 
       const systemPrompt = isRigidModel
         ? `Bạn là **Đạo diễn & Chuyên gia Diễn hoạt Vật thể / Phương tiện 3D (3D Rigid-Body & Vehicle Motion Director)**.
@@ -6645,6 +7122,7 @@ Nhiệm vụ: Tự do suy nghĩ và biên đạo chuỗi hành động / quỹ �
 - Loại mô hình: Vật thể cứng / phương tiện (\`isRigidModel: true\`), số cụm bánh xe tự động lăn/đánh lái: \`${autoWheelCount}\` (${autoWheelCount >= 3 ? 'Xe 4 bánh — PHẢI giữ thân xe cân phẳng bám sàn, leanDeg = 0; engine sẽ tự quay lăn cả 4 bánh & đánh lái bánh trước theo quỹ đạo!' : autoWheelCount > 0 ? 'Xe 2 bánh — có thể đặt leanDeg nhẹ 8..10 độ khi vào cua; engine sẽ tự động quay lăn cả 2 bánh theo đúng quãng đường di chuyển!' : 'Đồ vật / phương tiện cứng'}).
 - Các node an toàn: ${JSON.stringify(boneNames)}
 - Kích thước gốc: rộng X=${rigSummary?.modelSize.x.toFixed(2)}, cao Y=${rigSummary?.modelSize.y.toFixed(2)}, dài Z=${rigSummary?.modelSize.z.toFixed(2)} (hướng tiến: ${rigSummary?.forwardAxis || '+z'}).
+${sceneInteractTargets.length > 0 ? `- Bản đồ các đồ vật / nhân vật khác đang có trong cảnh 3D: ${JSON.stringify(sceneInteractTargets.map((t) => ({ id: t.id, name: t.name, isHumanoid: t.isHumanoid, distanceMeters: t.distanceMeters, angleDeg: t.angleDeg, forwardM: t.relForwardMeters, leftM: t.relLeftMeters, heightM: t.heightMeters })))}` : ''}${mentionDirectiveBlock}
 
 ### NGÔN NGỮ BIÊN ĐẠO QUỸ ĐẠO (\`segments\` — KHUYÊN DÙNG CHO MỌI QUỸ ĐẠO DI CHUYỂN):
 Bạn có thể tự do kết hợp BẤT KỲ số lượng và thứ tự các đoạn \`segments\` nối tiếp liên tục (mỗi đoạn tự nối từ vị trí & hướng kết thúc của đoạn trước):
@@ -6653,7 +7131,8 @@ Bạn có thể tự do kết hợp BẤT KỲ số lượng và thứ tự các
 3. \`{ "type": "arc", "radius": number (bán kính mét; nếu đề bài cho đường kính/rộng D mét thì radius = D/2), "sweepDeg": number (góc cung độ: dương = cua TRÁI, âm = cua PHẢI; vòng tròn kín = -360 hoặc +360; cua vuông góc = -90 hoặc +90; quay chữ U = 180), "duration": number, "reverse": false, "leanDeg": ${autoWheelCount >= 3 ? '0' : '9'}, "centerOnOrigin": true/false }\`
 4. \`{ "type": "waypoints", "points": [{"x": 0, "y": 0, "z": 5}, ...], "relative": true, "duration": number, "faceVelocity": true, "reverse": false }\` — đi qua chuỗi điểm bất kỳ (hình vuông, zig-zag, chữ L, bay lên/xuống).
 5. \`{ "type": "figure8", "width": number (chiều rộng mét), "duration": number, "leanDeg": ${autoWheelCount >= 3 ? '0' : '10'} }\`
-6. \`{ "type": "wait", "duration": number }\` — dừng nghỉ tại chỗ.
+6. \`{ "type": "approach", "targetPropId": "<id chính xác từ bản đồ cảnh / @mention>", "stopDistance": 1.2, "duration": number }\` — tự quay đầu và di chuyển tới sát đồ vật/nhân vật đích trong cảnh.
+7. \`{ "type": "wait", "duration": number }\` — dừng nghỉ tại chỗ.
 
 ### QUY TẮC BẮT BUỘC:
 - KHÔNG tự ý bịa hay xoay các sub-mesh con (bánh xe, khung, ghi đông...) làm vỡ cấu trúc xe.
@@ -6677,7 +7156,7 @@ Nhiệm vụ: Tự do suy nghĩ, hiểu sâu mọi kịch bản tự nhiên củ
 ### THÔNG TIN NHÂN VẬT HIỆN TẠI:
 - Các khớp xương an toàn (CHỈ dùng tên trong danh sách này): ${JSON.stringify(boneNames)}
 - Các clip dáng đi/chạy mocap có sẵn trên nhân vật (gồm cả clip nhúng GLB và clip đã trích từ video mẫu): ${JSON.stringify(allReusableGaitClips)} ${allReusableGaitClips.length > 0 ? `(KHUYÊN DÙNG: gán \`"gait": "embedded"\` và \`"clipName": "${allReusableGaitClips[0]}"\` trong các đoạn \`approach\` / \`move\` / \`waypoints\` / \`arc\` để tái sử dụng dáng bước chân mocap thật của nhân vật!)` : '(Không có clip mocap sẵn — dùng `gait: "walk"` hoặc `"run"` để engine đồng bộ bước chân theo tốc độ)'}
-${sceneInteractTargets.length > 0 ? `- Bản đồ các đồ vật / nhân vật khác đang có trong cảnh 3D (tính trong hệ tọa độ của chính nhân vật đang chọn: \`forwardM\` dương=trước mặt, \`leftM\` dương=bên trái, \`angleDeg\` dương=quay trái / âm=quay phải, \`heightM\`=độ cao tính từ sàn): ${JSON.stringify(sceneInteractTargets.map((t) => ({ id: t.id, name: t.name, isHumanoid: t.isHumanoid, distanceMeters: t.distanceMeters, angleDeg: t.angleDeg, forwardM: t.relForwardMeters, leftM: t.relLeftMeters, heightM: t.heightMeters, height: t.heightLabel })))}` : ''}
+${sceneInteractTargets.length > 0 ? `- Bản đồ các đồ vật / nhân vật khác đang có trong cảnh 3D (tính trong hệ tọa độ của chính nhân vật đang chọn: \`forwardM\` dương=trước mặt, \`leftM\` dương=bên trái, \`angleDeg\` dương=quay trái / âm=quay phải, \`heightM\`=độ cao tính từ sàn): ${JSON.stringify(sceneInteractTargets.map((t) => ({ id: t.id, name: t.name, isHumanoid: t.isHumanoid, distanceMeters: t.distanceMeters, angleDeg: t.angleDeg, forwardM: t.relForwardMeters, leftM: t.relLeftMeters, heightM: t.heightMeters, height: t.heightLabel })))}` : ''}${mentionDirectiveBlock}
 
 ### HỆ THỐNG BIÊN ĐẠO TỰ DO (\`segments\` + \`keyframes\` — TỰ DO GHÉP NỐI MỌI KỊCH BẢN):
 - **Khi yêu cầu có di chuyển không gian, tương tác/nắm đồ vật trong cảnh, đi vòng tránh vật cản, quay đầu, hoặc chuỗi nhiều hành động nối tiếp**: trả về mảng \`segments\` nối tiếp nhau liên tục (engine tự nối tọa độ & hướng, ghép dáng đi/chạy đồng bộ không trượt chân, giải 2-Bone IK chạm đúng đồ vật và tự giữ ổn định tay đang cầm đồ xuyên suốt các đoạn sau):
@@ -6686,12 +7165,16 @@ ${sceneInteractTargets.length > 0 ? `- Bản đồ các đồ vật / nhân vậ
   3. \`{ "type": "arc", "radius": number (bán kính mét; đường kính D => radius = D/2), "sweepDeg": number (dương=cua trái, âm=cua phải; vòng tròn kín = -360 hoặc +360), "duration": number, "gait": "${allReusableGaitClips.length > 0 ? 'embedded' : 'walk'}" | "run", ${allReusableGaitClips.length > 0 ? `"clipName": "${allReusableGaitClips[0]}", ` : ''}"centerOnOrigin": true/false }\`
   4. \`{ "type": "waypoints", "points": [{"x": 0, "y": 0, "z": 5}, ...], "relative": true, "duration": number, "gait": "${allReusableGaitClips.length > 0 ? 'embedded' : 'walk'}" | "run"${allReusableGaitClips.length > 0 ? `, "clipName": "${allReusableGaitClips[0]}"` : ''} }\` — đi theo đường gấp khúc / vòng tránh người hoặc vật cản (\`x\` dương=sang trái, \`z\` dương=tiến trước theo hướng nhân vật).
   5. \`{ "type": "figure8", "width": number, "duration": number, "gait": "${allReusableGaitClips.length > 0 ? 'embedded' : 'walk'}" | "run" }\`
-  6. \`{ "type": "pose", "duration": number, "keyframes": [ { "time": 0.0, "boneName": "RightArm", "rot": {"x": -35, "y": 0, "z": -70} }, ... ] }\` — đứng tại chỗ diễn tả cảm xúc/cử chỉ khớp xương tự do (vẫy tay, cúi chào, nhảy, đấm, đá, nhìn quanh, ăn mừng...).
+  6. \`{ "type": "pose", "duration": number, "keepFromClip": ["rightArm" | "leftArm" | "arms" | "upperBody"], "keyframes": [ { "time": 0.0, "boneName": "RightArm", "rot": {"x": -35, "y": 0, "z": -70} }, ... ] }\` — đứng tại chỗ diễn tả cảm xúc/cử chỉ khớp xương tự do (vẫy tay, cúi chào, nhảy, đấm, đá, nhìn quanh, ăn mừng...).
   7. \`{ "type": "approach", "targetPropId": "<id chính xác từ bản đồ cảnh>", "stopDistance": 0.55, "gait": "${allReusableGaitClips.length > 0 ? 'embedded' : 'walk'}" | "walk" | "run"${allReusableGaitClips.length > 0 ? `, "clipName": "${allReusableGaitClips[0]}"` : ''}, "duration": number }\` — tự xoay mặt và đi/chạy tới sát đồ vật hoặc nhân vật đích trong cảnh (có thể ghép sau \`waypoints\` nếu cần đi vòng tránh vật cản trước!).
-  8. \`{ "type": "reach_and_grab", "targetPropId": "<id chính xác từ bản đồ cảnh>", "hand": "right" | "left", "attach": true, "duration": 0.55 }\` — tự giải 2-Bone Analytical IK đưa bàn tay chạm chính xác tâm món đồ (tự cúi/vươn theo độ cao thật), gập ngón tay nắm và gắn dính món đồ đi theo bàn tay. Từ sau đoạn này, món đồ tự di chuyển theo tay qua mọi đoạn tiếp theo!
-  9. \`{ "type": "reach_pose", "hand": "right" | "left", "targetOffset": { "forward": 0.34, "up": 1.28, "side": 0.12 }, "duration": 0.75, "keyframes": [/* tùy chọn: xoay đầu/thân/tay kia */] }\` — tự giải 2-Bone IK đưa bàn tay (cùng món đồ đang cầm) đến vị trí 3D bất kỳ theo ý bạn (\`forward\`: mét phía trước mặt, \`up\`: độ cao tính từ sàn 0.15m=sàn .. 1.25m=ngực .. 1.95m=giơ cao trên đầu, \`side\`: lệch sang phía tay cầm; hoặc truyền \`targetPropId\` thay \`targetOffset\` để đưa món đồ tới gần nhân vật/vật thể khác!).
-  10. \`{ "type": "release", "targetPropId": "<id>", "hand": "right" | "left", "duration": 0.35 }\` — mở ngón tay và thả món đồ đang cầm xuống đúng vị trí hiện tại của bàn tay (sau đó có thể đi tiếp tay không!).
-  11. \`{ "type": "wait", "duration": number }\` — dừng giữ tư thế hiện tại (kể cả khi đang cầm đồ).
+  8. \`{ "type": "reach_and_grab", "targetPropId": "<id chính xác từ bản đồ cảnh>", "hand": "right" | "left", "attach": true, "keepFromClip": ["rightArm" | "leftArm"], "duration": 0.55 }\` — tự giải 2-Bone Analytical IK đưa bàn tay chạm chính xác tâm món đồ (tự cúi/vươn theo độ cao thật), gập ngón tay nắm và gắn dính món đồ đi theo bàn tay. Từ sau đoạn này, món đồ tự di chuyển theo tay qua mọi đoạn tiếp theo!
+  9. \`{ "type": "reach_pose", "hand": "right" | "left", "targetOffset": { "forward": 0.34, "up": 1.28, "side": 0.12 }, "keepFromClip": ["rightArm" | "leftArm"], "duration": 0.75, "keyframes": [/* tùy chọn: xoay đầu/mắt nhìn vào đồ vật */] }\` — tự giải 2-Bone IK đưa bàn tay (cùng món đồ đang cầm) đến vị trí 3D bất kỳ theo ý bạn (\`forward\`: mét phía trước mặt, \`up\`: độ cao tính từ sàn 0.15m=sàn .. 1.25m=ngực .. 1.95m=giơ cao trên đầu, \`side\`: lệch sang phía tay cầm; hoặc truyền \`targetPropId\` thay \`targetOffset\` để đưa món đồ tới gần nhân vật/vật thể khác!).
+  10. \`{ "type": "release", "targetPropId": "<id>", "hand": "right" | "left", "keepFromClip": ["rightArm" | "leftArm"], "duration": 0.35 }\` — mở ngón tay và thả món đồ đang cầm xuống đúng vị trí hiện tại của bàn tay (sau đó có thể đi tiếp tay không!).
+  11. \`{ "type": "wait", "duration": number, "keepFromClip": ["rightArm" | "leftArm" | "arms"] }\` — dừng giữ tư thế hiện tại (kể cả khi đang cầm đồ và giữ nguyên tay còn lại từ video mẫu).
+${hasExtractedVideoClip ? `- **QUY TẮC BẮT BUỘC BẢO TOÀN ĐỘNG TÁC VIDEO MẪU ("${reusableVideoClipName}")**:
+  1. Clip \`"${reusableVideoClipName}"\` ĐÃ chứa mocap 3D thật cho TOÀN BỘ cơ thể (chân, hông, cột sống, vai/xương đòn và CẢ 2 CÁNH TAY/CỔ TAY đúng như dáng người trong Video mẫu).
+  2. Trên mọi đoạn di chuyển (\`approach\`, \`move\`, \`waypoints\`, \`arc\`, \`figure8\`), BẮT BUỘC dùng \`"gait": "embedded", "clipName": "${reusableVideoClipName}"\` và **TUYỆT ĐỐI KHÔNG** viết thêm \`keyframes\` cho tay/vai/thân nếu tư thế đó ĐÃ có sẵn trong Video mẫu (viết \`keyframes\` đè lên sẽ phá hỏng động tác mocap thật của video!). CHỈ viết \`keyframes\` kèm \`"overrideVideoBones": true\` khi người dùng yêu cầu thay đổi 1 bộ phận KHÁC HẲN với Video mẫu.
+  3. Trên các đoạn tương tác/dừng sau đó (\`reach_and_grab\`, \`reach_pose\`, \`wait\`, \`pose\`, \`release\`), nếu muốn giữ nguyên tư thế thật từ Video mẫu cho cánh tay kia (VD: tay trái cầm điện thoại còn *"tay phải vẫn giữ nguyên"* dáng chống nạnh từ video), HÃY DÙNG \`"keepFromClip": ["rightArm"]\` (hoặc \`"leftArm"\`, \`"arms"\`, \`"upperBody"\`; truyền \`[]\` nếu muốn thả lỏng tay về nghỉ) và **KHÔNG** tự bịa góc Euler \`keyframes\` cho cánh tay được giữ nguyên!` : ''}
 - **Lưu ý đạo diễn tương tác đồ vật**: Tự do biên đạo trọn vẹn ý đồ người dùng bằng cách ghép nối các đoạn trên (VD: \`waypoints\` vòng qua người -> \`approach\` -> \`reach_and_grab\` -> \`reach_pose\` giơ lên xem hoặc giơ cao ăn mừng -> \`turn\` -> \`move\` mang đi -> \`reach_pose\` hạ thấp -> \`release\` đặt xuống!). Đặt \`"loop": false\` khi kịch bản là một hành động tương tác có đầu có cuối (lấy đồ, đặt đồ, mang đi...).
 - **Khi yêu cầu là động tác thuần tại chỗ hoặc bắt chước Video mẫu** (nhảy múa, đấm bốc, đá, moonwalk, cúi chào, tạo dáng... không có quãng đường): trả về trực tiếp \`keyframes\` (35-90 keyframes phân bố đều trên các khớp chính từ \`0\` đến \`duration\`).
 - **Mẹo khép vòng lặp mượt**: Nếu muốn kịch bản quay đầu khép kín vòng lặp \`loop: true\` (vd: đi 10m rồi quay đầu đi lại 10m), hãy thêm 1 đoạn \`turn\` 180° ở cuối để nhân vật xoay lại đúng hướng ban đầu trước khi lặp!
@@ -6726,7 +7209,8 @@ ${sceneInteractTargets.length > 0 ? `- Bản đồ các đồ vật / nhân vậ
             }
           });
         }
-      } else if (sceneInteractTargets.length > 0) {
+      }
+      if (includeSceneSnap) {
         // Đính kèm 1 ảnh chụp khung cảnh 3D hiện tại để AI Vision quan sát trực tiếp bố cục các nhân vật và đồ vật trong cảnh
         const sceneSnap = this.sceneService.captureSceneSnapshotBase64(640);
         if (sceneSnap?.base64) {
@@ -6742,23 +7226,33 @@ ${sceneInteractTargets.length > 0 ? `- Bản đồ các đồ vật / nhân vậ
       let appliedCount = 0;
       let usedAiPlan = false;
       let explanation = '';
+      let apiFailureMsg = '';
       try {
         const aiRes: any = await this.genaiService.generateContent({
           model: 'gemini-3.8-flash',
           contents: [{ role: 'user', parts }],
           config: {
-            bypassAiAgent: true,
+            skipTTS: true,
             disableThinking: true,
-            temperature: 0.25
+            temperature: 0.25,
+            abortSignal: abortCtrl.signal
           } as any
         });
+        if (this._aiMotionRunSeq !== runSeq || abortCtrl.signal.aborted) {
+          return;
+        }
         const rawReply =
           aiRes?.text ||
           aiRes?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || '').join('') ||
           '';
         const parsed = this.extractJsonFromAiText(rawReply);
         if (parsed && Array.isArray(parsed.segments) && parsed.segments.length > 0) {
-          appliedCount = this.sceneService.applyAiMotionPlan(pid, { ...parsed, prompt });
+          this._normalizePlanSegmentTargets(parsed.segments, resolvedMentionTargets, sceneInteractTargets);
+          appliedCount = this.sceneService.applyAiMotionPlan(pid, {
+            ...parsed,
+            prompt,
+            referenceClipName: reusableVideoClipName || undefined
+          });
           if (appliedCount >= 2) {
             usedAiPlan = true;
             explanation = parsed.explanation || '';
@@ -6778,36 +7272,59 @@ ${sceneInteractTargets.length > 0 ? `- Bản đồ các đồ vật / nhân vậ
             }
           }
         }
-      } catch (apiErr) {
-        console.warn('[AI Motion Studio] AI call error, fallback to offline synthesizer:', apiErr);
+        if (!usedAiPlan) {
+          apiFailureMsg = 'AI chưa trả về kế hoạch chuyển động hợp lệ. Vui lòng thử mô tả rõ hơn hoặc bấm thử lại.';
+        }
+      } catch (apiErr: any) {
+        if (
+          this._aiMotionRunSeq !== runSeq ||
+          abortCtrl.signal.aborted ||
+          apiErr?.name === 'AbortError' ||
+          String(apiErr?.message || '').includes('Đã hủy yêu cầu AI')
+        ) {
+          return;
+        }
+        console.warn('[AI Motion Studio] AI call error:', apiErr);
+        apiFailureMsg = this.formatAiMotionError(apiErr);
       }
 
-      // Chỉ dùng bộ tổng hợp dự phòng ngoại tuyến khi gọi AI bị lỗi mạng hoặc AI trả JSON rỗng/hỏng
+      if (this._aiMotionRunSeq !== runSeq || abortCtrl.signal.aborted) {
+        return;
+      }
+
       if (!usedAiPlan) {
-        const energies = this.aiMotionVideoFrames.map((f) => f.energy);
-        appliedCount = this.sceneService.generateSmartBoneMotion(
-          pid,
-          prompt,
-          targetDur,
-          energies,
-          this.aiMotionPoseSamples
-        );
+        this.aiMotionError = apiFailureMsg || 'Không thể tạo chuyển động bằng AI.';
+        this.toastr.error(this.aiMotionError, 'AI Thiết kế chuyển động', { timeOut: 6000 });
+        this.cdr.markForCheck();
+        return;
       }
 
+      this.aiMotionError = '';
+    this.showAiMotionMentionMenu = false;
       this.timelineData = this.sceneService.getPropTimeline(pid);
       this.timelineCurrentTime = 0;
       const clipLabel = prompt ? prompt.slice(0, 32) : undefined;
       this.saveTimelineToProp(true, clipLabel);
       this.timelineClips = this.sceneService.getPropClips(pid);
+      const usedProvider = this.genaiService.lastUsedProvider ? `[${this.genaiService.lastUsedProvider}] ` : '';
       this.toastr.success(
-        explanation || `AI đã thiết kế xong ${appliedCount} Keyframe chuyển động và bắt đầu phát!`,
+        `${usedProvider}${explanation || `AI đã thiết kế xong ${appliedCount} Keyframe chuyển động và bắt đầu phát!`}`,
         'AI Motion Studio'
       );
     } catch (err: any) {
-      this.toastr.error(err?.message || 'Không thể thiết kế chuyển động AI.', 'AI Motion Studio');
+      if (this._aiMotionRunSeq !== runSeq || abortCtrl.signal.aborted || err?.name === 'AbortError') {
+        return;
+      }
+      this.aiMotionError = this.formatAiMotionError(err);
+      this.toastr.error(this.aiMotionError, 'AI Thiết kế chuyển động', { timeOut: 6000 });
     } finally {
-      this.isDesigningAiMotion = false;
-      this.cdr.markForCheck();
+      if (this._aiMotionRunSeq === runSeq) {
+        this._aiMotionAbortController = null;
+        this.isDesigningAiMotion = false;
+        this.aiMotionProgressPercent = 0;
+        this.aiMotionProgressStage = '';
+        this.cdr.markForCheck();
+      }
     }
   }
 
@@ -7385,7 +7902,7 @@ ${JSON.stringify({
           model: 'gemini-3.8-flash',
           contents: [{ role: 'user', parts }],
           config: {
-            bypassAiAgent: true,
+            skipTTS: true,
             disableThinking: true,
             temperature: 0.2
           } as any
@@ -8599,6 +9116,7 @@ ${JSON.stringify({
   get dataService(): ProfileDataService { return this.profileDataService; }
 
   ngOnDestroy(): void {
+    this.stopAiMotionDesign(true);
     if (this._poseAutoSaveTimer) {
       clearTimeout(this._poseAutoSaveTimer);
       this._poseAutoSaveTimer = null;

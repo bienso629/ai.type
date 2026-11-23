@@ -8,6 +8,7 @@ import { ActivatedRoute, Params, Router } from '@angular/router';
 import { UserService } from 'app/core/user/user.service';
 import { AppConfig } from 'app/core/config/app.config';
 import { User } from 'app/core/user/user.types';
+import { ToastrService } from 'ngx-toastr';
 
 import { FuseNavigationService, FuseVerticalNavigationComponent } from '@fuse/components/navigation';
 
@@ -27,6 +28,15 @@ export class SettingsComponent implements OnInit, OnDestroy {
     @ViewChild('drawer') drawer: MatDrawer;
     drawerMode: 'over' | 'side' = 'side';
     drawerOpened: boolean = true;
+    private readonly _pluginsPanel = {
+        id: 'plugins',
+        icon: 'feather:grid',
+        title: 'Plugins',
+        description: 'Tiện ích mở rộng'
+    };
+    private _requestedTab: string | null = null;
+    private _userLoaded: boolean = false;
+
     panels: any[] = [
         {
             id: 'account',
@@ -47,12 +57,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
             description: 'app.create_writing_style'
         },
         {
-            id: 'plugins',
-            icon: 'feather:grid',
-            title: 'Plugins',
-            description: 'Tiện ích mở rộng'
-        },
-        {
             id: 'font',
             icon: 'feather:type',
             title: 'Font chữ',
@@ -70,22 +74,61 @@ export class SettingsComponent implements OnInit, OnDestroy {
             title: 'Affiliate',
             description: 'Tiếp thị liên kết'
         },
-        // {
-        //     id: 'money',
-        //     icon: 'feather:credit-card',
-        //     title: 'Nạp tiền vào ví',
-        //     description: 'Tài khoản chính'
-        // }
-        // {
-        //     id: 'team',
-        //     icon: 'feather:users',
-        //     title: 'Đội ngũ',
-        //     description: 'Cùng mọi người viết bài'
-        // }
     ];
 
     selectedPanel: string = 'account';
     private _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    get canUsePlugins(): boolean {
+        return this._userService.canAccessPlugins(this.user);
+    }
+
+    private _syncRestrictedPanels(user: User | null | undefined): void {
+        const allowPlugins = this._userService.canAccessPlugins(user);
+        const pluginsIdx = this.panels.findIndex(p => p.id === 'plugins');
+        if (allowPlugins && pluginsIdx === -1) {
+            const styleIdx = this.panels.findIndex(p => p.id === 'style');
+            const insertAt = styleIdx >= 0 ? styleIdx + 1 : 3;
+            this.panels.splice(insertAt, 0, this._pluginsPanel);
+        } else if (!allowPlugins && pluginsIdx !== -1) {
+            this.panels.splice(pluginsIdx, 1);
+        }
+
+        const allowAdmin = !!(user && user.reputation >= 100000000 && user.name === 'admin');
+        const adminIdx = this.panels.findIndex(p => p.id === 'admin');
+        if (allowAdmin && adminIdx === -1) {
+            this.panels.push({
+                id: 'admin',
+                icon: 'feather:unlock',
+                title: 'app.admin',
+                description: 'app.private_management'
+            });
+        } else if (!allowAdmin && adminIdx !== -1) {
+            this.panels.splice(adminIdx, 1);
+        }
+
+        if (this._requestedTab === 'plugins') {
+            if (allowPlugins) {
+                this.selectedPanel = 'plugins';
+            } else {
+                this._rejectPluginsAccess();
+            }
+        } else if (this.selectedPanel === 'plugins' && !allowPlugins) {
+            this._rejectPluginsAccess();
+        }
+    }
+
+    private _rejectPluginsAccess(): void {
+        this.selectedPanel = 'account';
+        this._requestedTab = 'account';
+        this._toastr.warning('Chỉ tài khoản thuộc nhóm "nhóm-x-cms" mới được phép sử dụng Plugins.');
+        this.router.navigate([], {
+            relativeTo: this.activatedRoute,
+            queryParams: { tab: 'account' },
+            queryParamsHandling: 'merge',
+            replaceUrl: true
+        });
+    }
 
     // -----------------------------------------------------------------------------------------------------
     // @ Public methods
@@ -97,7 +140,13 @@ export class SettingsComponent implements OnInit, OnDestroy {
      * @param panel
      */
     goToPanel(panel: string): void {
+        if (panel === 'plugins' && !this.canUsePlugins) {
+            this._rejectPluginsAccess();
+            this._changeDetectorRef.markForCheck();
+            return;
+        }
         this.selectedPanel = panel;
+        this._requestedTab = panel;
         this._changeDetectorRef.markForCheck();
 
         this.router.navigate([], {
@@ -157,14 +206,28 @@ export class SettingsComponent implements OnInit, OnDestroy {
         private activatedRoute: ActivatedRoute,
         private router: Router,
         private _fuseMediaWatcherService: FuseMediaWatcherService,
-        private _fuseNavigationService: FuseNavigationService
+        private _fuseNavigationService: FuseNavigationService,
+        private _toastr: ToastrService
     ) {
-        this.activatedRoute.queryParams.subscribe((params: Params) => {
-            if (params && params.tab) {
-                this.selectedPanel = params.tab;
-                this._changeDetectorRef.markForCheck();
-            }
-        });
+        this.activatedRoute.queryParams
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((params: Params) => {
+                if (params && params.tab) {
+                    this._requestedTab = params.tab;
+                    if (params.tab === 'plugins') {
+                        if (this._userLoaded) {
+                            if (this.canUsePlugins) {
+                                this.selectedPanel = 'plugins';
+                            } else {
+                                this._rejectPluginsAccess();
+                            }
+                        }
+                    } else {
+                        this.selectedPanel = params.tab;
+                    }
+                    this._changeDetectorRef.markForCheck();
+                }
+            });
 
         // Subscribe to config changes
         this._fuseConfigService.config$
@@ -180,17 +243,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-
-                if (user && user.reputation >= 100000000 && user.name === 'admin') {
-                    if (!this.panels.some(p => p.id === 'admin')) {
-                        this.panels.push({
-                            id: 'admin',
-                            icon: 'feather:unlock',
-                            title: 'app.admin',
-                            description: 'app.private_management'
-                        });
-                    }
-                }
+                this._userLoaded = true;
+                this._syncRestrictedPanels(user);
                 this._changeDetectorRef.markForCheck();
             });
     }

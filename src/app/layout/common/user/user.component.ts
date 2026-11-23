@@ -83,36 +83,46 @@ export class UserComponent implements OnInit, OnDestroy {
                     }
                     this.avatarLoadFailed = false;
                     this.user = user;
+                    this._refreshAiAgentStatus(user);
 
                     // Mark for check
                     this._changeDetectorRef.markForCheck();
                 } else {
                     this.user = null;
+                    this.isAiAgentEnabled = false;
                     this._changeDetectorRef.markForCheck();
                 }
             });
 
         this.multiAccountService.activeAccount$
             .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe(async sessionData => {
-                let isAiAgentActive = false;
-                // [Refactor 2026-11-11] enableAiAgent doc tu settings tren server
-                const srvSettings = getSettings();
-                if (srvSettings && srvSettings.enableAiAgent !== undefined) {
-                    isAiAgentActive = srvSettings.enableAiAgent === true;
-                }
-                if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
-                    try {
-                        const list = await (window as any).electronAPI.getPluginsStatus();
-                        const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
-                        if (aiAgent && aiAgent.enabled !== undefined) {
-                            isAiAgentActive = aiAgent.enabled;
-                        }
-                    } catch(e) {}
-                }
-                this.isAiAgentEnabled = isAiAgentActive;
-                this._changeDetectorRef.markForCheck();
+            .subscribe(() => {
+                this._refreshAiAgentStatus(this.user || this._userService.user);
             });
+    }
+
+    private async _refreshAiAgentStatus(user: User | null | undefined): Promise<void> {
+        if (!this._userService.canAccessPlugins(user)) {
+            this.isAiAgentEnabled = false;
+            this._changeDetectorRef.markForCheck();
+            return;
+        }
+        let isAiAgentActive = false;
+        const srvSettings = getSettings();
+        if (srvSettings && srvSettings.enableAiAgent !== undefined) {
+            isAiAgentActive = srvSettings.enableAiAgent === true;
+        }
+        if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
+            try {
+                const list = await (window as any).electronAPI.getPluginsStatus();
+                const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
+                if (aiAgent && aiAgent.enabled !== undefined) {
+                    isAiAgentActive = aiAgent.enabled;
+                }
+            } catch (e) {}
+        }
+        this.isAiAgentEnabled = isAiAgentActive;
+        this._changeDetectorRef.markForCheck();
     }
 
     /**

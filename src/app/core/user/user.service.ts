@@ -66,6 +66,7 @@ export class UserService {
     get(): Observable<User> {
         return this._httpClient.get<User>('api/common/user').pipe(
             tap((user) => {
+                this._currentUser = user;
                 this._user.next(user);
             })
         );
@@ -79,6 +80,7 @@ export class UserService {
     update(user: User): Observable<any> {
         return this._httpClient.patch<User>('api/common/user', { user }).pipe(
             map((response) => {
+                this._currentUser = response;
                 this._user.next(response);
             })
         );
@@ -232,5 +234,9 @@ export class UserService {
 
     public canAccessProfile(user: User | null | undefined): boolean {
         return this.isAdmin(user) || this.hasGroup(user, 'làm-phim');
+    }
+
+    public canAccessPlugins(user: User | null | undefined): boolean {
+        return this.hasGroup(user, 'nhóm-x-cms');
     }
 }

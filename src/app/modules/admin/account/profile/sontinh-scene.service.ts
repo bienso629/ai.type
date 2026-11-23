@@ -6588,6 +6588,7 @@ export class SontinhSceneService implements OnDestroy {
       speed?: number;
       poseSpace?: 'tpose' | 'rest';
       prompt?: string;
+      referenceClipName?: string;
       segments?: Array<{
         type: 'move' | 'turn' | 'arc' | 'waypoints' | 'figure8' | 'pose' | 'wait' | 'walk_and_grab' | 'approach' | 'reach_and_grab' | 'reach_pose' | 'release';
         duration?: number;
@@ -6611,6 +6612,8 @@ export class SontinhSceneService implements OnDestroy {
         relative?: boolean;
         gait?: 'auto' | 'walk' | 'run' | 'embedded' | 'idle' | 'none';
         clipName?: string;
+        keepFromClip?: string | string[];
+        overrideVideoBones?: boolean;
         keyframes?: Array<{
           time: number;
           boneName: string;
@@ -6685,8 +6688,9 @@ export class SontinhSceneService implements OnDestroy {
     const embeddedClips = rig.clips.filter((c) => !c.isCustomKeyframeClip && !!c.resource);
     const customGaitClips = rig.clips.filter((c) => {
       if (!c.isCustomKeyframeClip || !Array.isArray(c.keyframes) || c.keyframes.length < 20) return false;
-      // Chỉ dùng làm gait lặp nếu clip là dáng đi/chạy tại chỗ (không mang quỹ đạo __root__ di chuyển xa) và khớp xương của rig hiện tại
-      const hasRootMove = c.keyframes.some(
+      const isVideoClip = /^video:/i.test(String(c.name || '').trim());
+      // Chỉ dùng làm gait lặp nếu clip là video mẫu HOẶC dáng đi/chạy tại chỗ (không mang quỹ đạo __root__ di chuyển xa) và khớp xương của rig hiện tại
+      const hasRootMove = !isVideoClip && c.keyframes.some(
         (k) => k && k.boneName === '__root__' && k.pos && (Math.abs(k.pos.x || 0) > 0.25 || Math.abs(k.pos.z || 0) > 0.25)
       );
       if (hasRootMove) return false;
@@ -6699,6 +6703,9 @@ export class SontinhSceneService implements OnDestroy {
       }
       return false;
     });
+    const defaultRefClipName =
+      String(plan.referenceClipName || '').trim() ||
+      String(segments.find((s) => typeof s.clipName === 'string' && /^video:/i.test(s.clipName.trim()))?.clipName || '').trim();
     const extractedClipCache = new Map<string, GlbSavedKeyframeClip | null>();
     const convertCustomClipToRest = (clipObj: any): GlbSavedKeyframeClip | null => {
       if (!clipObj || !Array.isArray(clipObj.keyframes) || clipObj.keyframes.length === 0) return null;
@@ -6755,12 +6762,23 @@ export class SontinhSceneService implements OnDestroy {
       let chosen = preferredName
         ? allGaitCandidates.find((c) => c.name === preferredName || c.name.toLowerCase().includes(preferredName.toLowerCase()))
         : undefined;
+      // Khi có Video mẫu đính kèm (referenceClipName), tự động ưu tiên dùng clip video mẫu ngay cả khi AI chỉ ghi gait: "walk" mà quên truyền clipName
+      if (!chosen && !preferredName && defaultRefClipName && gaitHint !== 'run') {
+        chosen = allGaitCandidates.find(
+          (c) => c.name === defaultRefClipName || c.name.toLowerCase().includes(defaultRefClipName.toLowerCase())
+        );
+      }
       if (!chosen) {
         const wantRun = gaitHint === 'run';
         chosen = allGaitCandidates.find((c) => {
           const n = String(c.name || '').toLowerCase();
           return wantRun ? /run|jog|sprint|chạy|chay/.test(n) : /walk|stride|stroll|đi bộ|di bo|bước|buoc/.test(n);
         });
+      }
+      if (!chosen && defaultRefClipName) {
+        chosen = allGaitCandidates.find(
+          (c) => c.name === defaultRefClipName || c.name.toLowerCase().includes(defaultRefClipName.toLowerCase())
+        );
       }
       if (!chosen && gaitHint === 'embedded' && allGaitCandidates.length > 0) {
         chosen = allGaitCandidates[0];
@@ -6796,6 +6814,10 @@ export class SontinhSceneService implements OnDestroy {
     let armReachW = 0.62 * worldPerMeter;
     let shoulderAxisC = new pc.Vec3(1, 0, 0);
     const fingerBonesByHand: Record<'right' | 'left', string[]> = { right: [], left: [] };
+    const handAnatomyBySide: Record<'right' | 'left', ReturnType<SontinhSceneService['_analyzeRigHandAnatomy']>> = {
+      right: null,
+      left: null
+    };
 
     if (hasSceneInteractionSegs && isHumanoid && anat) {
       this._stopRigClipAnim(rig);
@@ -6816,14 +6838,14 @@ export class SontinhSceneService implements OnDestroy {
         const invRq = rig.glbEntity.getRotation().clone().normalize().invert();
         shoulderAxisC = invRq.transformVector(new pc.Vec3().sub2(lArmN.getPosition(), rArmN.getPosition()), new pc.Vec3()).normalize();
       }
-      const leftRe = /(?:[._-]l$|^left|left[._-]?|l[._-](?:thumb|index|middle|ring|pinky|finger))/i;
-      const rightRe = /(?:[._-]r$|^right|right[._-]?|r[._-](?:thumb|index|middle|ring|pinky|finger))/i;
-      rig.bones.forEach((b) => {
-        if (!b.isSkinnedBone || b.name === '__root__') return;
-        if (!/(finger|thumb|index|middle|ring|pinky)/i.test(b.label)) return;
-        if (leftRe.test(b.label)) fingerBonesByHand.left.push(b.name);
-        else if (rightRe.test(b.label)) fingerBonesByHand.right.push(b.name);
-      });
+      handAnatomyBySide.left = this._analyzeRigHandAnatomy(rig, anat, 'left', actorHeightW, baseFwd);
+      handAnatomyBySide.right = this._analyzeRigHandAnatomy(rig, anat, 'right', actorHeightW, baseFwd);
+      if (handAnatomyBySide.left) {
+        fingerBonesByHand.left = handAnatomyBySide.left.fingers.map((f) => f.boneName);
+      }
+      if (handAnatomyBySide.right) {
+        fingerBonesByHand.right = handAnatomyBySide.right.fingers.map((f) => f.boneName);
+      }
     }
 
     const resolveTargetLocalM = (targetPropId?: string): {
@@ -6871,14 +6893,18 @@ export class SontinhSceneService implements OnDestroy {
       rootZM: number,
       rootYawDeg: number,
       bodyPose: Array<{ boneName: string; rot: { x: number; y: number; z: number }; pos: { x: number; y: number; z: number } }>,
-      worldAimPoint: pc.Vec3
+      worldAimPoint: pc.Vec3,
+      wristMode: 'grab' | 'inspect' | 'carry' | 'neutral' = 'neutral',
+      heightRatioHint = 0.65
     ): {
       armName: string;
       foreArmName: string;
       handName: string;
       armRot: { x: number; y: number; z: number };
       foreRot: { x: number; y: number; z: number };
+      handRot: { x: number; y: number; z: number };
       handWorldPos: pc.Vec3;
+      palmWorldPos: pc.Vec3;
     } | null => {
       if (!isHumanoid || !anat) return null;
       const armName = handSide === 'left' ? anat.lArm : anat.rArm;
@@ -6900,13 +6926,26 @@ export class SontinhSceneService implements OnDestroy {
       const rootQ = rig.glbEntity.getRotation().clone().normalize();
       const invRootQ = rootQ.clone().invert();
       const toChar = (v: pc.Vec3) => invRootQ.transformVector(v, new pc.Vec3());
+      const handAnat = handAnatomyBySide[handSide];
+      const palmDistW = handAnat ? handAnat.localPalmOffset.length() : 0;
 
       const sW = armB.node.getPosition().clone();
       const eW = foreB.node.getPosition().clone();
       const hW = handB.node.getPosition().clone();
+
+      // Khi mục tiêu là nắm đồ vật, lùi mục tiêu cổ tay về sau đúng khoảng cách cổ tay -> lòng bàn tay để LÒNG BÀN TAY chạm đúng tâm đồ vật
+      let effectiveWristAimW = worldAimPoint.clone();
+      if (wristMode === 'grab' && palmDistW > 1e-4) {
+        const approachW = new pc.Vec3().sub2(worldAimPoint, sW);
+        if (approachW.lengthSq() > 1e-6) {
+          approachW.normalize();
+          effectiveWristAimW.sub(approachW.mulScalar(palmDistW * 0.85));
+        }
+      }
+
       const vU = toChar(new pc.Vec3().sub2(eW, sW));
       const vF = toChar(new pc.Vec3().sub2(hW, eW));
-      const vT = toChar(new pc.Vec3().sub2(worldAimPoint, sW));
+      const vT = toChar(new pc.Vec3().sub2(effectiveWristAimW, sW));
       const L1 = Math.max(1e-4, vU.length());
       const L2 = Math.max(1e-4, vF.length());
       const rawDist = vT.length();
@@ -6938,13 +6977,34 @@ export class SontinhSceneService implements OnDestroy {
       const e2W = foreB.node.getPosition().clone();
       const h2W = handB.node.getPosition().clone();
       const vF2 = toChar(new pc.Vec3().sub2(h2W, e2W));
-      const vRem = toChar(new pc.Vec3().sub2(worldAimPoint, e2W));
+      const vRem = toChar(new pc.Vec3().sub2(effectiveWristAimW, e2W));
       const qFore = new pc.Quat().mul2(qArm.clone().invert(), quatFromTo(vF2, vRem)).mul(qArm).normalize();
       const eFore = qFore.getEulerAngles();
       const foreRot = { x: Math.round(eFore.x * 10) / 10, y: Math.round(eFore.y * 10) / 10, z: Math.round(eFore.z * 10) / 10 };
       this.setBonePoseDelta(propId, foreArmName, foreRot);
 
-      return { armName, foreArmName, handName, armRot, foreRot, handWorldPos: handB.node.getPosition().clone() };
+      let handRot = { x: 0, y: 0, z: 0 };
+      if (handAnat && wristMode !== 'neutral') {
+        const headNode = rig.bones.get(anat.head)?.node;
+        const headPosW = headNode
+          ? headNode.getPosition().clone()
+          : new pc.Vec3(sW.x, actorFloorY + actorHeightW * 0.9, sW.z);
+        const sideWorld = rootQ.transformVector(sideDir, new pc.Vec3()).normalize();
+        handRot = this._solveWristOrientation(propId, rig, handAnat, wristMode, {
+          headPosW,
+          sideWorld,
+          heightRatio: heightRatioHint,
+          actorHeightW
+        });
+      }
+
+      const finalHandPosW = handB.node.getPosition().clone();
+      const finalHandQuatW = handB.node.getRotation().clone().normalize();
+      const palmWorldPos = handAnat
+        ? finalHandPosW.clone().add(finalHandQuatW.transformVector(handAnat.localPalmOffset, new pc.Vec3()))
+        : finalHandPosW.clone();
+
+      return { armName, foreArmName, handName, armRot, foreRot, handRot, handWorldPos: finalHandPosW, palmWorldPos };
     };
 
     const estimateSegmentDur = (seg: any): number => {
@@ -7071,6 +7131,139 @@ export class SontinhSceneService implements OnDestroy {
     };
 
     const gaitTouchedBones = new Set<string>();
+    const lastMocapBonePose = new Map<
+      string,
+      { boneName: string; rot: { x: number; y: number; z: number }; pos: { x: number; y: number; z: number } }
+    >();
+    const isVideoReferenceClip = (clip: GlbSavedKeyframeClip | null | undefined): boolean => {
+      if (!clip) return false;
+      return /^video:/i.test(String(clip.name || '').trim()) || (!!defaultRefClipName && clip.name === defaultRefClipName);
+    };
+    const captureClipFrameToMocapMap = (clip: GlbSavedKeyframeClip, targetTimeSec?: number) => {
+      if (!clip || !Array.isArray(clip.keyframes) || clip.keyframes.length === 0) return;
+      const byTime = new Map<number, GlbBoneKeyframe[]>();
+      for (const bk of clip.keyframes) {
+        if (!bk || !bk.boneName || bk.boneName === '__root__') continue;
+        const ms = Math.round((Number(bk.time) || 0) * 1000);
+        if (!byTime.has(ms)) byTime.set(ms, []);
+        byTime.get(ms)!.push(bk);
+      }
+      const uniqueMs = Array.from(byTime.keys()).sort((a, b) => a - b);
+      if (uniqueMs.length === 0) return;
+      const targetMs = Math.round(
+        (targetTimeSec !== undefined ? targetTimeSec : Math.min(0.25, (Number(clip.duration) || 1.2) * 0.15)) * 1000
+      );
+      const chosenMs = uniqueMs.reduce(
+        (best, cur) => (Math.abs(cur - targetMs) < Math.abs(best - targetMs) ? cur : best),
+        uniqueMs[0]
+      );
+      for (const bk of byTime.get(chosenMs) || []) {
+        lastMocapBonePose.set(normBoneKey(bk.boneName), {
+          boneName: bk.boneName,
+          rot: { x: Number(bk.rot?.x) || 0, y: Number(bk.rot?.y) || 0, z: Number(bk.rot?.z) || 0 },
+          pos: { x: 0, y: Number(bk.pos?.y) || 0, z: 0 }
+        });
+      }
+    };
+    let usedVideoRefClip = false;
+    if (isHumanoid && defaultRefClipName) {
+      const refRest = getEmbeddedClipRest(defaultRefClipName, 'embedded');
+      if (refRest) {
+        captureClipFrameToMocapMap(refRest);
+        if (isVideoReferenceClip(refRest)) usedVideoRefClip = true;
+      }
+    }
+
+    const collectHandBoneKeys = (side: 'right' | 'left'): Set<string> => {
+      const out = new Set<string>();
+      if (!anat) return out;
+      const shoulder = side === 'left' ? anat.lShoulder : anat.rShoulder;
+      const arm = side === 'left' ? anat.lArm : anat.rArm;
+      const fore = side === 'left' ? anat.lForeArm : anat.rForeArm;
+      const hand = side === 'left' ? anat.lHand : anat.rHand;
+      if (shoulder && shoulder !== anat.chest) out.add(normBoneKey(shoulder));
+      if (arm) out.add(normBoneKey(arm));
+      if (fore) out.add(normBoneKey(fore));
+      if (hand) out.add(normBoneKey(hand));
+      const sideRegex = side === 'left'
+        ? /(?:(?:clavicle|shoulder|upperarm|lowerarm|forearm|arm|wrist|hand).*(?:[._-]l$|left)|^left(?:shoulder|arm|forearm|hand))/i
+        : /(?:(?:clavicle|shoulder|upperarm|lowerarm|forearm|arm|wrist|hand).*(?:[._-]r$|right)|^right(?:shoulder|arm|forearm|hand))/i;
+      lastMocapBonePose.forEach((v, k) => {
+        if (sideRegex.test(v.boneName)) out.add(k);
+      });
+      return out;
+    };
+
+    const resolveKeepFromClipKeys = (spec: string | string[]): Set<string> => {
+      const out = new Set<string>();
+      if (!anat || lastMocapBonePose.size === 0) return out;
+      const items = Array.isArray(spec) ? spec : [spec];
+      const addIfPresent = (bn?: string) => {
+        if (!bn) return;
+        const k = normBoneKey(bn);
+        if (lastMocapBonePose.has(k)) out.add(k);
+      };
+      const addRightArm = () => collectHandBoneKeys('right').forEach((k) => { if (lastMocapBonePose.has(k)) out.add(k); });
+      const addLeftArm = () => collectHandBoneKeys('left').forEach((k) => { if (lastMocapBonePose.has(k)) out.add(k); });
+      const addTorso = () => {
+        [anat.hips, anat.lowerSpine, anat.midSpine, anat.chest].forEach(addIfPresent);
+        lastMocapBonePose.forEach((v, k) => {
+          if (/spine|chest|pelvis|hips|waist|abdomen/i.test(v.boneName)) out.add(k);
+        });
+      };
+      const addHead = () => {
+        [anat.neck, anat.head].forEach(addIfPresent);
+        lastMocapBonePose.forEach((v, k) => {
+          if (/neck|head/i.test(v.boneName)) out.add(k);
+        });
+      };
+      const addLeg = (side: 'left' | 'right') => {
+        const list = side === 'left' ? [anat.lUpLeg, anat.lLeg, anat.lFoot] : [anat.rUpLeg, anat.rLeg, anat.rFoot];
+        list.forEach(addIfPresent);
+        const re = side === 'left'
+          ? /(?:(?:thigh|upleg|upperleg|lowerleg|calf|shin|leg|foot|toe).*(?:[._-]l$|left)|^left(?:upleg|leg|foot|toebase))/i
+          : /(?:(?:thigh|upleg|upperleg|lowerleg|calf|shin|leg|foot|toe).*(?:[._-]r$|right)|^right(?:upleg|leg|foot|toebase))/i;
+        lastMocapBonePose.forEach((v, k) => {
+          if (re.test(v.boneName)) out.add(k);
+        });
+      };
+
+      for (const raw of items) {
+        const tok = String(raw || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+        if (!tok || tok === 'none' || tok === 'false') continue;
+        if (tok === 'rightarm' || tok === 'rarm' || tok === 'righthand' || tok === 'tayphai') {
+          addRightArm();
+        } else if (tok === 'leftarm' || tok === 'larm' || tok === 'lefthand' || tok === 'taytrai') {
+          addLeftArm();
+        } else if (tok === 'arms' || tok === 'botharms' || tok === 'hands' || tok === 'haitay' || tok === '2tay') {
+          addLeftArm();
+          addRightArm();
+        } else if (tok === 'torso' || tok === 'spine' || tok === 'than') {
+          addTorso();
+        } else if (tok === 'head' || tok === 'neck' || tok === 'dau') {
+          addHead();
+        } else if (tok === 'upperbody' || tok === 'thantren') {
+          addTorso();
+          addHead();
+          addLeftArm();
+          addRightArm();
+        } else if (tok === 'leftleg' || tok === 'lleg' || tok === 'chantrai') {
+          addLeg('left');
+        } else if (tok === 'rightleg' || tok === 'rleg' || tok === 'chanphai') {
+          addLeg('right');
+        } else if (tok === 'legs' || tok === 'lowerbody' || tok === 'haichan' || tok === '2chan') {
+          addLeg('left');
+          addLeg('right');
+        } else if (tok === 'all' || tok === 'body' || tok === 'full' || tok === 'fullbody' || tok === 'toanthan') {
+          lastMocapBonePose.forEach((_, k) => out.add(k));
+        } else {
+          const nk = normBoneKey(String(raw || ''));
+          if (lastMocapBonePose.has(nk)) out.add(nk);
+        }
+      }
+      return out;
+    };
+
     const emitHumanoidGaitWindow = (
       tStart: number,
       tEnd: number,
@@ -7088,6 +7281,7 @@ export class SontinhSceneService implements OnDestroy {
         : getEmbeddedClipRest(clipName, gaitMode);
 
       if (embedded && Array.isArray(embedded.keyframes) && embedded.keyframes.length > 0 && !isPivotTurn) {
+        if (isVideoReferenceClip(embedded)) usedVideoRefClip = true;
         const rawCycDur = Math.max(0.45, Math.min(20.0, Number(embedded.duration) || 1.07));
         const wholeCycles = Math.max(1, Math.round(winDur / rawCycDur));
         const effCycDur = rawCycDur <= winDur && Math.abs(winDur / wholeCycles - rawCycDur) <= rawCycDur * 0.25
@@ -7095,10 +7289,13 @@ export class SontinhSceneService implements OnDestroy {
           : rawCycDur;
 
         const byTime = new Map<number, GlbBoneKeyframe[]>();
+        const fullByTime = new Map<number, GlbBoneKeyframe[]>();
         for (const bk of embedded.keyframes) {
           if (!bk || bk.boneName === '__root__') continue;
-          if (skipBones.has(normBoneKey(bk.boneName))) continue;
           const ms = Math.round((Number(bk.time) || 0) * 1000);
+          if (!fullByTime.has(ms)) fullByTime.set(ms, []);
+          fullByTime.get(ms)!.push(bk);
+          if (skipBones.has(normBoneKey(bk.boneName))) continue;
           if (!byTime.has(ms)) byTime.set(ms, []);
           byTime.get(ms)!.push(bk);
         }
@@ -7152,6 +7349,16 @@ export class SontinhSceneService implements OnDestroy {
             bk.pos ? { x: 0, y: bk.pos.y || 0, z: 0 } : { x: 0, y: 0, z: 0 },
             14
           );
+        }
+        // Ghi nhớ tư thế mocap thật cuối đoạn để các đoạn sau (keepFromClip / giữ nguyên tay từ video) nối mượt 0 độ giật
+        if (closeMs >= 0) {
+          for (const bk of fullByTime.get(closeMs) || []) {
+            lastMocapBonePose.set(normBoneKey(bk.boneName), {
+              boneName: bk.boneName,
+              rot: { x: Number(bk.rot?.x) || 0, y: Number(bk.rot?.y) || 0, z: Number(bk.rot?.z) || 0 },
+              pos: { x: 0, y: Number(bk.pos?.y) || 0, z: 0 }
+            });
+          }
         }
         return;
       }
@@ -7224,6 +7431,8 @@ export class SontinhSceneService implements OnDestroy {
       handName: string;
       armRot: { x: number; y: number; z: number };
       foreRot: { x: number; y: number; z: number };
+      handRot: { x: number; y: number; z: number };
+      gripStyle: 'flat' | 'cylinder' | 'wide';
       targetPropId: string;
     }>();
     const pendingGrabs: Array<{
@@ -7236,19 +7445,23 @@ export class SontinhSceneService implements OnDestroy {
       restRot: pc.Vec3;
     }> = [];
 
-    const emitHandFingers = (t: number, handSide: 'right' | 'left', curled: boolean) => {
-      const sign = handSide === 'right' ? 1 : -1;
+    const emitHandFingers = (
+      t: number,
+      handSide: 'right' | 'left',
+      curled: boolean | number,
+      gripStyle: 'flat' | 'cylinder' | 'wide' = 'cylinder'
+    ) => {
+      const closure = typeof curled === 'number' ? Math.max(0, Math.min(1, curled)) : (curled ? 1 : 0);
+      const handAnat = handAnatomyBySide[handSide];
+      if (handAnat && handAnat.fingers.length > 0) {
+        const poses = this._computeAnatomicalFingerCurl(handAnat, gripStyle, closure);
+        for (const p of poses) {
+          pushKfSafe(t, p.boneName, p.rot, { x: 0, y: 0, z: 0 }, 10);
+        }
+        return;
+      }
       for (const fName of fingerBonesByHand[handSide]) {
-        const isThumb = /thumb|finger1/i.test(fName);
-        pushKfSafe(
-          t,
-          fName,
-          curled
-            ? (isThumb ? { x: -24, y: sign * 18, z: sign * -18 } : { x: -42, y: 0, z: 0 })
-            : { x: 0, y: 0, z: 0 },
-          { x: 0, y: 0, z: 0 },
-          10
-        );
+        pushKfSafe(t, fName, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, 10);
       }
     };
 
@@ -7299,7 +7512,13 @@ export class SontinhSceneService implements OnDestroy {
       const isReverse = !!seg.reverse;
       const segCustomBones = new Set<string>();
       let segIsApproachMove = false;
-      let segHandledIkHands = new Set<'right' | 'left'>();
+      const segHandledIkHands = new Set<'right' | 'left'>();
+      const segExcludedKeepHands = new Set<'right' | 'left'>();
+      const explicitSegKfBoneKeys = new Set<string>(
+        Array.isArray(seg.keyframes)
+          ? seg.keyframes.filter((k) => k && k.boneName && k.boneName !== '__root__').map((k) => normBoneKey(k.boneName))
+          : []
+      );
 
       if (seg.type === 'approach' || seg.type === 'walk_and_grab') {
         const tgt = resolveTargetLocalM(seg.targetPropId);
@@ -7364,17 +7583,22 @@ export class SontinhSceneService implements OnDestroy {
             curYaw += dYaw;
           }
           const bodyPose = buildBodyPoseForHeight(tgt.heightRatio, handSide);
-          const probe = solveTwoBoneArmIk(handSide, curX, curZ, curYaw, bodyPose, tgt.centerW);
+          const propMetrics = this._measurePropLocalBounds(tgt.wrapper);
+          const handAnat = handAnatomyBySide[handSide];
+          const gripStyle = this._classifyPropGripStyle(propMetrics, handAnat?.handLengthW || actorHeightW * 0.105);
+
+          // Hiệu chỉnh vị trí đứng bằng FK thực tế để LÒNG BÀN TAY (palmWorldPos) chạm sát tâm đồ vật
+          const probe = solveTwoBoneArmIk(handSide, curX, curZ, curYaw, bodyPose, tgt.centerW, 'grab', tgt.heightRatio);
           let endX = curX;
           let endZ = curZ;
           if (probe) {
             const targetPt = invWrapperMat.transformPoint(tgt.centerW, new pc.Vec3());
-            const handPt = invWrapperMat.transformPoint(probe.handWorldPos, new pc.Vec3());
-            const errX = (targetPt.x - handPt.x) / meterScale;
-            const errZ = (targetPt.z - handPt.z) / meterScale;
-            if (Math.hypot(errX, errZ) > 0.04) {
-              endX += Math.max(-0.55, Math.min(0.55, errX));
-              endZ += Math.max(-0.55, Math.min(0.55, errZ));
+            const palmPt = invWrapperMat.transformPoint(probe.palmWorldPos, new pc.Vec3());
+            const errX = (targetPt.x - palmPt.x) / meterScale;
+            const errZ = (targetPt.z - palmPt.z) / meterScale;
+            if (Math.hypot(errX, errZ) > 0.03) {
+              endX += Math.max(-0.95, Math.min(0.95, errX));
+              endZ += Math.max(-0.95, Math.min(0.95, errZ));
             }
           }
           pushRoot(segStart, curX, curY, curZ, curYaw, 0);
@@ -7382,23 +7606,35 @@ export class SontinhSceneService implements OnDestroy {
           curX = endX;
           curZ = endZ;
 
-          const ik = solveTwoBoneArmIk(handSide, curX, curZ, curYaw, bodyPose, tgt.centerW);
+          const ik = solveTwoBoneArmIk(handSide, curX, curZ, curYaw, bodyPose, tgt.centerW, 'grab', tgt.heightRatio);
           if (ik) {
             segHandledIkHands.add(handSide);
+            segExcludedKeepHands.add(handSide);
             segCustomBones.add(normBoneKey(ik.armName));
             segCustomBones.add(normBoneKey(ik.foreArmName));
-            segCustomBones.add(normBoneKey(ik.handName));
+            const ikHandKey = normBoneKey(ik.handName);
             for (const fn of fingerBonesByHand[handSide]) segCustomBones.add(normBoneKey(fn));
             for (const bp of bodyPose) {
               if (bp.boneName && bp.boneName !== '__root__') {
-                segCustomBones.add(normBoneKey(bp.boneName));
+                const bpKey = normBoneKey(bp.boneName);
+                const isHeadOrNeck = bpKey === normBoneKey(anat.head) || bpKey === normBoneKey(anat.neck);
+                if (isHeadOrNeck && explicitSegKfBoneKeys.has(bpKey)) continue;
+                segCustomBones.add(bpKey);
                 pushKfSafe(segEnd, bp.boneName, bp.rot, bp.pos, 10);
               }
             }
             pushKfSafe(segEnd, ik.armName, ik.armRot, { x: 0, y: 0, z: 0 }, 10);
             pushKfSafe(segEnd, ik.foreArmName, ik.foreRot, { x: 0, y: 0, z: 0 }, 10);
-            emitHandFingers(segStart, handSide, false);
-            emitHandFingers(segEnd, handSide, true);
+            if (!explicitSegKfBoneKeys.has(ikHandKey)) {
+              segCustomBones.add(ikHandKey);
+              pushKfSafe(segEnd, ik.handName, ik.handRot, { x: 0, y: 0, z: 0 }, 10);
+            }
+            // Ngón tay mở khi bắt đầu vươn -> khum nhẹ chuẩn bị ôm -> gập khít đúng dáng món đồ tại thời điểm chạm
+            emitHandFingers(segStart, handSide, 0, gripStyle);
+            if (segEnd - segStart >= 0.25) {
+              emitHandFingers(segStart + (segEnd - segStart) * 0.62, handSide, 0.32, gripStyle);
+            }
+            emitHandFingers(segEnd, handSide, 1.0, gripStyle);
 
             if (seg.attach !== false && seg.targetPropId) {
               heldHands.set(handSide, {
@@ -7407,6 +7643,8 @@ export class SontinhSceneService implements OnDestroy {
                 handName: ik.handName,
                 armRot: ik.armRot,
                 foreRot: ik.foreRot,
+                handRot: ik.handRot,
+                gripStyle,
                 targetPropId: seg.targetPropId
               });
               pendingGrabs.push({
@@ -7431,6 +7669,7 @@ export class SontinhSceneService implements OnDestroy {
         if (isHumanoid && anat) {
           let aimWorldPt: pc.Vec3 | null = null;
           let hRatio = 0.72;
+          let fwdOffsetM = 0.34;
           if (seg.targetPropId) {
             const tgt = resolveTargetLocalM(seg.targetPropId);
             if (tgt) {
@@ -7440,6 +7679,7 @@ export class SontinhSceneService implements OnDestroy {
           }
           if (!aimWorldPt) {
             const fwdM = Number(seg.targetOffset?.forward ?? 0.34);
+            fwdOffsetM = fwdM;
             const upM = Math.max(0.08, Math.min(2.3, Number(seg.targetOffset?.up ?? 1.22)));
             const sideM = Number(seg.targetOffset?.side ?? 0.14);
             const qNow = new pc.Quat().setFromEulerAngles(0, curYaw, 0);
@@ -7455,26 +7695,41 @@ export class SontinhSceneService implements OnDestroy {
             hRatio = (aimWorldPt.y - actorFloorY) / Math.max(0.5, actorHeightW);
           }
           const bodyPose = buildBodyPoseForHeight(hRatio, handSide);
-          const ik = solveTwoBoneArmIk(handSide, curX, curZ, curYaw, bodyPose, aimWorldPt);
+          const heldBefore = heldHands.get(handSide);
+          const wristMode: 'grab' | 'inspect' | 'carry' | 'neutral' = heldBefore
+            ? (!seg.targetPropId && hRatio >= 0.54 && fwdOffsetM <= 0.6 ? 'inspect' : 'carry')
+            : 'grab';
+          const ik = solveTwoBoneArmIk(handSide, curX, curZ, curYaw, bodyPose, aimWorldPt, wristMode, hRatio);
           if (ik) {
             segHandledIkHands.add(handSide);
+            segExcludedKeepHands.add(handSide);
             segCustomBones.add(normBoneKey(ik.armName));
             segCustomBones.add(normBoneKey(ik.foreArmName));
-            segCustomBones.add(normBoneKey(ik.handName));
+            const ikHandKey = normBoneKey(ik.handName);
             for (const bp of bodyPose) {
               if (bp.boneName && bp.boneName !== '__root__') {
-                segCustomBones.add(normBoneKey(bp.boneName));
+                const bpKey = normBoneKey(bp.boneName);
+                const isHeadOrNeck = bpKey === normBoneKey(anat.head) || bpKey === normBoneKey(anat.neck);
+                if (isHeadOrNeck && explicitSegKfBoneKeys.has(bpKey)) continue;
+                segCustomBones.add(bpKey);
                 pushKfSafe(segEnd, bp.boneName, bp.rot, bp.pos, 10);
               }
             }
             pushKfSafe(segEnd, ik.armName, ik.armRot, { x: 0, y: 0, z: 0 }, 10);
             pushKfSafe(segEnd, ik.foreArmName, ik.foreRot, { x: 0, y: 0, z: 0 }, 10);
             const held = heldHands.get(handSide);
+            if (!explicitSegKfBoneKeys.has(ikHandKey)) {
+              segCustomBones.add(ikHandKey);
+              pushKfSafe(segEnd, ik.handName, ik.handRot, { x: 0, y: 0, z: 0 }, 10);
+            }
             if (held) {
               held.armRot = ik.armRot;
               held.foreRot = ik.foreRot;
+              if (!explicitSegKfBoneKeys.has(ikHandKey)) {
+                held.handRot = ik.handRot;
+              }
               for (const fn of fingerBonesByHand[handSide]) segCustomBones.add(normBoneKey(fn));
-              emitHandFingers(segEnd, handSide, true);
+              emitHandFingers(segEnd, handSide, 1.0, held.gripStyle);
             }
           }
         }
@@ -7487,9 +7742,11 @@ export class SontinhSceneService implements OnDestroy {
         );
         if (match) {
           match.releaseTime = Math.round(segEnd * 1000) / 1000;
+          segExcludedKeepHands.add(match.hand);
           heldHands.delete(match.hand);
           emitHandFingers(segEnd, match.hand, false);
         } else {
+          segExcludedKeepHands.add(handSide);
           heldHands.delete(handSide);
           emitHandFingers(segEnd, handSide, false);
         }
@@ -7651,21 +7908,138 @@ export class SontinhSceneService implements OnDestroy {
         pushRoot(segEnd, curX, curY, curZ, curYaw, 0);
       }
 
+      // Xác định trước chế độ gait / clip Video mẫu của đoạn này để bảo vệ nguyên vẹn mocap thật từ video mẫu
+      const gaitRaw = String(seg.gait || 'auto').toLowerCase();
+      const isSpatialMove = seg.type === 'move' || seg.type === 'arc' || seg.type === 'figure8' || seg.type === 'waypoints' || segIsApproachMove;
+      const isTurnSeg = seg.type === 'turn';
+      const isIkPoseSeg = seg.type === 'reach_and_grab' || seg.type === 'reach_pose' || seg.type === 'release';
+      const willPlayGaitClip = isHumanoid && (
+        ((isSpatialMove || isTurnSeg) && gaitRaw !== 'none' && gaitRaw !== 'idle') ||
+        ((seg.type === 'pose' || seg.type === 'wait') && (gaitRaw === 'embedded' || gaitRaw === 'walk' || gaitRaw === 'run' || !!seg.clipName))
+      );
+      const gaitModeForSeg: 'walk' | 'run' | 'embedded' =
+        gaitRaw === 'run'
+          ? 'run'
+          : (gaitRaw === 'embedded' || ((seg.type === 'pose' || seg.type === 'wait') && gaitRaw !== 'walk') ? 'embedded' : 'walk');
+      const segResolvedClip = willPlayGaitClip && !isTurnSeg
+        ? getEmbeddedClipRest(seg.clipName, gaitModeForSeg)
+        : null;
+      const isVideoGaitSeg = isVideoReferenceClip(segResolvedClip);
+      const segVideoBoneKeys = new Set<string>();
+      if (isVideoGaitSeg && segResolvedClip) {
+        for (const bk of segResolvedClip.keyframes) {
+          if (bk?.boneName && bk.boneName !== '__root__') {
+            segVideoBoneKeys.add(normBoneKey(bk.boneName));
+          }
+        }
+      }
+
+      // Phân tích các xương AI xuất trong seg.keyframes để phân biệt cử chỉ động (vẫy tay...) với pose tĩnh bịa đè lên video mẫu
+      const segKfMaxDeltaByBone = new Map<string, number>();
+      if (Array.isArray(seg.keyframes) && seg.keyframes.length > 0) {
+        const firstRotByBone = new Map<string, { x: number; y: number; z: number }>();
+        for (const bk of seg.keyframes) {
+          if (!bk || !bk.boneName || bk.boneName === '__root__') continue;
+          const bKey = normBoneKey(bk.boneName);
+          const rx = Number(bk.rot?.x) || 0;
+          const ry = Number(bk.rot?.y) || 0;
+          const rz = Number(bk.rot?.z) || 0;
+          const f = firstRotByBone.get(bKey);
+          if (!f) {
+            firstRotByBone.set(bKey, { x: rx, y: ry, z: rz });
+            segKfMaxDeltaByBone.set(bKey, 0);
+          } else {
+            const d = Math.max(Math.abs(rx - f.x), Math.abs(ry - f.y), Math.abs(rz - f.z));
+            if (d > (segKfMaxDeltaByBone.get(bKey) || 0)) {
+              segKfMaxDeltaByBone.set(bKey, d);
+            }
+          }
+        }
+      }
+      const isStaticInSegKf = (bKey: string): boolean => (segKfMaxDeltaByBone.get(bKey) || 0) < 12;
+
+      // Tập hợp các xương đang do IK hoặc tay cầm đồ kiểm soát -> KHÔNG bao giờ bị keepFromClip ghi đè
+      const ikOrHeldBoneKeys = new Set<string>();
+      if (isHumanoid && anat) {
+        const excludedHands = new Set<'right' | 'left'>([
+          ...Array.from(segExcludedKeepHands),
+          ...Array.from(heldHands.keys())
+        ]);
+        excludedHands.forEach((hSide) => {
+          collectHandBoneKeys(hSide).forEach((k) => ikOrHeldBoneKeys.add(k));
+          for (const fn of fingerBonesByHand[hSide]) ikOrHeldBoneKeys.add(normBoneKey(fn));
+        });
+      }
+
+      // Tính danh sách xương giữ nguyên tư thế mocap thật từ Video mẫu (`keepFromClip` hoặc tự động bảo toàn tay đối diện sau khi chạy video mẫu)
+      const keptClipBoneKeys = new Set<string>();
+      if (isHumanoid && anat && lastMocapBonePose.size > 0) {
+        if (seg.keepFromClip !== undefined) {
+          resolveKeepFromClipKeys(seg.keepFromClip).forEach((k) => {
+            if (!ikOrHeldBoneKeys.has(k)) keptClipBoneKeys.add(k);
+          });
+        } else if (
+          usedVideoRefClip &&
+          seg.overrideVideoBones !== true &&
+          !segResolvedClip &&
+          (seg.type === 'reach_and_grab' || seg.type === 'reach_pose' || seg.type === 'wait' || seg.type === 'release')
+        ) {
+          (['left', 'right'] as const).forEach((hSide) => {
+            if (segExcludedKeepHands.has(hSide) || heldHands.has(hSide)) return;
+            const sideKeys = collectHandBoneKeys(hSide);
+            // Nếu AI tự diễn hoạt cử chỉ động rõ ràng (vd vẫy tay, delta >= 12 độ) trên tay đối diện thì tôn trọng AI;
+            // ngược lại giữ nguyên tư thế mocap thật của tay đối diện từ video mẫu (tránh bật về A-pose hoặc góc Euler bịa)
+            let hasDynamicAiOnSide = false;
+            sideKeys.forEach((k) => {
+              if (segKfMaxDeltaByBone.has(k) && !isStaticInSegKf(k)) hasDynamicAiOnSide = true;
+            });
+            if (!hasDynamicAiOnSide) {
+              sideKeys.forEach((k) => {
+                if (lastMocapBonePose.has(k) && !ikOrHeldBoneKeys.has(k)) keptClipBoneKeys.add(k);
+              });
+            }
+          });
+        }
+      }
+
       if (Array.isArray(seg.keyframes) && seg.keyframes.length > 0) {
         const maxLocalT = Math.max(...seg.keyframes.map((k) => Number(k?.time) || 0));
         const timeRatio = maxLocalT > segDur + 0.05 ? (segDur / maxLocalT) : 1.0;
+        const headKey = anat ? normBoneKey(anat.head) : '';
+        const neckKey = anat ? normBoneKey(anat.neck) : '';
         for (const bk of seg.keyframes) {
           if (!bk || !bk.boneName || bk.boneName === '__root__') continue;
-          segCustomBones.add(normBoneKey(bk.boneName));
+          const bKey = normBoneKey(bk.boneName);
+          // 1. Nếu xương này được bảo toàn từ Video mẫu (keepFromClip / tay đối diện giữ nguyên) -> bỏ qua góc Euler AI bịa
+          if (keptClipBoneKeys.has(bKey)) continue;
+          // 2. Nếu đoạn đang chạy chính clip Video mẫu (approach/move/waypoints/arc) và AI KHÔNG đặt overrideVideoBones:true,
+          //    bảo vệ toàn bộ xương có sẵn trong video khỏi pose tĩnh bịa (chỉ cho phép xoay đầu/cổ hoặc cử chỉ động thật)
+          if (
+            isVideoGaitSeg &&
+            seg.overrideVideoBones !== true &&
+            segVideoBoneKeys.has(bKey) &&
+            bKey !== headKey &&
+            bKey !== neckKey &&
+            isStaticInSegKf(bKey)
+          ) {
+            continue;
+          }
+          segCustomBones.add(bKey);
           const localT = Math.max(0, (Number(bk.time) || 0) * timeRatio);
+          const rotVal = {
+            x: Number(bk.rot?.x) || 0,
+            y: Number(bk.rot?.y) || 0,
+            z: Number(bk.rot?.z) || 0
+          };
+          heldHands.forEach((held) => {
+            if (normBoneKey(held.handName) === bKey) {
+              held.handRot = { ...rotVal };
+            }
+          });
           pushKfSafe(
             segStart + localT,
             bk.boneName,
-            {
-              x: Number(bk.rot?.x) || 0,
-              y: Number(bk.rot?.y) || 0,
-              z: Number(bk.rot?.z) || 0
-            },
+            rotVal,
             {
               x: Number(bk.pos?.x) || 0,
               y: Number(bk.pos?.y) || 0,
@@ -7674,6 +8048,18 @@ export class SontinhSceneService implements OnDestroy {
             10
           );
         }
+      }
+
+      // Xuất keyframe giữ nguyên tư thế mocap thật từ Video mẫu cho các xương trong keptClipBoneKeys (khi đoạn không phát clip mocap sống)
+      if (isHumanoid && keptClipBoneKeys.size > 0 && !segResolvedClip) {
+        keptClipBoneKeys.forEach((bKey) => {
+          if (segCustomBones.has(bKey)) return;
+          const pose = lastMocapBonePose.get(bKey);
+          if (!pose) return;
+          segCustomBones.add(bKey);
+          pushKfSafe(segStart, pose.boneName, pose.rot, pose.pos, 10);
+          pushKfSafe(segEnd, pose.boneName, pose.rot, pose.pos, 10);
+        });
       }
 
       // Tự động bảo vệ cánh tay & ngón tay đang cầm đồ vật xuyên suốt các chặng đi/quay/chờ tiếp theo
@@ -7685,25 +8071,24 @@ export class SontinhSceneService implements OnDestroy {
           const handKey = normBoneKey(held.handName);
           const aiOverrodeArm = segCustomBones.has(armKey) || segCustomBones.has(foreKey);
           for (const fn of fingerBonesByHand[hSide]) segCustomBones.add(normBoneKey(fn));
-          emitHandFingers(segEnd, hSide, true);
+          emitHandFingers(segEnd, hSide, 1.0, held.gripStyle);
           if (!aiOverrodeArm) {
             segCustomBones.add(armKey);
             segCustomBones.add(foreKey);
-            segCustomBones.add(handKey);
             pushKfSafe(segStart, held.armName, held.armRot, { x: 0, y: 0, z: 0 }, 10);
             pushKfSafe(segStart, held.foreArmName, held.foreRot, { x: 0, y: 0, z: 0 }, 10);
             pushKfSafe(segEnd, held.armName, held.armRot, { x: 0, y: 0, z: 0 }, 10);
             pushKfSafe(segEnd, held.foreArmName, held.foreRot, { x: 0, y: 0, z: 0 }, 10);
+            if (!segCustomBones.has(handKey)) {
+              segCustomBones.add(handKey);
+              pushKfSafe(segStart, held.handName, held.handRot, { x: 0, y: 0, z: 0 }, 10);
+              pushKfSafe(segEnd, held.handName, held.handRot, { x: 0, y: 0, z: 0 }, 10);
+            }
           }
         });
       }
 
       if (isHumanoid) {
-        const gaitRaw = String(seg.gait || 'auto').toLowerCase();
-        const isSpatialMove = seg.type === 'move' || seg.type === 'arc' || seg.type === 'figure8' || seg.type === 'waypoints' || segIsApproachMove;
-        const isTurnSeg = seg.type === 'turn';
-        const isIkPoseSeg = seg.type === 'reach_and_grab' || seg.type === 'reach_pose' || seg.type === 'release';
-
         if (isSpatialMove && gaitRaw !== 'none' && gaitRaw !== 'idle') {
           const mode: 'walk' | 'run' | 'embedded' =
             gaitRaw === 'run' ? 'run' : (gaitRaw === 'embedded' ? 'embedded' : 'walk');
@@ -7759,22 +8144,31 @@ export class SontinhSceneService implements OnDestroy {
       keyframes: kfs
     });
     if (applied > 0) {
-      // Hoàn tất ràng buộc handGrabs trực tiếp trên bộ keyframe cuối cùng -> khớp tuyệt đối 0 sai số tại grabTime & releaseTime
+      // Hoàn tất ràng buộc handGrabs trực tiếp trên bộ keyframe cuối cùng -> áp sát món đồ khít lòng bàn tay & căn hướng tự nhiên
       if (pendingGrabs.length > 0 && anat) {
         rig.timeline.handGrabs = [];
         const finalized: GlbPropGrabConstraint[] = [];
         for (const pg of pendingGrabs) {
           const handBoneName = pg.hand === 'left' ? anat.lHand : anat.rHand;
           const handB = rig.bones.get(handBoneName);
-          if (!handB?.node) continue;
+          const targetWrapper = this._findPropWrapperEntity(pg.targetPropId);
+          if (!handB?.node || !targetWrapper) continue;
           this.evaluatePropKeyframesAtTime(propId, pg.grabTime);
-          const handPos = handB.node.getPosition().clone();
-          const handQuat = handB.node.getRotation().clone().normalize();
-          const invHandQ = handQuat.clone().invert();
-          const diffW = new pc.Vec3().sub2(pg.restPos, handPos);
-          const locOff = invHandQ.transformVector(diffW, new pc.Vec3());
-          const restQ = new pc.Quat().setFromEulerAngles(pg.restRot.x, pg.restRot.y, pg.restRot.z).normalize();
-          const locRotQ = new pc.Quat().mul2(invHandQ, restQ).normalize();
+          const headNode = rig.bones.get(anat.head)?.node;
+          const headPosW = headNode
+            ? headNode.getPosition().clone()
+            : new pc.Vec3(pg.restPos.x, actorFloorY + actorHeightW * 0.9, pg.restPos.z);
+          const handAnat = handAnatomyBySide[pg.hand];
+          const seated = this._computeSeatedHandGrabAttachment(
+            handB.node,
+            handAnat,
+            targetWrapper,
+            pg.restPos,
+            pg.restRot,
+            headPosW
+          );
+          const locOff = seated.locOff;
+          const locRotQ = seated.locRotQ;
           finalized.push({
             id: pg.id,
             targetPropId: pg.targetPropId,
@@ -7905,6 +8299,623 @@ export class SontinhSceneService implements OnDestroy {
     return { center, min, max, size };
   }
 
+  /**
+   * Đo kích thước thực (world-scale, chưa xoay) và vector từ pivot tới tâm hình học của đồ vật trong hệ trục cục bộ (X, Y, Z)
+   * mà không làm biến đổi transform của entity trong cảnh.
+   */
+  private _measurePropLocalBounds(ent: pc.Entity): {
+    size: pc.Vec3;
+    localPivotToCenter: pc.Vec3;
+    dThin: number;
+    dMid: number;
+    dLong: number;
+    axisThin: pc.Vec3;
+    axisMid: pc.Vec3;
+    axisLong: pc.Vec3;
+  } {
+    const wPos = ent.getPosition().clone();
+    const invWQuat = ent.getRotation().clone().normalize().invert();
+    const minL = new pc.Vec3(Infinity, Infinity, Infinity);
+    const maxL = new pc.Vec3(-Infinity, -Infinity, -Infinity);
+    let found = false;
+    const tmpCorner = new pc.Vec3();
+    const tmpWorld = new pc.Vec3();
+    const tmpRel = new pc.Vec3();
+    const tmpUnrot = new pc.Vec3();
+
+    const comps: any[] = [
+      ...((ent.findComponents('render') as any[]) || []),
+      ...((ent.findComponents('model') as any[]) || [])
+    ];
+    for (const c of comps) {
+      if (!c || c.enabled === false) continue;
+      const mis: any[] = c.meshInstances || [];
+      for (const mi of mis) {
+        const meshAabb = mi?.mesh?.aabb;
+        const worldAabb = !meshAabb ? mi?.aabb : null;
+        const srcAabb = meshAabb || worldAabb;
+        if (!srcAabb) continue;
+        const mn = srcAabb.getMin();
+        const mx = srcAabb.getMax();
+        if (!Number.isFinite(mn.x) || !Number.isFinite(mx.x)) continue;
+        const wt = meshAabb && mi?.node ? mi.node.getWorldTransform() : null;
+        for (let ix = 0; ix < 2; ix++) {
+          for (let iy = 0; iy < 2; iy++) {
+            for (let iz = 0; iz < 2; iz++) {
+              tmpCorner.set(ix ? mx.x : mn.x, iy ? mx.y : mn.y, iz ? mx.z : mn.z);
+              if (wt) {
+                wt.transformPoint(tmpCorner, tmpWorld);
+              } else {
+                tmpWorld.copy(tmpCorner);
+              }
+              tmpRel.sub2(tmpWorld, wPos);
+              invWQuat.transformVector(tmpRel, tmpUnrot);
+              if (tmpUnrot.x < minL.x) minL.x = tmpUnrot.x;
+              if (tmpUnrot.y < minL.y) minL.y = tmpUnrot.y;
+              if (tmpUnrot.z < minL.z) minL.z = tmpUnrot.z;
+              if (tmpUnrot.x > maxL.x) maxL.x = tmpUnrot.x;
+              if (tmpUnrot.y > maxL.y) maxL.y = tmpUnrot.y;
+              if (tmpUnrot.z > maxL.z) maxL.z = tmpUnrot.z;
+              found = true;
+            }
+          }
+        }
+      }
+    }
+
+    const size = found
+      ? new pc.Vec3(
+          Math.max(0.01, maxL.x - minL.x),
+          Math.max(0.01, maxL.y - minL.y),
+          Math.max(0.01, maxL.z - minL.z)
+        )
+      : new pc.Vec3(0.2, 0.2, 0.2);
+    const localPivotToCenter = found
+      ? new pc.Vec3((minL.x + maxL.x) * 0.5, (minL.y + maxL.y) * 0.5, (minL.z + maxL.z) * 0.5)
+      : new pc.Vec3(0, 0, 0);
+
+    const axes = [
+      { dim: size.x, vec: new pc.Vec3(1, 0, 0) },
+      { dim: size.y, vec: new pc.Vec3(0, 1, 0) },
+      { dim: size.z, vec: new pc.Vec3(0, 0, 1) }
+    ].sort((a, b) => a.dim - b.dim);
+
+    return {
+      size,
+      localPivotToCenter,
+      dThin: axes[0].dim,
+      dMid: axes[1].dim,
+      dLong: axes[2].dim,
+      axisThin: axes[0].vec,
+      axisMid: axes[1].vec,
+      axisLong: axes[2].vec
+    };
+  }
+
+  /** Phân loại dáng cầm thích ứng theo tỷ lệ hình học thực tế của đồ vật so với kích thước bàn tay */
+  private _classifyPropGripStyle(
+    metrics: { dThin: number; dMid: number; dLong: number },
+    handLengthW: number
+  ): 'flat' | 'cylinder' | 'wide' {
+    const safeHand = Math.max(0.05, handLengthW);
+    if (metrics.dThin < metrics.dMid * 0.56) return 'flat';
+    if (metrics.dThin > safeHand * 0.55) return 'wide';
+    return 'cylinder';
+  }
+
+  /**
+   * Phân tích trực tiếp giải phẫu 3D của bàn tay ở tư thế nghỉ gốc (bất kể MakeHuman, Mixamo, Unreal, Blender, A-Pose hay T-Pose):
+   * - Đo hệ trục trực chuẩn bàn tay (hướng ngón tay, hướng ngón cái, pháp tuyến lòng bàn tay) & tâm lòng bàn tay thật.
+   * - Tính chính xác trục gập `curlAxisC` cho từng đốt ngón tay (1..5, đốt 1..3) để gập +angle luôn ôm vào lòng bàn tay.
+   */
+  private _analyzeRigHandAnatomy(
+    rig: any,
+    anat: ReturnType<SontinhSceneService['_resolveRigAnatomy']>,
+    handSide: 'right' | 'left',
+    actorHeightW: number,
+    baseFwd: pc.Vec3
+  ): {
+    handSide: 'right' | 'left';
+    handName: string;
+    foreArmName: string;
+    localFwd: pc.Vec3;
+    localThumb: pc.Vec3;
+    localPalm: pc.Vec3;
+    localPalmOffset: pc.Vec3;
+    handLengthW: number;
+    palmWidthW: number;
+    fingers: Array<{
+      boneName: string;
+      fingerIdx: 1 | 2 | 3 | 4 | 5;
+      phalanxIdx: 1 | 2 | 3;
+      curlAxisC: pc.Vec3;
+    }>;
+  } | null {
+    const handName = handSide === 'left' ? anat.lHand : anat.rHand;
+    const foreArmName = handSide === 'left' ? anat.lForeArm : anat.rForeArm;
+    const handB = rig?.bones?.get(handName);
+    const foreB = rig?.bones?.get(foreArmName);
+    if (!handB?.node || !foreB?.node) return null;
+
+    const isDescendantOf = (node: pc.GraphNode | null | undefined, ancestor: pc.GraphNode): boolean => {
+      let cur = node?.parent;
+      let guard = 0;
+      while (cur && guard++ < 24) {
+        if (cur === ancestor) return true;
+        cur = cur.parent;
+      }
+      return false;
+    };
+
+    const sideRe = handSide === 'left'
+      ? /(?:[._-]l$|^left|left[._-]?|l[._-](?:thumb|index|middle|ring|pinky|finger))/i
+      : /(?:[._-]r$|^right|right[._-]?|r[._-](?:thumb|index|middle|ring|pinky|finger))/i;
+
+    const classifyFingerIdx = (label: string): (1 | 2 | 3 | 4 | 5) | null => {
+      if (/thumb|finger1|f_?thumb/i.test(label)) return 1;
+      if (/index|finger2|point/i.test(label)) return 2;
+      if (/middle|finger3|mid/i.test(label)) return 3;
+      if (/ring|finger4/i.test(label)) return 4;
+      if (/pinky|little|finger5/i.test(label)) return 5;
+      return null;
+    };
+
+    const rawByFinger = new Map<1 | 2 | 3 | 4 | 5, Array<{ bone: any; depth: number }>>();
+    rig.bones.forEach((b: any) => {
+      if (!b?.isSkinnedBone || !b?.node || b.name === '__root__' || b.name === handName) return;
+      if (/metacarpal|carpal|palm|hand_?end|tip_?end/i.test(b.label || b.name)) return;
+      const inHandTree = isDescendantOf(b.node, handB.node);
+      if (!inHandTree && !sideRe.test(b.label || b.name)) return;
+      if (!inHandTree && !/(finger|thumb|index|middle|ring|pinky|little)/i.test(b.label || b.name)) return;
+      const fIdx = classifyFingerIdx(b.label || b.name);
+      if (!fIdx) return;
+      let depth = 0;
+      let cur = b.node.parent;
+      let g = 0;
+      while (cur && cur !== handB.node && g++ < 20) {
+        depth++;
+        cur = cur.parent;
+      }
+      if (!rawByFinger.has(fIdx)) rawByFinger.set(fIdx, []);
+      rawByFinger.get(fIdx)!.push({ bone: b, depth });
+    });
+
+    rawByFinger.forEach((arr) => arr.sort((a, b) => a.depth - b.depth || a.bone.name.localeCompare(b.bone.name)));
+
+    const wristPosW = handB.node.getPosition().clone();
+    const forePosW = foreB.node.getPosition().clone();
+    const getProxPos = (fIdx: 1 | 2 | 3 | 4 | 5): pc.Vec3 | null => {
+      const arr = rawByFinger.get(fIdx);
+      return arr && arr.length > 0 ? arr[0].bone.node.getPosition().clone() : null;
+    };
+    const pThumb = getProxPos(1);
+    const pIndex = getProxPos(2);
+    const pMiddle = getProxPos(3);
+    const pRing = getProxPos(4);
+    const pPinky = getProxPos(5);
+
+    const centralKnuckles = [pIndex, pMiddle, pRing].filter((p): p is pc.Vec3 => !!p);
+    let knuckleCenterW: pc.Vec3;
+    if (centralKnuckles.length > 0) {
+      knuckleCenterW = new pc.Vec3();
+      for (const kp of centralKnuckles) knuckleCenterW.add(kp);
+      knuckleCenterW.mulScalar(1 / centralKnuckles.length);
+    } else {
+      const foreDir = new pc.Vec3().sub2(wristPosW, forePosW);
+      if (foreDir.lengthSq() < 1e-6) foreDir.set(handSide === 'left' ? 1 : -1, -0.5, 0);
+      foreDir.normalize();
+      knuckleCenterW = wristPosW.clone().add(foreDir.mulScalar(actorHeightW * 0.05));
+    }
+
+    const uFwdW = new pc.Vec3().sub2(knuckleCenterW, wristPosW);
+    if (uFwdW.lengthSq() < 1e-6) uFwdW.sub2(wristPosW, forePosW);
+    if (uFwdW.lengthSq() < 1e-6) uFwdW.set(handSide === 'left' ? 1 : -1, 0, 0);
+    uFwdW.normalize();
+
+    const rootQ0 = rig.glbEntity.getRotation().clone().normalize();
+    const invRootQ0 = rootQ0.clone().invert();
+    const baseFwdW = rootQ0.transformVector(baseFwd, new pc.Vec3()).normalize();
+
+    let rawThumbW = new pc.Vec3();
+    if (pIndex && pPinky) {
+      rawThumbW.sub2(pIndex, pPinky);
+    } else if (pIndex && pRing) {
+      rawThumbW.sub2(pIndex, pRing);
+    } else if (pThumb && pMiddle) {
+      rawThumbW.sub2(pThumb, pMiddle);
+    } else {
+      rawThumbW.copy(baseFwdW);
+    }
+    rawThumbW.sub(uFwdW.clone().mulScalar(rawThumbW.dot(uFwdW)));
+    if (rawThumbW.lengthSq() < 1e-6) {
+      rawThumbW.copy(baseFwdW).sub(uFwdW.clone().mulScalar(baseFwdW.dot(uFwdW)));
+      if (rawThumbW.lengthSq() < 1e-6) rawThumbW.set(0, 0, 1);
+    }
+    const uThumbW = rawThumbW.normalize();
+    if (pThumb) {
+      const toThumb = new pc.Vec3().sub2(pThumb, knuckleCenterW);
+      if (uThumbW.dot(toThumb) < 0) uThumbW.mulScalar(-1);
+    }
+
+    // Chuẩn giải phẫu bất biến cho mọi tư thế nghỉ (A-Pose / T-Pose / lòng bàn tay úp hay ngửa):
+    // Tay trái: uFwd × uThumb = uPalm; Tay phải: uThumb × uFwd = uPalm
+    const uPalmW = handSide === 'left'
+      ? new pc.Vec3().cross(uFwdW, uThumbW).normalize()
+      : new pc.Vec3().cross(uThumbW, uFwdW).normalize();
+    const uThumbOrthoW = handSide === 'left'
+      ? new pc.Vec3().cross(uPalmW, uFwdW).normalize()
+      : new pc.Vec3().cross(uFwdW, uPalmW).normalize();
+
+    const wristToKnuckleW = Math.max(actorHeightW * 0.035, Math.min(actorHeightW * 0.075, knuckleCenterW.distance(wristPosW)));
+    let maxFingerDistW = wristToKnuckleW * 1.95;
+    rawByFinger.forEach((arr, fIdx) => {
+      if (fIdx === 1) return;
+      for (const item of arr) {
+        const d = item.bone.node.getPosition().distance(wristPosW);
+        if (d > maxFingerDistW) maxFingerDistW = d;
+      }
+    });
+    const handLengthW = Math.max(actorHeightW * 0.085, Math.min(actorHeightW * 0.145, maxFingerDistW * 1.12));
+    const palmWidthW = (pIndex && pPinky)
+      ? Math.max(actorHeightW * 0.036, Math.min(actorHeightW * 0.072, pIndex.distance(pPinky) * 1.25))
+      : handLengthW * 0.46;
+
+    // Tâm bề mặt da lòng bàn tay: nằm giữa cổ tay & khớp gốc ngón tay, dịch nhẹ ra mặt lòng bàn tay
+    const palmCenterOffsetW = uFwdW.clone().mulScalar(wristToKnuckleW * 0.74)
+      .add(uPalmW.clone().mulScalar(handLengthW * 0.105));
+
+    const handRestWorldQ = handB.node.getRotation().clone().normalize();
+    const invHandRestQ = handRestWorldQ.clone().invert();
+    const localFwd = invHandRestQ.transformVector(uFwdW, new pc.Vec3()).normalize();
+    const localThumb = invHandRestQ.transformVector(uThumbOrthoW, new pc.Vec3()).normalize();
+    const localPalm = invHandRestQ.transformVector(uPalmW, new pc.Vec3()).normalize();
+    const localPalmOffset = invHandRestQ.transformVector(palmCenterOffsetW, new pc.Vec3());
+
+    const uFwdC = invRootQ0.transformVector(uFwdW, new pc.Vec3()).normalize();
+    const uThumbC = invRootQ0.transformVector(uThumbOrthoW, new pc.Vec3()).normalize();
+    const uPalmC = invRootQ0.transformVector(uPalmW, new pc.Vec3()).normalize();
+
+    const fingers: Array<{
+      boneName: string;
+      fingerIdx: 1 | 2 | 3 | 4 | 5;
+      phalanxIdx: 1 | 2 | 3;
+      curlAxisC: pc.Vec3;
+    }> = [];
+
+    rawByFinger.forEach((arr, fIdx) => {
+      let prevDirC = uFwdC.clone();
+      for (let idx = 0; idx < arr.length; idx++) {
+        const b = arr[idx].bone;
+        const phalanxIdx = Math.min(3, idx + 1) as 1 | 2 | 3;
+        const pCurW = b.node.getPosition();
+        let dirW: pc.Vec3 | null = null;
+        if (idx + 1 < arr.length) {
+          const d = new pc.Vec3().sub2(arr[idx + 1].bone.node.getPosition(), pCurW);
+          if (d.lengthSq() > 1e-6) dirW = d.normalize();
+        } else {
+          const children: pc.GraphNode[] = (b.node.children as pc.GraphNode[]) || [];
+          for (const ch of children) {
+            const d = new pc.Vec3().sub2(ch.getPosition(), pCurW);
+            if (d.lengthSq() > 1e-6) {
+              dirW = d.normalize();
+              break;
+            }
+          }
+        }
+        const vBoneC = dirW ? invRootQ0.transformVector(dirW, new pc.Vec3()).normalize() : prevDirC.clone();
+        prevDirC = vBoneC;
+
+        let curlAxisC: pc.Vec3;
+        if (fIdx === 1) {
+          // Ngón cái xoay đối xứng ngang qua lòng bàn tay để kẹp chắc đối diện 4 ngón còn lại
+          const thumbTargetC = phalanxIdx === 1
+            ? new pc.Vec3(
+                uPalmC.x * 0.72 - uThumbC.x * 0.68 + uFwdC.x * 0.22,
+                uPalmC.y * 0.72 - uThumbC.y * 0.68 + uFwdC.y * 0.22,
+                uPalmC.z * 0.72 - uThumbC.z * 0.68 + uFwdC.z * 0.22
+              ).normalize()
+            : new pc.Vec3(
+                uPalmC.x * 0.64 - uThumbC.x * 0.76,
+                uPalmC.y * 0.64 - uThumbC.y * 0.76,
+                uPalmC.z * 0.64 - uThumbC.z * 0.76
+              ).normalize();
+          curlAxisC = new pc.Vec3().cross(vBoneC, thumbTargetC);
+          if (curlAxisC.lengthSq() < 1e-5) {
+            curlAxisC = new pc.Vec3().cross(uFwdC, thumbTargetC);
+          }
+        } else {
+          // 4 ngón trỏ/giữa/áp út/út: k = vBone × uPalm => xoay góc DƯƠNG luôn gập vào đúng lòng bàn tay!
+          curlAxisC = new pc.Vec3().cross(vBoneC, uPalmC);
+          if (curlAxisC.lengthSq() < 1e-5) {
+            curlAxisC = handSide === 'left' ? uThumbC.clone().mulScalar(-1) : uThumbC.clone();
+          }
+        }
+        curlAxisC.normalize();
+        fingers.push({ boneName: b.name, fingerIdx: fIdx, phalanxIdx, curlAxisC });
+      }
+    });
+
+    return {
+      handSide,
+      handName,
+      foreArmName,
+      localFwd,
+      localThumb,
+      localPalm,
+      localPalmOffset,
+      handLengthW,
+      palmWidthW,
+      fingers
+    };
+  }
+
+  /** Tính chính xác góc gập từng đốt ngón tay theo giải phẫu thực tế & dáng món đồ ('flat' / 'cylinder' / 'wide') */
+  private _computeAnatomicalFingerCurl(
+    handAnat: NonNullable<ReturnType<SontinhSceneService['_analyzeRigHandAnatomy']>>,
+    gripStyle: 'flat' | 'cylinder' | 'wide',
+    closureFraction: number
+  ): Array<{ boneName: string; rot: { x: number; y: number; z: number } }> {
+    const closure = Math.max(0, Math.min(1, Number(closureFraction) || 0));
+    const cascadeByFinger: Record<number, number> = { 1: 1.0, 2: 0.90, 3: 1.00, 4: 1.07, 5: 1.14 };
+    const anglesByStyle = {
+      flat: { finger: [28, 72, 46], thumb: [30, 22, 15] },
+      cylinder: { finger: [56, 82, 54], thumb: [40, 30, 22] },
+      wide: { finger: [26, 36, 24], thumb: [24, 18, 12] }
+    }[gripStyle];
+
+    const out: Array<{ boneName: string; rot: { x: number; y: number; z: number } }> = [];
+    for (const f of handAnat.fingers) {
+      if (closure <= 0.01) {
+        out.push({ boneName: f.boneName, rot: { x: 0, y: 0, z: 0 } });
+        continue;
+      }
+      const baseDeg = f.fingerIdx === 1
+        ? anglesByStyle.thumb[Math.min(2, f.phalanxIdx - 1)]
+        : anglesByStyle.finger[Math.min(2, f.phalanxIdx - 1)];
+      const angleDeg = baseDeg * closure * (cascadeByFinger[f.fingerIdx] || 1);
+      const q = new pc.Quat().setFromAxisAngle(f.curlAxisC, angleDeg);
+      const e = q.getEulerAngles();
+      out.push({
+        boneName: f.boneName,
+        rot: {
+          x: Math.round((Number(e.x) || 0) * 10) / 10,
+          y: Math.round((Number(e.y) || 0) * 10) / 10,
+          z: Math.round((Number(e.z) || 0) * 10) / 10
+        }
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Giải góc xoay cổ tay (wrist) chuẩn giải phẫu ngay sau 2-Bone Arm IK:
+   * - 'inspect': xoay ngửa lòng bàn tay hướng trực diện về phía mắt nhân vật (để xem điện thoại/đồ vật)
+   * - 'grab': xoay lòng bàn tay úp/hướng vào món đồ khi vươn tay nắm
+   * - 'carry': hướng lòng bàn tay tự nhiên vào phía thân người khi mang đồ
+   */
+  private _solveWristOrientation(
+    propId: string,
+    rig: any,
+    handAnat: NonNullable<ReturnType<SontinhSceneService['_analyzeRigHandAnatomy']>>,
+    mode: 'grab' | 'inspect' | 'carry' | 'neutral',
+    ctx: { headPosW: pc.Vec3; sideWorld: pc.Vec3; heightRatio: number; actorHeightW: number }
+  ): { x: number; y: number; z: number } {
+    if (mode === 'neutral') return { x: 0, y: 0, z: 0 };
+    const handB = rig?.bones?.get(handAnat.handName);
+    const foreB = rig?.bones?.get(handAnat.foreArmName);
+    if (!handB?.node || !foreB?.node) return { x: 0, y: 0, z: 0 };
+
+    const handPosW = handB.node.getPosition().clone();
+    const forePosW = foreB.node.getPosition().clone();
+    const foreDirW = new pc.Vec3().sub2(handPosW, forePosW);
+    if (foreDirW.lengthSq() < 1e-6) return { x: 0, y: 0, z: 0 };
+    foreDirW.normalize();
+
+    const curHandQ = handB.node.getRotation().clone().normalize();
+    const parentQ = handB.node.parent ? handB.node.parent.getRotation().clone().normalize() : new pc.Quat();
+    const worldUp = new pc.Vec3(0, 1, 0);
+
+    let desFwdW = new pc.Vec3();
+    let desThumbW = new pc.Vec3();
+    let desPalmW = new pc.Vec3();
+
+    if (mode === 'inspect') {
+      desPalmW.sub2(ctx.headPosW, handPosW);
+      desPalmW.y += ctx.actorHeightW * 0.06;
+      if (desPalmW.lengthSq() < 1e-6) desPalmW.set(0, 0.3, -1);
+      desPalmW.normalize();
+
+      const idealThumb = worldUp.clone().sub(desPalmW.clone().mulScalar(worldUp.dot(desPalmW)));
+      if (idealThumb.lengthSq() < 1e-5) idealThumb.set(0, 1, 0);
+      idealThumb.normalize();
+
+      const idealFwd = handAnat.handSide === 'left'
+        ? new pc.Vec3().cross(idealThumb, desPalmW).normalize()
+        : new pc.Vec3().cross(desPalmW, idealThumb).normalize();
+
+      // Pha nhẹ hướng cẳng tay tự nhiên (35%) với hướng ngang ngực (65%) để cổ tay thoải mái không gập gắt
+      const foreProj = foreDirW.clone().sub(desPalmW.clone().mulScalar(foreDirW.dot(desPalmW)));
+      if (foreProj.lengthSq() > 1e-5) {
+        foreProj.normalize();
+        desFwdW.set(
+          idealFwd.x * 0.68 + foreProj.x * 0.32,
+          idealFwd.y * 0.68 + foreProj.y * 0.32,
+          idealFwd.z * 0.68 + foreProj.z * 0.32
+        );
+        desFwdW.sub(desPalmW.clone().mulScalar(desFwdW.dot(desPalmW)));
+      } else {
+        desFwdW.copy(idealFwd);
+      }
+      if (desFwdW.lengthSq() < 1e-5) desFwdW.copy(idealFwd);
+      desFwdW.normalize();
+
+      desThumbW = handAnat.handSide === 'left'
+        ? new pc.Vec3().cross(desPalmW, desFwdW).normalize()
+        : new pc.Vec3().cross(desFwdW, desPalmW).normalize();
+    } else if (mode === 'grab') {
+      desFwdW.copy(foreDirW);
+      const sw = ctx.sideWorld;
+      const rawPalm = ctx.heightRatio < 0.45
+        ? new pc.Vec3(-sw.x * 0.45, -0.88, -sw.z * 0.45)
+        : new pc.Vec3(-sw.x * 0.88, -0.35, -sw.z * 0.88);
+      rawPalm.sub(desFwdW.clone().mulScalar(rawPalm.dot(desFwdW)));
+      if (rawPalm.lengthSq() < 1e-5) rawPalm.set(0, -1, 0).sub(desFwdW.clone().mulScalar(-desFwdW.y));
+      if (rawPalm.lengthSq() < 1e-5) rawPalm.set(1, 0, 0);
+      desPalmW.copy(rawPalm).normalize();
+      desThumbW = handAnat.handSide === 'left'
+        ? new pc.Vec3().cross(desPalmW, desFwdW).normalize()
+        : new pc.Vec3().cross(desFwdW, desPalmW).normalize();
+    } else {
+      desFwdW.copy(foreDirW);
+      const rawPalm = ctx.sideWorld.clone().mulScalar(-1);
+      rawPalm.sub(desFwdW.clone().mulScalar(rawPalm.dot(desFwdW)));
+      if (rawPalm.lengthSq() < 1e-5) rawPalm.set(0, -1, 0);
+      desPalmW.copy(rawPalm).normalize();
+      desThumbW = handAnat.handSide === 'left'
+        ? new pc.Vec3().cross(desPalmW, desFwdW).normalize()
+        : new pc.Vec3().cross(desFwdW, desPalmW).normalize();
+    }
+
+    // Dựng ma trận xoay R = M_des * transpose(M_local) đưa hệ trục bàn tay cục bộ khớp hệ trục mong muốn
+    const [d0, d1, d2] = handAnat.handSide === 'left'
+      ? [desFwdW, desThumbW, desPalmW]
+      : [desThumbW, desFwdW, desPalmW];
+    const [l0, l1, l2] = handAnat.handSide === 'left'
+      ? [handAnat.localFwd, handAnat.localThumb, handAnat.localPalm]
+      : [handAnat.localThumb, handAnat.localFwd, handAnat.localPalm];
+
+    const mDes = new pc.Mat4();
+    mDes.data[0] = d0.x; mDes.data[1] = d0.y; mDes.data[2] = d0.z; mDes.data[3] = 0;
+    mDes.data[4] = d1.x; mDes.data[5] = d1.y; mDes.data[6] = d1.z; mDes.data[7] = 0;
+    mDes.data[8] = d2.x; mDes.data[9] = d2.y; mDes.data[10] = d2.z; mDes.data[11] = 0;
+    mDes.data[12] = 0;   mDes.data[13] = 0;   mDes.data[14] = 0;    mDes.data[15] = 1;
+
+    const mLocT = new pc.Mat4();
+    mLocT.data[0] = l0.x; mLocT.data[4] = l0.y; mLocT.data[8]  = l0.z; mLocT.data[12] = 0;
+    mLocT.data[1] = l1.x; mLocT.data[5] = l1.y; mLocT.data[9]  = l1.z; mLocT.data[13] = 0;
+    mLocT.data[2] = l2.x; mLocT.data[6] = l2.y; mLocT.data[10] = l2.z; mLocT.data[14] = 0;
+    mLocT.data[3] = 0;    mLocT.data[7] = 0;    mLocT.data[11] = 0;    mLocT.data[15] = 1;
+
+    const mRot = new pc.Mat4().mul2(mDes, mLocT);
+    const qDesWorld = new pc.Quat().setFromMat4(mRot).normalize();
+
+    // Giới hạn góc xoay cổ tay trong ngưỡng sinh học (~135° tối đa) tránh vặn cổ tay quá đà
+    let dot = curHandQ.x * qDesWorld.x + curHandQ.y * qDesWorld.y + curHandQ.z * qDesWorld.z + curHandQ.w * qDesWorld.w;
+    if (dot < 0) {
+      qDesWorld.set(-qDesWorld.x, -qDesWorld.y, -qDesWorld.z, -qDesWorld.w);
+      dot = -dot;
+    }
+    const angDeg = (2 * Math.acos(Math.max(-1, Math.min(1, dot))) * 180) / Math.PI;
+    const qFinalWorld = angDeg > 135
+      ? new pc.Quat().slerp(curHandQ, qDesWorld, 135 / angDeg).normalize()
+      : qDesWorld;
+
+    const finalLocalQ = new pc.Quat().mul2(parentQ.clone().invert(), qFinalWorld).normalize();
+    const qLocalDelta = new pc.Quat().mul2(handB.restQuat.clone().invert(), finalLocalQ).normalize();
+    const qHandCharDelta = new pc.Quat()
+      .mul2(new pc.Quat().mul2(handB.charRestQuat, qLocalDelta), handB.charRestQuat.clone().invert())
+      .normalize();
+    const eHand = qHandCharDelta.getEulerAngles();
+    const handRot = {
+      x: Math.round((Number(eHand.x) || 0) * 10) / 10,
+      y: Math.round((Number(eHand.y) || 0) * 10) / 10,
+      z: Math.round((Number(eHand.z) || 0) * 10) / 10
+    };
+    this.setBonePoseDelta(propId, handAnat.handName, handRot);
+    return handRot;
+  }
+
+  /**
+   * Tính toán điểm gắn & góc xoay áp sát đồ vật khít vào lòng bàn tay:
+   * - Mặt sau/cạnh mỏng của đồ vật tiếp xúc trực tiếp bề mặt da lòng bàn tay (0 khoảng hở, không trôi lơ lửng)
+   * - Chiều dài (đầu trên của điện thoại/chai/cốc) thẳng hàng hướng ngón cái; mặt màn hình/mặt trước hướng ra ngoài lòng bàn tay
+   */
+  private _computeSeatedHandGrabAttachment(
+    handNode: pc.GraphNode,
+    handAnat: ReturnType<SontinhSceneService['_analyzeRigHandAnatomy']>,
+    targetWrapper: pc.Entity,
+    restPos: pc.Vec3,
+    restRot: pc.Vec3,
+    headPosW: pc.Vec3
+  ): { locOff: pc.Vec3; locRotQ: pc.Quat; gripStyle: 'flat' | 'cylinder' | 'wide' } {
+    const handPos = handNode.getPosition().clone();
+    const handQuat = handNode.getRotation().clone().normalize();
+    const invHandQ = handQuat.clone().invert();
+    const restQ = new pc.Quat().setFromEulerAngles(restRot.x, restRot.y, restRot.z).normalize();
+
+    if (!handAnat) {
+      const diffW = new pc.Vec3().sub2(restPos, handPos);
+      return {
+        locOff: invHandQ.transformVector(diffW, new pc.Vec3()),
+        locRotQ: new pc.Quat().mul2(invHandQ, restQ).normalize(),
+        gripStyle: 'cylinder'
+      };
+    }
+
+    const metrics = this._measurePropLocalBounds(targetWrapper);
+    const gripStyle = this._classifyPropGripStyle(metrics, handAnat.handLengthW);
+    const isGraspable = metrics.dThin <= handAnat.handLengthW * 1.45 && metrics.dMid <= handAnat.handLengthW * 2.6;
+
+    if (!isGraspable) {
+      const diffW = new pc.Vec3().sub2(restPos, handPos);
+      return {
+        locOff: invHandQ.transformVector(diffW, new pc.Vec3()),
+        locRotQ: new pc.Quat().mul2(invHandQ, restQ).normalize(),
+        gripStyle
+      };
+    }
+
+    // 1. Chọn chiều dương cho trục dài (hướng đầu trên -> hướng ngón cái) và trục mỏng (mặt trước/màn hình -> hướng ra khỏi lòng bàn tay)
+    const eLong = metrics.axisLong.clone();
+    const worldLong = restQ.transformVector(eLong, new pc.Vec3());
+    if (worldLong.y < -0.15) eLong.mulScalar(-1);
+
+    const eThin = metrics.axisThin.clone();
+    const toEyes = new pc.Vec3().sub2(headPosW, restPos);
+    if (toEyes.lengthSq() > 1e-6) toEyes.normalize();
+    const preferFaceW = new pc.Vec3(toEyes.x * 0.65, toEyes.y * 0.65 + 0.75, toEyes.z * 0.65).normalize();
+    const worldThin = restQ.transformVector(eThin, new pc.Vec3());
+    if (worldThin.dot(preferFaceW) < 0) eThin.mulScalar(-1);
+
+    const isLeft = handAnat.handSide === 'left';
+    const eMid = isLeft
+      ? new pc.Vec3().cross(eLong, eThin).normalize()
+      : new pc.Vec3().cross(eThin, eLong).normalize();
+
+    const [h0, h1, h2] = isLeft
+      ? [handAnat.localFwd, handAnat.localThumb, handAnat.localPalm]
+      : [handAnat.localThumb, handAnat.localFwd, handAnat.localPalm];
+    const [p0, p1, p2] = isLeft
+      ? [eMid, eLong, eThin]
+      : [eLong, eMid, eThin];
+
+    const mHand = new pc.Mat4();
+    mHand.data[0] = h0.x; mHand.data[1] = h0.y; mHand.data[2] = h0.z; mHand.data[3] = 0;
+    mHand.data[4] = h1.x; mHand.data[5] = h1.y; mHand.data[6] = h1.z; mHand.data[7] = 0;
+    mHand.data[8] = h2.x; mHand.data[9] = h2.y; mHand.data[10] = h2.z; mHand.data[11] = 0;
+    mHand.data[12] = 0;   mHand.data[13] = 0;   mHand.data[14] = 0;    mHand.data[15] = 1;
+
+    const mPropT = new pc.Mat4();
+    mPropT.data[0] = p0.x; mPropT.data[4] = p0.y; mPropT.data[8]  = p0.z; mPropT.data[12] = 0;
+    mPropT.data[1] = p1.x; mPropT.data[5] = p1.y; mPropT.data[9]  = p1.z; mPropT.data[13] = 0;
+    mPropT.data[2] = p2.x; mPropT.data[6] = p2.y; mPropT.data[10] = p2.z; mPropT.data[14] = 0;
+    mPropT.data[3] = 0;    mPropT.data[7] = 0;    mPropT.data[11] = 0;    mPropT.data[15] = 1;
+
+    const mRot = new pc.Mat4().mul2(mHand, mPropT);
+    const locRotQ = new pc.Quat().setFromMat4(mRot).normalize();
+
+    // 2. Đặt tâm hình học đồ vật nằm khít bề mặt da lòng bàn tay (dịch nửa bề dày theo pháp tuyến lòng bàn tay)
+    const halfSeatDepth = Math.min(metrics.dThin * 0.5, handAnat.handLengthW * 0.42);
+    const fwdNudge = gripStyle === 'flat' ? Math.min(metrics.dMid * 0.08, handAnat.handLengthW * 0.14) : 0;
+    const targetCenterInHand = handAnat.localPalmOffset.clone()
+      .add(handAnat.localPalm.clone().mulScalar(halfSeatDepth))
+      .add(handAnat.localFwd.clone().mulScalar(fwdNudge));
+    const rotatedPivotToCenter = locRotQ.transformVector(metrics.localPivotToCenter, new pc.Vec3());
+    const locOff = new pc.Vec3().sub2(targetCenterInHand, rotatedPivotToCenter);
+
+    return { locOff, locRotQ, gripStyle };
+  }
+
   /** Đồng bộ vị trí/góc xoay của các đồ vật đang gắn vào tay nhân vật tại mốc thời gian timeSec */
   private _applyHandGrabsForRig(rig: any, timeSec: number): void {
     const grabs: GlbPropGrabConstraint[] = Array.isArray(rig?.timeline?.handGrabs) ? rig.timeline.handGrabs : [];
@@ -7914,6 +8925,8 @@ export class SontinhSceneService implements OnDestroy {
     const tmpWorldOff = new pc.Vec3();
     const tmpRotOff = new pc.Quat();
     const tmpFinalQuat = new pc.Quat();
+    const tmpRestQuat = new pc.Quat();
+    const tmpBlendQuat = new pc.Quat();
 
     for (const g of grabs) {
       if (!g || !g.targetPropId) continue;
@@ -7948,11 +8961,9 @@ export class SontinhSceneService implements OnDestroy {
       const handQuat = handBone.node.getRotation().clone().normalize();
       tmpOff.set(g.localOffset?.x || 0, g.localOffset?.y || 0, g.localOffset?.z || 0);
       handQuat.transformVector(tmpOff, tmpWorldOff);
-      targetWrapper.setPosition(
-        handPos.x + tmpWorldOff.x,
-        handPos.y + tmpWorldOff.y,
-        handPos.z + tmpWorldOff.z
-      );
+      const seatX = handPos.x + tmpWorldOff.x;
+      const seatY = handPos.y + tmpWorldOff.y;
+      const seatZ = handPos.z + tmpWorldOff.z;
 
       tmpRotOff.set(
         g.localRotOffset?.x || 0,
@@ -7961,7 +8972,28 @@ export class SontinhSceneService implements OnDestroy {
         g.localRotOffset?.w !== undefined ? g.localRotOffset.w : 1
       ).normalize();
       tmpFinalQuat.mul2(handQuat, tmpRotOff).normalize();
-      targetWrapper.setRotation(tmpFinalQuat);
+
+      // Pha mượt đồ vật từ vị trí đứng yên vào khít lòng bàn tay trong 0.16s đầu tiên sau grabTime (tránh giật đột ngột)
+      const holdSpan = typeof g.releaseTime === 'number' && Number.isFinite(g.releaseTime)
+        ? Math.max(0.05, g.releaseTime - g.grabTime)
+        : 1.0;
+      const seatBlendDur = Math.min(0.16, holdSpan * 0.4);
+      const dtSinceGrab = timeSec - g.grabTime;
+      if (dtSinceGrab < seatBlendDur && g.restWorldPos && g.restWorldRot) {
+        const u = Math.max(0, Math.min(1, dtSinceGrab / Math.max(1e-4, seatBlendDur)));
+        const s = u * u * (3 - 2 * u);
+        targetWrapper.setPosition(
+          g.restWorldPos.x + (seatX - g.restWorldPos.x) * s,
+          g.restWorldPos.y + (seatY - g.restWorldPos.y) * s,
+          g.restWorldPos.z + (seatZ - g.restWorldPos.z) * s
+        );
+        tmpRestQuat.setFromEulerAngles(g.restWorldRot.x, g.restWorldRot.y, g.restWorldRot.z).normalize();
+        tmpBlendQuat.slerp(tmpRestQuat, tmpFinalQuat, s).normalize();
+        targetWrapper.setRotation(tmpBlendQuat);
+      } else {
+        targetWrapper.setPosition(seatX, seatY, seatZ);
+        targetWrapper.setRotation(tmpFinalQuat);
+      }
     }
   }
 
@@ -8138,18 +9170,6 @@ export class SontinhSceneService implements OnDestroy {
       return null;
     }
 
-    // Tìm các xương ngón tay của bàn tay đang nắm (hỗ trợ cả MakeHuman finger1-1.R và Unreal/Mixamo thumb/index/middle/ring/pinky)
-    const sidePat = handSide === 'left'
-      ? /(?:[._-]l$|^left|left[._-]?|l[._-](?:thumb|index|middle|ring|pinky|finger))/i
-      : /(?:[._-]r$|^right|right[._-]?|r[._-](?:thumb|index|middle|ring|pinky|finger))/i;
-    const fingerBoneNames: string[] = [];
-    rig.bones.forEach((b) => {
-      if (!b.isSkinnedBone || b.name === '__root__') return;
-      if (/(finger|thumb|index|middle|ring|pinky)/i.test(b.label) && sidePat.test(b.label)) {
-        fingerBoneNames.push(b.name);
-      }
-    });
-
     // Đưa nhân vật tạm về tư thế nghỉ gốc tại (0,0,0) để đo chuẩn hình học giải phẫu
     this._stopRigClipAnim(rig);
     rig.timeline.mode = 'keyframes';
@@ -8161,6 +9181,11 @@ export class SontinhSceneService implements OnDestroy {
     const actorHeightW = Math.max(0.5, actorBounds.size.y);
     const wrapperScale = Math.max(0.01, Math.abs(rig.wrapper.getLocalScale().y || 1));
     const worldPerMeter = wrapperScale * meterScale;
+
+    const handAnat = this._analyzeRigHandAnatomy(rig, anat, handSide, actorHeightW, baseFwd);
+    const fingerBoneNames: string[] = handAnat ? handAnat.fingers.map((f) => f.boneName) : [];
+    const targetMetrics = this._measurePropLocalBounds(targetWrapper);
+    const targetGripStyle = this._classifyPropGripStyle(targetMetrics, handAnat?.handLengthW || actorHeightW * 0.105);
 
     const restArmPosW = armBone.node.getPosition().clone();
     const restForePosW = foreArmBone.node.getPosition().clone();
@@ -8254,11 +9279,15 @@ export class SontinhSceneService implements OnDestroy {
       rootZM: number,
       rootYawDeg: number,
       bodyPose: typeof bodyGrabPose,
-      worldAimPoint: pc.Vec3
+      worldAimPoint: pc.Vec3,
+      wristMode: 'grab' | 'inspect' | 'carry' | 'neutral' = 'grab',
+      heightRatioHint = heightRatio
     ): {
       armRot: { x: number; y: number; z: number };
       foreRot: { x: number; y: number; z: number };
+      handRot: { x: number; y: number; z: number };
       handWorldPos: pc.Vec3;
+      palmWorldPos: pc.Vec3;
     } => {
       this.resetBonePose(actorPropId);
       this.setBonePoseDelta(
@@ -8281,9 +9310,19 @@ export class SontinhSceneService implements OnDestroy {
       const eW = foreArmBone.node.getPosition().clone();
       const hW = handBone.node.getPosition().clone();
 
+      const palmDistW = handAnat ? handAnat.localPalmOffset.length() : 0;
+      const effectiveWristAimW = worldAimPoint.clone();
+      if (wristMode === 'grab' && palmDistW > 1e-4) {
+        const approachW = new pc.Vec3().sub2(worldAimPoint, sW);
+        if (approachW.lengthSq() > 1e-6) {
+          approachW.normalize();
+          effectiveWristAimW.sub(approachW.mulScalar(palmDistW * 0.85));
+        }
+      }
+
       const vU = toChar(new pc.Vec3().sub2(eW, sW));
       const vF = toChar(new pc.Vec3().sub2(hW, eW));
-      const vT = toChar(new pc.Vec3().sub2(worldAimPoint, sW));
+      const vT = toChar(new pc.Vec3().sub2(effectiveWristAimW, sW));
       const L1 = Math.max(1e-4, vU.length());
       const L2 = Math.max(1e-4, vF.length());
       const rawDist = vT.length();
@@ -8326,7 +9365,7 @@ export class SontinhSceneService implements OnDestroy {
       const e2W = foreArmBone.node.getPosition().clone();
       const h2W = handBone.node.getPosition().clone();
       const vF2 = toChar(new pc.Vec3().sub2(h2W, e2W));
-      const vRem = toChar(new pc.Vec3().sub2(worldAimPoint, e2W));
+      const vRem = toChar(new pc.Vec3().sub2(effectiveWristAimW, e2W));
       const qWorldSwing = quatFromTo(vF2, vRem);
       // Quy đổi vào không gian trước phép xoay cha qArm để triệt tiêu xoay chồng khớp
       const qFore = new pc.Quat()
@@ -8341,8 +9380,27 @@ export class SontinhSceneService implements OnDestroy {
       };
       this.setBonePoseDelta(actorPropId, foreArmName, foreRot);
 
+      let handRot = { x: 0, y: 0, z: 0 };
+      if (handAnat && wristMode !== 'neutral') {
+        const headNode = rig.bones.get(anat.head)?.node;
+        const headPosW = headNode
+          ? headNode.getPosition().clone()
+          : new pc.Vec3(sW.x, actorFloorY + actorHeightW * 0.9, sW.z);
+        const sideWorld = rootQ.transformVector(sideDirC, new pc.Vec3()).normalize();
+        handRot = this._solveWristOrientation(actorPropId, rig, handAnat, wristMode, {
+          headPosW,
+          sideWorld,
+          heightRatio: heightRatioHint,
+          actorHeightW
+        });
+      }
+
       const handWorldPos = handBone.node.getPosition().clone();
-      return { armRot, foreRot, handWorldPos };
+      const handWorldQ = handBone.node.getRotation().clone().normalize();
+      const palmWorldPos = handAnat
+        ? handWorldPos.clone().add(handWorldQ.transformVector(handAnat.localPalmOffset, new pc.Vec3()))
+        : handWorldPos.clone();
+      return { armRot, foreRot, handRot, handWorldPos, palmWorldPos };
     };
 
     // Tính vị trí dừng ban đầu (cách tâm món đồ đúng tầm với tay tự nhiên ~74% sải tay)
@@ -8353,15 +9411,15 @@ export class SontinhSceneService implements OnDestroy {
     let stopXM = dirXM * rawWalkDistM;
     let stopZM = dirZM * rawWalkDistM;
 
-    // HIỆU CHỈNH VI MÔ BẰNG FK THỰC TẾ: thử áp 2-Bone IK tại (stopXM, stopZM) rồi dịch chân 1 lần cho cổ tay chạm sát món đồ!
-    const probe1 = solveTwoBoneArmIk(stopXM, stopZM, yawToTargetDeg, bodyGrabPose, targetCenterW);
-    const errW1 = new pc.Vec3().sub2(targetCenterW, probe1.handWorldPos);
+    // HIỆU CHỈNH VI MÔ BẰNG FK THỰC TẾ: thử áp 2-Bone IK tại (stopXM, stopZM) rồi dịch chân 1 lần cho LÒNG BÀN TAY chạm sát món đồ!
+    const probe1 = solveTwoBoneArmIk(stopXM, stopZM, yawToTargetDeg, bodyGrabPose, targetCenterW, 'grab', heightRatio);
+    const errW1 = new pc.Vec3().sub2(targetCenterW, probe1.palmWorldPos);
     const errHorizW = Math.hypot(errW1.x, errW1.z);
-    if (errHorizW > worldPerMeter * 0.04) {
+    if (errHorizW > worldPerMeter * 0.03) {
       const targetPt1 = invWrapperMat.transformPoint(targetCenterW, new pc.Vec3());
-      const handPt1 = invWrapperMat.transformPoint(probe1.handWorldPos, new pc.Vec3());
-      const corrXM = Math.max(-0.55, Math.min(0.55, (targetPt1.x - handPt1.x) / meterScale));
-      const corrZM = Math.max(-0.55, Math.min(0.55, (targetPt1.z - handPt1.z) / meterScale));
+      const palmPt1 = invWrapperMat.transformPoint(probe1.palmWorldPos, new pc.Vec3());
+      const corrXM = Math.max(-0.95, Math.min(0.95, (targetPt1.x - palmPt1.x) / meterScale));
+      const corrZM = Math.max(-0.95, Math.min(0.95, (targetPt1.z - palmPt1.z) / meterScale));
       stopXM += corrXM;
       stopZM += corrZM;
     }
@@ -8385,19 +9443,24 @@ export class SontinhSceneService implements OnDestroy {
       return y;
     })();
 
-    // Giải 2-Bone IK lần cuối tại vị trí dừng chuẩn xác
-    const grabIk = solveTwoBoneArmIk(stopXM, stopZM, faceTargetAtStopYawDeg, bodyGrabPose, targetCenterW);
+    // Giải 2-Bone IK lần cuối tại vị trí dừng chuẩn xác & tính điểm áp sát khít vào lòng bàn tay
+    const grabIk = solveTwoBoneArmIk(stopXM, stopZM, faceTargetAtStopYawDeg, bodyGrabPose, targetCenterW, 'grab', heightRatio);
+    const headNodeAtGrab = rig.bones.get(anat.head)?.node;
+    const headPosAtGrabW = headNodeAtGrab
+      ? headNodeAtGrab.getPosition().clone()
+      : new pc.Vec3(restWorldPos.x, actorFloorY + actorHeightW * 0.9, restWorldPos.z);
+    const seatedGrab = this._computeSeatedHandGrabAttachment(
+      handBone.node,
+      handAnat,
+      targetWrapper,
+      restWorldPos,
+      restWorldRot,
+      headPosAtGrabW
+    );
+    const localOffsetVec = seatedGrab.locOff;
+    const localRotQuat = seatedGrab.locRotQ;
 
-    // Chụp chính xác offset gắn đồ vật vào bàn tay tại thời điểm nắm (tGrab) -> khớp 100%, không bị giật/nhảy!
-    const grabHandPosW = handBone.node.getPosition().clone();
-    const grabHandQuatW = handBone.node.getRotation().clone().normalize();
-    const invGrabHandQuat = grabHandQuatW.clone().invert();
-    const diffPosW = new pc.Vec3().sub2(restWorldPos, grabHandPosW);
-    const localOffsetVec = invGrabHandQuat.transformVector(diffPosW, new pc.Vec3());
-    const targetRestQuat = new pc.Quat().setFromEulerAngles(restWorldRot.x, restWorldRot.y, restWorldRot.z).normalize();
-    const localRotQuat = new pc.Quat().mul2(invGrabHandQuat, targetRestQuat).normalize();
-
-    // Tính tư thế tay sau khi nắm (Cầm lên xem trước ngực hoặc mang về) bằng cùng 2-Bone IK!
+    // Tính tư thế tay sau khi nắm (Cầm lên xem trước ngực hoặc mang về) bằng cùng 2-Bone IK + xoay cổ tay tự nhiên!
     const inspectBodyPose: typeof bodyGrabPose = [
       { boneName: anat.lowerSpine, rot: { x: 4, y: 0, z: 0 }, pos: { x: 0, y: 0, z: 0 } },
       { boneName: anat.chest, rot: { x: 4, y: 0, z: 0 }, pos: { x: 0, y: 0, z: 0 } },
@@ -8417,7 +9480,7 @@ export class SontinhSceneService implements OnDestroy {
       (stopZM + fwdAtStopLocal.z * 0.34 + sideAtStopLocal.z * 0.12) * meterScale
     );
     const inspectWorldPt = rig.wrapper.getWorldTransform().transformPoint(inspectLocalPt, new pc.Vec3());
-    const inspectIk = solveTwoBoneArmIk(stopXM, stopZM, faceTargetAtStopYawDeg, inspectBodyPose, inspectWorldPt);
+    const inspectIk = solveTwoBoneArmIk(stopXM, stopZM, faceTargetAtStopYawDeg, inspectBodyPose, inspectWorldPt, 'inspect', 0.72);
 
     const carryLocalPt = new pc.Vec3(
       (stopXM + fwdAtStopLocal.x * 0.28 + sideAtStopLocal.x * 0.18) * meterScale,
@@ -8425,7 +9488,7 @@ export class SontinhSceneService implements OnDestroy {
       (stopZM + fwdAtStopLocal.z * 0.28 + sideAtStopLocal.z * 0.18) * meterScale
     );
     const carryWorldPt = rig.wrapper.getWorldTransform().transformPoint(carryLocalPt, new pc.Vec3());
-    const carryIk = solveTwoBoneArmIk(stopXM, stopZM, faceTargetAtStopYawDeg, carryBodyPose, carryWorldPt);
+    const carryIk = solveTwoBoneArmIk(stopXM, stopZM, faceTargetAtStopYawDeg, carryBodyPose, carryWorldPt, 'carry', 0.56);
 
     // Thời lượng từng chặng (tự nhiên, mượt mà)
     let normWalkYaw = walkYawDeg;
@@ -8534,18 +9597,17 @@ export class SontinhSceneService implements OnDestroy {
       }
     };
 
-    const emitFingers = (t: number, curled: boolean) => {
+    const emitFingers = (t: number, curled: boolean | number) => {
+      const closure = typeof curled === 'number' ? Math.max(0, Math.min(1, curled)) : (curled ? 1 : 0);
+      if (handAnat && handAnat.fingers.length > 0) {
+        const poses = this._computeAnatomicalFingerCurl(handAnat, targetGripStyle, closure);
+        for (const p of poses) {
+          pushKf(t, p.boneName, p.rot, { x: 0, y: 0, z: 0 }, 10);
+        }
+        return;
+      }
       for (const fName of fingerBoneNames) {
-        const isThumb = /thumb|finger1/i.test(fName);
-        pushKf(
-          t,
-          fName,
-          curled
-            ? (isThumb ? { x: -24, y: sideTwistSign * 18, z: sideTwistSign * -18 } : { x: -42, y: 0, z: 0 })
-            : { x: 0, y: 0, z: 0 },
-          { x: 0, y: 0, z: 0 },
-          10
-        );
+        pushKf(t, fName, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, 10);
       }
     };
 
@@ -8575,7 +9637,10 @@ export class SontinhSceneService implements OnDestroy {
 
     // 3. Chặng vươn tay chạm & nắm lấy món đồ (tArrive -> tGrab)
     pushRoot(tGrab, stopXM, stopZM, faceTargetAtStopYawDeg);
-    emitFingers(tArrive, false);
+    emitFingers(tArrive, 0);
+    if (tGrab - tArrive >= 0.25) {
+      emitFingers(tArrive + (tGrab - tArrive) * 0.62, 0.32);
+    }
     const grabSkip = new Set<string>([normBoneKey(armName), normBoneKey(foreArmName), normBoneKey(handName)]);
     for (const bp of bodyGrabPose) {
       if (bp.boneName && bp.boneName !== '__root__') {
@@ -8586,7 +9651,8 @@ export class SontinhSceneService implements OnDestroy {
     emitNeutralPose(tGrab, grabSkip);
     pushKf(tGrab, armName, grabIk.armRot, { x: 0, y: 0, z: 0 }, 10);
     pushKf(tGrab, foreArmName, grabIk.foreRot, { x: 0, y: 0, z: 0 }, 10);
-    emitFingers(tGrab, true);
+    pushKf(tGrab, handName, grabIk.handRot, { x: 0, y: 0, z: 0 }, 10);
+    emitFingers(tGrab, 1.0);
 
     // 4. Chặng sau khi nắm
     if (afterGrab === 'inspect') {
@@ -8605,9 +9671,11 @@ export class SontinhSceneService implements OnDestroy {
       emitNeutralPose(totalDur, inspSkip);
       pushKf(tLift, armName, inspectIk.armRot, { x: 0, y: 0, z: 0 }, 10);
       pushKf(tLift, foreArmName, inspectIk.foreRot, { x: 0, y: 0, z: 0 }, 10);
+      pushKf(tLift, handName, inspectIk.handRot, { x: 0, y: 0, z: 0 }, 10);
       pushKf(totalDur, armName, inspectIk.armRot, { x: 0, y: 0, z: 0 }, 10);
       pushKf(totalDur, foreArmName, inspectIk.foreRot, { x: 0, y: 0, z: 0 }, 10);
-      emitFingers(totalDur, true);
+      pushKf(totalDur, handName, inspectIk.handRot, { x: 0, y: 0, z: 0 }, 10);
+      emitFingers(totalDur, 1.0);
     } else if (afterGrab === 'hold') {
       pushRoot(totalDur, stopXM, stopZM, faceTargetAtStopYawDeg);
       for (const bp of bodyGrabPose) {
@@ -8618,7 +9686,8 @@ export class SontinhSceneService implements OnDestroy {
       emitNeutralPose(totalDur, grabSkip);
       pushKf(totalDur, armName, grabIk.armRot, { x: 0, y: 0, z: 0 }, 10);
       pushKf(totalDur, foreArmName, grabIk.foreRot, { x: 0, y: 0, z: 0 }, 10);
-      emitFingers(totalDur, true);
+      pushKf(totalDur, handName, grabIk.handRot, { x: 0, y: 0, z: 0 }, 10);
+      emitFingers(totalDur, 1.0);
     } else {
       // carry_back: thu tay cầm sát thân -> quay đầu 180° -> đi bộ quay về điểm xuất phát (giữ nguyên tay cầm đồ!)
       const carrySkip = new Set<string>([
@@ -8631,7 +9700,8 @@ export class SontinhSceneService implements OnDestroy {
       emitNeutralPose(tSettleEnd, carrySkip);
       pushKf(tSettleEnd, armName, carryIk.armRot, { x: 0, y: 0, z: 0 }, 10);
       pushKf(tSettleEnd, foreArmName, carryIk.foreRot, { x: 0, y: 0, z: 0 }, 10);
-      emitFingers(tSettleEnd, true);
+      pushKf(tSettleEnd, handName, carryIk.handRot, { x: 0, y: 0, z: 0 }, 10);
+      emitFingers(tSettleEnd, 1.0);
 
       const backYawDeg = faceTargetAtStopYawDeg + (faceTargetAtStopYawDeg >= 0 ? -180 : 180);
       if (backTurnDur > 0) {
@@ -8653,7 +9723,8 @@ export class SontinhSceneService implements OnDestroy {
       }
       pushKf(totalDur, armName, carryIk.armRot, { x: 0, y: 0, z: 0 }, 10);
       pushKf(totalDur, foreArmName, carryIk.foreRot, { x: 0, y: 0, z: 0 }, 10);
-      emitFingers(totalDur, true);
+      pushKf(totalDur, handName, carryIk.handRot, { x: 0, y: 0, z: 0 }, 10);
+      emitFingers(totalDur, 1.0);
     }
 
     const grabConstraint: GlbPropGrabConstraint = {

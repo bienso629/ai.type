@@ -29,6 +29,14 @@ function getAgentWorkspaceDir() {
     return dir;
 }
 
+function appendCliLog(line) {
+    try {
+        const logPath = path.join(getAgentWorkspaceDir(), 'local-cli-agent.log');
+        const ts = new Date().toISOString();
+        fs.appendFileSync(logPath, `[${ts}] ${line}\n`, 'utf8');
+    } catch (_) {}
+}
+
 /**
  * Mở rộng PATH cho tiến trình Electron GUI (thường bị thiếu ~/.local/bin, nvm, homebrew...).
  */
@@ -379,7 +387,7 @@ function buildComposedPrompt({ prompt, systemInstructions, historyText, savedPat
             .map((p, idx) => `- Tệp #${idx + 1} (${p.fileName}, ${p.mimeType}): ${p.path}`)
             .join('\n');
         sections.push(
-            `[ATTACHED FILES]\nNgười dùng đã đính kèm các tệp sau trên máy cục bộ. Hãy đọc/xem trực tiếp các tệp này bằng công cụ đọc tệp trước khi trả lời:\n${listText}\n[/ATTACHED FILES]`
+            `[ATTACHED FILES]\nNgười dùng đã đính kèm các tệp sau trên máy cục bộ. Hãy đọc/xem trực tiếp các tệp này bằng công cụ đọc tệp trước khi trả lời (không chạy lệnh shell hay khám phá thư mục khác):\n${listText}\n[/ATTACHED FILES]`
         );
     }
     sections.push(String(prompt || '').trim() || 'Xin chào');
@@ -395,6 +403,7 @@ function spawnSingleCliRun({
     systemInstructions,
     historyText,
     model,
+    disableThinking,
     conversationKey,
     resumeSessionId,
     tempDir,
@@ -425,8 +434,14 @@ function spawnSingleCliRun({
             args.push('--output-format', 'stream-json');
             args.push('--disable-slash-commands');
             args.push('--dangerously-skip-permissions');
-            if (normalizedModel) {
-                args.push('--model', normalizedModel);
+            let effectiveModel = normalizedModel;
+            if (disableThinking && effectiveModel && /-(medium|high|xhigh)$/i.test(effectiveModel)) {
+                effectiveModel = effectiveModel.replace(/-(medium|high|xhigh)$/i, '-low');
+            }
+            if (effectiveModel) {
+                args.push('--model', effectiveModel);
+            } else if (disableThinking) {
+                args.push('--effort', 'low');
             }
             if (resumeSessionId) {
                 args.push('--conversation', resumeSessionId);
@@ -539,6 +554,24 @@ function spawnSingleCliRun({
             }
         };
 
+        let receivedResultEvent = false;
+        const scheduleGracefulKill = () => {
+            setTimeout(() => {
+                try {
+                    if (child && !child.killed && child.exitCode === null) {
+                        child.kill('SIGTERM');
+                        setTimeout(() => {
+                            try {
+                                if (child && !child.killed && child.exitCode === null) {
+                                    child.kill('SIGKILL');
+                                }
+                            } catch (_) {}
+                        }, 400);
+                    }
+                } catch (_) {}
+            }, 250);
+        };
+
         const handleJsonLine = (line) => {
             const trimmed = line.trim();
             if (!trimmed || !trimmed.startsWith('{')) return;
@@ -568,6 +601,9 @@ function spawnSingleCliRun({
                     if (typeof r.response === 'string' && r.response.length > 0) {
                         finalResultText = r.response;
                     }
+                    receivedResultEvent = true;
+                    scheduleGracefulKill();
+                    finish(detectedError ? 1 : 0);
                 }
             } else {
                 // Claude CLI stream-json
@@ -598,6 +634,9 @@ function spawnSingleCliRun({
                     } else if (typeof obj.result === 'string' && obj.result.length > 0) {
                         finalResultText = obj.result;
                     }
+                    receivedResultEvent = true;
+                    scheduleGracefulKill();
+                    finish(detectedError ? 1 : 0);
                 }
             }
         };
@@ -632,7 +671,7 @@ function spawnSingleCliRun({
             clearTimeout(timer);
             activeProcesses.delete(requestId);
 
-            if (stdoutBuffer.trim()) {
+            if (!receivedResultEvent && stdoutBuffer.trim()) {
                 handleJsonLine(stdoutBuffer);
             }
 
@@ -767,6 +806,10 @@ async function runLocalCliAgent(event, payload = {}) {
         payload.skipTTS === true
     );
 
+    const disableThinking = payload.disableThinking === true;
+    const tStart = Date.now();
+    appendCliLog(`START req=${requestId} pref=${preferredEngine} rawModel=${rawModel || 'default'} order=${engineOrder.join(',')} files=${Array.isArray(payload.files) ? payload.files.length : 0} disableThinking=${disableThinking}`);
+
     let lastRes = null;
     try {
         for (let i = 0; i < engineOrder.length; i++) {
@@ -775,26 +818,18 @@ async function runLocalCliAgent(event, payload = {}) {
             const prevSession = conversationKey && !isFirstMessage ? sessionMap.get(conversationKey) : null;
             const resumeSessionId = (prevSession && prevSession.engine === eng) ? prevSession.sessionId : '';
 
-            let res = await spawnSingleCliRun({
-                engine: eng,
-                binaryPath,
-                requestId,
-                sender: event.sender,
-                prompt: payload.prompt || '',
-                systemInstructions: payload.systemInstructions || '',
-                historyText: payload.historyText || '',
-                model: rawModel,
-                conversationKey,
-                resumeSessionId,
-                tempDir,
-                savedPaths,
-                ttsEmitter,
-                timeoutMs
-            });
+            // Nếu agy gặp lỗi quá tải (503 / unavailable / quota) trên model Gemini, tự động đổi sang model dự phòng trong agy (Claude Sonnet 5.5 / Gemini Flash Low)
+            const primaryModel = rawModel;
+            const agyBackupModels = eng === 'agy'
+                ? ['claude-sonnet-5-5-medium', 'gemini-3.8-flash-low'].filter((bm) => bm !== normalizeModelForEngine(primaryModel, 'agy'))
+                : [];
+            const modelAttempts = [primaryModel, ...agyBackupModels];
 
-            // Nếu resume phiên cũ lỗi -> tự khởi tạo phiên mới 1 lần
-            if (!res.success && !res.aborted && resumeSessionId) {
-                sessionMap.delete(conversationKey);
+            let res = null;
+            for (let mIdx = 0; mIdx < modelAttempts.length; mIdx++) {
+                const attemptModel = modelAttempts[mIdx];
+                const curResumeId = mIdx === 0 ? resumeSessionId : '';
+
                 res = await spawnSingleCliRun({
                     engine: eng,
                     binaryPath,
@@ -803,25 +838,60 @@ async function runLocalCliAgent(event, payload = {}) {
                     prompt: payload.prompt || '',
                     systemInstructions: payload.systemInstructions || '',
                     historyText: payload.historyText || '',
-                    model: rawModel,
+                    model: attemptModel,
+                    disableThinking,
                     conversationKey,
-                    resumeSessionId: '',
+                    resumeSessionId: curResumeId,
                     tempDir,
                     savedPaths,
                     ttsEmitter,
                     timeoutMs
                 });
+
+                // Nếu resume phiên cũ lỗi -> tự khởi tạo phiên mới 1 lần
+                if (!res.success && !res.aborted && curResumeId) {
+                    sessionMap.delete(conversationKey);
+                    res = await spawnSingleCliRun({
+                        engine: eng,
+                        binaryPath,
+                        requestId,
+                        sender: event.sender,
+                        prompt: payload.prompt || '',
+                        systemInstructions: payload.systemInstructions || '',
+                        historyText: payload.historyText || '',
+                        model: attemptModel,
+                        disableThinking,
+                        conversationKey,
+                        resumeSessionId: '',
+                        tempDir,
+                        savedPaths,
+                        ttsEmitter,
+                        timeoutMs
+                    });
+                }
+
+                if (res.success || res.aborted) break;
+
+                const errText = String(res.error || '');
+                const isModelOverloadOrInvalid = /503|429|UNAVAILABLE|overloaded|high demand|RESOURCE_EXHAUSTED|quota|unknown model|invalid model/i.test(errText);
+                if (!isModelOverloadOrInvalid || mIdx === modelAttempts.length - 1) {
+                    break;
+                }
+                appendCliLog(`RETRY_MODEL req=${requestId} eng=${eng} failedModel=${attemptModel} nextModel=${modelAttempts[mIdx + 1]} err=${errText.slice(0, 180)}`);
             }
 
             lastRes = res;
-            if (res.success || res.aborted) {
+            if (res && (res.success || res.aborted)) {
                 break;
             }
-            if (!res.retriableFallback || i === engineOrder.length - 1) {
+            if (!res || !res.retriableFallback || i === engineOrder.length - 1) {
                 break;
             }
             console.warn(`[Local CLI Agent] ${eng} lỗi (${res.error}), tự động chuyển sang ${engineOrder[i + 1]}...`);
+            appendCliLog(`FALLBACK_ENGINE req=${requestId} from=${eng} to=${engineOrder[i + 1]} err=${String(res.error || '').slice(0, 180)}`);
         }
+
+        appendCliLog(`END req=${requestId} ok=${!!(lastRes && lastRes.success)} eng=${lastRes?.engine || 'none'} model=${lastRes?.model || ''} ms=${Date.now() - tStart} err=${String(lastRes?.error || '').slice(0, 200)}`);
 
         if (lastRes && lastRes.success) {
             ttsEmitter.flush();

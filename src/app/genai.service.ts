@@ -7,6 +7,7 @@ import {
 import { getModelverseConfig, getTextModelConfig, TextModelConfig } from './modelverse.config';
 import { ToastrService } from 'ngx-toastr';
 import { PdfTextService } from './_services/pdf-text.service';
+import { UserService } from './core/user/user.service';
 
 type Scope = string | number;
 
@@ -47,6 +48,18 @@ export class GenaiService {
     private static _lastVideoTaskSubmitMs = 0;
 
     private _activeLocalCliRequestId?: string;
+    private _latestUser: any = null;
+    public lastUsedProvider: string = '';
+
+    private _getActiveUser(): any {
+        if (this._userService.user) return this._userService.user;
+        if (this._latestUser) return this._latestUser;
+        try {
+            const raw = localStorage.getItem('user');
+            if (raw && raw !== 'undefined') return JSON.parse(raw);
+        } catch (_) {}
+        return null;
+    }
 
     public cancelLocalAgent() {
         const reqId = this._activeLocalCliRequestId;
@@ -64,8 +77,13 @@ export class GenaiService {
 
     constructor(
         private toastr: ToastrService,
-        private _pdfTextService: PdfTextService
-    ) { }
+        private _pdfTextService: PdfTextService,
+        private _userService: UserService
+    ) {
+        this._userService.user$.subscribe((u) => {
+            this._latestUser = u;
+        });
+    }
 
     /**
      * Upload ảnh base64 lên CDN (cdn1.type.vn) và trả về URL HTTPS.
@@ -1881,8 +1899,30 @@ export class GenaiService {
         return -1;
     }
 
-    private sleep(ms: number): Promise<void> {
-        return new Promise<void>(resolve => setTimeout(resolve, ms));
+    private sleep(ms: number, signal?: AbortSignal): Promise<void> {
+        if (signal?.aborted) {
+            return Promise.reject(new DOMException('Đã hủy yêu cầu AI.', 'AbortError'));
+        }
+        return new Promise<void>((resolve, reject) => {
+            const onAbort = () => {
+                clearTimeout(timer);
+                reject(new DOMException('Đã hủy yêu cầu AI.', 'AbortError'));
+            };
+            const timer = setTimeout(() => {
+                signal?.removeEventListener('abort', onAbort);
+                resolve();
+            }, ms);
+            signal?.addEventListener('abort', onAbort, { once: true });
+        });
+    }
+
+    private isAbortError(err: any, signal?: AbortSignal): boolean {
+        return Boolean(
+            signal?.aborted ||
+            err?.name === 'AbortError' ||
+            String(err?.message || err || '').toLowerCase().includes('aborted') ||
+            String(err?.message || err || '').includes('Đã hủy yêu cầu AI')
+        );
     }
 
     private syncConfigFromStorage() {
@@ -1955,14 +1995,45 @@ export class GenaiService {
     }
 
     public isAiAgentEnabled(): boolean {
+        if (!this._userService.canAccessPlugins(this._getActiveUser())) {
+            return false;
+        }
         const settings = this.getSettingsFromStorage();
         return settings?.enableAiAgent === true;
+    }
+
+    public async getActiveAiProviderLabel(bypassAiAgent = false): Promise<string> {
+        const settingsRaw = this.getSettingsFromStorage();
+        const canUsePlugins = this._userService.canAccessPlugins(this._getActiveUser());
+        let isAiAgentActive = canUsePlugins && settingsRaw?.enableAiAgent === true;
+        let cliEngine = settingsRaw?.aiAgentCliEngine || 'auto';
+        if (canUsePlugins && (window as any).electronAPI?.getPluginsStatus) {
+            try {
+                const list = await (window as any).electronAPI.getPluginsStatus();
+                const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
+                if (aiAgent && aiAgent.enabled !== undefined) {
+                    isAiAgentActive = aiAgent.enabled === true || isAiAgentActive;
+                }
+                if (!settingsRaw?.aiAgentCliEngine && aiAgent?.cliEngine) {
+                    cliEngine = aiAgent.cliEngine;
+                }
+            } catch (_) {}
+        }
+        if (isAiAgentActive && !bypassAiAgent) {
+            const engLabel = cliEngine === 'agy' ? 'AGY CLI' : (cliEngine === 'claude' ? 'Claude CLI' : 'AGY / Claude CLI');
+            const modelLabel = settingsRaw?.aiAgentModel && settingsRaw.aiAgentModel !== 'default' ? ` · ${settingsRaw.aiAgentModel}` : '';
+            return `AI Agent cục bộ (${engLabel}${modelLabel})`;
+        }
+        if (this.isUModelverseEnabled()) {
+            return 'Mì Tôm AI';
+        }
+        return 'Google Gemini API';
     }
 
     public isAiAvailable(): boolean {
         const settings = this.getSettingsFromStorage();
         const hasUmodelverse = this.isUModelverseEnabled();
-        const hasAiAgent = settings?.enableAiAgent === true;
+        const hasAiAgent = this.isAiAgentEnabled();
         const hasSecretKey = !!(settings?.secretKey && settings.secretKey.trim());
         return hasUmodelverse || hasAiAgent || hasSecretKey;
     }
@@ -2143,8 +2214,9 @@ export class GenaiService {
         // Restore model compatibility with existing UModelverse config
         const bypassModelOverride = (params.config as any)?.bypassModelOverride === true;
         const settingsRaw = this.getSettingsFromStorage();
-        let isAiAgentActive = settingsRaw?.enableAiAgent === true;
-        if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
+        const canUsePlugins = this._userService.canAccessPlugins(this._getActiveUser());
+        let isAiAgentActive = canUsePlugins && settingsRaw?.enableAiAgent === true;
+        if (canUsePlugins && (window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
             try {
                 const list = await (window as any).electronAPI.getPluginsStatus();
                 const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
@@ -2161,17 +2233,16 @@ export class GenaiService {
         const bypassAiAgent = (params.config as any)?.bypassAiAgent === true;
 
         const isUModelverse = this.isUModelverseEnabled();
-        const configuredAgentModel = settingsRaw?.aiAgentModel || 'gemini-3.8-flash-medium';
 
-        if (isUModelverse) {
-            // Khi Mì Tôm AI được bật trong tài khoản, ưu tiên áp dụng model của Mì Tôm AI
+        // Lưu model gốc trước khi áp model của Mì Tôm AI để giữ đúng model cho AI Agent (Tầng 1) và Gemini fallback (Tầng 3)
+        if (isUModelverse && !(isAiAgentActive && !isVideoRequest && !bypassAiAgent)) {
+            // Khi Mì Tôm AI được bật (và không dùng AI Agent trước), áp dụng model của Mì Tôm AI
             if ((isImageRequest || isImageEdit) && this._umodelverseImageModel && !bypassModelOverride) {
-                // Nếu người dùng đã cài đặt model ảnh riêng trong Mì Tôm AI, ưu tiên dùng model đó cho cả tạo mới ảnh lẫn sửa ảnh
                 params.model = this._umodelverseImageModel;
             } else if (isImageRequest && !isImageEdit && (!params.model || params.model.includes('gemini-') && !params.model.includes('image') || params.model.includes('claude'))) {
                 params.model = this._umodelverseImageModel || 'dall-e-3';
             } else if (!bypassModelOverride && !isImageEdit) {
-                if (params.model?.startsWith('gemini-3.8-flash') || params.model?.startsWith('gemini-3.7-flash') || params.model?.startsWith('gemini-3.8-flash')) {
+                if (params.model?.startsWith('gemini-3.8-flash') || params.model?.startsWith('gemini-3.7-flash')) {
                     if (this._umodelverseChatModel) {
                         params.model = this._umodelverseChatModel;
                     }
@@ -2186,9 +2257,6 @@ export class GenaiService {
                     params.model = this._umodelverseImageModel || 'dall-e-3';
                 }
             }
-        } else if (isAiAgentActive && !isVideoRequest && !isImageRequest && !bypassAiAgent) {
-            // Khi Mì Tôm AI không bật, ưu tiên sang AI Agent
-            params.model = configuredAgentModel;
         } else if (isImageRequest && !isImageEdit && (!params.model || params.model.includes('gemini-') && !params.model.includes('image') || params.model.includes('claude'))) {
             params.model = 'imagen-3.0-generate-002';
         }
@@ -2196,33 +2264,52 @@ export class GenaiService {
         this._start(scope);
         try {
             const bypassUModelverse = (params.config as any)?.bypassUModelverse === true;
+            const abortSignal: AbortSignal | undefined = (params.config as any)?.abortSignal || (params.config as any)?.signal;
+            const throwIfAborted = () => {
+                if (abortSignal?.aborted) {
+                    throw new DOMException('Đã hủy yêu cầu AI.', 'AbortError');
+                }
+            };
+            throwIfAborted();
+            this.lastUsedProvider = '';
             let lastError: any = null;
+            let aiAgentError: any = null;
 
-            // 1. Tầng Ưu Tiên 1: Mì Tôm AI / UModelverse (Nếu người dùng bật Mì Tôm AI trong tài khoản)
-            if (this.isUModelverseEnabled() && !bypassUModelverse) {
+            // 1. Tầng Ưu Tiên 1: AI Agent Plugin cục bộ (AGY CLI / Claude CLI) khi người dùng đã bật!
+            if (isAiAgentActive && !isVideoRequest && !bypassAiAgent) {
                 try {
-                    return await this.generateWithUModelverse(params); // Ưu tiên hàng đầu!
+                    console.log('[GenaiService] Ưu tiên Tầng 1: AI Agent cục bộ (AGY / Claude CLI)...');
+                    const agentRes = await this.generateWithAiAgent(params, scope);
+                    return agentRes;
+                } catch (agentErr: any) {
+                    if (this.isAbortError(agentErr, abortSignal)) throw agentErr;
+                    console.warn(`[GenaiService] Tầng 1 AI Agent cục bộ lỗi (${agentErr?.message || agentErr}). Đang chuyển sang tầng dự phòng...`);
+                    aiAgentError = agentErr;
+                    lastError = agentErr;
+                }
+            }
+
+            throwIfAborted();
+
+            // 2. Tầng Ưu Tiên 2 (và Tầng 1 cho Tạo Video): Mì Tôm AI / UModelverse
+            if (isUModelverse && !bypassUModelverse) {
+                try {
+                    const uRes = await this.generateWithUModelverse(params);
+                    this.lastUsedProvider = 'Mì Tôm AI';
+                    return uRes;
                 } catch (uErr: any) {
+                    if (this.isAbortError(uErr, abortSignal)) throw uErr;
                     console.warn(`[GenaiService] Mì Tôm AI lỗi (${uErr?.message || uErr}).`);
                     // Tuyệt đối không fallback sang model nào khác nếu đang tạo Video bằng Mì Tôm AI!
                     if (isVideoRequest) {
                         throw uErr;
                     }
-                    console.warn(`[GenaiService] Đang chuyển sang tầng tiếp theo...`);
+                    console.warn(`[GenaiService] Đang chuyển sang tầng dự phòng tiếp theo...`);
                     lastError = uErr;
                 }
             }
 
-            // 2. Tầng Dự Phòng 2: AI Agent cục bộ (AGY CLI / Claude CLI) nếu đang hoạt động
-            if (isAiAgentActive && !isVideoRequest && !bypassAiAgent) {
-                try {
-                    const agentRes = await this.generateWithAiAgent(params, scope);
-                    return agentRes;
-                } catch (agentErr: any) {
-                    console.warn(`[GenaiService] AI Agent lỗi (${agentErr?.message || agentErr}). Đang chuyển sang tầng tiếp theo...`);
-                    lastError = agentErr;
-                }
-            }
+            throwIfAborted();
 
             // Nếu là yêu cầu tạo Video nhưng Mì Tôm AI không khả dụng hoặc bị lỗi, dừng lại ngay, không nhảy sang Gemini Studio
             if (isVideoRequest) {
@@ -2247,7 +2334,9 @@ export class GenaiService {
             const keyRetryCounts: Record<string, number> = {};
             // Ghi lại lỗi của từng key để báo tổng hợp khi tất cả đều thất bại
             const keyFailures: { key: string; error: any }[] = [];
+            let consecutive503Keys = 0;
             for (let i = 0; i < shuffledKeys.length; i++) {
+                throwIfAborted();
                 const key = shuffledKeys[i];
                     try {
                         let aiInstance = this._aiInstance;
@@ -2305,11 +2394,16 @@ export class GenaiService {
                         let result;
                         let googleErr: any = null;
                         for (const m of candidateGoogleModels) {
+                            throwIfAborted();
                             let attempt = 0;
                             let stripThinkingForModel = false;
                             while (true) {
+                                throwIfAborted();
                                 try {
                                     const perModelConfig: any = { ...cleanConfig };
+                                    if (abortSignal) {
+                                        perModelConfig.abortSignal = abortSignal;
+                                    }
                                     if (googleDisableThinking && !stripThinkingForModel && !perModelConfig.thinkingConfig) {
                                         perModelConfig.thinkingConfig = {
                                             thinkingBudget: m.toLowerCase().includes('pro') ? 1024 : 0
@@ -2332,8 +2426,12 @@ export class GenaiService {
                                         (p: any) => Boolean(p?.inlineData || p?.functionCall)
                                     );
                                     if (cand?.finishReason === 'MAX_TOKENS' && !nonThoughtText && !hasMediaOrFn) {
+                                        throwIfAborted();
                                         console.warn(`[GenaiService] Model ${m} chạm MAX_TOKENS khi suy luận trên Google AI, tự động gửi lại ở chế độ trực tiếp...`);
                                         const retryCfg: any = { ...cleanConfig };
+                                        if (abortSignal) {
+                                            retryCfg.abortSignal = abortSignal;
+                                        }
                                         delete retryCfg.maxOutputTokens;
                                         if (!stripThinkingForModel) {
                                             retryCfg.thinkingConfig = {
@@ -2350,6 +2448,7 @@ export class GenaiService {
 
                                     if (result) break;
                                 } catch (mErr: any) {
+                                    if (this.isAbortError(mErr, abortSignal)) throw mErr;
                                     googleErr = mErr;
                                     const mErrMsg = String(mErr?.message || mErr || '');
                                     // Model Gemini đời cũ (vd 1.5) không nhận thinkingConfig => tự bỏ thinkingConfig và gửi lại ngay
@@ -2364,7 +2463,7 @@ export class GenaiService {
                                     if (isM429 && mRetrySec >= 0 && mRetrySec <= 90 && attempt < 2) {
                                         attempt++;
                                         console.warn(`[GenaiService] Model ${m} bị 429 Rate Limit trên Google AI, tự động đợi ${mRetrySec}s rồi thử lại (lần ${attempt}/2).`);
-                                        await this.sleep(mRetrySec * 1000 + 500);
+                                        await this.sleep(mRetrySec * 1000 + 500, abortSignal);
                                         continue;
                                     }
                                     console.warn(`[GenaiService] Model ${m} lỗi trên Google AI:`, mErr?.message || mErr);
@@ -2381,19 +2480,32 @@ export class GenaiService {
                             this._aiInstance = aiInstance;
                             console.log(`GenaiService: Đã chuyển sang Key an toàn (${key.substring(0, 8)}...)`);
                         }
+                        this.lastUsedProvider = 'Google Gemini API';
                         return result;
                     } catch (error: any) {
+                        if (this.isAbortError(error, abortSignal)) throw error;
                         lastError = error;
                         const errMsg = String(error?.message || error || '');
                         const isErr429 = errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED');
+                        const isErr503 = /503|UNAVAILABLE|overloaded|high demand/i.test(errMsg);
                         const errRetrySec = this.extractRetrySeconds(error);
+
+                        if (isErr503) {
+                            consecutive503Keys++;
+                            if (consecutive503Keys >= 2) {
+                                const agentHint = aiAgentError ? ` (AI Agent cục bộ trước đó cũng lỗi: ${aiAgentError?.message || aiAgentError})` : '';
+                                throw new Error(`Máy chủ Google Gemini đang quá tải (HTTP 503).${agentHint} Vui lòng thử lại sau ít giây hoặc kiểm tra cấu hình AI Agent / Mì Tôm AI.`);
+                            }
+                        } else {
+                            consecutive503Keys = 0;
+                        }
 
                         // [PATCH 2026-10-22] Retry thông minh cho Free Tier: Google trả kèm RetryInfo (vd: "Please retry in 38s").
                         // Nếu thời gian chờ ngắn (<= 90s), tự động đợi rồi thử lại đúng key đó thay vì bỏ qua ngay.
                         if (isErr429 && errRetrySec >= 0 && errRetrySec <= 90 && (keyRetryCounts[key] || 0) < 2) {
                             keyRetryCounts[key] = (keyRetryCounts[key] || 0) + 1;
                             console.warn(`GenaiService: API Key ${key.substring(0, 8)}... bị 429 Rate Limit, tự động đợi ${errRetrySec}s rồi thử lại (lần ${keyRetryCounts[key]}/2).`);
-                            await this.sleep(errRetrySec * 1000 + 500);
+                            await this.sleep(errRetrySec * 1000 + 500, abortSignal);
                             i--; // thử lại cùng key này
                             continue;
                         }
@@ -2556,6 +2668,11 @@ export class GenaiService {
             ? (params.model || 'gemini-3.8-flash-medium')
             : (settings.aiAgentModel || params.model || 'gemini-3.8-flash-medium');
 
+        const isStructuredJsonPrompt =
+            (params.config as any)?.responseMimeType === 'application/json' ||
+            (params.config as any)?.skipTTS === true ||
+            /CHỈ TRẢ VỀ JSON|JSON THUẦN TÚY/i.test(finalPrompt);
+
         let sysContent = '';
         if (params.config && params.config.systemInstruction) {
             if (typeof params.config.systemInstruction === 'string') {
@@ -2563,6 +2680,8 @@ export class GenaiService {
             } else if ((params.config.systemInstruction as any).parts) {
                 sysContent = (params.config.systemInstruction as any).parts.map((p: any) => p.text).join('\n');
             }
+        } else if (isStructuredJsonPrompt) {
+            sysContent = 'Trả lời trực tiếp và chính xác theo đúng định dạng người dùng yêu cầu. Không chạy lệnh shell, không liệt kê thư mục hay tạo tệp ngoài yêu cầu.';
         } else {
             sysContent = 'Bạn là Global AI Agent toàn năng. Bạn có khả năng phân tích, điều khiển và thực thi mọi tác vụ trong hệ thống phần mềm để tự động hóa công việc cho người dùng.';
             if (this.aiAgentCustomInstructions) {
@@ -2574,6 +2693,11 @@ export class GenaiService {
         }
 
         const maxTurns = (params.config as any)?.maxTurns || (params.config as any)?.max_turns || settings.aiAgentMaxTurns || 25;
+
+        const canUsePlugins = this._userService.canAccessPlugins(this._getActiveUser());
+        if (!canUsePlugins) {
+            throw new Error('Chỉ tài khoản thuộc nhóm "nhóm-x-cms" mới được phép sử dụng Plugin AI Agent.');
+        }
 
         let isAiAgentActive = settings.enableAiAgent === true;
         let cliEngine: string = settings.aiAgentCliEngine || 'auto';
@@ -2612,6 +2736,14 @@ export class GenaiService {
 
         const requestId = `cli_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         this._activeLocalCliRequestId = requestId;
+        const abortSignal: AbortSignal | undefined = (params.config as any)?.abortSignal || (params.config as any)?.signal;
+        if (abortSignal?.aborted) {
+            throw new DOMException('Đã hủy yêu cầu AI.', 'AbortError');
+        }
+        const onAbortCli = () => {
+            this.cancelLocalAgent();
+        };
+        abortSignal?.addEventListener('abort', onAbortCli, { once: true });
 
         let unsubscribeStream: (() => void) | null = null;
         try {
@@ -2729,6 +2861,7 @@ export class GenaiService {
                 requestId,
                 engine: cliEngine,
                 model: configuredAgentModel,
+                disableThinking: (params.config as any)?.disableThinking === true,
                 prompt: finalPrompt,
                 historyText: historyText.trim(),
                 systemInstructions: sysContent,
@@ -2745,6 +2878,9 @@ export class GenaiService {
             if (!cliRes || cliRes.success !== true) {
                 throw new Error(cliRes?.error || 'AI Agent cục bộ (AGY/Claude CLI) xử lý thất bại.');
             }
+            const usedEngName = String(cliRes.engine || cliEngine || 'cli').toUpperCase();
+            this.lastUsedProvider = `AI Agent cục bộ (${usedEngName} CLI${cliRes.model ? ' · ' + cliRes.model : ''})`;
+            console.log(`[GenaiService] Thành công qua ${this.lastUsedProvider}`);
 
             if (cliRes.conversationId) {
                 conversationId = cliRes.conversationId;
@@ -2870,6 +3006,7 @@ export class GenaiService {
                 get text() {
                     return replyText;
                 },
+                provider: this.lastUsedProvider,
                 conversation_id: conversationId,
                 candidates: [
                     {
@@ -2881,9 +3018,13 @@ export class GenaiService {
                 ]
             };
         } catch (e: any) {
+            if (this.isAbortError(e, abortSignal)) {
+                throw new DOMException('Đã hủy yêu cầu AI.', 'AbortError');
+            }
             console.error('[AI Agent Local CLI Error]', e);
             throw new Error(`AI Agent cục bộ lỗi: ${e?.message || e}`);
         } finally {
+            abortSignal?.removeEventListener('abort', onAbortCli);
             if (unsubscribeStream) {
                 try { unsubscribeStream(); } catch (_) {}
             }
@@ -3338,13 +3479,15 @@ export class GenaiService {
             }
         }
 
+        const umodelAbortSignal: AbortSignal | undefined = (params.config as any)?.abortSignal || (params.config as any)?.signal;
         const executePostRequest = async (
             requestBody: any
         ): Promise<{ response: Response; data: any; redirected?: any }> => {
             let res = await fetch(`${apiBase.versioned}${endpointPath}`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify(requestBody, null, 2)
+                body: JSON.stringify(requestBody, null, 2),
+                signal: umodelAbortSignal
             });
 
             // Proxy không có /messages cho Claude => ghi nhớ và gửi lại theo chuẩn OpenAI /chat/completions
@@ -3399,7 +3542,8 @@ export class GenaiService {
                 res = await fetch(`${apiBase.versioned}${endpointPath}`, {
                     method: 'POST',
                     headers,
-                    body: JSON.stringify(fallbackBody, null, 2)
+                    body: JSON.stringify(fallbackBody, null, 2),
+                    signal: umodelAbortSignal
                 });
                 txt = await res.text();
                 try {

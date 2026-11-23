@@ -25,12 +25,6 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
     zaloPluginMode: string = 'tool';
     aiAgentApiKey: string = '';
     aiAgentCliEngine: 'auto' | 'agy' | 'claude' = 'auto';
-    localCliStatus: {
-        agy: { installed: boolean; path?: string | null; version?: string };
-        claude: { installed: boolean; path?: string | null; version?: string };
-        recommended?: string | null;
-    } | null = null;
-    checkingLocalClis: boolean = false;
     showAiAgentKey: boolean = false;
     ttsVoice: string = 'vi-VN-HoaiMyNeural';
     ttsRate: string = '+0%';
@@ -73,15 +67,30 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
         this.titleService.setTitle(`plugins | ai.type - công cụ tạo content`);
     }
 
+    private _ensurePluginAccess(notify: boolean = true): boolean {
+        const activeUser = this.user || this._userService.user;
+        if (this._userService.canAccessPlugins(activeUser)) {
+            return true;
+        }
+        if (notify) {
+            this.toastr.error('Chỉ tài khoản thuộc nhóm "nhóm-x-cms" mới được phép sử dụng Plugins.');
+        }
+        return false;
+    }
+
     ngOnInit(): void {
         this._userService.user$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
+                if (this._userService.canAccessPlugins(user)) {
+                    this.getPluginsStatus();
+                    this.checkColabStatus();
+                } else {
+                    this.plugins = [];
+                    this.cd.detectChanges();
+                }
             });
-        this.getPluginsStatus();
-        this.checkColabStatus();
-        this.checkLocalClis(false);
     }
 
     private normalizeLocalAgentModel(rawModel?: string): string {
@@ -94,27 +103,6 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
         if (lower === 'gemini-3.7-flash-high' || lower === 'gemini-3.6-flash-high') return 'gemini-3.8-flash-high';
         if (lower === 'gemini-3.5-pro' || lower === 'gemini-3.1-pro') return 'gemini-4-neon-medium';
         return m;
-    }
-
-    async checkLocalClis(forceRefresh: boolean = false) {
-        if (!(window as any).electronAPI || !(window as any).electronAPI.detectLocalAiClis) {
-            this.localCliStatus = null;
-            this.cd.detectChanges();
-            return;
-        }
-        this.checkingLocalClis = true;
-        this.cd.detectChanges();
-        try {
-            const res = await (window as any).electronAPI.detectLocalAiClis(forceRefresh);
-            if (res) {
-                this.localCliStatus = res;
-            }
-        } catch (err: any) {
-            console.warn('[AI Agent] Lỗi kiểm tra CLI cục bộ:', err);
-        } finally {
-            this.checkingLocalClis = false;
-            this.cd.detectChanges();
-        }
     }
 
     ngOnDestroy(): void {
@@ -139,6 +127,11 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
 
 
     async getPluginsStatus() {
+        if (!this._ensurePluginAccess(false)) {
+            this.plugins = [];
+            this.cd.detectChanges();
+            return;
+        }
         if (!(window as any).electronAPI || !(window as any).electronAPI.getPluginsStatus) {
             // Mẫu tĩnh khi test trên trình duyệt
             this.plugins = [
@@ -225,9 +218,6 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                 zalo.enabled = !!settings.zaloPluginEnabled;
             }
 
-            if (aiAgent?.cliStatus) {
-                this.localCliStatus = aiAgent.cliStatus;
-            }
             this.aiAgentCliEngine = settings.aiAgentCliEngine || aiAgent?.cliEngine || 'auto';
             this.aiAgentApiKey = settings.aiAgentApiKey || aiAgent?.apiKey || '';
 
@@ -244,6 +234,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
     }
 
     async installPlugin(plugin: any) {
+        if (!this._ensurePluginAccess(true)) return;
         if (!(window as any).electronAPI || !(window as any).electronAPI.installPlugin) {
             this.toastr.error('Tính năng này chỉ khả dụng trên ứng dụng Desktop.');
             return;
@@ -263,6 +254,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
     }
 
     async uninstallPlugin(plugin: any) {
+        if (!this._ensurePluginAccess(true)) return;
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Gỡ cài đặt Plugin',
             message: `Bạn có chắc chắn muốn gỡ cài đặt plugin <span class="font-semibold">${plugin.name}</span> không?`,
@@ -297,6 +289,10 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
     }
 
     async togglePlugin(plugin: any, event: any) {
+        if (!this._ensurePluginAccess(true)) {
+            if (event?.source) event.source.checked = !event.checked;
+            return;
+        }
         if (!(window as any).electronAPI) {
             if (plugin.id === 'ai_agent') {
                 plugin.enabled = event.checked;
@@ -840,6 +836,7 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
     }
 
     async saveAiAgentKey(plugin: any) {
+        if (!this._ensurePluginAccess(true)) return;
         if (!(window as any).electronAPI) {
             const settings = getSettings() || {};
             settings.aiAgentCliEngine = this.aiAgentCliEngine;

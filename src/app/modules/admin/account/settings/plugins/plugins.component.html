@@ -388,7 +388,7 @@
                 </div>
             </div>
 
-            <div class="w-full flex flex-col md:flex-row items-start md:items-end gap-4 mt-4">
+            <div class="w-full mt-4">
                 <!-- CLI cục bộ -->
                 <mat-form-field
                     class="w-full md:w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
@@ -413,47 +413,6 @@
                         >
                     </mat-select>
                 </mat-form-field>
-
-                <!-- Trạng thái phát hiện CLI dưới máy -->
-                <div class="local-cli-status-bar flex items-center gap-2 flex-wrap pb-0.5">
-                    <span
-                        class="local-cli-chip"
-                        [class.local-cli-chip--ok]="localCliStatus?.agy?.installed"
-                        [matTooltip]="localCliStatus?.agy?.path || 'Chưa phát hiện lệnh agy trong PATH'"
-                    >
-                        <span class="local-cli-chip__dot"></span>
-                        <span>AGY CLI</span>
-                        @if (localCliStatus?.agy?.installed) {
-                            <span class="local-cli-chip__ver">{{ localCliStatus?.agy?.version || 'Sẵn sàng' }}</span>
-                        } @else {
-                            <span class="local-cli-chip__ver">Chưa cài</span>
-                        }
-                    </span>
-
-                    <span
-                        class="local-cli-chip"
-                        [class.local-cli-chip--ok]="localCliStatus?.claude?.installed"
-                        [matTooltip]="localCliStatus?.claude?.path || 'Chưa phát hiện lệnh claude trong PATH'"
-                    >
-                        <span class="local-cli-chip__dot"></span>
-                        <span>Claude CLI</span>
-                        @if (localCliStatus?.claude?.installed) {
-                            <span class="local-cli-chip__ver">{{ localCliStatus?.claude?.version || 'Sẵn sàng' }}</span>
-                        } @else {
-                            <span class="local-cli-chip__ver">Chưa cài</span>
-                        }
-                    </span>
-
-                    <button
-                        mat-icon-button
-                        type="button"
-                        [disabled]="checkingLocalClis"
-                        (click)="checkLocalClis(true)"
-                        matTooltip="Quét lại AGY CLI và Claude CLI trên máy"
-                    >
-                        <mat-icon class="icon-size-4">refresh</mat-icon>
-                    </button>
-                </div>
             </div>
             <div class="mt-1 text-sm text-gray-400">
                 Gọi trực tiếp lệnh <code>agy</code> hoặc <code>claude</code> ngay trên máy cục bộ, không cần máy chủ trung gian hay Secret API Key.
