@@ -1098,7 +1098,8 @@ def main():
         print(json.dumps({"type": "error", "error": "Cần cung cấp --video hoặc --image"}, ensure_ascii=False), flush=True)
         sys.exit(1)
 
-    default_model = str(Path(__file__).resolve().parent.parent / "mocap-env" / "models" / "nlf_l_multi_0.3.2.torchscript")
+    _base_dir = Path(__file__).resolve().parent.parent if ("__file__" in globals() and not str(__file__).startswith("<")) else Path.cwd()
+    default_model = str(_base_dir / "mocap-env" / "models" / "nlf_l_multi_0.3.2.torchscript")
     model_path = args.model.strip() if args.model else default_model
     foot_mode = args.foot_mode.strip() if args.foot_mode else ("free_stabilized" if args.stabilize_yaw else "auto")
 

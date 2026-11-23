@@ -8,7 +8,7 @@ const isInternalAppOrigin = (() => {
     try {
         const host = window.location.hostname || '';
         const proto = window.location.protocol || '';
-        return !host || proto === 'file:' || host === 'localhost' || host === '127.0.0.1';
+        return !host || proto === 'file:' || proto === 'app:' || host === 'localhost' || host === '127.0.0.1';
     } catch (e) {
         return true;
     }

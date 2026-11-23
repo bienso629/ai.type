@@ -25,6 +25,7 @@ app.commandLine.appendSwitch('disable-setuid-sandbox');
 app.commandLine.appendSwitch('disable-gpu-sandbox');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
+const { isVaultAvailable, createAppProtocolHandler } = require("./vault-loader");
 const { registerExportImportHandlers } = require("./export-import-project");
 const { registerLocalArticlesHandlers } = require("./local-articles");
 const { registerProjectStoreHandlers } = require("./project-store");
@@ -94,7 +95,11 @@ app.on('web-contents-created', (e, webContents) => {
         // Reload - Cho phép chạy trên cả môi trường Dev và Production
         if ((input.control || input.meta) && input.key.toLowerCase() === 'r') {
             const url = webContents.getURL();
-            if (url.startsWith('file://')) {
+            if (url.startsWith('app://')) {
+                const hashMatch = url.match(/#.*$/);
+                const hash = hashMatch ? hashMatch[0] : '';
+                mainWindow.loadURL(`app://local/index.html${hash}`);
+            } else if (url.startsWith('file://')) {
                 const hashMatch = url.match(/#.*$/);
                 const hash = hashMatch ? hashMatch[0].substring(1) : '';
                 mainWindow.loadFile(path.join(__dirname, "..", "fallback", "index.html"), { hash });
@@ -105,7 +110,11 @@ app.on('web-contents-created', (e, webContents) => {
         }
         if (input.key === 'F5') {
             const url = webContents.getURL();
-            if (url.startsWith('file://')) {
+            if (url.startsWith('app://')) {
+                const hashMatch = url.match(/#.*$/);
+                const hash = hashMatch ? hashMatch[0] : '';
+                mainWindow.loadURL(`app://local/index.html${hash}`);
+            } else if (url.startsWith('file://')) {
                 const hashMatch = url.match(/#.*$/);
                 const hash = hashMatch ? hashMatch[0].substring(1) : '';
                 mainWindow.loadFile(path.join(__dirname, "..", "fallback", "index.html"), { hash });
@@ -123,6 +132,17 @@ app.on('web-contents-created', (e, webContents) => {
 });
 
 protocol.registerSchemesAsPrivileged([
+    {
+        scheme: 'app',
+        privileges: {
+            standard: true,
+            secure: true,
+            supportFetchAPI: true,
+            corsEnabled: true,
+            stream: true,
+            bypassCSP: true
+        }
+    },
     {
         scheme: 'mediacors',
         privileges: {
@@ -1148,7 +1168,10 @@ function startFallbackServer() {
         next();
     });
     const fallbackPath = path.resolve(__dirname, "..", "fallback");
-    fallbackApp.use(express.static(fallbackPath));
+    // Không phơi bày mã nguồn Frontend qua HTTP cục bộ trên bản đóng gói (chỉ phục vụ /data)
+    if (!app.isPackaged && fs.existsSync(fallbackPath)) {
+        fallbackApp.use(express.static(fallbackPath));
+    }
     const dataPath = path.join(os.homedir(), "Documents", "ai.type", "data");
     fallbackApp.use('/data', express.static(dataPath));
     const server = fallbackApp.listen(fallbackPort, () => {
@@ -1952,13 +1975,22 @@ function createMainWindow() {
     mainWindow.maximize();
 
     if (app.isPackaged) {
-        const fallbackFile = path.join(__dirname, "..", "fallback", "index.html");
-        mainWindow.loadFile(fallbackFile)
-            .then(() => sendToRenderer("tools-log", `[WebApp] Đã load fallback/index.html thành công`))
-            .catch((err) => {
-                console.error("[WebApp] Lỗi khi load fallback/index.html:", err);
-                sendToRenderer("tools-log", `[WebApp] Lỗi khi load fallback/index.html: ${err.message}`);
-            });
+        if (isVaultAvailable()) {
+            mainWindow.loadURL('app://local/index.html')
+                .then(() => sendToRenderer("tools-log", `[WebApp] Đã nạp giao diện bảo mật (app://local)`))
+                .catch((err) => {
+                    console.error("[WebApp] Lỗi khi load app://local/index.html:", err);
+                    sendToRenderer("tools-log", `[WebApp] Lỗi khi load app://local/index.html: ${err.message}`);
+                });
+        } else {
+            const fallbackFile = path.join(__dirname, "..", "fallback", "index.html");
+            mainWindow.loadFile(fallbackFile)
+                .then(() => sendToRenderer("tools-log", `[WebApp] Đã load fallback/index.html thành công`))
+                .catch((err) => {
+                    console.error("[WebApp] Lỗi khi load fallback/index.html:", err);
+                    sendToRenderer("tools-log", `[WebApp] Lỗi khi load fallback/index.html: ${err.message}`);
+                });
+        }
     } else {
         const targetURL = "http://localhost:4200";
         mainWindow.loadURL(targetURL)
@@ -5774,6 +5806,11 @@ app.whenReady().then(async () => {
         }
         return targetPath;
     };
+
+    // Giao thức nội bộ app:// phục vụ Frontend Angular giải mã trực tiếp trong RAM từ dist/vault.bin
+    if (isVaultAvailable()) {
+        protocol.handle('app', createAppProtocolHandler());
+    }
 
     // Native file protocol cho <img>, <video>, <audio> (Hỗ trợ stream, seeking hoàn hảo)
     protocol.registerFileProtocol('media', (request, callback) => {

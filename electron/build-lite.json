@@ -2,6 +2,9 @@
     "productName": "AI.Type Lite",
     "appId": "ai.type.vn",
     "asar": true,
+    "asarUnpack": [
+        "dist/vault.bin"
+    ],
     "electronFuses": {
         "runAsNode": false,
         "enableCookieEncryption": false,
@@ -15,8 +18,8 @@
     "files": [
         "dist/*.js",
         "dist/*.jsc",
+        "dist/vault.bin",
         "dist/type-lite/**/*",
-        "fallback/**/*",
         "icons/**/*",
         "node_modules/**/*",
         "package.json",

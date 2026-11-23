@@ -20,6 +20,37 @@ const { ipcMain, app } = require('electron');
 const fs   = require('fs');
 const path = require('path');
 const { sanitizeGlbBuffer, ensureGlbFileSanitized } = require('./glb-sanitizer');
+const { readVaultText } = require('./vault-loader');
+
+/**
+ * Resolve cách thực thi kịch bản 3D MoCap:
+ * - Bản đóng gói: giải mã video_mocap_3d.py trực tiếp trong RAM từ dist/vault.bin và nạp qua stdin (`python -`),
+ *   không để tệp .py văn bản thuần trên đĩa.
+ * - Môi trường dev: ưu tiên tệp nguồn local electron/scripts/video_mocap_3d.py.
+ */
+function resolveMocapScriptSource() {
+    if (!app.isPackaged) {
+        const devCandidates = [
+            path.join(__dirname, '..', 'scripts', 'video_mocap_3d.py'),
+            path.join(process.cwd(), 'electron', 'scripts', 'video_mocap_3d.py'),
+        ];
+        const devPath = devCandidates.find((p) => p && fs.existsSync(p));
+        if (devPath) return { mode: 'file', scriptPath: devPath };
+    }
+
+    const vaultCode = readVaultText('__internal__/video_mocap_3d.py');
+    if (vaultCode) return { mode: 'stdin', code: vaultCode };
+
+    const fallbackCandidates = [
+        path.join(__dirname, '..', 'scripts', 'video_mocap_3d.py'),
+        path.join(process.resourcesPath || '', 'scripts', 'video_mocap_3d.py'),
+        path.join(process.cwd(), 'electron', 'scripts', 'video_mocap_3d.py'),
+    ];
+    const fallbackPath = fallbackCandidates.find((p) => p && fs.existsSync(p));
+    if (fallbackPath) return { mode: 'file', scriptPath: fallbackPath };
+
+    return null;
+}
 
 // ── Path Helpers ──────────────────────────────────────────────────────────────
 
@@ -620,15 +651,10 @@ function registerProfileHandlers(binaries = null) {
 
             tmpOutJson = path.join(os.tmpdir(), `aitype_mocap_out_${stamp}.json`);
 
-            // Tìm script video_mocap_3d.py (hỗ trợ cả dev lẫn bản đóng gói extraResources)
-            const scriptCandidates = [
-                path.join(__dirname, '..', 'scripts', 'video_mocap_3d.py'),
-                path.join(process.resourcesPath || '', 'scripts', 'video_mocap_3d.py'),
-                path.join(process.cwd(), 'electron', 'scripts', 'video_mocap_3d.py')
-            ];
-            const scriptPath = scriptCandidates.find((p) => p && fs.existsSync(p));
-            if (!scriptPath) {
-                return { success: false, error: 'Không tìm thấy kịch bản trích xuất 3D MoCap (video_mocap_3d.py).' };
+            // Nạp kịch bản 3D MoCap (ưu tiên giải mã trực tiếp trong RAM từ vault ở bản đóng gói)
+            const mocapSrc = resolveMocapScriptSource();
+            if (!mocapSrc) {
+                return { success: false, error: 'Không tìm thấy kịch bản trích xuất 3D MoCap.' };
             }
 
             // Ưu tiên môi trường venv riêng hỗ trợ CUDA GTX/RTX tại electron/mocap-env/.venv
@@ -649,7 +675,7 @@ function registerProfileHandlers(binaries = null) {
             const modelPath = modelCandidates.find((p) => fs.existsSync(p)) || modelCandidates[0];
 
             const args = [
-                scriptPath,
+                mocapSrc.mode === 'stdin' ? '-' : mocapSrc.scriptPath,
                 '--video', inputVideoPath,
                 '--out', tmpOutJson,
                 '--model', modelPath,
@@ -665,8 +691,13 @@ function registerProfileHandlers(binaries = null) {
             await new Promise((resolve, reject) => {
                 const child = spawn(pythonBin, args, {
                     windowsHide: true,
+                    stdio: ['pipe', 'pipe', 'pipe'],
                     env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUNBUFFERED: '1' }
                 });
+                if (mocapSrc.mode === 'stdin' && child.stdin) {
+                    child.stdin.write(mocapSrc.code, 'utf8');
+                    child.stdin.end();
+                }
                 let stdoutBuf = '';
                 let stderrBuf = '';
 
@@ -743,14 +774,9 @@ function registerProfileHandlers(binaries = null) {
 
             tmpOutJson = path.join(os.tmpdir(), `aitype_pose_out_${stamp}.json`);
 
-            const scriptCandidates = [
-                path.join(__dirname, '..', 'scripts', 'video_mocap_3d.py'),
-                path.join(process.resourcesPath || '', 'scripts', 'video_mocap_3d.py'),
-                path.join(process.cwd(), 'electron', 'scripts', 'video_mocap_3d.py')
-            ];
-            const scriptPath = scriptCandidates.find((p) => p && fs.existsSync(p));
-            if (!scriptPath) {
-                return { success: false, error: 'Không tìm thấy kịch bản trích xuất tư thế 3D (video_mocap_3d.py).' };
+            const mocapSrc = resolveMocapScriptSource();
+            if (!mocapSrc) {
+                return { success: false, error: 'Không tìm thấy kịch bản trích xuất tư thế 3D.' };
             }
 
             const pyCandidates = [
@@ -770,7 +796,7 @@ function registerProfileHandlers(binaries = null) {
             const modelPath = modelCandidates.find((p) => fs.existsSync(p)) || modelCandidates[0];
 
             const args = [
-                scriptPath,
+                mocapSrc.mode === 'stdin' ? '-' : mocapSrc.scriptPath,
                 '--image', inputImgPath,
                 '--out', tmpOutJson,
                 '--model', modelPath
@@ -779,8 +805,13 @@ function registerProfileHandlers(binaries = null) {
             await new Promise((resolve, reject) => {
                 const child = spawn(pythonBin, args, {
                     windowsHide: true,
+                    stdio: ['pipe', 'pipe', 'pipe'],
                     env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUNBUFFERED: '1' }
                 });
+                if (mocapSrc.mode === 'stdin' && child.stdin) {
+                    child.stdin.write(mocapSrc.code, 'utf8');
+                    child.stdin.end();
+                }
                 let stderrBuf = '';
                 child.stderr.on('data', (chunk) => {
                     stderrBuf += chunk.toString('utf8');
