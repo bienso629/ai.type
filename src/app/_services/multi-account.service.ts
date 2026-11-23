@@ -489,12 +489,29 @@ export class MultiAccountService {
         );
 
         if (!isAdmin && data.settings) {
-            // Kiểm tra nếu settings đang chứa dấu hiệu của admin (SMTP typevn, nodebb admin token...)
+            // Kiểm tra nếu settings đang chứa dấu hiệu của admin (so sánh qua SHA-256 để không lộ token/key gốc trong bundle)
             const s = data.settings;
+            const ADMIN_NODEBB_TOKEN_SHA256 = 'df1002bbc5e268631478b2d8bfbf4706db2a2cbe205af5c62a78b46821b38f9a';
+            const ADMIN_GEMINI_KEY_SHA256 = 'dd3a1dd006fee33d47b887894e2693ac60d742124c5f1a311978e82d8a92ad41';
+            const sha256Hex = (val: string) => CryptoJS.SHA256(val).toString(CryptoJS.enc.Hex);
+
+            const hasAdminToken = Boolean(
+                typeof s.emailConfig_nodebbToken === 'string' &&
+                s.emailConfig_nodebbToken.trim() &&
+                sha256Hex(s.emailConfig_nodebbToken.trim()) === ADMIN_NODEBB_TOKEN_SHA256
+            );
+            const hasAdminGeminiKey = Boolean(
+                typeof s.secretKey === 'string' &&
+                s.secretKey
+                    .split(';')
+                    .map((k: string) => k.trim())
+                    .filter(Boolean)
+                    .some((k: string) => sha256Hex(k) === ADMIN_GEMINI_KEY_SHA256)
+            );
             const hasAdminSignature = (
                 s.emailConfig_smtpUser === 'typevn@gmail.com' ||
-                s.emailConfig_nodebbToken === '001780c4-1e43-4e42-be0b-9a998e13715a' ||
-                (s.secretKey && s.secretKey.includes('AIzaSyCMje8tT-29bmn314Mu1Lb2T-ddgTB7EpU'))
+                hasAdminToken ||
+                hasAdminGeminiKey
             );
 
             if (hasAdminSignature) {

@@ -5,7 +5,7 @@
   "main": "dist/main.js",
   "scripts": {
     "dev": "nodemon --watch src --exec electron --no-sandbox src/main.js",
-    "obfuscate": "javascript-obfuscator src/main.js --output dist/main.js --config .obfuscatorrc.json && javascript-obfuscator src/mcp-client.js --output dist/mcp-client.js --config .obfuscatorrc.json && javascript-obfuscator src/local-cli-agent.js --output dist/local-cli-agent.js --config .obfuscatorrc.json && javascript-obfuscator src/export-import-project.js --output dist/export-import-project.js --config .obfuscatorrc.json && javascript-obfuscator src/project-store.js --output dist/project-store.js --config .obfuscatorrc.json && javascript-obfuscator src/local-articles.js --output dist/local-articles.js --config .obfuscatorrc.json && javascript-obfuscator src/local-profiles.js --output dist/local-profiles.js --config .obfuscatorrc.json && javascript-obfuscator src/glb-sanitizer.js --output dist/glb-sanitizer.js --config .obfuscatorrc.json && javascript-obfuscator src/design-presets.js --output dist/design-presets.js --config .obfuscatorrc.json && javascript-obfuscator src/fonts.js --output dist/fonts.js --config .obfuscatorrc.json && javascript-obfuscator src/workspace-folders.js --output dist/workspace-folders.js --config .obfuscatorrc.json && javascript-obfuscator src/database.js --output dist/database.js --config .obfuscatorrc.json && javascript-obfuscator src/opera-codec.js --output dist/opera-codec.js --config .obfuscatorrc.json && javascript-obfuscator src/edge-tts-v2.js --output dist/edge-tts-v2.js --config .obfuscatorrc.json && javascript-obfuscator src/extract_frame.js --output dist/extract_frame.js --config .obfuscatorrc.json && mkdir -p dist/type-lite && javascript-obfuscator src/type-lite --output dist/type-lite --config .obfuscatorrc.json && cp -r src/type-lite/views dist/type-lite/",
+    "obfuscate": "node compile-bytecode.js",
     "build:win": "npm run obfuscate && electron-builder --win -p always",
     "build:mac": "npm run obfuscate && electron-builder --mac",
     "build:linux": "npm run obfuscate && electron-builder --linux",
@@ -19,27 +19,23 @@
     "productName": "AI.Type",
     "appId": "ai.type.vn",
     "asar": true,
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "grantFileProtocolExtraPrivileges": true,
+      "resetAdHocDarwinSignature": true
+    },
     "electronDownload": {
       "mirror": "https://github.com/castlabs/electron-releases/releases/download/"
     },
     "files": [
-      "dist/main.js",
-      "dist/mcp-client.js",
-      "dist/local-cli-agent.js",
-      "dist/export-import-project.js",
-      "dist/project-store.js",
-      "dist/local-articles.js",
-      "dist/local-profiles.js",
-      "dist/glb-sanitizer.js",
-      "dist/design-presets.js",
-      "dist/fonts.js",
-      "dist/workspace-folders.js",
-      "dist/database.js",
-      "dist/opera-codec.js",
-      "dist/edge-tts-v2.js",
-      "dist/extract_frame.js",
+      "dist/*.js",
+      "dist/*.jsc",
       "dist/type-lite/**/*",
-      "preload.js",
       "fallback/**/*",
       "icons/**/*",
       "node_modules/**/*",
@@ -65,11 +61,7 @@
         "from": "scripts",
         "to": "scripts",
         "filter": [
-          "**/*",
-          "!build",
-          "!dist",
-          "!__pycache__",
-          "!*.spec"
+          "video_mocap_3d.py"
         ]
       }
     ],
@@ -134,6 +126,7 @@
     "babel-polyfill": "^6.26.0",
     "babel-runtime": "^6.26.0",
     "body-parser": "^1.20.2",
+    "bytenode": "^2.1.0",
     "cheerio": "^1.1.0",
     "child_process": "^1.0.2",
     "cors": "^2.8.5",

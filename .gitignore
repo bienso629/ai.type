@@ -94,3 +94,11 @@ extracted-settings/
 
 # Cache cong cu phan tich - ten bat dau bang dau gach cheo nguoc, khong hop le tren Windows
 *knowledge-cache/
+
+# Secret keys, certificates & env files (khong commit len Git)
+*.p12
+*.pem
+electron/.env
+electron/ga4-service.json
+electron/scripts/*.cer
+electron/scripts/*.certSigningRequest

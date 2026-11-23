@@ -9,7 +9,7 @@
         "base64"
     ],
     "stringArrayThreshold": 0.75,
-    "selfDefending": true,
+    "selfDefending": false,
     "disableConsoleOutput": true,
     "renameGlobals": false
 }

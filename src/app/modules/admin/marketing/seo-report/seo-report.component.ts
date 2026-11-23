@@ -1884,11 +1884,13 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         this.isPageSpeedLoading = true;
         this.cd.markForCheck();
 
-        const API_KEY = 'AIzaSyD8CKrKLMTByra9kiAZFcTRYgoarpVixXA';
+        const userSettings = this.multiAccountService.getItem('settings') || {};
+        const pageSpeedApiKey = String(userSettings.pageSpeedApiKey || '').trim();
+        const keyQuery = pageSpeedApiKey ? `&key=${encodeURIComponent(pageSpeedApiKey)}` : '';
         const normalizedUrl = /^https?:\/\//i.test(this.siteUrl)
             ? this.siteUrl
             : `https://${this.siteUrl}`;
-        const apiEndpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(normalizedUrl)}&strategy=desktop&key=${API_KEY}&category=performance&category=accessibility&category=best-practices&category=seo`;
+        const apiEndpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(normalizedUrl)}&strategy=desktop${keyQuery}&category=performance&category=accessibility&category=best-practices&category=seo`;
 
         try {
             this.toastr.info(

@@ -2,10 +2,20 @@
     "productName": "AI.Type Lite",
     "appId": "ai.type.vn",
     "asar": true,
+    "electronFuses": {
+        "runAsNode": false,
+        "enableCookieEncryption": false,
+        "enableNodeOptionsEnvironmentVariable": false,
+        "enableNodeCliInspectArguments": false,
+        "enableEmbeddedAsarIntegrityValidation": true,
+        "onlyLoadAppFromAsar": true,
+        "grantFileProtocolExtraPrivileges": true,
+        "resetAdHocDarwinSignature": true
+    },
     "files": [
-        "dist/main.js",
+        "dist/*.js",
+        "dist/*.jsc",
         "dist/type-lite/**/*",
-        "preload.js",
         "fallback/**/*",
         "icons/**/*",
         "node_modules/**/*",

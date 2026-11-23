@@ -68,8 +68,16 @@ process.on("uncaughtException", (err) => {
 });
 
 
-// Bắt phím tắt nội bộ thay vì globalShortcut để tránh xung đột với hệ đi?u hành và app khác
+// Bắt phím tắt nội bộ thay vì globalShortcut để tránh xung đột với hệ điều hành và app khác
 app.on('web-contents-created', (e, webContents) => {
+    if (app.isPackaged) {
+        webContents.on('devtools-opened', () => {
+            try {
+                webContents.closeDevTools();
+            } catch (_) {}
+        });
+    }
+
     webContents.on('before-input-event', (event, input) => {
         if (!app.isPackaged) {
             // DevTools
@@ -1882,19 +1890,20 @@ function openChromeApp(url, width = 400, height = 800) {
 
 // Trả v�? đư�?ng dẫn đúng cho preload ở cả dev (electron .) và app.asar
 function resolvePreload() {
-    // 1) Khi chạy từ dist/main.js: __dirname = .../app.asar/dist (build) hoặc <proj>/dist (dev)
-    const candidate1 = path.join(__dirname, "..", "preload.js"); // <-- CHUẨN
-    if (fs.existsSync(candidate1)) return candidate1;
+    // 1) Bản đóng gói hoặc npm start (dist/main.js): ưu tiên dist/preload.js đã obfuscate
+    const candidateDist = path.join(__dirname, "preload.js");
+    if (fs.existsSync(candidateDist)) return candidateDist;
 
-    // 2) Phòng khi ai đó vẫn để preload cạnh main.js (ít gặp)
-    const candidate2 = path.join(__dirname, "preload.js");
-    if (fs.existsSync(candidate2)) return candidate2;
+    // 2) Chế độ dev (src/main.js): dùng preload.js ở thư mục gốc electron/
+    const candidateRoot = path.join(__dirname, "..", "preload.js");
+    if (fs.existsSync(candidateRoot)) return candidateRoot;
 
     // 3) Phòng thêm case hiếm trong khi dev chạy từ root
-    const candidate3 = path.join(process.cwd(), "preload.js");
-    if (fs.existsSync(candidate3)) return candidate3;
+    const candidateCwd = path.join(process.cwd(), "preload.js");
+    if (fs.existsSync(candidateCwd)) return candidateCwd;
 
-    // 4) Báo lỗi để còn biết
+    // 4) Trả về đường dẫn mặc định để log báo lỗi nếu thiếu
+    const candidate1 = candidateDist;
     return candidate1; // vẫn trả v�? candidate1 để log báo lỗi
 }
 
@@ -1919,7 +1928,7 @@ function createMainWindow() {
             webSecurity: false,
             webviewTag: true,
             plugins: true,
-            devTools: true,
+            devTools: !app.isPackaged,
             nodeIntegration: false,
             nodeIntegrationInSubFrames: false,
             preload: resolvePreload(),
@@ -7539,10 +7548,19 @@ app.whenReady().then(async () => {
                 }
                 case "website-crawl": {
                     const uniqueID = data.uniqueID || createUniqueID();
-                    const apiKey = "AIzaSyAKUojwbty61HGbsL4rCm4Wby2ujggVm-0";
+                    const apiKey = String((data && data.apiKey) || process.env.GEMINI_API_KEY || "").trim();
+                    if (!apiKey) {
+                        event.reply("tools-response", {
+                            success: false,
+                            action: "website-crawl",
+                            error: "Thiếu Gemini API Key để phân tích website.",
+                            uniqueID,
+                        });
+                        break;
+                    }
                     const genAI = new GoogleGenerativeAI(apiKey);
                     const model = genAI.getGenerativeModel({
-                        model: "gemini-3.5-flash",
+                        model: (data && data.model) || "gemini-3.5-flash",
                     });
 
                     createTargetWindow(

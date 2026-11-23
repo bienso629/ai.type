@@ -14,14 +14,101 @@ const isInternalAppOrigin = (() => {
     }
 })();
 
+// Danh sách trắng (allowlist) các kênh IPC được phép gọi qua invoke/on từ Renderer
+const ALLOWED_INVOKE_CHANNELS = new Set([
+    'add-forum-users-to-groups', 'add-local-gologin-token', 'add-local-link', 'ads:keywordIdeas',
+    'ai-agent:cancel-cli', 'ai-agent:clear-sessions', 'ai-agent:detect-clis', 'ai-agent:run-cli',
+    'ai:fetch-html', 'analyze-video-local', 'animations:delete', 'animations:list', 'animations:update',
+    'animations:upload', 'app:check-for-updates', 'app:open-download-drive', 'apply-rvc',
+    'asset:read-glb', 'avatar:get', 'avatar:save', 'build-local-vector-index', 'cancel-pdf-analysis',
+    'cancel-tts', 'capture-app', 'character:save', 'character:upload-glb', 'check-colab-gpu-status',
+    'check-file-exists', 'check-local-file-exists', 'check-local-together', 'check-mineru-model',
+    'clear-all-cookies', 'clear-all-local-chatbot-threads', 'clear-google-cookies', 'clear-webview-auth',
+    'clothing:delete', 'clothing:list', 'clothing:upload', 'compose-avatar-video', 'convert-local-wp2md',
+    'create-local-forum-topic', 'create-profile-dirs', 'crop-video-ffmpeg', 'db-all', 'db-get', 'db-run',
+    'db-tiktok-clear', 'db-tiktok-list', 'db-tiktok-save', 'delete-custom-frame', 'delete-local-article',
+    'delete-local-chat', 'delete-local-chatbot-thread', 'delete-local-file', 'delete-local-gologin-profile',
+    'delete-local-task', 'delete-project', 'designs:delete', 'designs:duplicate', 'designs:get',
+    'designs:list', 'designs:patch-video', 'designs:rename', 'designs:save', 'designs:save-thumbnail',
+    'desktop-capturer-get-sources', 'detect-video-scenes-and-frames', 'download-image',
+    'download-rvc-models', 'download-single-video-temp', 'download-temp-pdf', 'download-video',
+    'ensure-playable-video', 'exchange-colab-code', 'export-gsc-image', 'export-gsc-pdf',
+    'export-local-article-dialog', 'export-project', 'export-subtitles', 'exports:convert-webm-to-mp4',
+    'exports:open-folder', 'exports:save-ai-video', 'exports:save-frame', 'exports:save-video',
+    'extract-audio', 'extract-last-frame', 'extract-last-frame-old', 'extract-online-video-stream',
+    'extract-video-frames', 'fetch-domain-metadata', 'fetch-forum-groups', 'fetch-forum-user-groups',
+    'fetch-forum-users', 'find-latest-analyzed-video', 'fonts:delete-file', 'fonts:delete-folder',
+    'fonts:get-dir', 'fonts:import-file', 'fonts:import-zip', 'fonts:list', 'fonts:open-dir',
+    'ga:report', 'get-ai-agent-context', 'get-app-version', 'get-colab-auth-status', 'get-colab-voices',
+    'get-local-chat-total', 'get-local-chatbot-history', 'get-local-deleted-chatbot-threads',
+    'get-local-faiss-context', 'get-local-faiss-metadata', 'get-local-links-in-collection',
+    'get-local-node-details', 'get-local-nodes-total', 'get-local-script', 'get-local-statistics',
+    'get-local-wp2md-details', 'get-local-wp2md-total', 'get-media-duration', 'get-plugins-status',
+    'gologin:start-traffic', 'gologin:stop-all', 'gologin:stop-profile', 'google-stealth-login',
+    'gsc:query', 'import-project', 'init-system-audio', 'install-plugin', 'inventory:add-item',
+    'inventory:get', 'inventory:remove-item', 'is-ai-agent-active', 'launch-chrome-app-tool',
+    'list-custom-frames', 'list-documents-in-folder', 'list-local-articles', 'list-local-chatbot-threads',
+    'list-local-chats', 'list-local-collections', 'list-local-comments', 'list-local-domains',
+    'list-local-facebook-posts', 'list-local-forum-categories', 'list-local-gologin-tokens',
+    'list-local-link-collections', 'list-local-links', 'list-local-nodes', 'list-local-scripts',
+    'list-local-tasks', 'list-local-wp2md', 'login-colab-google', 'mcp-call-tool', 'mcp-connect',
+    'mcp-disconnect', 'mcp-status', 'merge-frames-to-video', 'mocap:extract-image-3d',
+    'mocap:extract-video-3d', 'mock-ai-edit-frames', 'open-external', 'open-file-path',
+    'open-url-external', 'opera:check-ffmpeg', 'opera:install-ffmpeg', 'overwrite-file-base64',
+    'probe-and-extract-frame', 'profile:check-character-glb', 'profile:get', 'profile:read-glb',
+    'profile:save', 'profile:save-character-glb', 'project-store:delete', 'project-store:list',
+    'project-store:list-created-videos', 'project-store:load', 'project-store:migrate',
+    'project-store:save', 'props:delete', 'props:list', 'props:read-texture', 'props:save',
+    'props:save-texture', 'props:upload', 'read-file-base64', 'read-file-buffer', 'read-local-article',
+    'read-text-file', 'register-license', 'remove-colab-account', 'remove-forum-users-from-groups',
+    'remove-from-local-collection', 'render-custom-video', 'render-final-composition',
+    'render-video-with-frame', 'render-video-with-subtitles', 'room:get', 'room:save',
+    'run-pdf-analysis', 'run-pdf-analysis-mcp', 'run-pdf-analysis-openai', 'save-base64',
+    'save-custom-frame', 'save-local-article', 'save-local-chat', 'save-local-chatbot-history',
+    'save-local-collection', 'save-local-comment', 'save-local-domain', 'save-local-faiss-data',
+    'save-local-node', 'save-local-script', 'save-local-task', 'save-system-audio',
+    'scan-companion-video-assets', 'scan-subtitles-in-project', 'select-folder-dialog',
+    'select-local-file', 'select-video-file', 'send-mass-emails', 'set-active-local-user',
+    'settings-mirror:clear', 'settings-mirror:load', 'settings-mirror:save', 'setup-mineru-model',
+    'show-item-in-folder', 'split-audio-segments', 'split-video-clips-ffmpeg', 'start-colab-gpu',
+    'stop-colab-gpu', 'store-local-collection', 'switch-colab-account', 'sync-backup-to-local-sqlite',
+    'sync-local-faiss-to-server', 'system:get-specs', 'terminal:get-last-directory', 'toggle-ai-agent',
+    'toggle-colab-agent', 'toggle-tiktok-plugin', 'toggle-zalo-plugin', 'transcribe-system-audio',
+    'trim-video', 'tts-ausync-generate', 'tts-generate', 'tts-type-generate', 'uninstall-plugin',
+    'update-custom-frame-quad', 'update-local-collection', 'update-local-gologin-token',
+    'update-local-link', 'upload-temp-media', 'upload-to-archive-org', 'wall-photo:save',
+    'workspace:add-custom-root', 'workspace:clean-temp-dirs', 'workspace:create-file',
+    'workspace:create-folder', 'workspace:delete-item', 'workspace:ensure-root', 'workspace:get-roots',
+    'workspace:list-dir', 'workspace:open-item', 'workspace:preview-item', 'workspace:remove-custom-root',
+    'workspace:rename-item', 'workspace:save-text-file', 'wp:categories', 'wp:create-category',
+    'wp:create-post', 'wp:create-tag', 'wp:delete-post', 'wp:posts', 'wp:tags', 'wp:update-post',
+    'wp:upload-media', 'zalo-plugin:get-pending-sends', 'zalo-plugin:get-reply'
+]);
+
+const ALLOWED_ON_CHANNELS = new Set([
+    'ai-agent:cli-stream', 'download-single-video-progress', 'download-video-progress',
+    'dreamina:start', 'dreamina:stop', 'faiss-sync-progress', 'force-renewal', 'google-auth-synced',
+    'mocap:progress', 'pdf-analysis-progress', 'secondary-data', 'send-email-progress',
+    'stt-caption', 'stt-message', 'tools-log', 'tools-response', 'webview-audio-chunk',
+    'webview-download-complete', 'zalo-plugin:notify'
+]);
+
 /** ====== API CŨ (GIỮ NGUYÊN) ====== */
 if (isInternalAppOrigin) contextBridge.exposeInMainWorld('electron', {
     tools: (data) => ipcRenderer.send('tools-command', data),
 
-    // Thêm hàm invoke chung để dùng cho TTS và các tính năng async khác
-    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+    // Chỉ cho phép gọi các kênh IPC nằm trong danh sách trắng
+    invoke: (channel, ...args) => {
+        if (typeof channel !== 'string' || !ALLOWED_INVOKE_CHANNELS.has(channel)) {
+            return Promise.reject(new Error(`Blocked unauthorized IPC invoke channel: ${String(channel)}`));
+        }
+        return ipcRenderer.invoke(channel, ...args);
+    },
 
     on: (channel, callback) => {
+        if (typeof channel !== 'string' || !ALLOWED_ON_CHANNELS.has(channel) || typeof callback !== 'function') {
+            return () => {};
+        }
         const listener = (_event, data) => callback(data);
         ipcRenderer.on(channel, listener);
         return () => ipcRenderer.removeListener(channel, listener);
