@@ -271,4 +271,8 @@ export class UserService {
     public canAccessPlugins(user: User | null | undefined): boolean {
         return this.hasGroup(user, 'nhóm-x-cms');
     }
+
+    public canAccessAffiliate(user: User | null | undefined): boolean {
+        return this.hasGroup(user, 'nhóm-làm-affiliate');
+    }
 }

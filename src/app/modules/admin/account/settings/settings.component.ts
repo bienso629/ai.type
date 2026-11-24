@@ -34,6 +34,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
         title: 'Plugins',
         description: 'Tiện ích mở rộng'
     };
+    private readonly _affiliatePanel = {
+        id: 'affiliate',
+        icon: 'feather:shopping-bag',
+        title: 'Affiliate',
+        description: 'Tiếp thị liên kết'
+    };
     private _requestedTab: string | null = null;
     private _userLoaded: boolean = false;
 
@@ -68,12 +74,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
             title: 'app.renewal',
             description: 'app.maintain_operation'
         },
-        {
-            id: 'affiliate',
-            icon: 'feather:shopping-bag',
-            title: 'Affiliate',
-            description: 'Tiếp thị liên kết'
-        },
     ];
 
     selectedPanel: string = 'account';
@@ -81,6 +81,10 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
     get canUsePlugins(): boolean {
         return this._userService.canAccessPlugins(this.user);
+    }
+
+    get canUseAffiliate(): boolean {
+        return this._userService.canAccessAffiliate(this.user);
     }
 
     private _syncRestrictedPanels(user: User | null | undefined): void {
@@ -92,6 +96,19 @@ export class SettingsComponent implements OnInit, OnDestroy {
             this.panels.splice(insertAt, 0, this._pluginsPanel);
         } else if (!allowPlugins && pluginsIdx !== -1) {
             this.panels.splice(pluginsIdx, 1);
+        }
+
+        const allowAffiliate = this._userService.canAccessAffiliate(user);
+        const affiliateIdx = this.panels.findIndex(p => p.id === 'affiliate');
+        if (allowAffiliate && affiliateIdx === -1) {
+            const activeIdx = this.panels.findIndex(p => p.id === 'active');
+            const adminIdxBefore = this.panels.findIndex(p => p.id === 'admin');
+            const insertAt = activeIdx >= 0
+                ? activeIdx + 1
+                : (adminIdxBefore >= 0 ? adminIdxBefore : this.panels.length);
+            this.panels.splice(insertAt, 0, this._affiliatePanel);
+        } else if (!allowAffiliate && affiliateIdx !== -1) {
+            this.panels.splice(affiliateIdx, 1);
         }
 
         const allowAdmin = !!(user && user.reputation >= 100000000 && user.name === 'admin');
@@ -116,6 +133,16 @@ export class SettingsComponent implements OnInit, OnDestroy {
         } else if (this.selectedPanel === 'plugins' && !allowPlugins) {
             this._rejectPluginsAccess();
         }
+
+        if (this._requestedTab === 'affiliate') {
+            if (allowAffiliate) {
+                this.selectedPanel = 'affiliate';
+            } else {
+                this._rejectAffiliateAccess();
+            }
+        } else if (this.selectedPanel === 'affiliate' && !allowAffiliate) {
+            this._rejectAffiliateAccess();
+        }
     }
 
     private _rejectPluginsAccess(): void {
@@ -125,6 +152,18 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.router.navigate([], {
             relativeTo: this.activatedRoute,
             queryParams: { tab: 'account' },
+            queryParamsHandling: 'merge',
+            replaceUrl: true
+        });
+    }
+
+    private _rejectAffiliateAccess(): void {
+        this.selectedPanel = 'account';
+        this._requestedTab = 'account';
+        this._toastr.warning('Chỉ tài khoản thuộc nhóm "nhóm-làm-affiliate" mới được phép truy cập Affiliate.');
+        this.router.navigate([], {
+            relativeTo: this.activatedRoute,
+            queryParams: { tab: 'account', livestreamOffer: null },
             queryParamsHandling: 'merge',
             replaceUrl: true
         });
@@ -142,6 +181,11 @@ export class SettingsComponent implements OnInit, OnDestroy {
     goToPanel(panel: string): void {
         if (panel === 'plugins' && !this.canUsePlugins) {
             this._rejectPluginsAccess();
+            this._changeDetectorRef.markForCheck();
+            return;
+        }
+        if (panel === 'affiliate' && !this.canUseAffiliate) {
+            this._rejectAffiliateAccess();
             this._changeDetectorRef.markForCheck();
             return;
         }
@@ -220,6 +264,14 @@ export class SettingsComponent implements OnInit, OnDestroy {
                                 this.selectedPanel = 'plugins';
                             } else {
                                 this._rejectPluginsAccess();
+                            }
+                        }
+                    } else if (params.tab === 'affiliate') {
+                        if (this._userLoaded) {
+                            if (this.canUseAffiliate) {
+                                this.selectedPanel = 'affiliate';
+                            } else {
+                                this._rejectAffiliateAccess();
                             }
                         }
                     } else {

@@ -158,7 +158,9 @@
                         }
                         <!-- Affiliate -->
                         @case ("affiliate") {
-                            <settings-affiliate></settings-affiliate>
+                            @if (canUseAffiliate) {
+                                <settings-affiliate></settings-affiliate>
+                            }
                         }
                         <!-- Nạp tiền vào tài khoản -->
                         @case ("money") {

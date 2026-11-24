@@ -86,6 +86,17 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
         this.shopeeSyncState = this._shopeeOffersService.currentState;
     }
 
+    private _ensureAffiliateAccess(notify = true): boolean {
+        const activeUser = this.user || this._userService.user;
+        if (this._userService.canAccessAffiliate(activeUser)) {
+            return true;
+        }
+        if (notify) {
+            this._toastr.warning('Chỉ tài khoản thuộc nhóm "nhóm-làm-affiliate" mới được phép truy cập Affiliate.');
+        }
+        return false;
+    }
+
     ngOnInit(): void {
         // Khởi tạo đồng bộ FormGroup ngay từ đầu để tránh lỗi NG01052
         this.affiliateForm = this._formBuilder.group({
@@ -119,8 +130,11 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
                 this._cdr.markForCheck();
-                if (user?.name) {
+                if (user?.name && this._userService.canAccessAffiliate(user)) {
                     this.loadShopeeOffers(true);
+                } else {
+                    this.shopeeOffers = [];
+                    this.offerTotalDocs = 0;
                 }
             });
 
@@ -158,7 +172,7 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((params) => {
                 const reopenOfferId = params?.['livestreamOffer'];
-                if (reopenOfferId) {
+                if (reopenOfferId && this._ensureAffiliateAccess(false)) {
                     const draft = this._affiliateLivestreamService.loadDraftByOfferId(reopenOfferId);
                     if (draft?.product) {
                         this._router.navigate([], {
@@ -189,6 +203,9 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
     }
 
     save(): void {
+        if (!this._ensureAffiliateAccess(true)) {
+            return;
+        }
         if (this.affiliateForm.invalid || this.isSaving) {
             return;
         }
@@ -423,6 +440,7 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
     }
 
     openWebToolsAndSyncShopeeOffers(): void {
+        if (!this._ensureAffiliateAccess(true)) return;
         if (this.shopeeSyncState?.isSyncing) return;
 
         // Mở Web Tools tới trang Shopee Product Offer
@@ -487,6 +505,7 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
     }
 
     openLivestreamScriptDialog(item: ShopeeOfferItem): void {
+        if (!this._ensureAffiliateAccess(true)) return;
         const username =
             this.user?.name ||
             this._multiAccountService.getItem('username') ||

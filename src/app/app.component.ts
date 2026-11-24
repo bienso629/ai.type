@@ -364,8 +364,12 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         );
     }
 
-    // Kiểm tra xem Web Tools đang mở trang Shopee Affiliate hay không
+    // Kiểm tra xem tài khoản có quyền Affiliate và Web Tools đang mở trang Shopee Affiliate hay không
     get isShopeeAffiliateTool(): boolean {
+        const activeUser = this.user || this._userService.user;
+        if (!this._userService.canAccessAffiliate(activeUser)) {
+            return false;
+        }
         const url = (this.activeWebviewUrl || this.popupHomeUrl || '').toLowerCase();
         const title = (this.popupTitle || '').toLowerCase();
         return (
@@ -378,6 +382,11 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Bắt đầu hoặc dừng đồng bộ toàn bộ sản phẩm Shopee Offer vào database collection của tài khoản
     toggleSyncShopeeOffers(): void {
+        const activeUser = this.user || this._userService.user;
+        if (!this._userService.canAccessAffiliate(activeUser)) {
+            this.toastr.warning('Chỉ tài khoản thuộc nhóm "nhóm-làm-affiliate" mới được phép sử dụng tính năng Affiliate.');
+            return;
+        }
         if (this.shopeeSyncState.isSyncing) {
             this._shopeeOffersService.stopSync();
             return;
@@ -395,6 +404,11 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     openShopeeOffersInSettings(): void {
+        const activeUser = this.user || this._userService.user;
+        if (!this._userService.canAccessAffiliate(activeUser)) {
+            this.toastr.warning('Chỉ tài khoản thuộc nhóm "nhóm-làm-affiliate" mới được phép truy cập Affiliate.');
+            return;
+        }
         this.isWebviewMinimized = true;
         const popupEl = document.querySelector('.gemini-popup') as HTMLElement;
         if (popupEl) {
