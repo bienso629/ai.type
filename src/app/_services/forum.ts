@@ -6,6 +6,7 @@ import { AppConfig } from 'app/core/config/app.config';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
+import { MultiAccountService } from './multi-account.service';
 
 import { Observable, Subject, of, from } from 'rxjs';
 import { catchError, tap, map, takeUntil, shareReplay, switchMap } from 'rxjs/operators';
@@ -33,7 +34,8 @@ export class ForumService {
         private http: HttpClient,
         private _h: HelperService,
         private _userService: UserService,
-        private _fuseConfigService: FuseConfigService
+        private _fuseConfigService: FuseConfigService,
+        private multiAccountService: MultiAccountService
     ) {
         // Subscribe to user changes
         this._userService.user$
@@ -293,6 +295,19 @@ export class ForumService {
         );
     }
 
+    private _getAppAuthPayload(): { appId?: string; appToken?: string } {
+        try {
+            const raw = this.multiAccountService.getItem('active_info');
+            if (!raw) return {};
+            const activeInfo = AuthUtils._getActiveInfo(raw);
+            const appToken = activeInfo?.user?.appToken;
+            if (!appToken) return {};
+            return { appId: 'ai.typing', appToken };
+        } catch {
+            return {};
+        }
+    }
+
     public createTopic(dataForm: any): Observable<any> {
         const serverKey = this.user?.server || 'vn.s3';
         const serverBaseUrl = (this.config?.settings?.api && this.config.settings.api[serverKey]) 
@@ -303,6 +318,7 @@ export class ForumService {
 
         const payload = {
             ...dataForm,
+            ...this._getAppAuthPayload(),
             _uid: uid
         };
 
@@ -443,8 +459,13 @@ export class ForumService {
 
         const url = `${this.config.settings.api[this.user.server]}/forum/notification/${dataForm._uid}`;
 
+        const payload = {
+            ...dataForm,
+            ...this._getAppAuthPayload()
+        };
+
         let data = {
-            params: this._h.encrypt(dataForm, this.config.settings.gen)
+            params: this._h.encrypt(payload, this.config.settings.gen)
         };
 
         const obs$ = this.http.post<any>(url, data, options).pipe(

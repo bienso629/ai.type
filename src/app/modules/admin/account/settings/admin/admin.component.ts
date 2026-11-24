@@ -17,6 +17,7 @@ import { UserClientService } from 'app/_services/user';
 import { WP2MDService } from 'app/_services/wp2md';
 import { N8nService } from 'app/_services/n8n.service';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { AuthUtils } from 'app/core/auth/auth.utils';
 import { ToastrService } from 'ngx-toastr';
 import { forkJoin, Subject, takeUntil } from 'rxjs';
 import { ForumService } from 'app/_services/forum';
@@ -222,7 +223,15 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
             if (this.transactionEmailSearch) {
                 url += `?email=${encodeURIComponent(this.transactionEmailSearch)}`;
             }
-            const response = await fetch(url);
+            const rawActiveInfo = this.multiAccountService.getItem('active_info');
+            const activeInfo = rawActiveInfo ? AuthUtils._getActiveInfo(rawActiveInfo) : null;
+            const appToken = activeInfo?.user?.appToken || '';
+            const headers: Record<string, string> = {};
+            if (appToken) {
+                headers['x-app-id'] = 'ai.typing';
+                headers['x-app-token'] = appToken;
+            }
+            const response = await fetch(url, { headers });
             const res = await response.json();
             
             if (res && res.success) {
