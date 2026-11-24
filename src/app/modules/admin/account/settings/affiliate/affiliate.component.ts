@@ -274,6 +274,84 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
                 this._multiAccountService.getItem('username') ||
                 localStorage.getItem('username') ||
                 'admin';
+
+            // Lọc riêng toàn bộ sản phẩm đang có bản nháp kịch bản / ảnh khung nền / chuỗi video livestream (mới chỉnh gần nhất lên đầu)
+            if (this.offerSortBy === 'livestream_in_progress') {
+                const drafts = this._affiliateLivestreamService.getInProgressDrafts();
+                let items: ShopeeOfferItem[] = drafts
+                    .map((d) => ({
+                        ...d.product,
+                        images: Array.isArray(d.productImages) && d.productImages.length > 0
+                            ? d.productImages
+                            : d.product?.images || [],
+                        attributes: Array.isArray(d.productAttributes) && d.productAttributes.length > 0
+                            ? d.productAttributes
+                            : d.product?.attributes || [],
+                        variations: Array.isArray(d.productVariations) && d.productVariations.length > 0
+                            ? d.productVariations
+                            : d.product?.variations || [],
+                        description: d.productDescription || d.product?.description || '',
+                        updatedAt: d.updatedAt || d.product?.updatedAt,
+                    }))
+                    .filter((p) => !!p);
+
+                // Gộp thêm thông tin mới nhất từ SQLite cục bộ (giá, hoa hồng, ảnh gallery, chi tiết sản phẩm)
+                const electron = (window as any).electron;
+                if (items.length > 0 && (electron?.getLocalShopeeOffersByIds || electron?.invoke)) {
+                    try {
+                        const ids = items.map((p) => p._id || p.id || '').filter(Boolean);
+                        const itemIds = items.map((p) => p.item_id || '').filter(Boolean);
+                        const localRes = electron.getLocalShopeeOffersByIds
+                            ? await electron.getLocalShopeeOffersByIds({ username, ids, itemIds })
+                            : await electron.invoke('get-local-shopee-offers-by-ids', { username, ids, itemIds });
+                        if (localRes?.success && Array.isArray(localRes.data) && localRes.data.length > 0) {
+                            const byId = new Map<string, ShopeeOfferItem>();
+                            const byItemId = new Map<string, ShopeeOfferItem>();
+                            for (const ld of localRes.data as ShopeeOfferItem[]) {
+                                if (ld.id) byId.set(ld.id, ld);
+                                if (ld._id) byId.set(ld._id, ld);
+                                if (ld.item_id) byItemId.set(ld.item_id, ld);
+                            }
+                            items = items.map((p) => {
+                                const lm = byId.get(p._id || p.id || '') || (p.item_id ? byItemId.get(p.item_id) : undefined);
+                                if (!lm) return p;
+                                return {
+                                    ...lm,
+                                    ...p,
+                                    price: lm.price > 0 ? lm.price : p.price,
+                                    commission_rate: lm.commission_rate > 0 ? lm.commission_rate : p.commission_rate,
+                                    commission_amount: lm.commission_amount > 0 ? lm.commission_amount : p.commission_amount,
+                                    sales: lm.sales > 0 ? lm.sales : p.sales,
+                                    image_url: lm.image_url || p.image_url,
+                                    images: Array.isArray(lm.images) && lm.images.length >= (p.images?.length || 0) ? lm.images : p.images,
+                                    attributes: Array.isArray(lm.attributes) && lm.attributes.length >= (p.attributes?.length || 0) ? lm.attributes : p.attributes,
+                                    variations: Array.isArray(lm.variations) && lm.variations.length >= (p.variations?.length || 0) ? lm.variations : p.variations,
+                                    description: (lm.description || '').length >= (p.description || '').length ? lm.description : p.description,
+                                };
+                            });
+                        }
+                    } catch (_) {}
+                }
+
+                const kw = String(this.offerKeyword || '').trim().toLowerCase();
+                if (kw) {
+                    items = items.filter((p) =>
+                        `${p.product_name || ''} ${p.shop_name || ''} ${p.item_id || ''} ${p.product_link || ''}`
+                            .toLowerCase()
+                            .includes(kw),
+                    );
+                }
+
+                this.shopeeOffers = items;
+                this.offerTotalDocs = items.length;
+                this.offerSource = 'local';
+                setTimeout(() => {
+                    this.offerViewport?.scrollToIndex(0);
+                    this.offerViewport?.checkViewportSize();
+                }, 0);
+                return;
+            }
+
             const res = await this._shopeeOffersService.listOffers({
                 username,
                 keyword: this.offerKeyword,
@@ -433,6 +511,9 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
         });
 
         dialogRef.afterClosed().subscribe((result) => {
+            if (this.offerSortBy === 'livestream_in_progress') {
+                this.loadShopeeOffers(true);
+            }
             this._cdr.markForCheck();
             if (result?.action === 'preview' && result.uuid) {
                 this._router.navigate(['/livestream', result.uuid], {

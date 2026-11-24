@@ -133,9 +133,43 @@ export class AffiliateLivestreamService {
     hasDraft(product: ShopeeOfferItem): boolean {
         try {
             const existing = this.loadDraft(product);
-            return !!(existing && Array.isArray(existing.scenes) && existing.scenes.length > 0);
+            return this.isDraftInProgress(existing);
         } catch (_) {
             return false;
+        }
+    }
+
+    isDraftInProgress(draft: AffiliateLivestreamDraft | null | undefined): boolean {
+        if (!draft || typeof draft !== 'object') return false;
+        const hasScenes = Array.isArray(draft.scenes) && draft.scenes.length > 0;
+        const hasBackdrop = !!String(draft.backdropImageUrl || '').trim();
+        const hasBrief = !!String(draft.brief || '').trim();
+        const hasVideo =
+            hasScenes &&
+            draft.scenes.some(
+                (sc) => Array.isArray(sc?.subtitles) && sc.subtitles.some((sub) => !!String(sub?.videoUrl || '').trim()),
+            );
+        return hasScenes || hasBackdrop || hasVideo || hasBrief;
+    }
+
+    getInProgressDrafts(): AffiliateLivestreamDraft[] {
+        try {
+            const allDrafts = (this._multiAccountService.getItemsByPrefix(this.DRAFT_KEY_PREFIX) || []) as AffiliateLivestreamDraft[];
+            const valid = allDrafts.filter((d) => this.isDraftInProgress(d) && d?.product);
+            valid.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+
+            // Khử trùng lặp theo item_id hoặc offerId (giữ bản cập nhật mới nhất)
+            const seen = new Set<string>();
+            const deduped: AffiliateLivestreamDraft[] = [];
+            for (const d of valid) {
+                const key = String(d.product?.item_id || d.offerId || d.product?._id || d.product?.id || '').trim();
+                if (!key || seen.has(key)) continue;
+                seen.add(key);
+                deduped.push(d);
+            }
+            return deduped;
+        } catch (_) {
+            return [];
         }
     }
 

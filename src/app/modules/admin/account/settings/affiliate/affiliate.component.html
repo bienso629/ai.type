@@ -216,6 +216,7 @@
                                     (selectionChange)="loadShopeeOffers(true)"
                                 >
                                     <mat-option value="updatedAt">Mới đồng bộ nhất</mat-option>
+                                    <mat-option value="livestream_in_progress">Đang làm video livestream</mat-option>
                                     <mat-option value="commission_rate">Hoa hồng (%) cao nhất</mat-option>
                                     <mat-option value="commission_amount">Tiền hoa hồng cao nhất</mat-option>
                                     <mat-option value="sales">Lượt bán cao nhất</mat-option>
@@ -232,7 +233,11 @@
                             </div>
                         } @else if (shopeeOffers.length === 0) {
                             <div class="py-8 px-4 text-center rounded-lg border border-dashed text-sm text-secondary">
-                                Chưa có sản phẩm Shopee Offer nào trong database của tài khoản. Hãy mở trang <strong>affiliate.shopee.vn/offer/product_offer</strong> trên Web Tools và nhấn <strong>Đồng bộ sản phẩm offer</strong>.
+                                @if (offerSortBy === 'livestream_in_progress') {
+                                    Chưa có sản phẩm nào đang làm video livestream. Hãy bấm nút <strong>Livestream</strong> ở một sản phẩm để tạo kịch bản, ảnh khung nền hoặc import chuỗi video.
+                                } @else {
+                                    Chưa có sản phẩm Shopee Offer nào trong database của tài khoản. Hãy mở trang <strong>affiliate.shopee.vn/offer/product_offer</strong> trên Web Tools và nhấn <strong>Đồng bộ sản phẩm offer</strong>.
+                                }
                             </div>
                         } @else {
                             <cdk-virtual-scroll-viewport
