@@ -104,3 +104,26 @@ electron/.env
 electron/ga4-service.json
 electron/scripts/*.cer
 electron/scripts/*.certSigningRequest
+
+# Local binaries, JDK, logs, Python caches & temporary agent folders
+/.jdk/
+/graphify-out/
+/temp_test/
+/scratch/
+/.agent_temp/
+/.agent_backup/
+/.agent_backup_baseurl/
+/.probe/
+/.antigravitycli/
+electron/colab-agent-*
+electron/colab_agent_*
+electron/ffmpeg-*
+electron/yt-dlp-*
+electron/edge-tts-*
+electron/bin/
+electron/.tmp-mock-*
+*.log
+*.whl
+*.old
+*.pyc
+__pycache__/
