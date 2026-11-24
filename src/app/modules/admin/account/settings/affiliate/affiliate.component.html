@@ -130,6 +130,208 @@
                             Sử dụng biến <code>{{ '{link}' }}</code> trong mẫu câu CTA để hệ thống tự động điền đường dẫn tiếp thị đã gắn mã Affiliate của bạn.
                         </div>
                     </div>
+
+                    <!-- KHO SẢN PHẨM SHOPEE OFFER ĐÃ ĐỒNG BỘ VÀO DATABASE COLLECTION CỦA TÀI KHOẢN -->
+                    <div class="mt-8 pt-6 border-t">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <div>
+                                <div class="text-base font-semibold flex items-center gap-2">
+                                    <span>Kho sản phẩm Shopee Offer đã đồng bộ</span>
+                                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+                                        {{ offerTotalDocs }} sản phẩm
+                                    </span>
+                                </div>
+                                <div class="text-xs text-secondary mt-0.5">
+                                    Lưu trữ trong database collection <code>{{ (user?.name || 'admin') }}_shopee_offers_2023</code> (đồng bộ máy chủ và SQLite cục bộ)
+                                </div>
+                            </div>
+
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button
+                                    type="button"
+                                    mat-flat-button
+                                    style="background-color: #ee4d2d; color: #fff"
+                                    (click)="openWebToolsAndSyncShopeeOffers()"
+                                    [disabled]="shopeeSyncState?.isSyncing"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [class.animate-spin]="shopeeSyncState?.isSyncing"
+                                        [svgIcon]="'feather:refresh-cw'"
+                                    ></mat-icon>
+                                    <span class="ml-2">
+                                        {{
+                                            shopeeSyncState?.isSyncing
+                                                ? ("Đang quét T" + shopeeSyncState.currentPage + (shopeeSyncState.totalPages ? "/" + shopeeSyncState.totalPages : "") + " · " + shopeeSyncState.collectedCount + " SP...")
+                                                : "Đồng bộ sản phẩm offer"
+                                        }}
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+
+                        @if (shopeeSyncState?.isSyncing || shopeeSyncState?.statusText) {
+                            <div class="mb-4 px-3 py-2 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 text-xs text-orange-800 dark:text-orange-200 flex items-center justify-between gap-2">
+                                <span>{{ shopeeSyncState.statusText }}</span>
+                                <span class="font-semibold shrink-0">Đã lưu: {{ shopeeSyncState.savedServerCount || shopeeSyncState.savedLocalCount }}</span>
+                            </div>
+                        }
+
+                        <!-- Thanh tìm kiếm & sắp xếp -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                            <mat-form-field
+                                class="md:col-span-2 w-full fuse-mat-dense"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>Tìm kiếm theo tên sản phẩm, tên shop hoặc Item ID</mat-label>
+                                <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:search'"></mat-icon>
+                                <input
+                                    matInput
+                                    type="text"
+                                    [(ngModel)]="offerKeyword"
+                                    [ngModelOptions]="{ standalone: true }"
+                                    (keyup.enter)="loadShopeeOffers(true)"
+                                    placeholder="Nhập từ khóa rồi nhấn Enter..."
+                                />
+                                @if (offerKeyword) {
+                                    <button
+                                        type="button"
+                                        mat-icon-button
+                                        matSuffix
+                                        (click)="offerKeyword = ''; loadShopeeOffers(true)"
+                                    >
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:x'"></mat-icon>
+                                    </button>
+                                }
+                            </mat-form-field>
+
+                            <mat-form-field
+                                class="w-full fuse-mat-dense"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>Sắp xếp theo</mat-label>
+                                <mat-select
+                                    [(ngModel)]="offerSortBy"
+                                    [ngModelOptions]="{ standalone: true }"
+                                    (selectionChange)="loadShopeeOffers(true)"
+                                >
+                                    <mat-option value="updatedAt">Mới đồng bộ nhất</mat-option>
+                                    <mat-option value="commission_rate">Hoa hồng (%) cao nhất</mat-option>
+                                    <mat-option value="commission_amount">Tiền hoa hồng cao nhất</mat-option>
+                                    <mat-option value="sales">Lượt bán cao nhất</mat-option>
+                                    <mat-option value="price_asc">Giá thấp đến cao</mat-option>
+                                    <mat-option value="price_desc">Giá cao đến thấp</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+
+                        <!-- Danh sách sản phẩm Offer -->
+                        @if (offerLoading && shopeeOffers.length === 0) {
+                            <div class="py-8 text-center text-sm text-secondary">
+                                Đang tải danh sách sản phẩm Shopee Offer...
+                            </div>
+                        } @else if (shopeeOffers.length === 0) {
+                            <div class="py-8 px-4 text-center rounded-lg border border-dashed text-sm text-secondary">
+                                Chưa có sản phẩm Shopee Offer nào trong database của tài khoản. Hãy mở trang <strong>affiliate.shopee.vn/offer/product_offer</strong> trên Web Tools và nhấn <strong>Đồng bộ sản phẩm offer</strong>.
+                            </div>
+                        } @else {
+                            <cdk-virtual-scroll-viewport
+                                [itemSize]="offerRowHeight"
+                                minBufferPx="416"
+                                maxBufferPx="832"
+                                (scroll)="onOffersViewportScroll($event)"
+                                (scrolledIndexChange)="onOffersScrolled()"
+                                class="shopee-offer-viewport border rounded-lg"
+                            >
+                                <div
+                                    *cdkVirtualFor="let item of shopeeOffers; trackBy: trackByOfferId"
+                                    class="shopee-offer-row flex items-center gap-4 px-3.5 border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-hover transition-colors"
+                                >
+                                    <img
+                                        [src]="item.image_url || './assets/images/logo/favicon.svg'"
+                                        [alt]="item.product_name"
+                                        loading="lazy"
+                                        class="w-20 h-20 rounded-lg object-cover shrink-0 border-0"
+                                        onerror="this.src = './assets/images/logo/favicon.svg'"
+                                    />
+                                    <div class="flex-1 min-w-0">
+                                        <div
+                                            class="text-sm font-medium leading-snug line-clamp-2"
+                                            [title]="item.product_name"
+                                        >
+                                            {{ item.product_name }}
+                                        </div>
+                                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary mt-1.5">
+                                            <span class="font-semibold text-red-600 dark:text-red-400">
+                                                {{ formatVnd(item.price) }}
+                                            </span>
+                                            @if (item.commission_rate > 0) {
+                                                <span class="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-semibold">
+                                                    HH {{ item.commission_rate }}%
+                                                </span>
+                                            }
+                                            @if (item.commission_amount > 0) {
+                                                <span class="text-emerald-600 dark:text-emerald-400 font-medium">
+                                                    ~{{ formatVnd(item.commission_amount) }}
+                                                </span>
+                                            }
+                                            @if (item.sales > 0) {
+                                                <span>Đã bán {{ item.sales | number }}</span>
+                                            }
+                                            @if (item.shop_name) {
+                                                <span class="truncate max-w-[200px]" [title]="item.shop_name">{{ item.shop_name }}</span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 shrink-0">
+                                        <button
+                                            type="button"
+                                            mat-stroked-button
+                                            [color]="'primary'"
+                                            (click)="openLivestreamScriptDialog(item)"
+                                            matTooltip="Tạo kịch bản và kiểm thử Livestream cho sản phẩm này"
+                                        >
+                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:radio'"></mat-icon>
+                                            <span class="ml-2">Livestream</span>
+                                            @if (hasLivestreamDraft(item)) {
+                                                <span
+                                                    class="ml-1.5 inline-block w-2 h-2 rounded-full bg-emerald-500"
+                                                    title="Đã có kịch bản nháp"
+                                                ></span>
+                                            }
+                                        </button>
+                                        <button
+                                            type="button"
+                                            mat-icon-button
+                                            (click)="copyOfferLink(item)"
+                                            matTooltip="Sao chép link sản phẩm / affiliate"
+                                        >
+                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:copy'"></mat-icon>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            mat-icon-button
+                                            (click)="openOfferLink(item)"
+                                            matTooltip="Mở sản phẩm trên Shopee"
+                                        >
+                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:external-link'"></mat-icon>
+                                        </button>
+                                    </div>
+                                </div>
+                            </cdk-virtual-scroll-viewport>
+
+                            <div class="mt-2.5 flex items-center justify-between text-xs text-secondary">
+                                <div>
+                                    Đang hiển thị <strong>{{ shopeeOffers.length | number }}</strong> / <strong>{{ offerTotalDocs | number }}</strong> sản phẩm
+                                </div>
+                                @if (offerLoadingMore) {
+                                    <div class="font-medium text-primary">
+                                        Đang tải thêm sản phẩm...
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
                 </div>
             </mat-tab>
 

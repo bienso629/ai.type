@@ -1,0 +1,957 @@
+<div class="affiliate-livestream-dialog flex flex-col max-h-[90vh] overflow-hidden">
+    <!-- Header -->
+    <div class="flex items-center justify-between gap-3 px-6 py-4 border-b shrink-0">
+        <div class="flex items-center gap-3 min-w-0">
+            <mat-icon class="icon-size-5 text-primary shrink-0" [svgIcon]="'feather:radio'"></mat-icon>
+            <div class="min-w-0">
+                <h2 class="text-xl font-bold leading-tight m-0">
+                    Tạo kịch bản Livestream sản phẩm Affiliate
+                </h2>
+                <div class="text-sm text-secondary mt-1">
+                    Mô tả công việc và thời lượng phát để tạo kịch bản chi tiết, sau đó kiểm thử trực tiếp trên Livestream Studio
+                </div>
+            </div>
+        </div>
+        <button
+            type="button"
+            mat-icon-button
+            (click)="close()"
+            [disabled]="isGeneratingScript"
+            matTooltip="Đóng"
+        >
+            <mat-icon class="icon-size-5" [svgIcon]="'feather:x'"></mat-icon>
+        </button>
+    </div>
+
+    <!-- Scrollable Body -->
+    <div class="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+        <!-- Thẻ thông tin sản phẩm đang chọn & toàn bộ hình ảnh sản phẩm -->
+        <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800/60 border space-y-3">
+            <div class="flex items-center gap-4">
+                <img
+                    [src]="selectedProductImageUrl || product.image_url || './assets/images/logo/favicon.svg'"
+                    [alt]="product.product_name"
+                    class="w-20 h-20 rounded-lg object-cover shrink-0 border-0 cursor-pointer"
+                    (click)="openImageLightbox(selectedProductImageUrl || product.image_url)"
+                    matTooltip="Bấm để xem ảnh lớn"
+                    onerror="this.src = './assets/images/logo/favicon.svg'"
+                />
+                <div class="flex-1 min-w-0">
+                    <div class="text-base font-semibold leading-snug line-clamp-2" [title]="product.product_name">
+                        {{ product.product_name }}
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-secondary mt-2">
+                        <span class="font-semibold text-red-600 dark:text-red-400">
+                            {{ formatVnd(product.price) }}
+                        </span>
+                        @if (product.original_price && product.original_price > product.price) {
+                            <span class="line-through text-gray-400">
+                                {{ formatVnd(product.original_price) }}
+                            </span>
+                        }
+                        @if (product.commission_rate > 0) {
+                            <span class="px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-semibold">
+                                HH {{ product.commission_rate }}%
+                            </span>
+                        }
+                        @if (product.sales > 0) {
+                            <span>Đã bán {{ product.sales | number }}</span>
+                        }
+                        @if (product.shop_name) {
+                            <span class="truncate max-w-[260px]">{{ product.shop_name }}</span>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Danh sách toàn bộ hình ảnh sản phẩm -->
+            @if (productImages.length > 0 || isLoadingProductImages) {
+                <div class="pt-3 border-t border-gray-200 dark:border-gray-700/70 space-y-2.5">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex flex-wrap items-center gap-2 text-sm">
+                            <span class="font-medium text-secondary">
+                                Hình ảnh sản phẩm ({{ productImages.length }})
+                            </span>
+                            @if (productImages.length > 1) {
+                                <span class="text-xs text-secondary hidden sm:inline">
+                                    · Bấm chọn ảnh làm sản phẩm chính khi tạo khung nền
+                                </span>
+                            }
+                            @if (isLoadingProductImages) {
+                                <span class="text-xs text-primary font-medium">Đang tải ảnh & chi tiết từ Shopee...</span>
+                            } @else if (isCapturingFromWebTools) {
+                                <span class="text-xs text-primary font-medium">Đang chờ trang Shopee trên Web Tools tải xong...</span>
+                            }
+                        </div>
+                        @if (isElectronEnv) {
+                            <div class="flex items-center gap-1">
+                                <button
+                                    type="button"
+                                    mat-button
+                                    [color]="'primary'"
+                                    class="!px-2.5 !min-w-0 !h-8 text-sm"
+                                    (click)="openProductInWebToolsAndCapture()"
+                                    [disabled]="isLoadingProductImages"
+                                    matTooltip="Mở trang sản phẩm Shopee trên Web Tools để tự động lấy đủ ảnh gallery, Chi tiết sản phẩm và Mô tả sản phẩm"
+                                >
+                                    <mat-icon class="icon-size-3.5" [svgIcon]="'feather:external-link'"></mat-icon>
+                                    <span class="ml-1.5">
+                                        {{ isCapturingFromWebTools ? 'Đang lấy từ Shopee...' : 'Lấy đủ ảnh & chi tiết từ Shopee' }}
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    mat-icon-button
+                                    class="product-gallery-refresh-btn"
+                                    (click)="openProductImagesFolder()"
+                                    [disabled]="isLoadingProductImages || productImages.length === 0"
+                                    matTooltip="Mở thư mục lưu ảnh sản phẩm (Documents/ai.type/affiliate/Product Offer)"
+                                    aria-label="Mở thư mục ảnh sản phẩm"
+                                >
+                                    <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'feather:folder'"></mat-icon>
+                                </button>
+                                <button
+                                    type="button"
+                                    mat-icon-button
+                                    class="product-gallery-refresh-btn"
+                                    (click)="loadAllProductImages(true)"
+                                    [disabled]="isLoadingProductImages"
+                                    matTooltip="Thử tải lại ảnh & chi tiết sản phẩm"
+                                    aria-label="Tải lại hình ảnh sản phẩm"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4 text-secondary"
+                                        [class.animate-spin]="isLoadingProductImages"
+                                        [svgIcon]="'feather:refresh-cw'"
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        @for (imgUrl of productImages; track imgUrl + '_' + idx; let idx = $index) {
+                            <div
+                                class="product-gallery-item relative w-16 h-16 rounded-md overflow-hidden bg-white dark:bg-gray-900 cursor-pointer shrink-0 group"
+                                [class.is-selected]="imgUrl === (selectedProductImageUrl || product.image_url)"
+                                (click)="selectProductImage(imgUrl)"
+                                [matTooltip]="'Ảnh sản phẩm #' + (idx + 1) + ' · Bấm để chọn làm ảnh chính'"
+                            >
+                                <img
+                                    [src]="imgUrl"
+                                    [alt]="product.product_name + ' #' + (idx + 1)"
+                                    class="w-full h-full object-cover border-0"
+                                    loading="lazy"
+                                    onerror="this.src = './assets/images/logo/favicon.svg'"
+                                />
+                                @if (imgUrl === (selectedProductImageUrl || product.image_url)) {
+                                    <span class="product-gallery-check">
+                                        <mat-icon class="icon-size-3" [svgIcon]="'feather:check-circle'"></mat-icon>
+                                    </span>
+                                }
+                                <button
+                                    type="button"
+                                    class="product-gallery-zoom opacity-0 group-hover:opacity-100 transition-opacity"
+                                    (click)="openImageLightbox(imgUrl, $event)"
+                                    matTooltip="Xem ảnh lớn"
+                                >
+                                    <mat-icon class="icon-size-3" [svgIcon]="'feather:eye'"></mat-icon>
+                                </button>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Chi tiết sản phẩm & Mô tả sản phẩm đã lấy từ Shopee -->
+                    @if (hasProductDetailContent) {
+                        <div class="pt-2 border-t border-gray-200/80 dark:border-gray-700/60 space-y-2">
+                            <button
+                                type="button"
+                                class="flex items-center justify-between w-full text-left text-sm font-medium text-primary hover:underline bg-transparent border-0 p-0 cursor-pointer"
+                                (click)="toggleProductDetailPanel()"
+                            >
+                                <span>
+                                    Chi tiết sản phẩm ({{ productAttributes.length }}) &amp; Mô tả sản phẩm
+                                    <span class="text-xs font-normal text-secondary ml-1">
+                                        · Đã tự động nạp vào ngữ cảnh tạo kịch bản
+                                    </span>
+                                </span>
+                                <span class="text-xs text-secondary shrink-0">
+                                    {{ showProductDetailPanel ? 'Thu gọn' : 'Xem chi tiết' }}
+                                </span>
+                            </button>
+
+                            @if (showProductDetailPanel) {
+                                <div class="p-3 rounded-md bg-white dark:bg-gray-900 border space-y-3 text-sm">
+                                    @if (productVariations.length > 0) {
+                                        <div class="space-y-1">
+                                            <div class="font-semibold text-xs uppercase tracking-wide text-secondary">
+                                                Phân loại hàng
+                                            </div>
+                                            @for (v of productVariations; track v.name + '_' + $index) {
+                                                <div>
+                                                    <span class="font-medium">{{ v.name }}:</span>
+                                                    <span class="text-secondary ml-1">{{ v.options.join(', ') }}</span>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+
+                                    @if (productAttributes.length > 0) {
+                                        <div class="space-y-1.5">
+                                            <div class="font-semibold text-xs uppercase tracking-wide text-secondary">
+                                                Chi tiết sản phẩm
+                                            </div>
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                                                @for (attr of productAttributes; track attr.name + '_' + $index) {
+                                                    <div class="flex gap-1.5 min-w-0">
+                                                        <span class="text-secondary shrink-0">{{ attr.name }}:</span>
+                                                        <span class="font-medium truncate" [title]="attr.value">{{ attr.value }}</span>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+
+                                    @if (productDescription) {
+                                        <div class="space-y-1">
+                                            <div class="font-semibold text-xs uppercase tracking-wide text-secondary">
+                                                Mô tả sản phẩm
+                                            </div>
+                                            <div class="text-secondary whitespace-pre-line max-h-44 overflow-y-auto leading-relaxed">
+                                                {{ productDescription }}
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Phần 1: Mô tả công việc & Thời lượng livestream -->
+        <div class="space-y-4">
+            @if (hasLoadedDraft) {
+                <div class="flex justify-end">
+                    <span class="text-sm px-2.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 font-medium">
+                        Đã nạp bản nháp gần nhất
+                    </span>
+                </div>
+            }
+
+            <!-- Mô tả công việc livestream -->
+            <div>
+                <mat-form-field
+                    class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-label>Mô tả công việc livestream cho sản phẩm này</mat-label>
+                    <textarea
+                        matInput
+                        rows="6"
+                        cdkTextareaAutosize
+                        cdkAutosizeMinRows="6"
+                        cdkAutosizeMaxRows="12"
+                        class="brief-textarea max-h-80 px-2"
+                        [(ngModel)]="brief"
+                        [disabled]="isGeneratingScript || isPreparingPreview"
+                        placeholder="Ví dụ: Tập trung review công dụng thực tế, nhấn mạnh giá deal giảm sâu trong khung giờ live, hướng dẫn khách bấm vào giỏ hàng góc trái và giải đáp về freeship, bảo hành..."
+                    ></textarea>
+                </mat-form-field>
+
+                <!-- Các nút gợi ý nhanh gọn trên 1 hàng -->
+                <div class="flex flex-wrap items-center gap-2 mt-2.5">
+                    @for (preset of briefPresets; track preset.label) {
+                        <button
+                            type="button"
+                            mat-button
+                            [color]="'primary'"
+                            class="!px-2.5 !min-w-0"
+                            (click)="applyBriefPreset(preset.text)"
+                            [disabled]="isGeneratingScript || isPreparingPreview"
+                        >
+                            + {{ preset.label }}
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <!-- Thời lượng livestream kiểu thanh trượt (Slider) căn mốc tỷ lệ chính xác -->
+            <div class="pt-3 pb-2">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+                    <div class="flex items-center gap-2 text-sm">
+                        <span class="font-semibold">Thời lượng livestream:</span>
+                        <span class="px-2.5 py-0.5 rounded bg-primary-50 text-primary dark:bg-primary-900/40 font-semibold">
+                            {{ durationMinutes }} phút
+                        </span>
+                        <span class="text-secondary font-mono">({{ formatMMSS(durationMinutes * 60) }})</span>
+                    </div>
+                    <span class="text-sm text-secondary">
+                        Dự kiến <strong>{{ estimatedSceneCount }} phân cảnh</strong> · tối đa <strong>{{ maxSceneDurationSec }}s/cảnh</strong>
+                    </span>
+                </div>
+
+                <div class="duration-slider-wrap">
+                    <mat-slider
+                        [min]="minDurationMinutes"
+                        [max]="maxDurationMinutes"
+                        step="1"
+                        color="primary"
+                        [disabled]="isGeneratingScript || isPreparingPreview"
+                        class="livestream-duration-slider"
+                    >
+                        <input
+                            matSliderThumb
+                            [(ngModel)]="durationMinutes"
+                            (input)="onSliderInput($event)"
+                            (ngModelChange)="onDurationInputChange()"
+                            [disabled]="isGeneratingScript || isPreparingPreview"
+                        />
+                    </mat-slider>
+
+                    <div class="duration-scale-bar">
+                        @for (mins of durationPresets; track mins; let first = $first; let last = $last) {
+                            <button
+                                type="button"
+                                class="duration-scale-tick text-sm text-secondary hover:text-primary transition-colors"
+                                [class.is-first]="first"
+                                [class.is-last]="last"
+                                [class.text-primary]="durationMinutes === mins"
+                                [class.font-semibold]="durationMinutes === mins"
+                                [style.left.%]="getDurationPercent(mins)"
+                                (click)="selectDurationPreset(mins)"
+                                [disabled]="isGeneratingScript || isPreparingPreview"
+                            >
+                                <span class="tick-notch"></span>
+                                <span>{{ mins }}p</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tùy chọn phong cách, giọng đọc, khung hình -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-5 border-t">
+                <mat-form-field
+                    class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-label>Phong cách dẫn live</mat-label>
+                    <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:coffee'"></mat-icon>
+                    <mat-select [(ngModel)]="style" [disabled]="isGeneratingScript || isPreparingPreview">
+                        @if (style && !hasStyleOption(style)) {
+                            <mat-option [value]="style">{{ style }}</mat-option>
+                        }
+                        @for (opt of appStyles; track opt.name) {
+                            <mat-option [value]="opt.name">{{ opt.name }}</mat-option>
+                        }
+                        <mat-option value="">Không dùng (Mặc định)</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                <mat-form-field
+                    class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-label>Giọng đọc kiểm thử</mat-label>
+                    <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:mic'"></mat-icon>
+                    <mat-select [(ngModel)]="voice" [disabled]="isGeneratingScript || isPreparingPreview">
+                        @for (v of voiceOptions; track v.value) {
+                            <mat-option [value]="v.value" [disabled]="v.value !== 'none' && !isElectronEnv">
+                                {{ v.label }}
+                            </mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+
+                <mat-form-field
+                    class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'"
+                >
+                    <mat-label>Khung hình kiểm thử</mat-label>
+                    <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:monitor'"></mat-icon>
+                    <mat-select [(ngModel)]="aspectRatio" [disabled]="isGeneratingScript || isPreparingPreview">
+                        @for (a of aspectOptions; track a.value) {
+                            <mat-option [value]="a.value">{{ a.label }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+            </div>
+
+            <!-- Ảnh tham chiếu đính kèm (Diễn viên / Bối cảnh / Sản phẩm) -->
+            @if (referenceImages.length > 0) {
+                <div class="pt-2 space-y-2">
+                    <div class="flex items-center justify-between gap-2 text-sm text-secondary">
+                        <span>Ảnh tham chiếu đã đính kèm ({{ referenceImages.length }}/5) · Bấm vào nhãn để đổi vai trò:</span>
+                    </div>
+                    <div class="flex flex-wrap items-start gap-3">
+                        @for (ref of referenceImages; track ref.id; let ri = $index) {
+                            <div class="ref-thumb-card flex flex-col items-center gap-1.5">
+                                <div class="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                                    <img
+                                        [src]="ref.dataUrl"
+                                        [alt]="ref.name"
+                                        class="w-full h-full object-cover border-0"
+                                    />
+                                    <button
+                                        type="button"
+                                        class="ref-remove-btn"
+                                        (click)="removeReferenceImage(ri)"
+                                        [disabled]="isGeneratingScript || isGeneratingBackdrop || isPreparingPreview"
+                                        matTooltip="Gỡ ảnh tham chiếu này"
+                                    >
+                                        <mat-icon class="icon-size-3.5" [svgIcon]="'feather:x'"></mat-icon>
+                                    </button>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="ref-role-pill text-sm font-medium cursor-pointer"
+                                    (click)="cycleReferenceRole(ref)"
+                                    [disabled]="isGeneratingScript || isGeneratingBackdrop || isPreparingPreview"
+                                    matTooltip="Bấm để đổi vai trò: Diễn viên / Bối cảnh / Sản phẩm"
+                                >
+                                    {{ getReferenceRoleLabel(ref.role) }}
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Nút đính kèm ảnh tham chiếu & tạo kịch bản + ảnh khung nền -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t">
+                <div class="flex flex-wrap items-center gap-3">
+                    <input
+                        #refFileInput
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        class="hidden"
+                        (change)="onReferenceFilesSelected($event)"
+                    />
+                    <button
+                        type="button"
+                        mat-icon-button
+                        class="btn-attach-ref relative"
+                        (click)="refFileInput.click()"
+                        [disabled]="isGeneratingScript || isGeneratingBackdrop || isPreparingPreview || referenceImages.length >= 5"
+                        matTooltip="Đính kèm ảnh tham chiếu (diễn viên, bối cảnh phòng live hoặc góc chụp sản phẩm)"
+                        aria-label="Đính kèm ảnh tham chiếu"
+                    >
+                        <mat-icon class="icon-size-5 text-primary" [svgIcon]="'feather:paperclip'"></mat-icon>
+                        @if (referenceImages.length > 0) {
+                            <span class="attach-count-badge">{{ referenceImages.length }}</span>
+                        }
+                    </button>
+                    <span class="text-sm text-secondary">
+                        Ảnh sản phẩm gốc luôn được tự động kết hợp để dựng khung nền {{ aspectRatio }}.
+                    </span>
+                </div>
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <mat-form-field
+                        class="w-36 subtitle-limit-select fuse-mat-dense fuse-mat-emphasized-affix"
+                        [subscriptSizing]="'dynamic'"
+                        matTooltip="Giới hạn thời gian tối đa của mỗi câu thoại"
+                    >
+                        <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:clock'"></mat-icon>
+                        <mat-select
+                            [(ngModel)]="maxSubtitleSeconds"
+                            [disabled]="isGeneratingScript || isGeneratingBackdrop || isPreparingPreview"
+                            aria-label="Giới hạn thời gian mỗi câu thoại"
+                        >
+                            @for (sec of subtitleDurationOptions; track sec) {
+                                <mat-option [value]="sec">{{ sec }}s / câu</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+
+                    <button
+                        type="button"
+                        mat-flat-button
+                        [color]="'primary'"
+                        (click)="generateScript()"
+                        [disabled]="isGeneratingScript || isGeneratingBackdrop || isPreparingPreview"
+                    >
+                        <mat-icon
+                            class="icon-size-4"
+                            [class.animate-spin]="isGeneratingScript || isGeneratingBackdrop"
+                            [svgIcon]="'feather:refresh-cw'"
+                        ></mat-icon>
+                        <span class="ml-2">
+                            {{
+                                isGeneratingScript
+                                    ? (generationPhaseText || 'Đang tạo kịch bản bằng AI...')
+                                    : scenes.length > 0
+                                      ? 'Tạo lại kịch bản'
+                                      : 'Tạo kịch bản Livestream'
+                            }}
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phần 2: Ảnh khung nền Livestream (bên trái) & Kịch bản phân cảnh chi tiết (bên phải) -->
+        @if (scenes.length > 0 || backdropPreviewSrc || backdropImageUrl || isGeneratingBackdrop) {
+            <div class="space-y-4 pt-2 border-t">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-base font-semibold">Kịch bản phân cảnh chi tiết</span>
+                        @if (scenes.length > 0) {
+                            <span class="px-2.5 py-0.5 text-sm font-semibold rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                                {{ scenes.length }} phân cảnh · {{ totalScriptLines }} câu thoại · {{ formatMMSS(totalScriptSeconds) }}
+                            </span>
+                        }
+                        @if (importedVideoCount > 0) {
+                            <span class="px-2.5 py-0.5 text-sm font-semibold rounded bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
+                                Chuỗi video: {{ importedVideoCount }}/{{ totalScriptLines }} clip
+                            </span>
+                        }
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if (!backdropPreviewSrc && !backdropImageUrl) {
+                            <button
+                                type="button"
+                                mat-flat-button
+                                class="btn-generate-backdrop"
+                                (click)="generateBackdropOnly()"
+                                [disabled]="isGeneratingScript || isGeneratingBackdrop || isPreparingPreview"
+                            >
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.animate-spin]="isGeneratingBackdrop"
+                                    [svgIcon]="'feather:image'"
+                                ></mat-icon>
+                                <span class="ml-2">{{ isGeneratingBackdrop ? 'Đang tạo ảnh nền...' : 'Tạo ảnh khung nền' }}</span>
+                            </button>
+                        }
+                        @if (scenes.length > 0) {
+                            <button
+                                type="button"
+                                mat-flat-button
+                                class="btn-save-draft"
+                                (click)="saveDraftOnly()"
+                                [disabled]="isGeneratingScript || isGeneratingBackdrop || isPreparingPreview"
+                            >
+                                <mat-icon class="icon-size-4" [svgIcon]="'feather:save'"></mat-icon>
+                                <span class="ml-2">Lưu nháp</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row items-start gap-5">
+                    <!-- Cột trái: Ảnh khung nền Livestream & Chuỗi video phát liền mạch (ghim cố định khi cuộn) -->
+                    @if (backdropPreviewSrc || backdropImageUrl || isGeneratingBackdrop || importedVideoCount > 0) {
+                        <div
+                            class="w-full shrink-0 md:sticky md:top-0 p-3.5 rounded-lg border bg-gray-50/80 dark:bg-gray-800/40 space-y-3"
+                            [ngClass]="
+                                (backdropAspectRatio || aspectRatio) === '9:16'
+                                    ? 'md:w-[280px]'
+                                    : 'md:w-[330px]'
+                            "
+                        >
+                            @if (backdropPreviewSrc || backdropImageUrl || isGeneratingBackdrop) {
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <mat-icon class="icon-size-4 text-primary shrink-0" [svgIcon]="'feather:image'"></mat-icon>
+                                        <span class="text-sm font-semibold truncate">Ảnh khung nền Livestream</span>
+                                    </div>
+                                    <span class="px-2 py-0.5 text-xs font-semibold rounded bg-primary-50 text-primary dark:bg-primary-900/40 shrink-0">
+                                        {{ backdropAspectRatio || aspectRatio }}
+                                    </span>
+                                </div>
+                            }
+
+                            @if (isGeneratingBackdrop) {
+                                <div
+                                    class="w-full rounded-lg border border-dashed flex flex-col items-center justify-center p-4 text-center gap-3 bg-white/70 dark:bg-gray-900/50"
+                                    [ngClass]="
+                                        (backdropAspectRatio || aspectRatio) === '9:16'
+                                            ? 'aspect-[9/16]'
+                                            : 'aspect-video'
+                                    "
+                                >
+                                    <mat-icon class="icon-size-7 text-primary animate-spin" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                                    <div class="text-sm text-secondary leading-relaxed">
+                                        Đang dựng ảnh khung nền chuẩn tỉ lệ {{ aspectRatio }} (diễn viên + sản phẩm)...
+                                    </div>
+                                    <mat-progress-bar mode="indeterminate" class="w-full"></mat-progress-bar>
+                                </div>
+                            } @else if (backdropPreviewSrc || backdropImageUrl) {
+                                <div
+                                    class="w-full rounded-lg overflow-hidden bg-black shadow-sm"
+                                    [ngClass]="
+                                        (backdropAspectRatio || aspectRatio) === '9:16'
+                                            ? 'aspect-[9/16]'
+                                            : 'aspect-video'
+                                    "
+                                >
+                                    <img
+                                        [src]="backdropPreviewSrc || backdropImageUrl"
+                                        alt="Ảnh khung nền Livestream"
+                                        class="w-full h-full object-cover border-0"
+                                    />
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        mat-flat-button
+                                        class="btn-generate-backdrop w-full"
+                                        (click)="generateBackdropOnly()"
+                                        [disabled]="isGeneratingScript || isGeneratingBackdrop || isPreparingPreview"
+                                        matTooltip="Tạo lại ảnh khung nền mới"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [class.animate-spin]="isGeneratingBackdrop"
+                                            [svgIcon]="'feather:refresh-cw'"
+                                        ></mat-icon>
+                                        <span class="ml-1.5">Tạo lại</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        mat-flat-button
+                                        class="btn-save-draft w-full"
+                                        (click)="downloadBackdropImage()"
+                                        [disabled]="isGeneratingBackdrop"
+                                        matTooltip="Tải ảnh khung nền về máy để làm video"
+                                    >
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:download'"></mat-icon>
+                                        <span class="ml-1.5">Tải về</span>
+                                    </button>
+                                </div>
+                            }
+
+                            @if (importedVideoCount > 0) {
+                                <div class="pt-3 border-t space-y-2">
+                                    <div class="flex items-center justify-between gap-2 text-xs font-semibold text-secondary">
+                                        <span class="flex items-center gap-1.5">
+                                            <mat-icon class="icon-size-3.5 text-primary" [svgIcon]="'feather:film'"></mat-icon>
+                                            Chuỗi video phát liền mạch
+                                        </span>
+                                        <span class="font-mono text-primary">{{ importedVideoCount }} clip</span>
+                                    </div>
+                                    <div class="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
+                                        @for (clip of importedVideoItems; track clip.sub.id) {
+                                            <div class="flex items-center justify-between gap-1.5 px-2 py-1 rounded bg-white dark:bg-gray-900 border text-xs">
+                                                <div class="flex items-center gap-1.5 min-w-0">
+                                                    <span class="font-mono font-semibold text-primary shrink-0">#{{ clip.order }}</span>
+                                                    <span class="truncate" [matTooltip]="clip.sub.videoLocalPath || clip.name">
+                                                        {{ clip.name }}
+                                                    </span>
+                                                </div>
+                                                <div class="flex items-center gap-1 shrink-0">
+                                                    <span class="font-mono text-secondary">{{ clip.duration }}s</span>
+                                                    <button
+                                                        type="button"
+                                                        class="clip-mini-remove"
+                                                        (click)="removeVideoFromSubtitle(clip.scene, clip.sub)"
+                                                        [disabled]="isPreparingPreview"
+                                                        matTooltip="Gỡ video khỏi chuỗi phát"
+                                                    >
+                                                        <mat-icon class="icon-size-3" [svgIcon]="'feather:x'"></mat-icon>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <!-- Cột phải: Tiêu đề, chiến lược & Danh sách các phân cảnh kịch bản -->
+                    @if (scenes.length > 0) {
+                        <div class="flex-1 min-w-0 w-full space-y-4">
+                            <!-- Tiêu đề phiên live -->
+                            <mat-form-field
+                                class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'"
+                            >
+                                <mat-label>Tiêu đề phiên livestream</mat-label>
+                                <input
+                                    matInput
+                                    type="text"
+                                    [(ngModel)]="scriptTitle"
+                                    [disabled]="isPreparingPreview"
+                                />
+                            </mat-form-field>
+
+                            @if (hookSummary) {
+                                <div class="px-4 py-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-sm text-amber-900 dark:text-amber-200">
+                                    <strong>Chiến lược dẫn dắt:</strong> {{ hookSummary }}
+                                </div>
+                            }
+
+                            <!-- Danh sách các phân cảnh -->
+                            <div class="space-y-4">
+                                @for (scene of scenes; track scene.id; let si = $index) {
+                                    <div class="rounded-lg border overflow-hidden">
+                                        <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-gray-50 dark:bg-gray-800/70 border-b">
+                                            <div class="flex flex-wrap items-center gap-2 min-w-0">
+                                                <span class="px-2.5 py-0.5 text-sm font-semibold rounded bg-primary-50 text-primary dark:bg-primary-900/40 shrink-0">
+                                                    Cảnh {{ si + 1 }}
+                                                </span>
+                                                <span class="text-sm font-semibold shrink-0">{{ scene.phase }}</span>
+                                                <span class="text-sm text-secondary truncate">· {{ scene.title }}</span>
+                                            </div>
+                                            <div class="flex items-center gap-2 shrink-0">
+                                                <span class="text-xs font-mono px-2 py-0.5 rounded bg-gray-200/70 dark:bg-gray-700/70 text-secondary">
+                                                    {{ getSceneDurationSec(scene) }}s/{{ maxSceneDurationSec }}s
+                                                </span>
+                                                <span class="text-sm font-mono text-secondary">
+                                                    {{ getSceneTimeRange(si) }}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    mat-icon-button
+                                                    (click)="removeScene(si)"
+                                                    [disabled]="isPreparingPreview || scenes.length <= 1"
+                                                    matTooltip="Bỏ phân cảnh này"
+                                                >
+                                                    <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'feather:x'"></mat-icon>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="p-4 space-y-4">
+                                            <!-- Ghi chú đạo diễn -->
+                                            <mat-form-field
+                                                class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                                                [subscriptSizing]="'dynamic'"
+                                            >
+                                                <mat-label>Hành động / Góc quay người dẫn live</mat-label>
+                                                <input
+                                                    matInput
+                                                    type="text"
+                                                    [(ngModel)]="scene.actionCue"
+                                                    [disabled]="isPreparingPreview"
+                                                    placeholder="Ghi chú thao tác/góc quay cho người dẫn live..."
+                                                />
+                                            </mat-form-field>
+
+                                            <!-- Các câu thoại -->
+                                            <div class="space-y-3">
+                                                @for (sub of scene.subtitles; track sub.id; let li = $index) {
+                                                    <div class="flex items-start gap-3">
+                                                        <span class="text-sm font-mono text-secondary mt-8 w-6 text-right shrink-0">
+                                                            {{ li + 1 }}.
+                                                        </span>
+                                                        <div class="flex-1 min-w-0 space-y-1.5">
+                                                            <mat-form-field
+                                                                class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                                                                [subscriptSizing]="'dynamic'"
+                                                            >
+                                                                <mat-label>Lời thoại câu {{ li + 1 }}</mat-label>
+                                                                <textarea
+                                                                    matInput
+                                                                    rows="3"
+                                                                    cdkTextareaAutosize
+                                                                    cdkAutosizeMinRows="3"
+                                                                    cdkAutosizeMaxRows="8"
+                                                                    class="subtitle-textarea max-h-52 px-2"
+                                                                    [(ngModel)]="sub.text"
+                                                                    (ngModelChange)="onSubtitleTextChanged(sub)"
+                                                                    [disabled]="isPreparingPreview"
+                                                                    placeholder="Nhập lời thoại phân cảnh..."
+                                                                ></textarea>
+                                                            </mat-form-field>
+                                                            @if (sub.videoUrl) {
+                                                                <div class="flex items-center justify-between gap-2 px-2.5 py-1 rounded bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 text-xs text-sky-800 dark:text-sky-200">
+                                                                    <div class="flex items-center gap-1.5 min-w-0">
+                                                                        <mat-icon class="icon-size-3.5 text-sky-600 dark:text-sky-400 shrink-0" [svgIcon]="'feather:film'"></mat-icon>
+                                                                        <span class="truncate font-medium" [matTooltip]="sub.videoLocalPath || sub.videoName">
+                                                                            {{ sub.videoName || 'video.mp4' }}
+                                                                        </span>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        class="clip-mini-remove"
+                                                                        (click)="removeVideoFromSubtitle(scene, sub)"
+                                                                        [disabled]="isPreparingPreview"
+                                                                        matTooltip="Gỡ video khỏi câu thoại này"
+                                                                    >
+                                                                        <mat-icon class="icon-size-3.5" [svgIcon]="'feather:x'"></mat-icon>
+                                                                    </button>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                        <div class="flex flex-col items-start gap-1.5 shrink-0">
+                                                            <div class="flex items-start gap-1">
+                                                                <mat-form-field
+                                                                    class="w-24 fuse-mat-dense fuse-mat-emphasized-affix"
+                                                                    [subscriptSizing]="'dynamic'"
+                                                                >
+                                                                    <mat-label>Giây</mat-label>
+                                                                    <input
+                                                                        matInput
+                                                                        type="number"
+                                                                        min="1"
+                                                                        [max]="maxSceneDurationSec"
+                                                                        [(ngModel)]="sub.duration"
+                                                                        (ngModelChange)="onSubtitleDurationChange(scene, sub)"
+                                                                        [disabled]="isPreparingPreview"
+                                                                    />
+                                                                </mat-form-field>
+                                                                <button
+                                                                    type="button"
+                                                                    mat-icon-button
+                                                                    class="mt-6"
+                                                                    (click)="removeSubtitleLine(scene, li)"
+                                                                    [disabled]="isPreparingPreview || scene.subtitles.length <= 1"
+                                                                    matTooltip="Bỏ câu thoại"
+                                                                >
+                                                                    <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'feather:minus'"></mat-icon>
+                                                                </button>
+                                                            </div>
+                                                            <div class="w-24 flex items-center justify-start">
+                                                                <button
+                                                                    type="button"
+                                                                    mat-icon-button
+                                                                    class="btn-import-video"
+                                                                    [class.has-video]="!!sub.videoUrl"
+                                                                    (click)="importVideoForSubtitle(scene, sub)"
+                                                                    [disabled]="isGeneratingScript || isGeneratingBackdrop || isPreparingPreview"
+                                                                    [matTooltip]="
+                                                                        sub.videoUrl
+                                                                            ? 'Đã import: ' + (sub.videoName || 'video.mp4') + ' (Bấm để đổi video khác)'
+                                                                            : 'Import file video cho câu thoại này để phát livestream liên hoàn'
+                                                                    "
+                                                                    aria-label="Import video cho câu thoại"
+                                                                >
+                                                                    <mat-icon
+                                                                        class="icon-size-5"
+                                                                        [ngClass]="sub.videoUrl ? 'text-primary' : 'text-secondary'"
+                                                                        [svgIcon]="sub.videoUrl ? 'feather:film' : 'feather:upload'"
+                                                                    ></mat-icon>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+
+                                            <div class="flex items-center justify-between gap-2">
+                                                <span class="text-xs text-secondary">
+                                                    @if (getSceneDurationSec(scene) >= maxSceneDurationSec) {
+                                                        Cảnh đã đủ tối đa {{ maxSceneDurationSec }}s
+                                                    } @else {
+                                                        Còn trống {{ maxSceneDurationSec - getSceneDurationSec(scene) }}s trong cảnh này
+                                                    }
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    mat-button
+                                                    [color]="'primary'"
+                                                    (click)="addSubtitleLine(scene)"
+                                                    [disabled]="isPreparingPreview || getSceneDurationSec(scene) >= maxSceneDurationSec"
+                                                >
+                                                    + Thêm câu thoại
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="flex justify-end">
+                                <button
+                                    type="button"
+                                    mat-stroked-button
+                                    [color]="'primary'"
+                                    (click)="addScene()"
+                                    [disabled]="isGeneratingScript || isPreparingPreview"
+                                >
+                                    + Thêm phân cảnh mới (tối đa {{ maxSceneDurationSec }}s)
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Tiến độ tạo giọng đọc TTS trước khi mở Kiểm thử -->
+        @if (isPreparingPreview) {
+            <div class="p-4 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-blue-800 dark:text-blue-200">
+                    <span class="truncate">{{ ttsStatusText }}</span>
+                    @if (voice !== 'none' && isElectronEnv) {
+                        <button
+                            type="button"
+                            mat-button
+                            [color]="'primary'"
+                            (click)="skipVoiceSynthesis()"
+                        >
+                            Bỏ qua giọng đọc, xem ngay
+                        </button>
+                    }
+                </div>
+                <mat-progress-bar
+                    [mode]="voice !== 'none' && isElectronEnv ? 'determinate' : 'indeterminate'"
+                    [value]="ttsProgressPercent"
+                ></mat-progress-bar>
+            </div>
+        }
+    </div>
+
+    <!-- Footer Actions -->
+    <div class="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-t shrink-0 bg-gray-50/70 dark:bg-gray-900/50">
+        <div class="text-sm text-secondary">
+            @if (scenes.length > 0) {
+                Sẵn sàng mở <strong>Livestream Studio</strong> ở chế độ <strong>Kiểm thử</strong> trước khi phát thật.
+            } @else {
+                Nhập mô tả công việc và thời lượng, sau đó bấm <strong>Kiểm thử</strong> để xem trước.
+            }
+        </div>
+        <div class="flex items-center gap-3">
+            <button
+                type="button"
+                mat-stroked-button
+                (click)="close()"
+                [disabled]="isGeneratingScript"
+            >
+                Đóng
+            </button>
+            <button
+                type="button"
+                mat-flat-button
+                [color]="'primary'"
+                (click)="startPreviewTest()"
+                [disabled]="isGeneratingScript || isGeneratingBackdrop || isPreparingPreview"
+            >
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:play-circle'"></mat-icon>
+                <span class="ml-2">
+                    {{ isPreparingPreview ? 'Đang mở Kiểm thử...' : 'Kiểm thử' }}
+                </span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Lightbox xem ảnh sản phẩm kích thước lớn -->
+    @if (previewLightboxUrl) {
+        <div
+            class="fixed inset-0 z-[1200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
+            (click)="closeImageLightbox()"
+        >
+            <div class="relative max-w-3xl max-h-[85vh] flex items-center justify-center" (click)="$event.stopPropagation()">
+                <img
+                    [src]="previewLightboxUrl"
+                    alt="Xem ảnh sản phẩm"
+                    class="max-w-full max-h-[82vh] rounded-xl shadow-2xl object-contain bg-black"
+                />
+                <button
+                    type="button"
+                    class="ref-remove-btn !w-9 !h-9 !-top-3 !-right-3"
+                    (click)="closeImageLightbox()"
+                    matTooltip="Đóng xem ảnh"
+                >
+                    <mat-icon class="icon-size-5" [svgIcon]="'feather:x'"></mat-icon>
+                </button>
+            </div>
+        </div>
+    }
+</div>

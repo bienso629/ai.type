@@ -29,3 +29,19 @@
     flex: 1;
     text-align: left;
 }
+
+.shopee-offer-viewport {
+    height: 540px;
+    width: 100%;
+    overflow-x: hidden;
+}
+
+.shopee-offer-row {
+    height: 104px;
+    box-sizing: border-box;
+}
+
+.shopee-offer-row img {
+    border: none !important;
+    outline: none;
+}

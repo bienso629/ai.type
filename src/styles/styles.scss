@@ -2699,3 +2699,9 @@ body > .overlay-container {
 .cdk-global-overlay-wrapper {
     pointer-events: none !important;
 }
+
+/* Fix: Fuse tailwind.scss dat input[disabled] { opacity: 1 } lam lo native range input cua mat-slider khi disabled */
+.mat-mdc-slider .mdc-slider__input,
+.mat-mdc-slider input[type="range"][disabled] {
+    opacity: 0 !important;
+}

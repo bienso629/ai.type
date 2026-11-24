@@ -1763,6 +1763,44 @@ export class CrawlService {
         );
     }
 
+    public syncShopeeOffers(dataForm: any): Observable<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+
+        dataForm.year = dataForm.year || this.year;
+        dataForm.appId = 'ai.typing';
+        dataForm.appToken = activeInfo['user']['appToken'];
+
+        const url = `${this.config.settings.api[this.user.server]}/crawl/shopee/offers/sync`;
+        const data = {
+            params: this._h.encrypt(dataForm, this.config.settings.gen)
+        };
+
+        return this.http.post<any>(url, data, options).pipe(
+            map(res => res),
+            catchError(this.handleError('syncShopeeOffers', { success: false }))
+        );
+    }
+
+    public listShopeeOffers(dataForm: any): Observable<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+
+        dataForm.year = dataForm.year || this.year;
+        dataForm.appId = 'ai.typing';
+        dataForm.appToken = activeInfo['user']['appToken'];
+
+        const url = `${this.config.settings.api[this.user.server]}/crawl/shopee/offers/list`;
+        const data = {
+            params: this._h.encrypt(dataForm, this.config.settings.gen)
+        };
+
+        return this.http.post<any>(url, data, options).pipe(
+            map(res => res),
+            catchError(this.handleError('listShopeeOffers', { success: false, data: { docs: [], totalDocs: 0 } }))
+        );
+    }
+
     // tslint:disable-next-line: typedef
     private handleError<T>(operation = 'operation', result?: T) {
         return (error: any): Observable<T> => {

@@ -26,6 +26,7 @@ import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 
 import { AddToolDialog } from './add-tool-dialog.component';
+import { SHOPEE_OFFER_HOOK_SCRIPT } from 'app/_services/shopee-offers.service';
 
 export interface ToolItem {
     id: string;
@@ -365,7 +366,36 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                     setTimeout(() => {
                         webview.style.opacity = '1';
                     }, 50);
+
+                    // Cài đặt hook ghi nhận sản phẩm offer khi truy cập Shopee Affiliate
+                    try {
+                        const curUrl = typeof webview.getURL === 'function' ? webview.getURL() : (tool.url || '');
+                        if (curUrl && curUrl.toLowerCase().includes('affiliate.shopee.vn')) {
+                            webview.executeJavaScript(SHOPEE_OFFER_HOOK_SCRIPT).catch(() => {});
+                        }
+                        window.dispatchEvent(
+                            new CustomEvent('webview-url-changed', {
+                                detail: { url: curUrl, toolId: tool.id },
+                            }),
+                        );
+                    } catch (e) {}
                 });
+
+                const notifyUrlChange = (e: any) => {
+                    const nextUrl = e?.url || (typeof webview.getURL === 'function' ? webview.getURL() : '');
+                    if (nextUrl && nextUrl.toLowerCase().includes('affiliate.shopee.vn')) {
+                        try {
+                            webview.executeJavaScript(SHOPEE_OFFER_HOOK_SCRIPT).catch(() => {});
+                        } catch (_) {}
+                    }
+                    window.dispatchEvent(
+                        new CustomEvent('webview-url-changed', {
+                            detail: { url: nextUrl, toolId: tool.id },
+                        }),
+                    );
+                };
+                webview.addEventListener('did-navigate', notifyUrlChange);
+                webview.addEventListener('did-navigate-in-page', notifyUrlChange);
 
                 container.appendChild(webview);
             }
@@ -525,7 +555,18 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                         `webview[data-tool-id="${tool.id}"]`,
                     ) as any;
                     if (webview) {
-                        webview.setAttribute('src', cleanUrl);
+                        let currentLoadedUrl = '';
+                        try {
+                            currentLoadedUrl =
+                                (typeof webview.getURL === 'function' ? webview.getURL() : '') ||
+                                webview.getAttribute('src') ||
+                                '';
+                        } catch (_) {}
+                        const normCur = currentLoadedUrl.replace(/\/+$/, '');
+                        const normNext = cleanUrl.replace(/\/+$/, '');
+                        if (normCur !== normNext) {
+                            webview.setAttribute('src', cleanUrl);
+                        }
                     }
                 }
             }

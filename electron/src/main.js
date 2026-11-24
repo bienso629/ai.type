@@ -17,6 +17,7 @@ const {
     net,
     safeStorage,
     shell,
+    nativeImage,
     components
 } = require("electron");
 
@@ -10156,6 +10157,594 @@ ipcMain.handle('ensure-playable-video', async (_event, rawVideoPath) => {
     } catch (err) {
         return { success: false, converted: false, error: err.message };
     }
+});
+
+// Helper lưu toàn bộ hình ảnh sản phẩm Shopee Offer về thư mục Documents/ai.type/affiliate/Product Offer/<thư_mục_sản_phẩm>/
+function resolveShopeeProductOfferDir({ productName = '', itemId = '', shopId = '', offerId = '' } = {}) {
+    const docDir = documentsDir || path.join(os.homedir(), 'Documents');
+    const baseDir = path.join(docDir, 'ai.type', 'affiliate', 'Product Offer');
+    fs.mkdirSync(baseDir, { recursive: true });
+
+    const cleanItemId = String(itemId || '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
+    const cleanShopId = String(shopId || '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
+    const cleanOfferId = String(offerId || '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
+    const idSuffix = cleanItemId || cleanOfferId || cleanShopId || 'item';
+
+    // Tái sử dụng thư mục đã tạo trước đó cho cùng itemId để không tạo trùng thư mục
+    try {
+        const existingDirs = fs.readdirSync(baseDir, { withFileTypes: true }).filter((d) => d.isDirectory());
+        const matched = existingDirs.find((d) => d.name.endsWith(`_${idSuffix}`) || d.name === idSuffix);
+        if (matched) {
+            return path.join(baseDir, matched.name);
+        }
+    } catch (_) {}
+
+    const safeTitle = String(productName || '')
+        .normalize('NFC')
+        .replace(/[<>:"/\\|?*\x00-\x1f]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 64)
+        .replace(/[. ]+$/, '');
+
+    const folderName = safeTitle ? `${safeTitle}_${idSuffix}` : `offer_${cleanShopId ? cleanShopId + '_' : ''}${idSuffix}`;
+    const targetDir = path.join(baseDir, folderName);
+    fs.mkdirSync(targetDir, { recursive: true });
+    return targetDir;
+}
+
+async function saveShopeeProductImagesToDisk({ productName = '', itemId = '', shopId = '', offerId = '', images = [] } = {}) {
+    const cleanUrls = Array.isArray(images)
+        ? Array.from(new Set(images.map((u) => String(u || '').trim()).filter((u) => /^https?:\/\//i.test(u)))).slice(0, 30)
+        : [];
+    const folderPath = resolveShopeeProductOfferDir({ productName, itemId, shopId, offerId });
+    if (cleanUrls.length === 0) {
+        return { success: true, folderPath, savedCount: 0, skippedCount: 0, files: [] };
+    }
+
+    const cryptoMod = require('crypto');
+    let existingFiles = [];
+    try {
+        existingFiles = fs.readdirSync(folderPath);
+    } catch (_) {}
+
+    const sess = session.fromPartition('persist:gemini-webview');
+    const files = [];
+    let savedCount = 0;
+    let skippedCount = 0;
+
+    const processOne = async (url, idx) => {
+        const fileId = (url.split('/file/')[1] || url).split('?')[0].split('@')[0];
+        const shortHash = cryptoMod.createHash('sha1').update(fileId).digest('hex').slice(0, 10);
+        const already = existingFiles.find((f) => f.includes(`_${shortHash}.`));
+        if (already) {
+            const fullPath = path.join(folderPath, already);
+            skippedCount += 1;
+            files[idx] = { sourceUrl: url, localPath: fullPath, fileName: already };
+            return;
+        }
+
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 10000);
+            let res;
+            try {
+                res = await sess.fetch(url, {
+                    method: 'GET',
+                    headers: { Accept: 'image/*,*/*;q=0.8', Referer: 'https://shopee.vn/' },
+                    signal: controller.signal,
+                });
+            } catch (_) {
+                res = await fetch(url, {
+                    method: 'GET',
+                    headers: { Accept: 'image/*,*/*;q=0.8' },
+                    signal: controller.signal,
+                });
+            }
+            clearTimeout(timer);
+            if (!res || !res.ok) return;
+
+            const ab = await res.arrayBuffer();
+            let buf = Buffer.from(ab);
+            if (!buf || buf.length < 256) return;
+
+            const ct = String(res.headers.get('content-type') || '').toLowerCase();
+            let ext = 'jpg';
+            if (ct.includes('png') || /\.png($|\?)/i.test(url)) {
+                ext = 'png';
+            } else if (ct.includes('webp') || /\.webp($|\?)/i.test(url)) {
+                // Tự chuyển WebP sang JPG chuẩn để tương thích tuyệt đối với mọi phần mềm dựng video
+                try {
+                    const imgObj = nativeImage.createFromBuffer(buf);
+                    if (imgObj && !imgObj.isEmpty()) {
+                        buf = imgObj.toJPEG(92);
+                        ext = 'jpg';
+                    } else {
+                        ext = 'webp';
+                    }
+                } catch (_) {
+                    ext = 'webp';
+                }
+            }
+
+            const fileName = `${String(idx + 1).padStart(2, '0')}_${shortHash}.${ext}`;
+            const fullPath = path.join(folderPath, fileName);
+            fs.writeFileSync(fullPath, buf);
+            savedCount += 1;
+            files[idx] = { sourceUrl: url, localPath: fullPath, fileName };
+        } catch (_) {}
+    };
+
+    const CONCURRENCY = 4;
+    for (let i = 0; i < cleanUrls.length; i += CONCURRENCY) {
+        await Promise.all(cleanUrls.slice(i, i + CONCURRENCY).map((u, offset) => processOne(u, i + offset)));
+    }
+
+    return {
+        success: true,
+        folderPath,
+        savedCount,
+        skippedCount,
+        files: files.filter(Boolean),
+    };
+}
+
+ipcMain.handle('save-shopee-product-images-local', async (_event, payload) => {
+    try {
+        return await saveShopeeProductImagesToDisk(payload || {});
+    } catch (err) {
+        return { success: false, error: err.message, files: [] };
+    }
+});
+
+// Lấy toàn bộ ảnh gallery, Chi tiết sản phẩm (attributes/variations) và Mô tả sản phẩm (description)
+// từ trang sản phẩm Shopee bằng phiên đăng nhập sẵn (persist:gemini-webview)
+ipcMain.handle('fetch-shopee-product-images', async (_event, payload) => {
+    const {
+        shopId = '',
+        itemId = '',
+        offerId = '',
+        productName = '',
+        productLink = '',
+        offerLink = '',
+        coverImageUrl = '',
+        existingImages = [],
+    } = payload || {};
+    let cleanShopId = String(shopId || '').trim();
+    let cleanItemId = String(itemId || '').trim();
+
+    // Tách shopId / itemId từ productLink nếu thiếu
+    if ((!cleanShopId || !cleanItemId) && productLink) {
+        const m1 = String(productLink).match(/shopee\.vn\/product\/(\d+)\/(\d+)/i);
+        const m2 = String(productLink).match(/-i\.(\d+)\.(\d+)/i);
+        if (m1) {
+            cleanShopId = cleanShopId || m1[1];
+            cleanItemId = cleanItemId || m1[2];
+        } else if (m2) {
+            cleanShopId = cleanShopId || m2[1];
+            cleanItemId = cleanItemId || m2[2];
+        }
+    }
+
+    const productUrl =
+        cleanShopId && cleanItemId
+            ? `https://shopee.vn/product/${cleanShopId}/${cleanItemId}`
+            : String(productLink || offerLink || '').trim();
+
+    const canonicalMap = new Map();
+    const attrMap = new Map();
+    const variationsList = [];
+    let descriptionText = '';
+
+    const buildFullShopeeImg = (raw) => {
+        if (!raw || typeof raw !== 'string') return '';
+        let s = raw.trim();
+        if (!s || s.startsWith('data:') || s.startsWith('blob:')) return '';
+        if (s.startsWith('//')) s = 'https:' + s;
+        if (!/^https?:\/\//i.test(s)) {
+            if (!/^[a-zA-Z0-9._-]{10,}$/.test(s)) return '';
+            s = `https://down-vn.img.susercontent.com/file/${s.replace(/^\/+/, '')}`;
+        }
+        if (/(?:avatar|logo|icon|badge|flag|overlay|placeholder|static\.shopee|deo\.shopeemobile)/i.test(s)) {
+            return '';
+        }
+        if (/(?:susercontent\.com|shopee\.vn)\/file\//i.test(s)) {
+            s = s.split('@')[0].split('?')[0].replace(/_tn(?=\.[a-z0-9]+$|$)/i, '');
+        }
+        return s;
+    };
+
+    const addImage = (raw) => {
+        const url = buildFullShopeeImg(raw);
+        if (!url) return;
+        const fileKey = url.split('/file/')[1] || url;
+        const baseKey = fileKey.replace(/\.(?:webp|jpg|jpeg|png)$/i, '').toLowerCase();
+        if (!canonicalMap.has(baseKey)) {
+            canonicalMap.set(baseKey, url);
+        }
+    };
+
+    const addAttribute = (name, value) => {
+        const k = String(name || '').trim();
+        const v = String(value || '').trim();
+        if (!k || !v) return;
+        if (!attrMap.has(k.toLowerCase())) {
+            attrMap.set(k.toLowerCase(), { name: k, value: v });
+        }
+    };
+
+    const collectDetailFromJson = (obj, depth = 0) => {
+        if (!obj || typeof obj !== 'object' || depth > 8) return;
+        if (Array.isArray(obj)) {
+            for (const el of obj) collectDetailFromJson(el, depth + 1);
+            return;
+        }
+        const objItemId = obj.item_id ?? obj.itemId ?? obj.itemid;
+        if (cleanItemId && objItemId && String(objItemId) !== cleanItemId && depth >= 2) {
+            return;
+        }
+
+        // 1. Hình ảnh sản phẩm
+        const arrayKeys = ['images', 'image_list', 'product_images', 'item_images', 'item_img_list'];
+        for (const k of arrayKeys) {
+            if (Array.isArray(obj[k])) {
+                for (const val of obj[k]) {
+                    if (typeof val === 'string') addImage(val);
+                    else if (val && typeof val === 'object') {
+                        addImage(val.url || val.image_url || val.image || val.hash || '');
+                    }
+                }
+            }
+        }
+        if (typeof obj.image === 'string') addImage(obj.image);
+        if (typeof obj.image_url === 'string') addImage(obj.image_url);
+        if (typeof obj.imageUrl === 'string') addImage(obj.imageUrl);
+
+        // 2. Phân loại màu/size + ảnh biến thể
+        if (Array.isArray(obj.tier_variations)) {
+            for (const tv of obj.tier_variations) {
+                if (!tv || typeof tv !== 'object') continue;
+                if (Array.isArray(tv.images)) {
+                    for (const tImg of tv.images) addImage(tImg);
+                }
+                const tvName = String(tv.name || '').trim();
+                const tvOpts = Array.isArray(tv.options)
+                    ? tv.options.map((o) => String(o || '').trim()).filter(Boolean)
+                    : [];
+                if (tvName && tvOpts.length > 0 && !variationsList.some((x) => x.name === tvName)) {
+                    variationsList.push({ name: tvName, options: tvOpts });
+                }
+            }
+        }
+        if (Array.isArray(obj.models)) {
+            for (const m of obj.models) {
+                if (m && typeof m.image === 'string') addImage(m.image);
+            }
+        }
+
+        // 3. Chi tiết sản phẩm (attributes / attrs / brand / categories)
+        if (typeof obj.brand === 'string' && obj.brand.trim() && obj.brand.trim() !== '0') {
+            addAttribute('Thương hiệu', obj.brand.trim());
+        }
+        if (Array.isArray(obj.categories) && obj.categories.length > 0) {
+            const catPath = obj.categories
+                .map((c) => String(c?.display_name || c?.name || '').trim())
+                .filter(Boolean)
+                .join(' > ');
+            if (catPath) addAttribute('Danh mục', catPath);
+        }
+        const attrArrays = [obj.attributes, obj.attrs];
+        for (const arr of attrArrays) {
+            if (Array.isArray(arr)) {
+                for (const a of arr) {
+                    if (a && typeof a === 'object') {
+                        addAttribute(a.name || a.label, a.value || a.val);
+                    }
+                }
+            }
+        }
+
+        // 4. Mô tả sản phẩm (description)
+        if (typeof obj.description === 'string' && obj.description.trim().length > descriptionText.length) {
+            descriptionText = obj.description.trim();
+        }
+        if (obj.rich_text_description && Array.isArray(obj.rich_text_description.paragraph_list)) {
+            const paragraphs = obj.rich_text_description.paragraph_list
+                .map((p) => String(p?.text || '').trim())
+                .filter(Boolean)
+                .join('\n');
+            if (paragraphs.length > descriptionText.length) {
+                descriptionText = paragraphs;
+            }
+        }
+
+        for (const key of Object.keys(obj)) {
+            if (arrayKeys.includes(key) || key === 'tier_variations' || key === 'models' || key === 'attributes' || key === 'attrs') continue;
+            if (/recommend|related|similar|shop_items|hot_sales|bundle|voucher|review|comment|ratings/i.test(key)) continue;
+            const child = obj[key];
+            if (child && typeof child === 'object') {
+                collectDetailFromJson(child, depth + 1);
+            }
+        }
+    };
+
+    addImage(coverImageUrl);
+    if (Array.isArray(existingImages)) {
+        for (const u of existingImages) addImage(u);
+    }
+
+    if (!cleanItemId && !productUrl) {
+        return {
+            success: true,
+            images: Array.from(canonicalMap.values()),
+            attributes: [],
+            variations: [],
+            description: '',
+            blocked: false,
+            productUrl: '',
+        };
+    }
+
+    const sess = session.fromPartition('persist:gemini-webview');
+    const commonHeaders = {
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8',
+    };
+
+    const tryJsonFetch = async (url, referer) => {
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 5000);
+            const res = await sess.fetch(url, {
+                method: 'GET',
+                headers: { ...commonHeaders, ...(referer ? { Referer: referer } : {}) },
+                signal: controller.signal,
+            });
+            clearTimeout(timer);
+            if (!res.ok) return { blocked: res.status === 403 || res.status === 429, data: null };
+            const ct = String(res.headers.get('content-type') || '');
+            if (!ct.includes('json')) return { blocked: false, data: null };
+            const data = await res.json();
+            if (data && (data.error === 90309999 || /verify|captcha/i.test(String(data.error_msg || data.message || '')))) {
+                return { blocked: true, data: null };
+            }
+            return { blocked: false, data };
+        } catch (_) {
+            return { blocked: false, data: null };
+        }
+    };
+
+    let blocked = false;
+    try {
+        // 1. Thử đọc nhanh từ API PDP Shopee trong chính phiên persist:gemini-webview
+        if (cleanShopId && cleanItemId) {
+            const pdpUrls = [
+                `https://shopee.vn/api/v4/pdp/get_pc?shop_id=${encodeURIComponent(cleanShopId)}&item_id=${encodeURIComponent(cleanItemId)}`,
+                `https://shopee.vn/api/v4/item/get?itemid=${encodeURIComponent(cleanItemId)}&shopid=${encodeURIComponent(cleanShopId)}`,
+            ];
+            for (const u of pdpUrls) {
+                const r = await tryJsonFetch(u, productUrl);
+                if (r.data) collectDetailFromJson(r.data, 0);
+                if (canonicalMap.size >= 2 && descriptionText) break;
+            }
+        }
+
+        // 2. Nếu API nền chưa có đủ ảnh/mô tả -> mở trang sản phẩm thật https://shopee.vn/product/{shopId}/{itemId}
+        // trong chính phiên persist:gemini-webview, gắn listener CDP thụ động bắt phản hồi /api/v4/pdp/get_pc của trang.
+        // Nếu Shopee chuyển tới trang đăng nhập/xác minh/captcha -> dừng ngay lập tức (tuyệt đối không vượt rào).
+        if ((canonicalMap.size <= 1 || !descriptionText) && productUrl && productUrl.includes('shopee.vn')) {
+            await new Promise((resolve) => {
+                let done = false;
+                let win = null;
+                let debuggerAttached = false;
+                const pdpRequestIds = new Map();
+
+                const finish = () => {
+                    if (done) return;
+                    done = true;
+                    try {
+                        if (win && !win.isDestroyed()) {
+                            if (debuggerAttached && win.webContents.debugger.isAttached()) {
+                                win.webContents.debugger.detach();
+                            }
+                            win.destroy();
+                        }
+                    } catch (_) {}
+                    resolve();
+                };
+
+                const hardTimer = setTimeout(finish, 11000);
+
+                try {
+                    win = new BrowserWindow({
+                        width: 1280,
+                        height: 900,
+                        show: false,
+                        webPreferences: {
+                            partition: 'persist:gemini-webview',
+                            nodeIntegration: false,
+                            contextIsolation: true,
+                        },
+                    });
+
+                    // Gắn Chrome DevTools Protocol thụ động để đọc đúng JSON PDP mà trình duyệt Shopee tự tải
+                    try {
+                        win.webContents.debugger.attach('1.3');
+                        debuggerAttached = true;
+                        win.webContents.debugger.sendCommand('Network.enable');
+                        win.webContents.debugger.on('message', async (_ev, method, params) => {
+                            if (done) return;
+                            if (method === 'Network.responseReceived') {
+                                const reqUrl = String(params?.response?.url || '');
+                                if (
+                                    reqUrl.includes('/api/v4/pdp/get_pc') ||
+                                    reqUrl.includes('/api/v4/item/get') ||
+                                    reqUrl.includes('/api/v4/product/get')
+                                ) {
+                                    pdpRequestIds.set(params.requestId, reqUrl);
+                                }
+                            } else if (method === 'Network.loadingFinished' && pdpRequestIds.has(params.requestId)) {
+                                pdpRequestIds.delete(params.requestId);
+                                try {
+                                    const bodyRes = await win.webContents.debugger.sendCommand('Network.getResponseBody', {
+                                        requestId: params.requestId,
+                                    });
+                                    if (bodyRes && bodyRes.body) {
+                                        const rawStr = bodyRes.base64Encoded
+                                            ? Buffer.from(bodyRes.body, 'base64').toString('utf8')
+                                            : bodyRes.body;
+                                        const parsed = JSON.parse(rawStr);
+                                        if (parsed && (parsed.error === 90309999 || /verify|captcha/i.test(String(parsed.error_msg || '')))) {
+                                            blocked = true;
+                                            clearTimeout(hardTimer);
+                                            finish();
+                                            return;
+                                        }
+                                        collectDetailFromJson(parsed, 0);
+                                        if (canonicalMap.size >= 2 || descriptionText) {
+                                            clearTimeout(hardTimer);
+                                            finish();
+                                        }
+                                    }
+                                } catch (_) {}
+                            }
+                        });
+                    } catch (_) {}
+
+                    const isAuthOrVerifyUrl = (u) =>
+                        /\/verify|captcha|\/buyer\/login|\/account\/signin|traffic_error/i.test(String(u || ''));
+
+                    win.webContents.on('did-navigate', (_ev, navUrl) => {
+                        if (isAuthOrVerifyUrl(navUrl)) {
+                            blocked = true;
+                            clearTimeout(hardTimer);
+                            finish();
+                        }
+                    });
+
+                    win.webContents.on('did-finish-load', async () => {
+                        try {
+                            const curUrl = win.webContents.getURL();
+                            if (isAuthOrVerifyUrl(curUrl)) {
+                                blocked = true;
+                                clearTimeout(hardTimer);
+                                finish();
+                                return;
+                            }
+                            // Chờ ngắn để trang sản phẩm React dựng DOM và gọi PDP API
+                            await new Promise((r) => setTimeout(r, 3200));
+                            if (done || !win || win.isDestroyed()) return;
+
+                            const domData = await win.webContents.executeJavaScript(`
+                                (function () {
+                                    var bodyText = (document.body && document.body.innerText || '');
+                                    if (/verify to continue|xác minh để tiếp tục|trượt để xác minh|captcha|đăng nhập để xem/i.test(bodyText.slice(0, 1200))) {
+                                        return { blocked: true, images: [], attributes: [], description: '' };
+                                    }
+                                    var urls = [];
+                                    var imgs = Array.from(document.querySelectorAll('img'));
+                                    for (var i = 0; i < imgs.length; i++) {
+                                        var im = imgs[i];
+                                        var rect = im.getBoundingClientRect();
+                                        if (rect.top > 1100) continue;
+                                        if ((im.naturalWidth && im.naturalWidth < 60) || (rect.width > 0 && rect.width < 36)) continue;
+                                        var src = im.currentSrc || im.src || im.getAttribute('data-src') || '';
+                                        if (src && (src.includes('susercontent.com/file/') || src.includes('shopee.vn/file/'))) {
+                                            urls.push(src);
+                                        }
+                                    }
+                                    // Trích xuất khối CHI TIẾT SẢN PHẨM và MÔ TẢ SẢN PHẨM từ DOM nếu có
+                                    var attrs = [];
+                                    var desc = '';
+                                    var sections = Array.from(document.querySelectorAll('section, div'));
+                                    for (var s = 0; s < sections.length; s++) {
+                                        var heading = sections[s].querySelector('h2, h3');
+                                        if (!heading) continue;
+                                        var ht = (heading.innerText || '').trim().toUpperCase();
+                                        if (ht === 'CHI TIẾT SẢN PHẨM' && attrs.length === 0) {
+                                            var rows = Array.from(sections[s].querySelectorAll('div')).filter(function (el) {
+                                                return el.children.length === 2 && el.querySelector('label');
+                                            });
+                                            for (var r = 0; r < rows.length; r++) {
+                                                var lbl = rows[r].querySelector('label');
+                                                var k = (lbl && lbl.innerText || '').trim();
+                                                var v = (rows[r].children[1] && rows[r].children[1].innerText || '').trim();
+                                                if (k && v) attrs.push({ name: k, value: v });
+                                            }
+                                        } else if (ht === 'MÔ TẢ SẢN PHẨM' && !desc) {
+                                            var cloneText = (sections[s].innerText || '').replace(/^MÔ TẢ SẢN PHẨM\\s*/i, '').trim();
+                                            if (cloneText.length > 15) desc = cloneText;
+                                        }
+                                    }
+                                    return { blocked: false, images: urls, attributes: attrs, description: desc };
+                                })();
+                            `);
+
+                            if (domData?.blocked) {
+                                blocked = true;
+                            } else {
+                                if (Array.isArray(domData?.images)) {
+                                    for (const u of domData.images) addImage(u);
+                                }
+                                if (Array.isArray(domData?.attributes)) {
+                                    for (const a of domData.attributes) addAttribute(a?.name, a?.value);
+                                }
+                                if (typeof domData?.description === 'string' && domData.description.length > descriptionText.length) {
+                                    descriptionText = domData.description.trim();
+                                }
+                            }
+                        } catch (_) {}
+                        clearTimeout(hardTimer);
+                        finish();
+                    });
+
+                    win.webContents.on('did-fail-load', () => {
+                        clearTimeout(hardTimer);
+                        finish();
+                    });
+
+                    win.loadURL(productUrl).catch(() => {
+                        clearTimeout(hardTimer);
+                        finish();
+                    });
+                } catch (_) {
+                    clearTimeout(hardTimer);
+                    finish();
+                }
+            });
+        }
+    } catch (_) {}
+
+    const finalImages = Array.from(canonicalMap.values()).slice(0, 30);
+    let localFolderPath = '';
+    let localFiles = [];
+    if (finalImages.length > 0) {
+        try {
+            const saveRes = await saveShopeeProductImagesToDisk({
+                productName,
+                itemId: cleanItemId,
+                shopId: cleanShopId,
+                offerId,
+                images: finalImages,
+            });
+            if (saveRes?.success) {
+                localFolderPath = saveRes.folderPath || '';
+                localFiles = saveRes.files || [];
+            }
+        } catch (_) {}
+    }
+
+    return {
+        success: true,
+        images: finalImages,
+        localFolderPath,
+        localFiles,
+        attributes: Array.from(attrMap.values()).slice(0, 40),
+        variations: variationsList.slice(0, 10),
+        description: descriptionText.slice(0, 8000),
+        blocked,
+        productUrl,
+    };
 });
 
 // Tải tạm tệp âm thanh / video tham chiếu lên kho lưu trữ HTTPS tự hủy (dành cho audio_url / video_url khi cdn1.type.vn chỉ nhận ảnh)

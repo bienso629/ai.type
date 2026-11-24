@@ -2346,9 +2346,9 @@ export class GenaiService {
 
                         let googleModel = params.model;
                         if (!googleModel || googleModel === 'agent') {
-                            googleModel = isImageEdit ? 'gemini-3.1-flash-image-preview' : (this._geminiTextModel || 'gemini-3.8-flash');
+                            googleModel = (isImageEdit || isImageRequest) ? 'gemini-3.1-flash-image-preview' : (this._geminiTextModel || 'gemini-3.8-flash');
                         }
-                        const candidateGoogleModels = isImageEdit ? [
+                        const candidateGoogleModels = (isImageEdit || isImageRequest) ? [
                             googleModel,
                             'gemini-3.1-flash-image-preview',
                             'gemini-2.5-flash-image',
@@ -2357,7 +2357,9 @@ export class GenaiService {
                             this._geminiTextModel || googleModel,
                             googleModel,
                             'gemini-3.8-flash',
-                            'gemini-3.7-flash'
+                            'gemini-3.7-flash',
+                            'gemini-3-flash-preview',
+                            'gemini-2.5-flash'
                         ].filter((v, idx, arr) => arr.indexOf(v) === idx && v && (v.startsWith('gemini-') || v.startsWith('tunedModels/')));
 
                         // Lọc sạch config chuẩn cho Google GenAI SDK (không ép maxOutputTokens=8192 làm nghẽn suy luận trên Gemini 2.5/3.x)
@@ -2637,18 +2639,19 @@ export class GenaiService {
 
         let finalPrompt = promptText.trim() || 'Xin chào';
 
-        if (params.config && params.config.responseModalities) {
-            if (params.config.responseModalities.includes('VIDEO')) {
-                finalPrompt = 'Bắt buộc tạo video: ' + finalPrompt;
-            }
+        const isVideoRequest = params.config?.responseModalities?.includes('VIDEO');
+        const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
+        const isImageEditAgent = (params.config as any)?.isImageEdit === true;
+
+        if (isVideoRequest) {
+            finalPrompt = 'Bắt buộc tạo video: ' + finalPrompt;
         }
         // SỬA ẢNH qua AI Agent: nhét chỉ thị cứng buộc dựa trên ảnh đính kèm, không vẽ mới
-        const isImageEditAgent = (params.config as any)?.isImageEdit === true;
         if (isImageEditAgent) {
             finalPrompt = 'Bắt buộc CHỈNH SỬA dựa trên ảnh người dùng đính kèm (giữ nguyên bố cục, nhân vật, phong cách ảnh gốc; chỉ thay đổi đúng theo yêu cầu). Tuyệt đối không vẽ ảnh mới hoàn toàn. Yêu cầu chỉnh sửa: ' + finalPrompt;
+        } else if (isImageRequest) {
+            finalPrompt = 'Bắt buộc TẠO ẢNH NGAY LẬP TỨC (gọi trực tiếp công cụ hoặc subagent image-generator để sinh tệp ảnh hoàn chỉnh, TUYỆT ĐỐI KHÔNG hỏi lại xác nhận và KHÔNG chỉ viết prompt văn bản). Sau khi tạo xong, trả về đường dẫn tệp ảnh kết quả theo cú pháp ![image](file:///đường/dẫn/tuyệt/đối).\n\n' + finalPrompt;
         }
-
-        const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
 
         const configRatio = (params.config as any)?.aspectRatio || (params.config as any)?.imageConfig?.aspectRatio;
         if (configRatio) {
@@ -2669,9 +2672,11 @@ export class GenaiService {
             : (settings.aiAgentModel || params.model || 'gemini-3.8-flash-medium');
 
         const isStructuredJsonPrompt =
-            (params.config as any)?.responseMimeType === 'application/json' ||
-            (params.config as any)?.skipTTS === true ||
-            /CHỈ TRẢ VỀ JSON|JSON THUẦN TÚY/i.test(finalPrompt);
+            !isImageRequest &&
+            !isVideoRequest &&
+            ((params.config as any)?.responseMimeType === 'application/json' ||
+                (params.config as any)?.skipTTS === true ||
+                /CHỈ TRẢ VỀ JSON|JSON THUẦN TÚY/i.test(finalPrompt));
 
         let sysContent = '';
         if (params.config && params.config.systemInstruction) {
@@ -2680,6 +2685,8 @@ export class GenaiService {
             } else if ((params.config.systemInstruction as any).parts) {
                 sysContent = (params.config.systemInstruction as any).parts.map((p: any) => p.text).join('\n');
             }
+        } else if (isImageRequest) {
+            sysContent = 'Bạn là chuyên gia tạo hình ảnh thương mại điện tử chuẩn xác 1:1. Khi nhận yêu cầu tạo ảnh: (1) Đọc kỹ tất cả tệp ảnh tham chiếu đính kèm bằng read_file và phân tích chuẩn xác màu sắc chính, phom dáng, chi tiết cổ áo/nắp/kiểu dáng của sản phẩm gốc; (2) Truyền đầy đủ đường dẫn tất cả tệp ảnh tham chiếu sang công cụ/subagent image-generator để tạo tệp ảnh ngay lập tức (không hỏi xác nhận, không tự ý đổi màu hay phom sản phẩm gốc); (3) Sau khi tạo xong, mở tệp ảnh kết quả kiểm tra đối chiếu với ảnh sản phẩm tham chiếu — nếu sản phẩm bị sai màu/sai dáng/sai chi tiết thì tạo lại 1 lần cho khớp; (4) Trả về đường dẫn tệp ảnh cuối cùng ở dạng ![image](file:///đường/dẫn/tệp).';
         } else if (isStructuredJsonPrompt) {
             sysContent = 'Trả lời trực tiếp và chính xác theo đúng định dạng người dùng yêu cầu. Không chạy lệnh shell, không liệt kê thư mục hay tạo tệp ngoài yêu cầu.';
         } else {
@@ -2815,6 +2822,7 @@ export class GenaiService {
 
             let replyText = '';
             let imageBase64: string | undefined;
+            let imageMimeType: string = 'image/png';
             let videoBase64: string | undefined;
             let audioBase64: string | undefined;
             let conversationId: string | undefined;
@@ -2897,50 +2905,104 @@ export class GenaiService {
             localTTSQueue.play(true);
 
             const readLocalBase64 = async (filePath: string): Promise<string> => {
+                let raw = '';
                 if (electronAPI?.readFileBase64) {
                     const res = await electronAPI.readFileBase64(filePath);
-                    return typeof res === 'string' ? res : (res?.data || res?.base64 || '');
-                }
-                if ((window as any).electron?.readFileBase64) {
+                    raw = typeof res === 'string' ? res : (res?.base64 || res?.data || '');
+                } else if ((window as any).electron?.readFileBase64) {
                     const res = await (window as any).electron.readFileBase64(filePath);
-                    return typeof res === 'string' ? res : (res?.data || res?.base64 || '');
+                    raw = typeof res === 'string' ? res : (res?.base64 || res?.data || '');
                 }
-                return '';
+                if (raw && raw.startsWith('data:')) {
+                    const commaIdx = raw.indexOf(',');
+                    if (commaIdx >= 0) raw = raw.slice(commaIdx + 1);
+                }
+                return raw;
             };
 
-            // Nạp ảnh từ ổ đĩa cục bộ nếu AGY/Claude CLI trả về thẻ ảnh markdown ![caption](/abs/path.png) hoặc file:///
-            const mdImageRegex = /!\[.*?\]\((file:\/\/\/|\/)([^\)]+)\)/g;
-            let match;
-            while ((match = mdImageRegex.exec(replyText)) !== null) {
-                const prefix = match[1];
-                let filePath = match[2];
-                if (prefix === '/') filePath = '/' + filePath;
+            const normalizeLocalPath = (prefix: string, rest: string): string => {
+                let p = `${prefix || ''}${rest || ''}`.trim();
+                if (/^file:\/\//i.test(p)) {
+                    p = p.replace(/^file:\/\//i, '');
+                }
+                try {
+                    p = decodeURIComponent(p);
+                } catch (_) {}
+                // Windows file:///C:/... -> C:/...
+                if (/^\/[a-zA-Z]:[\\/]/.test(p)) {
+                    p = p.slice(1);
+                } else if (!/^[a-zA-Z]:[\\/]/.test(p) && !p.startsWith('/')) {
+                    p = '/' + p;
+                }
+                return p;
+            };
 
+            const detectImageMime = (p: string): string => {
+                const ext = p.split('?')[0].split('.').pop()?.toLowerCase() || 'jpeg';
+                if (ext === 'png') return 'image/png';
+                if (ext === 'webp') return 'image/webp';
+                if (ext === 'gif') return 'image/gif';
+                return 'image/jpeg';
+            };
+
+            // 1. Nạp ảnh từ ổ đĩa cục bộ khi AGY/Claude CLI trả về markdown image ![alt](...) hoặc markdown link [file.jpg](file:///...)
+            // Bỏ qua đường dẫn tạm /tmp/ai-type-cli-agent/ (ảnh đầu vào) và ưu tiên ảnh kết quả sau cùng nếu AI Agent tự kiểm tra và tạo lại.
+            const isTempInputPath = (p: string): boolean => /\/tmp\/ai-type-cli-agent\//i.test(p.replace(/\\/g, '/'));
+            const mdImageRegex = /(!?)\[[^\]]*\]\((file:\/\/\/?|\/|[a-zA-Z]:[\\/])([^\)]+?\.(?:png|jpe?g|webp|gif)(?:\?[^\)]*)?)\)/gi;
+            const mdMatches = Array.from(replyText.matchAll(mdImageRegex));
+            for (const m of mdMatches) {
+                const isBang = m[1] === '!';
+                const filePath = normalizeLocalPath(m[2], m[3].split('?')[0]);
+                if (isTempInputPath(filePath)) continue;
                 try {
                     const b64 = await readLocalBase64(filePath);
                     if (b64) {
-                        const ext = filePath.split('.').pop()?.toLowerCase() || 'jpeg';
-                        const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : 'image/jpeg');
+                        const mime = detectImageMime(filePath);
                         const dataUri = `data:${mime};base64,${b64}`;
-                        replyText = replyText.replace(match[0], match[0].replace(match[1] + match[2], dataUri));
-                        if (!imageBase64) {
-                            imageBase64 = b64;
+                        if (isBang) {
+                            replyText = replyText.replace(m[0], m[0].replace(m[2] + m[3], dataUri));
                         }
+                        imageBase64 = b64;
+                        imageMimeType = mime;
                     }
                 } catch (e) {
                     console.error('[AI Agent] Lỗi đọc file local từ thẻ markdown:', filePath, e);
                 }
             }
 
+            // 2. Định dạng cũ [LOCAL_IMAGE: /path/to/file.png]
             const oldMatch = replyText.match(/\[LOCAL_IMAGE:\s*(.+?)\]/);
             if (oldMatch && oldMatch[1]) {
-                const filePath = oldMatch[1].trim();
+                const filePath = normalizeLocalPath('', oldMatch[1].trim());
                 replyText = replyText.replace(oldMatch[0], '').trim();
-                try {
-                    const b64 = await readLocalBase64(filePath);
-                    if (b64) imageBase64 = b64;
-                } catch (e) {
-                    console.error('[AI Agent] Lỗi đọc file local cũ:', filePath, e);
+                if (!isTempInputPath(filePath)) {
+                    try {
+                        const b64 = await readLocalBase64(filePath);
+                        if (b64) {
+                            imageBase64 = b64;
+                            imageMimeType = detectImageMime(filePath);
+                        }
+                    } catch (e) {
+                        console.error('[AI Agent] Lỗi đọc file local cũ:', filePath, e);
+                    }
+                }
+            }
+
+            // 3. Dự phòng khi yêu cầu tạo ảnh: bắt đường dẫn ảnh tuyệt đối hoặc file:// nằm trong văn bản/backtick (ưu tiên ảnh sau cùng)
+            if (isImageRequest && !imageBase64 && replyText) {
+                const barePathRegex = /(?:file:\/\/\/?|\/|[a-zA-Z]:[\\/])[^\s"'`<>()\[\]]+\.(?:png|jpe?g|webp)/gi;
+                const bareMatches = Array.from(replyText.matchAll(barePathRegex)).reverse();
+                for (const bm of bareMatches) {
+                    const candidatePath = normalizeLocalPath('', bm[0]);
+                    if (isTempInputPath(candidatePath)) continue;
+                    try {
+                        const b64 = await readLocalBase64(candidatePath);
+                        if (b64) {
+                            imageBase64 = b64;
+                            imageMimeType = detectImageMime(candidatePath);
+                            break;
+                        }
+                    } catch (_) {}
                 }
             }
 
@@ -2973,10 +3035,10 @@ export class GenaiService {
             if (imageBase64) {
                 parts.push({
                     inlineData: {
-                        mimeType: 'image/png',
+                        mimeType: imageMimeType || 'image/png',
                         data: imageBase64
                     },
-                    imageUrl: 'data:image/png;base64,' + imageBase64
+                    imageUrl: `data:${imageMimeType || 'image/png'};base64,${imageBase64}`
                 });
             }
             if (videoBase64) {
@@ -2996,6 +3058,11 @@ export class GenaiService {
                     },
                     audioUrl: 'data:audio/mp3;base64,' + audioBase64
                 });
+            }
+
+            if (isImageRequest && !imageBase64) {
+                console.warn('[AI Agent] Yêu cầu tạo ảnh nhưng AI Agent không trả về tệp ảnh cục bộ nào. Chuyển sang tầng dự phòng.');
+                throw new Error('AI Agent cục bộ chưa tạo được tệp hình ảnh.');
             }
 
             if (!replyText.trim() && !imageBase64 && !videoBase64) {

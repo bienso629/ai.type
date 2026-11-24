@@ -293,6 +293,54 @@ function getArticlesDatabase(username) {
         dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_scripts_username ON local_scripts(username)`);
         dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_scripts_updated_at ON local_scripts(updated_at)`);
 
+        dbInstance.run(`
+            CREATE TABLE IF NOT EXISTS local_shopee_offers (
+                id TEXT PRIMARY KEY,
+                item_id TEXT,
+                shop_id TEXT,
+                username TEXT DEFAULT 'admin',
+                product_name TEXT,
+                shop_name TEXT,
+                price REAL DEFAULT 0,
+                price_min REAL DEFAULT 0,
+                price_max REAL DEFAULT 0,
+                original_price REAL DEFAULT 0,
+                commission_rate REAL DEFAULT 0,
+                commission_amount REAL DEFAULT 0,
+                seller_commission_rate REAL DEFAULT 0,
+                shopee_commission_rate REAL DEFAULT 0,
+                sales INTEGER DEFAULT 0,
+                rating_star REAL DEFAULT 0,
+                image_url TEXT,
+                images TEXT DEFAULT '[]',
+                attributes TEXT DEFAULT '[]',
+                variations TEXT DEFAULT '[]',
+                description TEXT DEFAULT '',
+                product_link TEXT,
+                offer_link TEXT,
+                short_link TEXT,
+                category_id TEXT,
+                category_name TEXT,
+                offer_id TEXT,
+                offer_type TEXT,
+                period_start_time INTEGER DEFAULT 0,
+                period_end_time INTEGER DEFAULT 0,
+                source_url TEXT,
+                synced_at TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        `);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_shopee_offers_user ON local_shopee_offers(username)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_shopee_offers_item ON local_shopee_offers(item_id)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_shopee_offers_comm ON local_shopee_offers(commission_rate DESC)`);
+        dbInstance.run(`CREATE INDEX IF NOT EXISTS idx_local_shopee_offers_updated ON local_shopee_offers(updated_at DESC)`);
+        // Migration an toàn bổ sung cột images, attributes, variations, description cho bảng local_shopee_offers đã tạo trước đó
+        dbInstance.run(`ALTER TABLE local_shopee_offers ADD COLUMN images TEXT DEFAULT '[]'`, () => {});
+        dbInstance.run(`ALTER TABLE local_shopee_offers ADD COLUMN attributes TEXT DEFAULT '[]'`, () => {});
+        dbInstance.run(`ALTER TABLE local_shopee_offers ADD COLUMN variations TEXT DEFAULT '[]'`, () => {});
+        dbInstance.run(`ALTER TABLE local_shopee_offers ADD COLUMN description TEXT DEFAULT ''`, () => {});
+
         // Tự động nạp dữ liệu kịch bản scripts từ backup nếu bảng đang trống và đúng user admin
         if (sanitized === 'admin') {
             dbInstance.get('SELECT COUNT(*) as count FROM local_scripts', (err, row) => {
@@ -4890,6 +4938,619 @@ function registerLocalArticlesHandlers() {
             });
         } catch (e) {
             return { success: false, error: e.message, data: [] };
+        }
+    });
+
+    // Helper gộp danh sách ảnh Shopee không làm mất ảnh cũ đã đồng bộ/chụp chi tiết trước đó
+    const mergeShopeeImageList = (incoming, existing, coverUrl) => {
+        const seen = new Set();
+        const out = [];
+        const pushOne = (raw) => {
+            const u = String(raw || '').trim();
+            if (!u || !/^https?:\/\//i.test(u)) return;
+            const fk = (u.split('/file/')[1] || u)
+                .split('@')[0]
+                .split('?')[0]
+                .replace(/_tn(?=\.[a-z0-9]+$|$)/i, '')
+                .replace(/\.(?:webp|jpg|jpeg|png)$/i, '')
+                .toLowerCase();
+            if (!seen.has(fk)) {
+                seen.add(fk);
+                out.push(u);
+            }
+        };
+        if (coverUrl) pushOne(coverUrl);
+        if (Array.isArray(incoming)) incoming.forEach(pushOne);
+        if (Array.isArray(existing)) existing.forEach(pushOne);
+        return out.slice(0, 30);
+    };
+
+    const formatLocalShopeeOfferRow = (r) => ({
+        _id: r.id,
+        id: r.id,
+        type: 'shopee_offer',
+        item_id: r.item_id,
+        shop_id: r.shop_id,
+        username: r.username,
+        product_name: r.product_name,
+        shop_name: r.shop_name,
+        price: r.price,
+        price_min: r.price_min,
+        price_max: r.price_max,
+        original_price: r.original_price,
+        commission_rate: r.commission_rate,
+        commission_amount: r.commission_amount,
+        seller_commission_rate: r.seller_commission_rate,
+        shopee_commission_rate: r.shopee_commission_rate,
+        sales: r.sales,
+        rating_star: r.rating_star,
+        image_url: r.image_url,
+        images: (() => {
+            try {
+                const parsed = typeof r.images === 'string' && r.images ? JSON.parse(r.images) : [];
+                return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+            } catch (_) {
+                return [];
+            }
+        })(),
+        attributes: (() => {
+            try {
+                const parsed = typeof r.attributes === 'string' && r.attributes ? JSON.parse(r.attributes) : [];
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (_) {
+                return [];
+            }
+        })(),
+        variations: (() => {
+            try {
+                const parsed = typeof r.variations === 'string' && r.variations ? JSON.parse(r.variations) : [];
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (_) {
+                return [];
+            }
+        })(),
+        description: typeof r.description === 'string' ? r.description : '',
+        product_link: r.product_link,
+        offer_link: r.offer_link,
+        short_link: r.short_link,
+        category_id: r.category_id,
+        category_name: r.category_name,
+        offer_id: r.offer_id,
+        offer_type: r.offer_type,
+        period_start_time: r.period_start_time,
+        period_end_time: r.period_end_time,
+        source_url: r.source_url,
+        syncedAt: r.synced_at,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at
+    });
+
+    /**
+     * Đồng bộ hàng loạt sản phẩm Shopee Affiliate Offer vào bảng SQLite local_shopee_offers của tài khoản
+     * Hỗ trợ chế độ reconcile (đối soát chính xác sau khi quét xong toàn bộ trang để gỡ các offer cũ không còn trên Shopee)
+     */
+    ipcMain.handle('save-local-shopee-offers', async (event, payload) => {
+        try {
+            const {
+                username = getActiveLocalUsername(),
+                offers = [],
+                sourceUrl = 'https://affiliate.shopee.vn/offer/product_offer',
+                reconcile = false,
+                activeIds = []
+            } = payload || {};
+            const shouldReconcile = reconcile === true && Array.isArray(activeIds) && activeIds.length > 0;
+            if ((!Array.isArray(offers) || offers.length === 0) && !shouldReconcile) {
+                return { success: true, saved: 0, pruned: 0, totalInDb: 0 };
+            }
+
+            const db = getArticlesDatabase(username);
+            const now = new Date().toISOString();
+
+            // Đọc trước danh sách images/attributes/variations/description hiện có của batch để gộp thông minh (không bao giờ ghi đè mất ảnh gallery/chi tiết cũ)
+            const existingDetailMap = new Map();
+            if (Array.isArray(offers) && offers.length > 0) {
+                const batchIds = [];
+                for (const raw of offers) {
+                    if (!raw || typeof raw !== 'object') continue;
+                    const itemId = String(raw.item_id || raw.itemId || '').trim();
+                    const shopId = String(raw.shop_id || raw.shopId || '').trim();
+                    const productName = String(raw.product_name || raw.productName || raw.name || '').trim();
+                    const productLink = String(raw.product_link || raw.productLink || '').trim() ||
+                        (shopId && itemId ? `https://shopee.vn/product/${shopId}/${itemId}` : '');
+                    if (!itemId && !productName && !productLink) continue;
+                    const id = String(raw._id || raw.id || '').trim() ||
+                        (itemId ? (shopId ? `offer_${shopId}_${itemId}` : `offer_${itemId}`) : `offer_h_${crypto.createHash('sha1').update(productLink || productName).digest('hex').slice(0, 20)}`);
+                    batchIds.push(id);
+                }
+                const uniqueBatchIds = Array.from(new Set(batchIds));
+                for (let ci = 0; ci < uniqueBatchIds.length; ci += 200) {
+                    const chunk = uniqueBatchIds.slice(ci, ci + 200);
+                    const placeholders = chunk.map(() => '?').join(',');
+                    const rows = await new Promise((resolve) => {
+                        db.all(
+                            `SELECT id, images, attributes, variations, description FROM local_shopee_offers WHERE username = ? AND id IN (${placeholders})`,
+                            [username, ...chunk],
+                            (err, r) => resolve(!err && Array.isArray(r) ? r : [])
+                        );
+                    });
+                    for (const r of rows) {
+                        let imgs = [];
+                        let attrs = [];
+                        let vars = [];
+                        try { imgs = JSON.parse(r.images || '[]'); } catch (_) {}
+                        try { attrs = JSON.parse(r.attributes || '[]'); } catch (_) {}
+                        try { vars = JSON.parse(r.variations || '[]'); } catch (_) {}
+                        existingDetailMap.set(r.id, {
+                            images: Array.isArray(imgs) ? imgs : [],
+                            attributes: Array.isArray(attrs) ? attrs : [],
+                            variations: Array.isArray(vars) ? vars : [],
+                            description: typeof r.description === 'string' ? r.description : '',
+                        });
+                    }
+                }
+            }
+
+            const savedCount = (Array.isArray(offers) && offers.length > 0) ? await new Promise((resolve, reject) => {
+                db.serialize(() => {
+                    db.run('BEGIN TRANSACTION');
+                    const stmt = db.prepare(`
+                        INSERT INTO local_shopee_offers (
+                            id, item_id, shop_id, username, product_name, shop_name,
+                            price, price_min, price_max, original_price,
+                            commission_rate, commission_amount, seller_commission_rate, shopee_commission_rate,
+                            sales, rating_star, image_url, images, attributes, variations, description,
+                            product_link, offer_link, short_link,
+                            category_id, category_name, offer_id, offer_type,
+                            period_start_time, period_end_time, source_url,
+                            synced_at, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(id) DO UPDATE SET
+                            product_name = CASE WHEN excluded.product_name != '' THEN excluded.product_name ELSE local_shopee_offers.product_name END,
+                            shop_name = CASE WHEN excluded.shop_name != '' THEN excluded.shop_name ELSE local_shopee_offers.shop_name END,
+                            price = CASE WHEN excluded.price > 0 THEN excluded.price ELSE local_shopee_offers.price END,
+                            price_min = CASE WHEN excluded.price_min > 0 THEN excluded.price_min ELSE local_shopee_offers.price_min END,
+                            price_max = CASE WHEN excluded.price_max > 0 THEN excluded.price_max ELSE local_shopee_offers.price_max END,
+                            original_price = CASE WHEN excluded.original_price > 0 THEN excluded.original_price ELSE local_shopee_offers.original_price END,
+                            commission_rate = CASE WHEN excluded.commission_rate > 0 THEN excluded.commission_rate ELSE local_shopee_offers.commission_rate END,
+                            commission_amount = CASE WHEN excluded.commission_amount > 0 THEN excluded.commission_amount ELSE local_shopee_offers.commission_amount END,
+                            seller_commission_rate = CASE WHEN excluded.seller_commission_rate > 0 THEN excluded.seller_commission_rate ELSE local_shopee_offers.seller_commission_rate END,
+                            shopee_commission_rate = CASE WHEN excluded.shopee_commission_rate > 0 THEN excluded.shopee_commission_rate ELSE local_shopee_offers.shopee_commission_rate END,
+                            sales = CASE WHEN excluded.sales > 0 THEN excluded.sales ELSE local_shopee_offers.sales END,
+                            rating_star = CASE WHEN excluded.rating_star > 0 THEN excluded.rating_star ELSE local_shopee_offers.rating_star END,
+                            image_url = CASE WHEN excluded.image_url != '' THEN excluded.image_url ELSE local_shopee_offers.image_url END,
+                            images = CASE WHEN excluded.images != '' AND excluded.images != '[]' THEN excluded.images ELSE local_shopee_offers.images END,
+                            attributes = CASE WHEN excluded.attributes != '' AND excluded.attributes != '[]' THEN excluded.attributes ELSE local_shopee_offers.attributes END,
+                            variations = CASE WHEN excluded.variations != '' AND excluded.variations != '[]' THEN excluded.variations ELSE local_shopee_offers.variations END,
+                            description = CASE WHEN length(excluded.description) > length(COALESCE(local_shopee_offers.description, '')) THEN excluded.description ELSE local_shopee_offers.description END,
+                            product_link = CASE WHEN excluded.product_link != '' THEN excluded.product_link ELSE local_shopee_offers.product_link END,
+                            offer_link = CASE WHEN excluded.offer_link != '' THEN excluded.offer_link ELSE local_shopee_offers.offer_link END,
+                            short_link = CASE WHEN excluded.short_link != '' THEN excluded.short_link ELSE local_shopee_offers.short_link END,
+                            category_id = CASE WHEN excluded.category_id != '' THEN excluded.category_id ELSE local_shopee_offers.category_id END,
+                            category_name = CASE WHEN excluded.category_name != '' THEN excluded.category_name ELSE local_shopee_offers.category_name END,
+                            offer_id = CASE WHEN excluded.offer_id != '' THEN excluded.offer_id ELSE local_shopee_offers.offer_id END,
+                            offer_type = CASE WHEN excluded.offer_type != '' THEN excluded.offer_type ELSE local_shopee_offers.offer_type END,
+                            period_start_time = CASE WHEN excluded.period_start_time > 0 THEN excluded.period_start_time ELSE local_shopee_offers.period_start_time END,
+                            period_end_time = CASE WHEN excluded.period_end_time > 0 THEN excluded.period_end_time ELSE local_shopee_offers.period_end_time END,
+                            source_url = excluded.source_url,
+                            synced_at = excluded.synced_at,
+                            updated_at = excluded.updated_at
+                    `);
+
+                    let count = 0;
+                    for (const raw of offers) {
+                        if (!raw || typeof raw !== 'object') continue;
+                        const itemId = String(raw.item_id || raw.itemId || '').trim();
+                        const shopId = String(raw.shop_id || raw.shopId || '').trim();
+                        const productName = String(raw.product_name || raw.productName || raw.name || '').trim();
+                        const productLink = String(raw.product_link || raw.productLink || '').trim() ||
+                            (shopId && itemId ? `https://shopee.vn/product/${shopId}/${itemId}` : '');
+                        const offerLink = String(raw.offer_link || raw.offerLink || raw.short_link || '').trim() || productLink;
+                        if (!itemId && !productName && !productLink) continue;
+
+                        const id = String(raw._id || raw.id || '').trim() ||
+                            (itemId ? (shopId ? `offer_${shopId}_${itemId}` : `offer_${itemId}`) : `offer_h_${crypto.createHash('sha1').update(productLink || productName).digest('hex').slice(0, 20)}`);
+
+                        const prevDetail = existingDetailMap.get(id) || { images: [], attributes: [], variations: [], description: '' };
+                        const imgUrlStr = String(raw.image_url || raw.imageUrl || '').trim();
+                        const mergedImages = mergeShopeeImageList(
+                            Array.isArray(raw.images) ? raw.images : [],
+                            prevDetail.images,
+                            imgUrlStr
+                        );
+                        const mergedAttrs = (Array.isArray(raw.attributes) && raw.attributes.length > 0)
+                            ? raw.attributes.slice(0, 40)
+                            : prevDetail.attributes;
+                        const mergedVars = (Array.isArray(raw.variations) && raw.variations.length > 0)
+                            ? raw.variations.slice(0, 10)
+                            : prevDetail.variations;
+                        const incomingDesc = typeof raw.description === 'string' ? raw.description.trim().slice(0, 8000) : '';
+                        const mergedDesc = incomingDesc.length >= prevDetail.description.length ? incomingDesc : prevDetail.description;
+
+                        stmt.run(
+                            id,
+                            itemId,
+                            shopId,
+                            username,
+                            productName || `Sản phẩm Shopee #${itemId}`,
+                            String(raw.shop_name || raw.shopName || '').trim(),
+                            Number(raw.price) || 0,
+                            Number(raw.price_min ?? raw.priceMin ?? raw.price) || 0,
+                            Number(raw.price_max ?? raw.priceMax ?? raw.price) || 0,
+                            Number(raw.original_price ?? raw.originalPrice) || 0,
+                            Number(raw.commission_rate ?? raw.commissionRate) || 0,
+                            Number(raw.commission_amount ?? raw.commissionAmount) || 0,
+                            Number(raw.seller_commission_rate ?? raw.sellerCommissionRate) || 0,
+                            Number(raw.shopee_commission_rate ?? raw.shopeeCommissionRate) || 0,
+                            Math.max(0, Math.round(Number(raw.sales) || 0)),
+                            Number(raw.rating_star ?? raw.ratingStar) || 0,
+                            imgUrlStr,
+                            JSON.stringify(mergedImages),
+                            JSON.stringify(mergedAttrs),
+                            JSON.stringify(mergedVars),
+                            mergedDesc,
+                            productLink,
+                            offerLink,
+                            String(raw.short_link || raw.shortLink || '').trim(),
+                            String(raw.category_id || raw.categoryId || '').trim(),
+                            String(raw.category_name || raw.categoryName || '').trim(),
+                            String(raw.offer_id || raw.offerId || '').trim(),
+                            String(raw.offer_type || raw.offerType || 'product_offer').trim(),
+                            Math.max(0, Math.round(Number(raw.period_start_time ?? raw.periodStartTime) || 0)),
+                            Math.max(0, Math.round(Number(raw.period_end_time ?? raw.periodEndTime) || 0)),
+                            String(raw.source_url || sourceUrl || '').trim(),
+                            now,
+                            raw.createdAt || raw.created_at || now,
+                            now
+                        );
+                        count += 1;
+                    }
+
+                    stmt.finalize((finErr) => {
+                        if (finErr) {
+                            db.run('ROLLBACK');
+                            return reject(finErr);
+                        }
+                        db.run('COMMIT', (comErr) => {
+                            if (comErr) return reject(comErr);
+                            resolve(count);
+                        });
+                    });
+                });
+            }) : 0;
+
+            let pruned = 0;
+            if (shouldReconcile) {
+                const activeSet = new Set(activeIds.map((x) => String(x || '').trim()).filter(Boolean));
+                const existingRows = await new Promise((resolve) => {
+                    db.all('SELECT id FROM local_shopee_offers WHERE username = ?', [username], (err, rows) => {
+                        resolve(!err && rows ? rows : []);
+                    });
+                });
+                const staleIds = existingRows.map((r) => r.id).filter((id) => !activeSet.has(id));
+                if (staleIds.length > 0) {
+                    await new Promise((resolve, reject) => {
+                        db.serialize(() => {
+                            db.run('BEGIN TRANSACTION');
+                            const delStmt = db.prepare('DELETE FROM local_shopee_offers WHERE id = ? AND username = ?');
+                            for (const sid of staleIds) {
+                                delStmt.run(sid, username);
+                            }
+                            delStmt.finalize((finErr) => {
+                                if (finErr) {
+                                    db.run('ROLLBACK');
+                                    return reject(finErr);
+                                }
+                                db.run('COMMIT', (comErr) => (comErr ? reject(comErr) : resolve()));
+                            });
+                        });
+                    });
+                    pruned = staleIds.length;
+                }
+            }
+
+            const totalInDb = await new Promise((resolve) => {
+                db.get('SELECT COUNT(*) as cnt FROM local_shopee_offers WHERE username = ?', [username], (err, row) => {
+                    resolve(!err && row ? row.cnt : 0);
+                });
+            });
+
+            return { success: true, saved: savedCount, pruned, totalInDb };
+        } catch (e) {
+            console.error('[save-local-shopee-offers] Lỗi:', e);
+            return { success: false, error: e.message };
+        }
+    });
+
+    /**
+     * Đọc danh sách sản phẩm Shopee Affiliate Offer từ SQLite cục bộ của tài khoản
+     */
+    ipcMain.handle('list-local-shopee-offers', async (event, payload) => {
+        try {
+            const {
+                username = getActiveLocalUsername(),
+                keyword = '',
+                sortBy = 'updatedAt',
+                page = {}
+            } = payload || {};
+            const pageNumber = Math.max(0, parseInt(page.pageNumber, 10) || 0);
+            const size = Math.min(500, Math.max(1, parseInt(page.size, 10) || 50));
+            const db = getArticlesDatabase(username);
+
+            const orderMap = {
+                commission_rate: 'commission_rate DESC, sales DESC',
+                commission_amount: 'commission_amount DESC, sales DESC',
+                sales: 'sales DESC, commission_rate DESC',
+                price_asc: 'price ASC',
+                price_desc: 'price DESC',
+                updatedAt: 'updated_at DESC'
+            };
+            const orderClause = orderMap[sortBy] || 'updated_at DESC';
+
+            const trimmedKw = String(keyword || '').trim().toLowerCase();
+            const whereParts = ['username = ?'];
+            const params = [username];
+            if (trimmedKw) {
+                whereParts.push('(LOWER(product_name) LIKE ? OR LOWER(shop_name) LIKE ? OR item_id LIKE ? OR LOWER(product_link) LIKE ?)');
+                const likeVal = `%${trimmedKw}%`;
+                params.push(likeVal, likeVal, likeVal, likeVal);
+            }
+            const whereSql = whereParts.join(' AND ');
+
+            const totalDocs = await new Promise((resolve) => {
+                db.get(`SELECT COUNT(*) as cnt FROM local_shopee_offers WHERE ${whereSql}`, params, (err, row) => {
+                    resolve(!err && row ? row.cnt : 0);
+                });
+            });
+
+            const rows = await new Promise((resolve, reject) => {
+                db.all(
+                    `SELECT * FROM local_shopee_offers WHERE ${whereSql} ORDER BY ${orderClause} LIMIT ? OFFSET ?`,
+                    [...params, size, pageNumber * size],
+                    (err, resultRows) => (err ? reject(err) : resolve(resultRows || []))
+                );
+            });
+
+            const docs = rows.map(formatLocalShopeeOfferRow);
+
+            return {
+                success: true,
+                data: {
+                    docs,
+                    totalDocs,
+                    page: pageNumber,
+                    size
+                }
+            };
+        } catch (e) {
+            console.error('[list-local-shopee-offers] Lỗi:', e);
+            return { success: false, error: e.message, data: { docs: [], totalDocs: 0, page: 0, size: 50 } };
+        }
+    });
+
+    /**
+     * Đọc đầy đủ 1 sản phẩm Shopee Offer từ SQLite cục bộ theo id hoặc itemId (kèm toàn bộ images/attributes/variations/description)
+     */
+    ipcMain.handle('get-local-shopee-offer', async (event, payload) => {
+        try {
+            const {
+                username = getActiveLocalUsername(),
+                id = '',
+                itemId = '',
+                shopId = '',
+            } = payload || {};
+            const db = getArticlesDatabase(username);
+            const cleanId = String(id || '').trim() || (shopId && itemId ? `offer_${shopId}_${itemId}` : '');
+            const cleanItemId = String(itemId || '').trim();
+
+            let row = null;
+            if (cleanId) {
+                row = await new Promise((resolve) => {
+                    db.get(
+                        'SELECT * FROM local_shopee_offers WHERE id = ? AND username = ? LIMIT 1',
+                        [cleanId, username],
+                        (err, r) => resolve(!err && r ? r : null)
+                    );
+                });
+            }
+            if (!row && cleanItemId) {
+                row = await new Promise((resolve) => {
+                    db.get(
+                        'SELECT * FROM local_shopee_offers WHERE item_id = ? AND username = ? ORDER BY updated_at DESC LIMIT 1',
+                        [cleanItemId, username],
+                        (err, r) => resolve(!err && r ? r : null)
+                    );
+                });
+            }
+            if (!row) {
+                return { success: true, data: null };
+            }
+            return { success: true, data: formatLocalShopeeOfferRow(row) };
+        } catch (e) {
+            return { success: false, error: e.message, data: null };
+        }
+    });
+
+    /**
+     * Lấy hàng loạt dữ liệu chi tiết cục bộ (images/attributes/variations/description) theo danh sách id/itemIds để gộp vào kết quả từ Server
+     */
+    ipcMain.handle('get-local-shopee-offers-by-ids', async (event, payload) => {
+        try {
+            const {
+                username = getActiveLocalUsername(),
+                ids = [],
+                itemIds = [],
+            } = payload || {};
+            const cleanIds = Array.isArray(ids) ? Array.from(new Set(ids.map((x) => String(x || '').trim()).filter(Boolean))) : [];
+            const cleanItemIds = Array.isArray(itemIds) ? Array.from(new Set(itemIds.map((x) => String(x || '').trim()).filter(Boolean))) : [];
+            if (cleanIds.length === 0 && cleanItemIds.length === 0) {
+                return { success: true, data: [] };
+            }
+
+            const db = getArticlesDatabase(username);
+            const resultMap = new Map();
+
+            for (let i = 0; i < cleanIds.length; i += 200) {
+                const chunk = cleanIds.slice(i, i + 200);
+                const placeholders = chunk.map(() => '?').join(',');
+                const rows = await new Promise((resolve) => {
+                    db.all(
+                        `SELECT * FROM local_shopee_offers WHERE username = ? AND id IN (${placeholders})`,
+                        [username, ...chunk],
+                        (err, r) => resolve(!err && Array.isArray(r) ? r : [])
+                    );
+                });
+                for (const r of rows) resultMap.set(r.id, formatLocalShopeeOfferRow(r));
+            }
+
+            for (let i = 0; i < cleanItemIds.length; i += 200) {
+                const chunk = cleanItemIds.slice(i, i + 200);
+                const placeholders = chunk.map(() => '?').join(',');
+                const rows = await new Promise((resolve) => {
+                    db.all(
+                        `SELECT * FROM local_shopee_offers WHERE username = ? AND item_id IN (${placeholders})`,
+                        [username, ...chunk],
+                        (err, r) => resolve(!err && Array.isArray(r) ? r : [])
+                    );
+                });
+                for (const r of rows) {
+                    if (!resultMap.has(r.id)) resultMap.set(r.id, formatLocalShopeeOfferRow(r));
+                }
+            }
+
+            return { success: true, data: Array.from(resultMap.values()) };
+        } catch (e) {
+            return { success: false, error: e.message, data: [] };
+        }
+    });
+
+    /**
+     * Lưu danh sách toàn bộ hình ảnh, chi tiết (attributes/variations) và mô tả sản phẩm Shopee đã tải về cho 1 offer vào SQLite cục bộ
+     * Hỗ trợ gộp thông minh không làm mất ảnh cũ và tự động thêm mới nếu offer chưa có trong SQLite
+     */
+    ipcMain.handle('update-local-shopee-offer-images', async (event, payload) => {
+        try {
+            const {
+                username = getActiveLocalUsername(),
+                id = '',
+                itemId = '',
+                shopId = '',
+                productName = '',
+                imageUrl = '',
+                productLink = '',
+                offerLink = '',
+                price = 0,
+                images = [],
+                attributes = null,
+                variations = null,
+                description = null,
+            } = payload || {};
+            const cleanImages = Array.isArray(images)
+                ? Array.from(new Set(images.map((u) => String(u || '').trim()).filter(Boolean))).slice(0, 30)
+                : [];
+            const hasAttrs = Array.isArray(attributes) && attributes.length > 0;
+            const hasVars = Array.isArray(variations) && variations.length > 0;
+            const hasDesc = typeof description === 'string' && description.trim().length > 0;
+
+            if (cleanImages.length === 0 && !hasAttrs && !hasVars && !hasDesc) {
+                return { success: true, updated: 0 };
+            }
+
+            const db = getArticlesDatabase(username);
+            const targetId = String(id || '').trim() || (shopId && itemId ? `offer_${shopId}_${itemId}` : (itemId ? `offer_${itemId}` : ''));
+            const cleanItemId = String(itemId || '').trim();
+            const now = new Date().toISOString();
+
+            let existingRow = null;
+            if (targetId) {
+                existingRow = await new Promise((resolve) => {
+                    db.get(
+                        'SELECT * FROM local_shopee_offers WHERE id = ? AND username = ? LIMIT 1',
+                        [targetId, username],
+                        (err, r) => resolve(!err && r ? r : null)
+                    );
+                });
+            }
+            if (!existingRow && cleanItemId) {
+                existingRow = await new Promise((resolve) => {
+                    db.get(
+                        'SELECT * FROM local_shopee_offers WHERE item_id = ? AND username = ? ORDER BY updated_at DESC LIMIT 1',
+                        [cleanItemId, username],
+                        (err, r) => resolve(!err && r ? r : null)
+                    );
+                });
+            }
+
+            let prevImgs = [];
+            let prevAttrs = [];
+            let prevVars = [];
+            let prevDesc = '';
+            if (existingRow) {
+                try { prevImgs = JSON.parse(existingRow.images || '[]'); } catch (_) {}
+                try { prevAttrs = JSON.parse(existingRow.attributes || '[]'); } catch (_) {}
+                try { prevVars = JSON.parse(existingRow.variations || '[]'); } catch (_) {}
+                prevDesc = typeof existingRow.description === 'string' ? existingRow.description : '';
+            }
+
+            const mergedImages = mergeShopeeImageList(cleanImages, prevImgs, imageUrl || existingRow?.image_url || '');
+            const mergedAttrs = hasAttrs ? attributes.slice(0, 40) : (Array.isArray(prevAttrs) ? prevAttrs : []);
+            const mergedVars = hasVars ? variations.slice(0, 10) : (Array.isArray(prevVars) ? prevVars : []);
+            const incomingDesc = hasDesc ? description.trim().slice(0, 8000) : '';
+            const mergedDesc = incomingDesc.length >= prevDesc.length ? incomingDesc : prevDesc;
+
+            if (existingRow) {
+                await new Promise((resolve) => {
+                    db.run(
+                        `UPDATE local_shopee_offers
+                         SET images = ?, attributes = ?, variations = ?, description = ?, updated_at = ?
+                         WHERE id = ? AND username = ?`,
+                        [
+                            JSON.stringify(mergedImages),
+                            JSON.stringify(mergedAttrs),
+                            JSON.stringify(mergedVars),
+                            mergedDesc,
+                            now,
+                            existingRow.id,
+                            username,
+                        ],
+                        () => resolve()
+                    );
+                });
+                return { success: true, updated: mergedImages.length };
+            }
+
+            if (targetId) {
+                await new Promise((resolve) => {
+                    db.run(
+                        `INSERT OR IGNORE INTO local_shopee_offers (
+                            id, item_id, shop_id, username, product_name, price,
+                            image_url, images, attributes, variations, description,
+                            product_link, offer_link, synced_at, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [
+                            targetId,
+                            cleanItemId,
+                            String(shopId || '').trim(),
+                            username,
+                            String(productName || '').trim() || `Sản phẩm Shopee #${cleanItemId}`,
+                            Number(price) || 0,
+                            String(imageUrl || mergedImages[0] || '').trim(),
+                            JSON.stringify(mergedImages),
+                            JSON.stringify(mergedAttrs),
+                            JSON.stringify(mergedVars),
+                            mergedDesc,
+                            String(productLink || '').trim(),
+                            String(offerLink || productLink || '').trim(),
+                            now,
+                            now,
+                            now,
+                        ],
+                        () => resolve()
+                    );
+                });
+            }
+            return { success: true, updated: mergedImages.length };
+        } catch (e) {
+            return { success: false, error: e.message };
         }
     });
 }

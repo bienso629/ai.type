@@ -1,5 +1,9 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
+import { Clipboard } from '@angular/cdk/clipboard';
+import { CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
+import { MatDialog } from '@angular/material/dialog';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { UserService } from 'app/core/user/user.service';
@@ -7,6 +11,13 @@ import { User } from 'app/core/user/user.types';
 import { MultiAccountService } from 'app/_services/multi-account.service';
 import { UserClientService } from 'app/_services/user';
 import { UserSettingsService, getSettings, saveSettingsPartial, updateUserSettingsCache } from 'app/_services/user-settings.service';
+import { ShopeeOfferItem, ShopeeOffersService, ShopeeOfferSyncState } from 'app/_services/shopee-offers.service';
+import { AffiliateLivestreamService } from 'app/_services/affiliate-livestream.service';
+import {
+    AffiliateLivestreamDialogComponent,
+    AffiliateLivestreamDialogData,
+    AffiliateLivestreamDialogResult,
+} from './dialogs/affiliate-livestream-dialog.component';
 
 @Component({
     selector: 'settings-affiliate',
@@ -26,7 +37,35 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
     showLazadaSecret = false;
     showTiktokSecret = false;
 
+    // Kho sản phẩm Shopee Affiliate Offer đã đồng bộ trong database collection của tài khoản
+    @ViewChild(CdkVirtualScrollViewport) offerViewport?: CdkVirtualScrollViewport;
+    shopeeOffers: ShopeeOfferItem[] = [];
+    offerTotalDocs = 0;
+    offerLoading = false;
+    offerLoadingMore = false;
+    offerKeyword = '';
+    offerSortBy = 'updatedAt';
+    offerPage = 0;
+    readonly offerPageSize = 50;
+    readonly offerRowHeight = 104;
+    offerSource: 'server' | 'local' = 'server';
+    shopeeSyncState: ShopeeOfferSyncState;
+
+    get hasMoreOffers(): boolean {
+        return this.shopeeOffers.length < this.offerTotalDocs;
+    }
+
+    trackByOfferId(index: number, item: ShopeeOfferItem): string {
+        return item?._id || item?.id || item?.item_id || String(index);
+    }
+
     private _unsubscribeAll: Subject<any> = new Subject<any>();
+    private _pendingOfferReload = false;
+    private readonly _onOffersSynced = () => {
+        this._ngZone.run(() => {
+            this.loadShopeeOffers(true);
+        });
+    };
 
     constructor(
         private _formBuilder: UntypedFormBuilder,
@@ -34,9 +73,18 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
         private _userClientService: UserClientService,
         private _userSettingsService: UserSettingsService,
         private _multiAccountService: MultiAccountService,
+        private _shopeeOffersService: ShopeeOffersService,
+        private _affiliateLivestreamService: AffiliateLivestreamService,
+        private _matDialog: MatDialog,
+        private _router: Router,
+        private _activatedRoute: ActivatedRoute,
+        private _clipboard: Clipboard,
         private _toastr: ToastrService,
-        private _cdr: ChangeDetectorRef
-    ) {}
+        private _cdr: ChangeDetectorRef,
+        private _ngZone: NgZone
+    ) {
+        this.shopeeSyncState = this._shopeeOffersService.currentState;
+    }
 
     ngOnInit(): void {
         // Khởi tạo đồng bộ FormGroup ngay từ đầu để tránh lỗi NG01052
@@ -71,7 +119,21 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
                 this._cdr.markForCheck();
+                if (user?.name) {
+                    this.loadShopeeOffers(true);
+                }
             });
+
+        this._shopeeOffersService.syncState$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((st) => {
+                this._ngZone.run(() => {
+                    this.shopeeSyncState = st;
+                    this._cdr.markForCheck();
+                });
+            });
+
+        window.addEventListener('shopee-offers-synced', this._onOffersSynced);
 
         this.loadAffiliateSettings();
 
@@ -88,6 +150,27 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
                     this.affiliateForm.patchValue(settings.affiliate, { emitEvent: false });
                     this._multiAccountService.setItem('affiliate_config', settings.affiliate);
                     this._cdr.markForCheck();
+                }
+            });
+
+        // Nếu người dùng quay lại từ màn hình kiểm thử Livestream để sửa kịch bản -> tự động mở lại dialog sản phẩm đó
+        this._activatedRoute.queryParams
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((params) => {
+                const reopenOfferId = params?.['livestreamOffer'];
+                if (reopenOfferId) {
+                    const draft = this._affiliateLivestreamService.loadDraftByOfferId(reopenOfferId);
+                    if (draft?.product) {
+                        this._router.navigate([], {
+                            relativeTo: this._activatedRoute,
+                            queryParams: { livestreamOffer: null },
+                            queryParamsHandling: 'merge',
+                            replaceUrl: true,
+                        });
+                        setTimeout(() => {
+                            this.openLivestreamScriptDialog(draft.product);
+                        }, 150);
+                    }
                 }
             });
     }
@@ -169,7 +252,222 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
             });
     }
 
+    async loadShopeeOffers(reset = true): Promise<void> {
+        if (reset) {
+            if (this.offerLoading) {
+                this._pendingOfferReload = true;
+                return;
+            }
+            this._pendingOfferReload = false;
+            this.offerPage = 0;
+            this.offerLoading = true;
+            this.offerLoadingMore = false;
+        } else {
+            if (this.offerLoading || this.offerLoadingMore || !this.hasMoreOffers) return;
+            this.offerLoadingMore = true;
+        }
+        this._cdr.markForCheck();
+
+        try {
+            const username =
+                this.user?.name ||
+                this._multiAccountService.getItem('username') ||
+                localStorage.getItem('username') ||
+                'admin';
+            const res = await this._shopeeOffersService.listOffers({
+                username,
+                keyword: this.offerKeyword,
+                sortBy: this.offerSortBy,
+                pageNumber: this.offerPage,
+                size: this.offerPageSize,
+            });
+            const incoming = res.docs || [];
+            if (reset) {
+                this.shopeeOffers = incoming;
+                setTimeout(() => {
+                    this.offerViewport?.scrollToIndex(0);
+                    this.offerViewport?.checkViewportSize();
+                }, 0);
+            } else {
+                const seen = new Set(this.shopeeOffers.map((x) => x._id || x.id));
+                const next = incoming.filter((x) => !seen.has(x._id || x.id));
+                this.shopeeOffers = [...this.shopeeOffers, ...next];
+                setTimeout(() => {
+                    this.offerViewport?.checkViewportSize();
+                }, 0);
+            }
+            this.offerTotalDocs = res.totalDocs || this.shopeeOffers.length;
+            this.offerSource = res.source;
+        } catch (_) {
+            // Giữ trạng thái hiện tại
+        } finally {
+            this.offerLoading = false;
+            this.offerLoadingMore = false;
+            this._cdr.markForCheck();
+            if (this._pendingOfferReload) {
+                this._pendingOfferReload = false;
+                setTimeout(() => this.loadShopeeOffers(true), 120);
+            }
+        }
+    }
+
+    loadMoreShopeeOffers(): void {
+        if (this.offerLoading || this.offerLoadingMore || !this.hasMoreOffers) return;
+        this.offerPage += 1;
+        this.loadShopeeOffers(false);
+    }
+
+    onOffersScrolled(): void {
+        if (!this.offerViewport || this.offerLoading || this.offerLoadingMore || !this.hasMoreOffers) {
+            return;
+        }
+        const renderedRange = this.offerViewport.getRenderedRange();
+        const bottomOffset = this.offerViewport.measureScrollOffset('bottom');
+        const totalLoaded = this.shopeeOffers.length;
+        if (totalLoaded > 0 && (bottomOffset <= 260 || renderedRange.end >= totalLoaded - 6)) {
+            this.loadMoreShopeeOffers();
+        }
+    }
+
+    onOffersViewportScroll(event: Event): void {
+        if (this.offerLoading || this.offerLoadingMore || !this.hasMoreOffers) {
+            return;
+        }
+        const el = event?.target as HTMLElement | null;
+        if (el) {
+            const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+            if (distanceToBottom <= 260) {
+                this.loadMoreShopeeOffers();
+                return;
+            }
+        }
+        this.onOffersScrolled();
+    }
+
+    openWebToolsAndSyncShopeeOffers(): void {
+        if (this.shopeeSyncState?.isSyncing) return;
+
+        // Mở Web Tools tới trang Shopee Product Offer
+        window.dispatchEvent(
+            new CustomEvent('open-web-tool', {
+                detail: {
+                    name: 'Shopee Affiliate',
+                    url: 'https://affiliate.shopee.vn/offer/product_offer',
+                },
+            }),
+        );
+
+        const findShopeeWebview = (): any => {
+            const container = document.getElementById('webview-container-div');
+            if (!container) return null;
+            return (
+                Array.from(container.querySelectorAll('webview')).find((wv: any) => {
+                    try {
+                        const u = (typeof wv.getURL === 'function' ? wv.getURL() : '') || wv.getAttribute('src') || '';
+                        return u.toLowerCase().includes('affiliate.shopee.vn');
+                    } catch (_) {
+                        return false;
+                    }
+                }) || null
+            );
+        };
+
+        // Đợi thẻ webview Shopee Affiliate xuất hiện và tải xong trang trước khi tự động đồng bộ
+        const startedAt = Date.now();
+        const tryStartSync = () => {
+            if (this.shopeeSyncState?.isSyncing) return;
+            const wv = findShopeeWebview();
+            if (wv && typeof wv.executeJavaScript === 'function') {
+                let loading = false;
+                try {
+                    loading = typeof wv.isLoading === 'function' ? !!wv.isLoading() : false;
+                } catch (_) {}
+                if (!loading) {
+                    setTimeout(() => {
+                        if (!this.shopeeSyncState?.isSyncing) {
+                            this._shopeeOffersService.syncAllFromWebview(wv);
+                        }
+                    }, 500);
+                    return;
+                }
+            }
+            if (Date.now() - startedAt < 12000) {
+                setTimeout(tryStartSync, 400);
+            } else {
+                this._toastr.info(
+                    'Đã mở trang Shopee Product Offer trên Web Tools. Sau khi trang tải xong, hãy bấm nút "Đồng bộ sản phẩm offer" trên thanh tiêu đề cửa sổ Web Tools.',
+                    'Đồng bộ Shopee Offer',
+                    { timeOut: 7000 },
+                );
+            }
+        };
+        setTimeout(tryStartSync, 500);
+    }
+
+    hasLivestreamDraft(item: ShopeeOfferItem): boolean {
+        return this._affiliateLivestreamService.hasDraft(item);
+    }
+
+    openLivestreamScriptDialog(item: ShopeeOfferItem): void {
+        const username =
+            this.user?.name ||
+            this._multiAccountService.getItem('username') ||
+            localStorage.getItem('username') ||
+            'admin';
+
+        const dialogRef = this._matDialog.open<
+            AffiliateLivestreamDialogComponent,
+            AffiliateLivestreamDialogData,
+            AffiliateLivestreamDialogResult
+        >(AffiliateLivestreamDialogComponent, {
+            width: '94vw',
+            maxWidth: '1180px',
+            maxHeight: '90vh',
+            panelClass: ['dialog-no-padding'],
+            autoFocus: false,
+            data: {
+                product: item,
+                username,
+                ctaTemplate: this.affiliateForm?.get('shopeeCtaTemplate')?.value || '',
+            },
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            this._cdr.markForCheck();
+            if (result?.action === 'preview' && result.uuid) {
+                this._router.navigate(['/livestream', result.uuid], {
+                    queryParams: { mode: 'preview' },
+                });
+            }
+        });
+    }
+
+    copyOfferLink(item: ShopeeOfferItem): void {
+        const link = item.short_link || item.offer_link || item.product_link;
+        if (!link) return;
+        this._clipboard.copy(link);
+        this._toastr.success('Đã sao chép đường dẫn sản phẩm Shopee.');
+    }
+
+    openOfferLink(item: ShopeeOfferItem): void {
+        const link = item.offer_link || item.product_link;
+        if (!link) return;
+        const electron = (window as any).electron;
+        if (electron?.openUrlExternal) {
+            electron.openUrlExternal(link);
+        } else {
+            window.open(link, '_blank', 'noopener,noreferrer');
+        }
+    }
+
+    formatVnd(amount: number | undefined): string {
+        const num = Number(amount) || 0;
+        if (num <= 0) return '-';
+        return num.toLocaleString('vi-VN') + ' ₫';
+    }
+
     ngOnDestroy(): void {
+        window.removeEventListener('shopee-offers-synced', this._onOffersSynced);
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
     }

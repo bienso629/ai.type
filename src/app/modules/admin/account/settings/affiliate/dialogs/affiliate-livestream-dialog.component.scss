@@ -1,0 +1,322 @@
+.affiliate-livestream-dialog {
+    width: 100%;
+
+    .mat-mdc-form-field {
+        .mat-mdc-text-field-wrapper:not(.mdc-text-field--no-label) {
+            margin-top: 26px !important;
+        }
+
+        .mat-mdc-floating-label {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+
+    .custom-textarea {
+        textarea {
+            line-height: 1.55;
+        }
+    }
+
+    .brief-textarea {
+        min-height: 160px !important;
+    }
+
+    .subtitle-textarea {
+        min-height: 84px !important;
+    }
+
+    .subtitle-limit-select {
+        margin: 0 !important;
+
+        .mat-mdc-text-field-wrapper {
+            margin-top: 0 !important;
+        }
+
+        .mat-mdc-form-field-subscript-wrapper {
+            display: none !important;
+        }
+    }
+
+    .duration-slider-wrap {
+        width: 100%;
+    }
+
+    .livestream-duration-slider {
+        display: block;
+        width: calc(100% - 16px);
+        margin: 0 8px;
+
+        .mdc-slider__input,
+        input[type="range"][disabled] {
+            opacity: 0 !important;
+        }
+    }
+
+    .duration-scale-bar {
+        position: relative;
+        height: 28px;
+        margin: -2px 8px 0;
+    }
+
+    .duration-scale-tick {
+        position: absolute;
+        top: 0;
+        transform: translateX(-50%);
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        background: transparent;
+        border: 0;
+        padding: 0;
+        cursor: pointer;
+        white-space: nowrap;
+        line-height: 1.2;
+
+        .tick-notch {
+            width: 1px;
+            height: 5px;
+            background-color: currentColor;
+            opacity: 0.45;
+        }
+
+        &.is-first {
+            transform: translateX(0);
+            align-items: flex-start;
+        }
+
+        &.is-last {
+            transform: translateX(-100%);
+            align-items: flex-end;
+        }
+    }
+
+    .btn-save-draft {
+        --mdc-filled-button-container-color: #fef3c7 !important;
+        --mdc-filled-button-label-text-color: #92400e !important;
+        background-color: #fef3c7 !important;
+        color: #92400e !important;
+        border-bottom-color: rgba(180, 83, 9, 0.35) !important;
+
+        &:hover:not(:disabled) {
+            background-color: #fde68a !important;
+        }
+
+        .mat-icon {
+            color: #92400e !important;
+
+            &::after {
+                background-color: rgba(146, 64, 14, 0.28) !important;
+            }
+        }
+    }
+
+    .btn-generate-backdrop {
+        --mdc-filled-button-container-color: #e0f2fe !important;
+        --mdc-filled-button-label-text-color: #0369a1 !important;
+        background-color: #e0f2fe !important;
+        color: #0369a1 !important;
+        border-bottom-color: rgba(3, 105, 161, 0.32) !important;
+
+        &:hover:not(:disabled) {
+            background-color: #bae6fd !important;
+        }
+
+        .mat-icon {
+            color: #0369a1 !important;
+
+            &::after {
+                background-color: rgba(3, 105, 161, 0.28) !important;
+            }
+        }
+    }
+
+    .btn-attach-ref {
+        border: 1px solid rgba(13, 148, 136, 0.35);
+        background-color: rgba(13, 148, 136, 0.08);
+        border-radius: 6px !important;
+
+        &:hover:not(:disabled) {
+            background-color: rgba(13, 148, 136, 0.16);
+        }
+
+        .attach-count-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 4px;
+            border-radius: 9999px;
+            background-color: var(--fuse-primary, #0d9488);
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 18px;
+            text-align: center;
+        }
+    }
+
+    .btn-import-video {
+        width: 32px !important;
+        height: 32px !important;
+        padding: 0 !important;
+        margin-left: -4px;
+        border: 0 !important;
+        background: transparent !important;
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+
+        &:hover:not(:disabled) .mat-icon {
+            color: var(--fuse-primary, #0d9488) !important;
+        }
+    }
+
+    .clip-mini-remove {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        opacity: 0.7;
+        padding: 2px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border-radius: 4px;
+
+        &:hover:not(:disabled) {
+            opacity: 1;
+            color: #dc2626;
+        }
+    }
+
+    .ref-remove-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 22px;
+        height: 22px;
+        border-radius: 9999px;
+        border: 0;
+        background: rgba(15, 23, 42, 0.72);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 0;
+
+        &:hover:not(:disabled) {
+            background: rgba(220, 38, 38, 0.9);
+        }
+    }
+
+    .ref-role-pill {
+        border: 1px solid rgba(13, 148, 136, 0.35);
+        background: rgba(13, 148, 136, 0.08);
+        color: var(--fuse-primary, #0d9488);
+        border-radius: 4px;
+        padding: 2px 8px;
+        line-height: 1.3;
+    }
+
+    .product-gallery-refresh-btn {
+        width: 28px !important;
+        height: 28px !important;
+        padding: 0 !important;
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .product-gallery-item {
+        border: 2px solid transparent;
+        transition: border-color 0.15s ease, transform 0.15s ease;
+
+        &:hover {
+            border-color: rgba(13, 148, 136, 0.5);
+        }
+
+        &.is-selected {
+            border-color: var(--fuse-primary, #0d9488);
+            box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.25);
+        }
+
+        .product-gallery-check {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 18px;
+            height: 18px;
+            border-radius: 9999px;
+            background: rgba(13, 148, 136, 0.92);
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .product-gallery-zoom {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 0;
+            background: rgba(15, 23, 42, 0.72);
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+        }
+    }
+}
+
+.dark .affiliate-livestream-dialog {
+    .btn-save-draft {
+        --mdc-filled-button-container-color: rgba(245, 158, 11, 0.22) !important;
+        --mdc-filled-button-label-text-color: #fde68a !important;
+        background-color: rgba(245, 158, 11, 0.22) !important;
+        color: #fde68a !important;
+        border-bottom-color: rgba(245, 158, 11, 0.45) !important;
+
+        &:hover:not(:disabled) {
+            background-color: rgba(245, 158, 11, 0.32) !important;
+        }
+
+        .mat-icon {
+            color: #fde68a !important;
+
+            &::after {
+                background-color: rgba(253, 230, 138, 0.35) !important;
+            }
+        }
+    }
+
+    .btn-generate-backdrop {
+        --mdc-filled-button-container-color: rgba(14, 165, 233, 0.22) !important;
+        --mdc-filled-button-label-text-color: #bae6fd !important;
+        background-color: rgba(14, 165, 233, 0.22) !important;
+        color: #bae6fd !important;
+        border-bottom-color: rgba(14, 165, 233, 0.45) !important;
+
+        &:hover:not(:disabled) {
+            background-color: rgba(14, 165, 233, 0.32) !important;
+        }
+
+        .mat-icon {
+            color: #bae6fd !important;
+
+            &::after {
+                background-color: rgba(186, 230, 253, 0.35) !important;
+            }
+        }
+    }
+}

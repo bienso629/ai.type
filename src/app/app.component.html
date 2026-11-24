@@ -271,6 +271,66 @@
                     <span>Đăng nhập</span>
                 </button>
             }
+            <!-- Nút Đồng bộ sản phẩm Offer Shopee (hiển thị khi đang mở affiliate.shopee.vn) -->
+            @if (isShopeeAffiliateTool) {
+                <button
+                    (click)="toggleSyncShopeeOffers()"
+                    [title]="
+                        shopeeSyncState.isSyncing
+                            ? 'Dừng đồng bộ và lưu toàn bộ sản phẩm đã thu thập'
+                            : 'Đồng bộ tất cả sản phẩm Offer của Shopee vào database collection của tài khoản'
+                    "
+                    [style.background]="
+                        shopeeSyncState.isSyncing ? '#dc2626' : '#ee4d2d'
+                    "
+                    style="
+                        border: none;
+                        color: #fff;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 5px;
+                        padding: 4px 10px;
+                        border-radius: 5px;
+                        margin-right: 8px;
+                        font-size: 11.5px;
+                        font-weight: 600;
+                        white-space: nowrap;
+                        flex-shrink: 0;
+                    "
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        style="width: 13px; height: 13px"
+                        [class.animate-spin]="shopeeSyncState.isSyncing"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path
+                            d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+                        ></path>
+                    </svg>
+                    <span>{{
+                        shopeeSyncState.isSyncing
+                            ? "Dừng (T" +
+                              shopeeSyncState.currentPage +
+                              (shopeeSyncState.totalPages
+                                  ? "/" + shopeeSyncState.totalPages
+                                  : "") +
+                              " · " +
+                              shopeeSyncState.collectedCount +
+                              " SP)"
+                            : "Đồng bộ sản phẩm offer"
+                    }}</span>
+                </button>
+            }
             <!-- Nút Thu nhỏ (Minimize) -->
             <button
                 (click)="toggleMinimizeWebview()"
@@ -362,6 +422,88 @@
                 </svg>
             </button>
         </div>
+
+        <!-- Thanh trạng thái đồng bộ Shopee Offer -->
+        @if (
+            !isWebviewMinimized &&
+            isShopeeAffiliateTool &&
+            (shopeeSyncState.isSyncing ||
+                shopeeSyncState.lastFinishedMessage ||
+                shopeeSyncState.error)
+        ) {
+            <div
+                style="
+                    background: #1f242d;
+                    border-bottom: 1px solid #333a47;
+                    color: #e5e7eb;
+                    font-size: 12px;
+                    padding: 6px 12px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                "
+            >
+                <span
+                    style="
+                        flex: 1;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    "
+                    [style.color]="
+                        shopeeSyncState.error
+                            ? '#fca5a5'
+                            : shopeeSyncState.isSyncing
+                              ? '#fcd34d'
+                              : '#86efac'
+                    "
+                    [title]="
+                        shopeeSyncState.error ||
+                        shopeeSyncState.statusText ||
+                        shopeeSyncState.lastFinishedMessage
+                    "
+                >
+                    {{
+                        shopeeSyncState.error ||
+                            shopeeSyncState.statusText ||
+                            shopeeSyncState.lastFinishedMessage
+                    }}
+                </span>
+                @if (!shopeeSyncState.isSyncing) {
+                    <button
+                        (click)="openShopeeOffersInSettings()"
+                        style="
+                            background: rgba(238, 77, 45, 0.18);
+                            border: 1px solid rgba(238, 77, 45, 0.5);
+                            color: #fdba74;
+                            cursor: pointer;
+                            padding: 2px 8px;
+                            border-radius: 4px;
+                            font-size: 11px;
+                            font-weight: 600;
+                            white-space: nowrap;
+                        "
+                    >
+                        Xem kho Offer
+                    </button>
+                    <button
+                        (click)="dismissShopeeSyncStatus()"
+                        title="Ẩn thông báo"
+                        style="
+                            background: none;
+                            border: none;
+                            color: #9ca3af;
+                            cursor: pointer;
+                            padding: 0 4px;
+                            font-size: 14px;
+                            line-height: 1;
+                        "
+                    >
+                        ×
+                    </button>
+                }
+            </div>
+        }
 
         <!-- Container cho webview -->
         <div

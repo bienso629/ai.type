@@ -28,6 +28,10 @@ import { LicenseKeyService } from 'app/_services/licensekey';
 
 import { FontService } from './_services/font.service';
 import { GenaiService } from './genai.service';
+import {
+    ShopeeOffersService,
+    ShopeeOfferSyncState,
+} from './_services/shopee-offers.service';
 
 @Component({
     selector: 'app-root',
@@ -72,8 +76,31 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     popupFavicon =
         'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64';
     popupHomeUrl = 'https://gemini.google.com/app?hl=vi';
+    activeWebviewUrl = '';
     isWebviewMobileMode = false;
     private _savedDesktopPopupWidth = 860;
+    shopeeSyncState: ShopeeOfferSyncState = {
+        isSyncing: false,
+        currentPage: 0,
+        totalPages: 0,
+        pagesSynced: 0,
+        collectedCount: 0,
+        savedServerCount: 0,
+        savedLocalCount: 0,
+        totalInDb: 0,
+        statusText: '',
+        lastFinishedMessage: '',
+        error: '',
+    };
+    private readonly _onWebviewUrlChanged = (e: any) => {
+        const nextUrl = e?.detail?.url;
+        if (typeof nextUrl === 'string' && nextUrl) {
+            this.ngZone.run(() => {
+                this.activeWebviewUrl = nextUrl;
+                this.cdr.detectChanges();
+            });
+        }
+    };
 
     // Toggle webview: ẩn/hiện nhanh
     toggleWebview() {
@@ -337,6 +364,52 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         );
     }
 
+    // Kiểm tra xem Web Tools đang mở trang Shopee Affiliate hay không
+    get isShopeeAffiliateTool(): boolean {
+        const url = (this.activeWebviewUrl || this.popupHomeUrl || '').toLowerCase();
+        const title = (this.popupTitle || '').toLowerCase();
+        return (
+            url.includes('affiliate.shopee.') ||
+            url.includes('shopee.vn/offer') ||
+            title.includes('shopee affiliate') ||
+            title.includes('product_offer')
+        );
+    }
+
+    // Bắt đầu hoặc dừng đồng bộ toàn bộ sản phẩm Shopee Offer vào database collection của tài khoản
+    toggleSyncShopeeOffers(): void {
+        if (this.shopeeSyncState.isSyncing) {
+            this._shopeeOffersService.stopSync();
+            return;
+        }
+        const webview = this.getActiveWebview();
+        if (!webview) {
+            this.toastr.warning('Vui lòng mở trang Shopee Affiliate trong Web Tools trước.');
+            return;
+        }
+        this._shopeeOffersService.syncAllFromWebview(webview);
+    }
+
+    dismissShopeeSyncStatus(): void {
+        this._shopeeOffersService.dismissStatusMessage();
+    }
+
+    openShopeeOffersInSettings(): void {
+        this.isWebviewMinimized = true;
+        const popupEl = document.querySelector('.gemini-popup') as HTMLElement;
+        if (popupEl) {
+            popupEl.style.transform = 'none';
+            popupEl.style.height = '40px';
+            popupEl.style.minHeight = '40px';
+            popupEl.style.width = '340px';
+            popupEl.style.top = 'calc(100vh - 54px)';
+            popupEl.style.left = 'calc(100vw - 360px)';
+        }
+        this.router.navigate(['/settings'], {
+            queryParams: { tab: 'affiliate' },
+        });
+    }
+
     // Mở trang đăng nhập Google bằng Chrome thật (Stealth Login)
     async openLoginBrowser() {
         const electron = (window as any).electron;
@@ -496,6 +569,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         private _titleService: Title,
         private _genaiService: GenaiService,
         private _userSettingsService: UserSettingsService,
+        private _shopeeOffersService: ShopeeOffersService,
     ) {
         // Khôi phục tài khoản đang Active và chờ DB nạp xong trước khi đọc settings
         // [Fix 2026-11-10] loadActiveAccount là async (nạp IndexedDB mất vài trăm ms).
@@ -592,7 +666,17 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         }, this._purchasedGroupCheckIntervalMs);
         window.addEventListener('focus', this._onWindowFocusOrOnline);
         window.addEventListener('online', this._onWindowFocusOrOnline);
+        window.addEventListener('webview-url-changed', this._onWebviewUrlChanged);
         document.addEventListener('visibilitychange', this._onVisibilityChange);
+
+        this._shopeeOffersService.syncState$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((st) => {
+                this.ngZone.run(() => {
+                    this.shopeeSyncState = st;
+                    this.cdr.detectChanges();
+                });
+            });
 
         // Lắng nghe sự kiện toggle webview từ main.js qua phím tắt
         if ((window as any).electron) {
@@ -634,6 +718,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
                 if (e.detail.url) {
                     this.popupHomeUrl = e.detail.url;
+                    this.activeWebviewUrl = e.detail.url;
                     try {
                         const domain = new URL(e.detail.url).hostname;
                         this.popupFavicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
@@ -1685,6 +1770,7 @@ if tunnel_url:
         }
         window.removeEventListener('focus', this._onWindowFocusOrOnline);
         window.removeEventListener('online', this._onWindowFocusOrOnline);
+        window.removeEventListener('webview-url-changed', this._onWebviewUrlChanged);
         document.removeEventListener('visibilitychange', this._onVisibilityChange);
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();

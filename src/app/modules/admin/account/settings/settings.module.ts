@@ -9,13 +9,16 @@ import { MatInputModule } from '@angular/material/input';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSliderModule } from '@angular/material/slider';
 import { MatGridListModule } from '@angular/material/grid-list';
 import { MatDialogModule } from '@angular/material/dialog';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { DragDropModule } from '@angular/cdk/drag-drop';
+import { ScrollingModule } from '@angular/cdk/scrolling';
 import { TimelineModule } from "angular-calendar-timeline";
 
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -48,6 +51,7 @@ import { MomoQrDialog } from 'app/modules/admin/account/settings/active/active.c
 import { SettingsPluginsComponent } from 'app/modules/admin/account/settings/plugins/plugins.component';
 import { SettingsFontComponent } from 'app/modules/admin/account/settings/font/font.component';
 import { SettingsAffiliateComponent } from 'app/modules/admin/account/settings/affiliate/affiliate.component';
+import { AffiliateLivestreamDialogComponent } from 'app/modules/admin/account/settings/affiliate/dialogs/affiliate-livestream-dialog.component';
 import { TimeagoModule } from 'ngx-timeago';
 
 @NgModule({
@@ -59,6 +63,7 @@ import { TimeagoModule } from 'ngx-timeago';
         SettingsMoneyComponent,
         SettingsActiveComponent,
         SettingsAffiliateComponent,
+        AffiliateLivestreamDialogComponent,
         SettingsLicenseKeysComponent,
         SettingsCreateLicenseKeyComponent,
         SettingsAdminComponent,
@@ -84,10 +89,13 @@ import { TimeagoModule } from 'ngx-timeago';
         MatTabsModule,
         MatExpansionModule,
         MatSlideToggleModule,
+        MatSliderModule,
         MatAutocompleteModule,
         MatDialogModule,
+        MatProgressBarModule,
         MatGridListModule,
         DragDropModule,
+        ScrollingModule,
 
         MatCheckboxModule,
         MomentDateModule,
