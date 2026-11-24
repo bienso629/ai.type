@@ -114,6 +114,116 @@ function obfuscateFile(inputPath, outputPath, options) {
     fs.writeFileSync(outputPath, obfuscated, 'utf8');
 }
 
+function parseSemverTuple(verStr) {
+    const m = String(verStr || '0.0.0').match(/(\d+)\.(\d+)\.(\d+)/);
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [0, 0, 0];
+}
+
+function compareSemverDesc(a, b) {
+    for (let i = 0; i < 3; i++) {
+        if (b[i] !== a[i]) return b[i] - a[i];
+    }
+    return 0;
+}
+
+function resolveBestNodeGyp() {
+    const candidates = [];
+    if (process.env.NODE_GYP_BIN && fs.existsSync(process.env.NODE_GYP_BIN)) {
+        candidates.push(process.env.NODE_GYP_BIN);
+    }
+
+    // 1. Kiểm tra global node-gyp (ví dụ npm install -g node-gyp@latest trên CI)
+    try {
+        const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+        const gRoot = spawnSync(npmBin, ['root', '-g'], { encoding: 'utf8', shell: process.platform === 'win32', timeout: 10000 });
+        if (gRoot.status === 0 && gRoot.stdout) {
+            const gPath = path.join(gRoot.stdout.trim(), 'node-gyp', 'bin', 'node-gyp.js');
+            if (fs.existsSync(gPath)) candidates.push(gPath);
+        }
+    } catch (_) {}
+
+    // 2. Kiểm tra node-gyp đi kèm sẵn với npm của Node.js (v11+ trên Node 22)
+    const nodeDir = path.dirname(process.execPath);
+    const bundledCandidates = [
+        path.join(nodeDir, 'node_modules', 'npm', 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
+        path.join(nodeDir, '..', 'lib', 'node_modules', 'npm', 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
+        path.join(ROOT_DIR, 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
+        path.join(ROOT_DIR, '..', 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
+    ];
+    for (const p of bundledCandidates) {
+        if (fs.existsSync(p)) candidates.push(p);
+    }
+
+    const unique = Array.from(new Set(candidates.map((p) => path.resolve(p))));
+    const scored = unique.map((binPath) => {
+        let ver = '0.0.0';
+        try {
+            const pkgPath = path.resolve(path.dirname(binPath), '..', 'package.json');
+            ver = JSON.parse(fs.readFileSync(pkgPath, 'utf8')).version || '0.0.0';
+        } catch (_) {}
+        return { binPath, ver, tuple: parseSemverTuple(ver) };
+    });
+
+    scored.sort((a, b) => compareSemverDesc(a.tuple, b.tuple));
+    return scored.length > 0 ? scored[0] : null;
+}
+
+function tryCompileMsvcDirect(destAddon, env) {
+    if (process.platform !== 'win32') return false;
+    const nodeVer = process.versions.node;
+    const cacheRoots = [
+        process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'node-gyp', 'Cache', nodeVer) : '',
+        path.join(os.homedir(), 'AppData', 'Local', 'node-gyp', 'Cache', nodeVer),
+        path.join(os.homedir(), '.cache', 'node-gyp', nodeVer),
+    ].filter(Boolean);
+
+    const cacheDir = cacheRoots.find((d) => fs.existsSync(path.join(d, 'include', 'node', 'node_api.h')));
+    if (!cacheDir) return false;
+
+    const archSub = process.arch === 'arm64' ? 'win-arm64' : (process.arch === 'ia32' ? 'win-x86' : 'win-x64');
+    const nodeLib = path.join(cacheDir, archSub, 'node.lib');
+    const includeDir = path.join(cacheDir, 'include', 'node');
+    if (!fs.existsSync(nodeLib)) return false;
+
+    const srcFile = path.join(NATIVE_VAULT_DIR, 'src', 'vault_core.cc');
+    const objOut = path.join(NATIVE_VAULT_DIR, 'build', 'vault_core.obj');
+    fs.mkdirSync(path.dirname(objOut), { recursive: true });
+
+    console.log(`[compile-bytecode] Thử biên dịch trực tiếp bằng MSVC cl.exe (${archSub})...`);
+    const clRes = spawnSync('cl.exe', [
+        '/nologo', '/LD', '/O2', '/MD', '/GR-', '/std:c++17',
+        '/DNAPI_VERSION=8',
+        '/DNAPI_DISABLE_CPP_EXCEPTIONS',
+        '/DNODE_GYP_MODULE_NAME=vault_core',
+        '/DBUILDING_NODE_EXTENSION',
+        '/D_CRT_SECURE_NO_WARNINGS',
+        `/I${includeDir}`,
+        `/Fo${objOut}`,
+        srcFile,
+        nodeLib,
+        `/Fe:${destAddon}`,
+        '/link', '/DEBUG:NONE', '/OPT:REF', '/OPT:ICF'
+    ], {
+        cwd: NATIVE_VAULT_DIR,
+        env,
+        encoding: 'utf8',
+        maxBuffer: 16 * 1024 * 1024,
+        timeout: 180000,
+    });
+
+    if (clRes.error || clRes.status !== 0 || !fs.existsSync(destAddon)) {
+        const detail = clRes.error ? clRes.error.message : ((clRes.stderr || '') + '\n' + (clRes.stdout || '')).trim();
+        console.warn(`[compile-bytecode] MSVC cl.exe fallback thất bại: ${detail}`);
+        return false;
+    }
+    // Dọn tệp phụ .lib/.exp do MSVC linker tạo cạnh .node
+    for (const ext of ['.lib', '.exp']) {
+        const sideFile = destAddon.replace(/\.node$/i, ext);
+        try { if (fs.existsSync(sideFile)) fs.unlinkSync(sideFile); } catch (_) {}
+    }
+    return true;
+}
+
 function compileNativeVaultCore(masterKey) {
     if (!fs.existsSync(path.join(NATIVE_VAULT_DIR, 'binding.gyp'))) {
         return null;
@@ -141,6 +251,7 @@ function compileNativeVaultCore(masterKey) {
     const fmtArr = (arr) => Array.from(arr).map((v) => '0x' + v.toString(16).padStart(2, '0')).join(',');
     const headerPath = path.join(NATIVE_VAULT_DIR, 'src', 'vault_key_gen.h');
     const buildDir = path.join(NATIVE_VAULT_DIR, 'build');
+    const destAddon = path.join(DIST_DIR, 'vault_core.node');
     const headerSrc = [
         '#pragma once',
         '#include <stdint.h>',
@@ -155,20 +266,16 @@ function compileNativeVaultCore(masterKey) {
     fs.writeFileSync(headerPath, headerSrc, 'utf8');
 
     try {
-        const nodeGypCandidates = [
-            path.join(ROOT_DIR, 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
-            path.join(ROOT_DIR, '..', 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
-        ];
-        const nodeGypJs = nodeGypCandidates.find((p) => fs.existsSync(p));
-        if (!nodeGypJs) {
-            throw new Error('Không tìm thấy node-gyp trong node_modules.');
+        const bestGyp = resolveBestNodeGyp();
+        if (!bestGyp) {
+            throw new Error('Không tìm thấy node-gyp trong hệ thống hoặc node_modules.');
         }
 
         const env = Object.assign({}, process.env);
         delete env.NODE_OPTIONS;
 
-        console.log('[compile-bytecode] Đang biên dịch module native C++ N-API (vault_core.node)...');
-        const res = spawnSync(process.execPath, [nodeGypJs, 'rebuild', '--release'], {
+        console.log(`[compile-bytecode] Đang biên dịch module native C++ N-API (vault_core.node) bằng node-gyp@${bestGyp.ver}...`);
+        const res = spawnSync(process.execPath, [bestGyp.binPath, 'rebuild', '--release'], {
             cwd: NATIVE_VAULT_DIR,
             env,
             encoding: 'utf8',
@@ -176,18 +283,23 @@ function compileNativeVaultCore(masterKey) {
             timeout: 180000,
         });
 
-        if (res.error || res.status !== 0) {
+        let compiledOk = false;
+        if (!res.error && res.status === 0) {
+            const builtAddon = path.join(buildDir, 'Release', 'vault_core.node');
+            if (fs.existsSync(builtAddon)) {
+                fs.copyFileSync(builtAddon, destAddon);
+                compiledOk = true;
+            }
+        }
+
+        if (!compiledOk && process.platform === 'win32') {
+            compiledOk = tryCompileMsvcDirect(destAddon, env);
+        }
+
+        if (!compiledOk) {
             const detail = res.error ? res.error.message : ((res.stderr || '') + '\n' + (res.stdout || '')).trim();
-            throw new Error(`node-gyp rebuild thất bại (status=${res.status}):\n${detail}`);
+            throw new Error(`node-gyp@${bestGyp.ver} rebuild thất bại (status=${res.status}):\n${detail}`);
         }
-
-        const builtAddon = path.join(buildDir, 'Release', 'vault_core.node');
-        if (!fs.existsSync(builtAddon)) {
-            throw new Error(`Không tìm thấy tệp đầu ra ${builtAddon}`);
-        }
-
-        const destAddon = path.join(DIST_DIR, 'vault_core.node');
-        fs.copyFileSync(builtAddon, destAddon);
 
         // Strip thêm ký hiệu cục bộ trên Linux/macOS nếu có công cụ strip
         if (process.platform === 'linux') {

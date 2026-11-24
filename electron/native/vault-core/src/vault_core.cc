@@ -1,3 +1,6 @@
+#if defined(_WIN32) && !defined(_CRT_SECURE_NO_WARNINGS)
+  #define _CRT_SECURE_NO_WARNINGS
+#endif
 #include <node_api.h>
 #include <stdint.h>
 #include <stddef.h>

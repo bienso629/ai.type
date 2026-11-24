@@ -81,6 +81,14 @@ jobs:
           cp dist/edge-tts-win.exe edge-tts-win.exe
           rm -rf build dist/edge-tts-win.exe edge_tts_entry.py edge-tts-win.spec
 
+      - name: Setup MSVC Developer Environment (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install latest node-gyp (VS 2022/2026 support)
+        run: npm install -g node-gyp@latest
+
       - name: Obfuscate Electron source & Build Native C++ Vault
         working-directory: electron
         env:
