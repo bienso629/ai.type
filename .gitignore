@@ -98,6 +98,8 @@ extracted-settings/
 # Secret keys, certificates & env files (khong commit len Git)
 *.p12
 *.pem
+electron/native/vault-core/src/vault_key_gen.h
+electron/native/vault-core/build/
 electron/.env
 electron/ga4-service.json
 electron/scripts/*.cer

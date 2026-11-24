@@ -83,17 +83,33 @@ jobs:
           chmod +x edge-tts-macos
           rm -rf build dist/edge-tts-macos edge_tts_entry.py edge-tts-macos.spec
 
-      - name: Obfuscate Electron source
+      - name: Obfuscate Electron source & Build Native C++ Vault
         working-directory: electron
+        env:
+          REQUIRE_NATIVE_VAULT: '1'
         run: npm run obfuscate
 
       - name: Build macOS installer (.zip, .dmg)
         working-directory: electron
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          if [ -n "$CSC_LINK" ]; then
+            echo "Apple Developer ID certificate detected -> enabling macOS Code Signing"
+            export CSC_IDENTITY_AUTO_DISCOVERY=true
+            SIGN_ARGS=""
+          else
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            SIGN_ARGS="-c.mac.identity=null"
+          fi
           # Tach rieng buoc tao .dmg truoc va nen .zip sau (dung --prepackaged tro toi .app)
           # de khong chay song song hdiutil + 7za gay tran 7GB RAM tren macos-latest va giu latest-mac.yml tro ve .zip
           for i in 1 2 3; do
-            npx electron-builder --mac dmg -c.mac.identity=null --publish never && break || {
+            npx electron-builder --mac dmg $SIGN_ARGS --publish never && break || {
               if [ $i -eq 3 ]; then exit 1; fi
               echo "::warning::electron-builder dmg failed (attempt $i), retrying in 15s..."
               sleep 15
@@ -102,7 +118,7 @@ jobs:
           APP_PATH=$(find dist -maxdepth 2 -type d -name "*.app" | head -n 1)
           echo "Using prepackaged .app bundle for ZIP: $APP_PATH"
           for i in 1 2 3; do
-            npx electron-builder --mac zip --prepackaged "$APP_PATH" -c.mac.identity=null --publish never && break || {
+            npx electron-builder --mac zip --prepackaged "$APP_PATH" $SIGN_ARGS --publish never && break || {
               if [ $i -eq 3 ]; then exit 1; fi
               echo "::warning::electron-builder zip failed (attempt $i), retrying in 15s..."
               sleep 15

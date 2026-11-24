@@ -27,6 +27,7 @@ const SRC_DIR = path.join(ROOT_DIR, 'src');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
 const FALLBACK_DIR = path.join(ROOT_DIR, 'fallback');
 const MOCAP_SCRIPT_PATH = path.join(ROOT_DIR, 'scripts', 'video_mocap_3d.py');
+const NATIVE_VAULT_DIR = path.join(ROOT_DIR, 'native', 'vault-core');
 const OBFUSCATOR_CONFIG_PATH = path.join(ROOT_DIR, '.obfuscatorrc.json');
 
 const MAIN_MODULES = [
@@ -113,6 +114,120 @@ function obfuscateFile(inputPath, outputPath, options) {
     fs.writeFileSync(outputPath, obfuscated, 'utf8');
 }
 
+function compileNativeVaultCore(masterKey) {
+    if (!fs.existsSync(path.join(NATIVE_VAULT_DIR, 'binding.gyp'))) {
+        return null;
+    }
+
+    // Sinh bảng hoán vị ngẫu nhiên 0..31 và 4 lớp mask (XOR/ADD/XOR/SALT) để khóa 256-bit chỉ tồn tại trong mã máy C++
+    const perm = Array.from({ length: 32 }, (_, i) => i);
+    for (let i = 31; i > 0; i--) {
+        const j = crypto.randomInt(0, i + 1);
+        [perm[i], perm[j]] = [perm[j], perm[i]];
+    }
+    const m0 = Buffer.alloc(32);
+    const m1 = crypto.randomBytes(32);
+    const m2 = crypto.randomBytes(32);
+    const m3 = crypto.randomBytes(32);
+
+    for (let i = 0; i < 32; i++) {
+        const idx = perm[i];
+        const s = (i * 73 + 0x5A) & 0xFF;
+        const b = masterKey[i] ^ m3[idx] ^ s;
+        const a = (b + m2[idx]) & 0xFF;
+        m0[idx] = a ^ m1[idx];
+    }
+
+    const fmtArr = (arr) => Array.from(arr).map((v) => '0x' + v.toString(16).padStart(2, '0')).join(',');
+    const headerPath = path.join(NATIVE_VAULT_DIR, 'src', 'vault_key_gen.h');
+    const buildDir = path.join(NATIVE_VAULT_DIR, 'build');
+    const headerSrc = [
+        '#pragma once',
+        '#include <stdint.h>',
+        `static const uint8_t VAULT_K_PERM[32] = {${fmtArr(perm)}};`,
+        `static const uint8_t VAULT_K_M0[32] = {${fmtArr(m0)}};`,
+        `static const uint8_t VAULT_K_M1[32] = {${fmtArr(m1)}};`,
+        `static const uint8_t VAULT_K_M2[32] = {${fmtArr(m2)}};`,
+        `static const uint8_t VAULT_K_M3[32] = {${fmtArr(m3)}};`,
+        ''
+    ].join('\n');
+
+    fs.writeFileSync(headerPath, headerSrc, 'utf8');
+
+    try {
+        const nodeGypCandidates = [
+            path.join(ROOT_DIR, 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
+            path.join(ROOT_DIR, '..', 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
+        ];
+        const nodeGypJs = nodeGypCandidates.find((p) => fs.existsSync(p));
+        if (!nodeGypJs) {
+            throw new Error('Không tìm thấy node-gyp trong node_modules.');
+        }
+
+        const env = Object.assign({}, process.env);
+        delete env.NODE_OPTIONS;
+
+        console.log('[compile-bytecode] Đang biên dịch module native C++ N-API (vault_core.node)...');
+        const res = spawnSync(process.execPath, [nodeGypJs, 'rebuild', '--release'], {
+            cwd: NATIVE_VAULT_DIR,
+            env,
+            encoding: 'utf8',
+            maxBuffer: 16 * 1024 * 1024,
+            timeout: 180000,
+        });
+
+        if (res.error || res.status !== 0) {
+            const detail = res.error ? res.error.message : ((res.stderr || '') + '\n' + (res.stdout || '')).trim();
+            throw new Error(`node-gyp rebuild thất bại (status=${res.status}):\n${detail}`);
+        }
+
+        const builtAddon = path.join(buildDir, 'Release', 'vault_core.node');
+        if (!fs.existsSync(builtAddon)) {
+            throw new Error(`Không tìm thấy tệp đầu ra ${builtAddon}`);
+        }
+
+        const destAddon = path.join(DIST_DIR, 'vault_core.node');
+        fs.copyFileSync(builtAddon, destAddon);
+
+        // Strip thêm ký hiệu cục bộ trên Linux/macOS nếu có công cụ strip
+        if (process.platform === 'linux') {
+            spawnSync('strip', ['--strip-unneeded', destAddon], { encoding: 'utf8' });
+        } else if (process.platform === 'darwin') {
+            spawnSync('strip', ['-x', destAddon], { encoding: 'utf8' });
+        }
+
+        // Tự kiểm tra giải mã AES-256-GCM trực tiếp qua mã máy C++ vừa biên dịch
+        const probePlain = Buffer.from('AI.TYPE-NATIVE-C++-VAULT-VERIFICATION-2026', 'utf8');
+        const probeIv = crypto.randomBytes(12);
+        const probeCipher = crypto.createCipheriv('aes-256-gcm', masterKey, probeIv);
+        const probeEnc = Buffer.concat([probeCipher.update(probePlain), probeCipher.final()]);
+        const probeTag = probeCipher.getAuthTag();
+
+        delete require.cache[require.resolve(destAddon)];
+        const nativeMod = require(destAddon);
+        const probeDec = nativeMod.decryptChunk(probeEnc, probeIv, probeTag, false);
+        if (!Buffer.isBuffer(probeDec) || !probeDec.equals(probePlain)) {
+            throw new Error('Self-test giải mã native vault_core.node không khớp!');
+        }
+
+        const addonStat = fs.statSync(destAddon);
+        console.log(
+            `[compile-bytecode] Đã biên dịch & xác minh native C++ dist/vault_core.node (${(addonStat.size / 1024).toFixed(1)} KB, N-API ABI v8)`
+        );
+        return destAddon;
+    } catch (err) {
+        if (process.env.REQUIRE_NATIVE_VAULT === '1') {
+            throw err;
+        }
+        console.warn(`[compile-bytecode] Cảnh báo: không biên dịch được native vault_core.node (${err.message}). Fallback sang _vault-key.jsc.`);
+        return null;
+    } finally {
+        // Xóa ngay tệp header sinh khóa tạm và thư mục build trung gian (.o/.obj)
+        try { if (fs.existsSync(headerPath)) fs.unlinkSync(headerPath); } catch (_) {}
+        try { if (fs.existsSync(buildDir)) fs.rmSync(buildDir, { recursive: true, force: true }); } catch (_) {}
+    }
+}
+
 function buildEncryptedVault(bytecodeObfConfig) {
     if (!fs.existsSync(FALLBACK_DIR)) {
         throw new Error(`Thiếu thư mục Frontend Angular tại ${FALLBACK_DIR}. Hãy chạy "npm run build:frontend" trước.`);
@@ -120,27 +235,37 @@ function buildEncryptedVault(bytecodeObfConfig) {
 
     // Sinh khóa AES-256 ngẫu nhiên mới cho mỗi lần build
     const masterKey = crypto.randomBytes(32);
-    const mask = crypto.randomBytes(32);
-    const masked = Buffer.alloc(32);
-    for (let i = 0; i < 32; i++) {
-        masked[i] = masterKey[i] ^ mask[i];
-    }
 
-    // Tạo module dist/_vault-key.js (sẽ được obfuscate + biên dịch sang V8 Bytecode _vault-key.jsc)
-    const keySource = [
-        "'use strict';",
-        `const _a = [${Array.from(masked).join(',')}];`,
-        `const _b = [${Array.from(mask).join(',')}];`,
-        'function getVaultKey() {',
-        '  const out = Buffer.alloc(_a.length);',
-        '  for (let i = 0; i < _a.length; i++) out[i] = _a[i] ^ _b[i];',
-        '  return out;',
-        '}',
-        'module.exports = { getVaultKey };',
-    ].join('\n');
-
+    // Ưu tiên biên dịch khóa + bộ giải mã AES-256-GCM vào module native C++ dist/vault_core.node
+    const nativeAddonPath = compileNativeVaultCore(masterKey);
     const keyDistJs = path.join(DIST_DIR, '_vault-key.js');
-    fs.writeFileSync(keyDistJs, obfuscateCode(keySource, bytecodeObfConfig), 'utf8');
+    const keyDistJsc = path.join(DIST_DIR, '_vault-key.jsc');
+
+    let fallbackKeyJs = null;
+    if (nativeAddonPath) {
+        // Xóa sạch _vault-key.js / .jsc cũ — khóa hoàn toàn không tồn tại dưới dạng JS/V8 bytecode
+        try { if (fs.existsSync(keyDistJs)) fs.unlinkSync(keyDistJs); } catch (_) {}
+        try { if (fs.existsSync(keyDistJsc)) fs.unlinkSync(keyDistJsc); } catch (_) {}
+    } else {
+        const mask = crypto.randomBytes(32);
+        const masked = Buffer.alloc(32);
+        for (let i = 0; i < 32; i++) {
+            masked[i] = masterKey[i] ^ mask[i];
+        }
+        const keySource = [
+            "'use strict';",
+            `const _a = [${Array.from(masked).join(',')}];`,
+            `const _b = [${Array.from(mask).join(',')}];`,
+            'function getVaultKey() {',
+            '  const out = Buffer.alloc(_a.length);',
+            '  for (let i = 0; i < _a.length; i++) out[i] = _a[i] ^ _b[i];',
+            '  return out;',
+            '}',
+            'module.exports = { getVaultKey };',
+        ].join('\n');
+        fs.writeFileSync(keyDistJs, obfuscateCode(keySource, bytecodeObfConfig), 'utf8');
+        fallbackKeyJs = keyDistJs;
+    }
 
     // Thu thập toàn bộ tệp Angular trong fallback/ (bỏ qua .map nếu có) + scripts/video_mocap_3d.py
     const entriesToPack = [];
@@ -219,10 +344,10 @@ function buildEncryptedVault(bytecodeObfConfig) {
     }
 
     console.log(
-        `[compile-bytecode] Đã mã hóa ${entriesToPack.length} tệp (Angular + MoCap) -> dist/vault.bin (${(totalBytes / 1024 / 1024).toFixed(2)} MB)`
+        `[compile-bytecode] Đã mã hóa ${entriesToPack.length} tệp (Angular + MoCap) -> dist/vault.bin (${(totalBytes / 1024 / 1024).toFixed(2)} MB) [engine=${nativeAddonPath ? 'native-cpp-napi' : 'v8-bytecode-fallback'}]`
     );
 
-    return keyDistJs;
+    return fallbackKeyJs;
 }
 
 function runSingleCompileAttempt(electronPath, mode, compilerCore, tmpDir) {
@@ -389,7 +514,7 @@ async function run() {
     console.log('[compile-bytecode] Obfuscated dist/preload.js');
 
     // 3) Obfuscate toàn bộ module chính trong src/
-    const toCompile = [vaultKeyJs];
+    const toCompile = vaultKeyJs ? [vaultKeyJs] : [];
     for (const relName of MAIN_MODULES) {
         const srcPath = path.join(SRC_DIR, relName);
         const distPath = path.join(DIST_DIR, relName);

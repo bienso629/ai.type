@@ -20,7 +20,8 @@
     "appId": "ai.type.vn",
     "asar": true,
     "asarUnpack": [
-      "dist/vault.bin"
+      "dist/vault.bin",
+      "dist/vault_core.node"
     ],
     "electronFuses": {
       "runAsNode": false,
@@ -39,6 +40,7 @@
       "dist/*.js",
       "dist/*.jsc",
       "dist/vault.bin",
+      "dist/vault_core.node",
       "dist/type-lite/**/*",
       "icons/**/*",
       "node_modules/**/*",

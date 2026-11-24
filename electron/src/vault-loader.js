@@ -14,6 +14,7 @@ const zlib = require('zlib');
 
 const MAGIC = Buffer.from('AIV1', 'ascii');
 const VAULT_FILENAME = 'vault.bin';
+const NATIVE_ADDON_FILENAME = 'vault_core.node';
 
 const MIME_MAP = {
     '.html': 'text/html; charset=utf-8',
@@ -53,6 +54,8 @@ let _vaultAvailable = false;
 let _vaultFd = null;
 let _vaultFileSize = 0;
 let _vaultKey = null;
+let _nativeCore = null;
+let _nativeChecked = false;
 let _manifest = null;
 let _dataOffsetBase = 0;
 
@@ -81,12 +84,12 @@ function getMimeType(relPath) {
     return MIME_MAP[ext] || 'application/octet-stream';
 }
 
-function resolveVaultFilePath() {
+function resolveDistAssetPath(fileName) {
     const rawCandidates = [
-        path.join(__dirname, VAULT_FILENAME),
-        path.join(__dirname, '..', 'dist', VAULT_FILENAME),
+        path.join(__dirname, fileName),
+        path.join(__dirname, '..', 'dist', fileName),
     ];
-    // Ưu tiên bản app.asar.unpacked (tệp thật trên OS để fs.readSync đọc theo offset tốn <1MB RAM, không copy tạm)
+    // Ưu tiên bản app.asar.unpacked (tệp thật trên OS cho fs.readSync và dlopen/LoadLibrary)
     for (const cand of rawCandidates) {
         const unpacked = cand.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1');
         if (unpacked !== cand && fs.existsSync(unpacked)) return unpacked;
@@ -95,6 +98,55 @@ function resolveVaultFilePath() {
         if (fs.existsSync(cand)) return cand;
     }
     return null;
+}
+
+function resolveVaultFilePath() {
+    return resolveDistAssetPath(VAULT_FILENAME);
+}
+
+function isPackagedRuntime() {
+    try {
+        const electronMod = require('electron');
+        if (electronMod && electronMod.app && typeof electronMod.app.isPackaged === 'boolean') {
+            return electronMod.app.isPackaged;
+        }
+    } catch (_) {}
+    return false;
+}
+
+function loadNativeCore() {
+    if (_nativeChecked) return _nativeCore;
+    _nativeChecked = true;
+    try {
+        const addonPath = resolveDistAssetPath(NATIVE_ADDON_FILENAME);
+        if (addonPath) {
+            const mod = require(addonPath);
+            if (mod && typeof mod.decryptChunk === 'function') {
+                _nativeCore = mod;
+                return _nativeCore;
+            }
+        }
+    } catch (err) {
+        console.error('[VaultLoader] Không thể nạp module native vault_core.node:', err && err.message ? err.message : err);
+    }
+    _nativeCore = null;
+    return null;
+}
+
+function checkNativeSecurity() {
+    const nativeCore = loadNativeCore();
+    if (!nativeCore || typeof nativeCore.isDebuggerAttached !== 'function') {
+        return true;
+    }
+    try {
+        return !nativeCore.isDebuggerAttached();
+    } catch (_) {
+        return false;
+    }
+}
+
+function isNativeVaultActive() {
+    return Boolean(loadNativeCore());
 }
 
 function loadVaultKey() {
@@ -110,16 +162,33 @@ function loadVaultKey() {
     return null;
 }
 
+function decryptVaultBuffer(encBuf, ivBuf, tagBuf) {
+    if (_nativeCore) {
+        return _nativeCore.decryptChunk(encBuf, ivBuf, tagBuf, isPackagedRuntime());
+    }
+    const decipher = crypto.createDecipheriv('aes-256-gcm', _vaultKey, ivBuf);
+    decipher.setAuthTag(tagBuf);
+    return Buffer.concat([decipher.update(encBuf), decipher.final()]);
+}
+
 function initVault() {
     if (_initialized) return _vaultAvailable;
     _initialized = true;
 
     try {
         const vaultPath = resolveVaultFilePath();
-        const key = loadVaultKey();
-        if (!vaultPath || !key) {
+        const nativeCore = loadNativeCore();
+        const key = nativeCore ? null : loadVaultKey();
+        if (!vaultPath || (!nativeCore && !key)) {
             _vaultAvailable = false;
             return false;
+        }
+
+        if (nativeCore && isPackagedRuntime() && typeof nativeCore.isDebuggerAttached === 'function') {
+            if (nativeCore.isDebuggerAttached()) {
+                _vaultAvailable = false;
+                return false;
+            }
         }
 
         const stat = fs.statSync(vaultPath);
@@ -147,16 +216,16 @@ function initVault() {
             return false;
         }
 
+        _nativeCore = nativeCore;
+        _vaultKey = key;
+
         const encManifest = readExactSync(fd, encManifestLen, manifestStart);
-        const decipher = crypto.createDecipheriv('aes-256-gcm', key, indexIv);
-        decipher.setAuthTag(indexTag);
-        const compressedManifest = Buffer.concat([decipher.update(encManifest), decipher.final()]);
+        const compressedManifest = decryptVaultBuffer(encManifest, indexIv, indexTag);
         const manifestJson = zlib.inflateSync(compressedManifest).toString('utf8');
 
         _manifest = JSON.parse(manifestJson);
         _vaultFd = fd;
         _vaultFileSize = stat.size;
-        _vaultKey = key;
         _dataOffsetBase = manifestEnd;
         _vaultAvailable = true;
         return true;
@@ -186,9 +255,7 @@ function readVaultFile(relPath) {
         const tag = Buffer.from(meta.t, 'hex');
         const encChunk = readExactSync(_vaultFd, meta.l, start);
 
-        const decipher = crypto.createDecipheriv('aes-256-gcm', _vaultKey, iv);
-        decipher.setAuthTag(tag);
-        let plain = Buffer.concat([decipher.update(encChunk), decipher.final()]);
+        let plain = decryptVaultBuffer(encChunk, iv, tag);
         if (meta.c) {
             plain = zlib.inflateSync(plain);
         }
@@ -276,6 +343,8 @@ function createAppProtocolHandler() {
 
 module.exports = {
     isVaultAvailable,
+    isNativeVaultActive,
+    checkNativeSecurity,
     readVaultFile,
     readVaultText,
     createAppProtocolHandler,

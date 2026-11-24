@@ -25,7 +25,10 @@ app.commandLine.appendSwitch('disable-setuid-sandbox');
 app.commandLine.appendSwitch('disable-gpu-sandbox');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
-const { isVaultAvailable, createAppProtocolHandler } = require("./vault-loader");
+const { isVaultAvailable, createAppProtocolHandler, checkNativeSecurity } = require("./vault-loader");
+if (app.isPackaged && !checkNativeSecurity()) {
+    app.exit(1);
+}
 const { registerExportImportHandlers } = require("./export-import-project");
 const { registerLocalArticlesHandlers } = require("./local-articles");
 const { registerProjectStoreHandlers } = require("./project-store");

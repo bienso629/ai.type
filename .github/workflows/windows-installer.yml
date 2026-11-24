@@ -81,13 +81,24 @@ jobs:
           cp dist/edge-tts-win.exe edge-tts-win.exe
           rm -rf build dist/edge-tts-win.exe edge_tts_entry.py edge-tts-win.spec
 
-      - name: Obfuscate Electron source
+      - name: Obfuscate Electron source & Build Native C++ Vault
         working-directory: electron
+        env:
+          REQUIRE_NATIVE_VAULT: '1'
         run: npm run obfuscate
 
       - name: Build NSIS installer
         working-directory: electron
+        env:
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: |
+          if [ -n "$CSC_LINK" ]; then
+            echo "Code Signing Certificate detected -> enabling Windows Code Signing"
+            export CSC_IDENTITY_AUTO_DISCOVERY=true
+          else
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
           for i in 1 2 3; do
             npx electron-builder --win --publish never && break || {
               if [ $i -eq 3 ]; then exit 1; fi
