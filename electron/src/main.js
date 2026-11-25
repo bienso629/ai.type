@@ -1934,6 +1934,8 @@ function resolvePreload() {
     return candidate1; // vẫn trả v�? candidate1 để log báo lỗi
 }
 
+let livestreamWindow = null;
+
 // ==== MAIN WINDOW ====
 function createMainWindow() {
     mainWindow = new BrowserWindow({
@@ -2008,6 +2010,13 @@ function createMainWindow() {
 
     mainWindow.on("closed", () => {
         mainWindow = null;
+
+        if (livestreamWindow && !livestreamWindow.isDestroyed()) {
+            try {
+                livestreamWindow.close();
+            } catch (_) {}
+        }
+        livestreamWindow = null;
 
         if (downloaderProcess) {
             downloaderProcess.kill("SIGTERM");
@@ -7949,12 +7958,213 @@ app.on("window-all-closed", () => {
     if (process.platform !== "darwin") app.quit();
 });
 
-ipcMain.on('resize-window', (event, { width, height }) => {
-    // Lấy cửa sổ hiện tại đang được focus (hoặc mainWindow)
-    const win = BrowserWindow.getFocusedWindow() || mainWindow;
+function computeLivestreamWindowSize(aspectRatio, referenceWin) {
+    const isPortrait = aspectRatio === '9:16';
+    const ratioW = isPortrait ? 9 : 16;
+    const ratioH = isPortrait ? 16 : 9;
+    const ratio = ratioW / ratioH;
 
-    if (win) {
-        // �?ổi kích thước cửa sổ (true = có hiệu ứng animation resize mượt mà trên macOS/Windows)
+    let display;
+    try {
+        display =
+            referenceWin && !referenceWin.isDestroyed()
+                ? screen.getDisplayMatching(referenceWin.getBounds())
+                : screen.getPrimaryDisplay();
+    } catch (_) {
+        display = screen.getPrimaryDisplay();
+    }
+    const workArea = display?.workArea || { x: 0, y: 0, width: 1440, height: 900 };
+    const maxContentW = Math.max(270, Math.floor(workArea.width * 0.86));
+    const maxContentH = Math.max(400, Math.floor((workArea.height - 48) * 0.88));
+    const maxUnit = isPortrait ? 60 : 80;
+    const unit = Math.max(
+        20,
+        Math.min(maxUnit, Math.floor(Math.min(maxContentW / ratioW, maxContentH / ratioH))),
+    );
+    const width = unit * ratioW;
+    const height = unit * ratioH;
+    const x = workArea.x + Math.max(0, Math.floor((workArea.width - width) / 2));
+    const y = workArea.y + Math.max(0, Math.floor((workArea.height - height) / 2));
+
+    return { width, height, ratio, x, y };
+}
+
+ipcMain.handle('open-livestream-window', async (event, payload = {}) => {
+    try {
+        const aspectRatio = payload?.aspectRatio === '9:16' ? '9:16' : '16:9';
+        const windowTitle = String(payload?.title || 'Livestream AI').trim() || 'Livestream AI';
+        const rawRouteHash = String(payload?.routeHash || '').replace(/^#/, '').trim();
+        const uuid = String(payload?.uuid || '').trim();
+        const normalizedHash = rawRouteHash
+            ? rawRouteHash.startsWith('/')
+                ? rawRouteHash
+                : `/${rawRouteHash}`
+            : `/livestream/${encodeURIComponent(uuid)}?mode=live&window=1&ratio=${encodeURIComponent(aspectRatio)}&autostart=1`;
+
+        const senderWin = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+        const { width, height, ratio, x, y } = computeLivestreamWindowSize(aspectRatio, senderWin);
+
+        if (livestreamWindow && !livestreamWindow.isDestroyed()) {
+            try {
+                livestreamWindow.close();
+            } catch (_) {}
+            livestreamWindow = null;
+        }
+
+        const win = new BrowserWindow({
+            title: windowTitle,
+            width,
+            height,
+            useContentSize: true,
+            x,
+            y,
+            icon: path.join(__dirname, '../icons/icon.png'),
+            backgroundColor: '#000000',
+            fullscreenable: true,
+            alwaysOnTop: false,
+            resizable: true,
+            autoHideMenuBar: true,
+            show: false,
+            frame: true,
+            webPreferences: {
+                sandbox: false,
+                contextIsolation: true,
+                enableRemoteModule: false,
+                webSecurity: false,
+                webviewTag: false,
+                plugins: true,
+                devTools: !app.isPackaged,
+                nodeIntegration: false,
+                nodeIntegrationInSubFrames: false,
+                backgroundThrottling: false,
+                preload: resolvePreload(),
+                autoplayPolicy: 'no-user-gesture-required',
+            },
+        });
+
+        livestreamWindow = win;
+
+        try {
+            win.setMenuBarVisibility(false);
+            win.removeMenu();
+        } catch (_) {}
+
+        try {
+            win.setContentSize(width, height);
+            win.setAspectRatio(ratio);
+        } catch (_) {}
+
+        win.webContents.on('page-title-updated', (_ev, title) => {
+            if (!win.isDestroyed() && title) {
+                win.setTitle(title);
+            }
+        });
+
+        win.once('ready-to-show', () => {
+            if (!win.isDestroyed()) {
+                try {
+                    win.setContentSize(width, height);
+                } catch (_) {}
+                win.show();
+                win.focus();
+            }
+        });
+
+        win.on('closed', () => {
+            if (livestreamWindow === win) {
+                livestreamWindow = null;
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    try {
+                        mainWindow.webContents.send('livestream:closed', { uuid });
+                    } catch (_) {}
+                }
+            }
+        });
+
+        const senderUrl = String(event.sender.getURL() || '');
+        const baseUrl = senderUrl.split('#')[0];
+
+        if (baseUrl && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://') || baseUrl.startsWith('app://'))) {
+            await win.loadURL(`${baseUrl}#${normalizedHash}`);
+        } else if (app.isPackaged && isVaultAvailable()) {
+            await win.loadURL(`app://local/index.html#${normalizedHash}`);
+        } else if (baseUrl && baseUrl.startsWith('file://')) {
+            const localFilePath = require('url').fileURLToPath(baseUrl);
+            await win.loadFile(localFilePath, { hash: normalizedHash });
+        } else {
+            await win.loadURL(`http://localhost:4200/#${normalizedHash}`);
+        }
+
+        return { success: true, width, height, aspectRatio };
+    } catch (err) {
+        console.error('[LivestreamWindow] Lỗi mở cửa sổ phát livestream:', err);
+        return { success: false, error: err?.message || String(err) };
+    }
+});
+
+ipcMain.handle('close-livestream-window', async () => {
+    try {
+        if (livestreamWindow && !livestreamWindow.isDestroyed()) {
+            livestreamWindow.close();
+        }
+        livestreamWindow = null;
+        return { success: true };
+    } catch (err) {
+        return { success: false, error: err?.message || String(err) };
+    }
+});
+
+ipcMain.handle('livestream-window-status', async () => {
+    return { open: !!(livestreamWindow && !livestreamWindow.isDestroyed()) };
+});
+
+ipcMain.on('livestream:command', (_event, payload = {}) => {
+    if (!livestreamWindow || livestreamWindow.isDestroyed()) return;
+    try {
+        if (payload?.type === 'close') {
+            livestreamWindow.close();
+            return;
+        }
+        if (payload?.type === 'set-ratio' && (payload.aspectRatio === '9:16' || payload.aspectRatio === '16:9')) {
+            const sized = computeLivestreamWindowSize(payload.aspectRatio, livestreamWindow);
+            try {
+                livestreamWindow.setAspectRatio(sized.ratio);
+                livestreamWindow.setContentSize(sized.width, sized.height);
+            } catch (_) {
+                livestreamWindow.setSize(sized.width, sized.height, true);
+            }
+            livestreamWindow.center();
+        }
+        livestreamWindow.webContents.send('livestream:command', payload);
+    } catch (err) {
+        console.warn('[LivestreamWindow] Forward command error:', err?.message || err);
+    }
+});
+
+ipcMain.on('livestream:state', (_event, payload = {}) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    try {
+        mainWindow.webContents.send('livestream:state', payload);
+    } catch (_) {}
+});
+
+ipcMain.on('resize-window', (event, { width, height, aspectRatio }) => {
+    // Ưu tiên chính cửa sổ đã gửi lệnh resize (hỗ trợ cả cửa sổ Livestream riêng)
+    const win = BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getFocusedWindow() || mainWindow;
+
+    if (win && !win.isDestroyed()) {
+        if (win === livestreamWindow && (aspectRatio === '9:16' || aspectRatio === '16:9')) {
+            const sized = computeLivestreamWindowSize(aspectRatio, win);
+            try {
+                win.setAspectRatio(sized.ratio);
+                win.setContentSize(sized.width, sized.height);
+            } catch (_) {
+                win.setSize(sized.width, sized.height, true);
+            }
+            win.center();
+            return;
+        }
+        // Đổi kích thước cửa sổ (true = có hiệu ứng animation resize mượt mà trên macOS/Windows)
         win.setSize(width, height, true);
 
         // Căn giữa cửa sổ lại ra giữa màn hình để không bị lẹm ra ngoài
@@ -10744,6 +10954,299 @@ ipcMain.handle('fetch-shopee-product-images', async (_event, payload) => {
         description: descriptionText.slice(0, 8000),
         blocked,
         productUrl,
+    };
+});
+
+// Tạo link tiếp thị liên kết Shopee Affiliate thật (dạng https://s.shopee.vn/...) theo 2 tầng:
+// 1) Shopee Affiliate Open API (open-api.affiliate.shopee.vn/graphql - generateShortLink) nếu đã cấu hình App ID + Secret
+// 2) Shopee Affiliate Web Portal GraphQL (affiliate.shopee.vn/api/v3/gql?q=batchCustomLink) dùng phiên đăng nhập persist:gemini-webview hoặc Cookie cấu hình
+ipcMain.handle('generate-shopee-affiliate-links', async (_event, payload) => {
+    const nodeCrypto = require('crypto');
+    const {
+        items = [],
+        appId = '',
+        secret = '',
+        subId = '',
+        cookie = '',
+    } = payload || {};
+
+    const cleanAppId = String(appId || '').trim();
+    const cleanSecret = String(secret || '').trim();
+    const cleanSubId = String(subId || '').trim().slice(0, 64);
+    const manualCookie = String(cookie || '').trim();
+
+    const isRealAffiliateUrl = (raw) => {
+        const s = String(raw || '').trim().toLowerCase();
+        if (!s || !/^https?:\/\//.test(s)) return false;
+        return (
+            s.includes('s.shopee.vn/') ||
+            s.includes('shope.ee/') ||
+            s.includes('shp.ee/') ||
+            s.includes('utm_source=an_') ||
+            s.includes('utm_medium=affiliates') ||
+            s.includes('mmp_pid=an_')
+        );
+    };
+
+    const normalizeOriginUrl = (it) => {
+        if (!it || typeof it !== 'object') return '';
+        const shopId = String(it.shop_id || it.shopId || '').trim();
+        const itemId = String(it.item_id || it.itemId || '').trim();
+        if (shopId && itemId) {
+            return `https://shopee.vn/product/${shopId}/${itemId}`;
+        }
+        const raw = String(it.origin_url || it.product_link || it.productLink || '').trim();
+        if (/^https?:\/\/(?:www\.)?shopee\.vn\//i.test(raw)) {
+            return raw;
+        }
+        return raw;
+    };
+
+    const normalizedItems = (Array.isArray(items) ? items : [])
+        .map((it) => {
+            const originUrl = normalizeOriginUrl(it);
+            const id = String(it?._id || it?.id || '').trim();
+            const item_id = String(it?.item_id || it?.itemId || '').trim();
+            const shop_id = String(it?.shop_id || it?.shopId || '').trim();
+            return { id, item_id, shop_id, originUrl };
+        })
+        .filter((it) => !!it.originUrl);
+
+    if (normalizedItems.length === 0) {
+        return { success: false, links: [], error: 'Không có đường dẫn sản phẩm Shopee hợp lệ để tạo link Affiliate.' };
+    }
+
+    const resultMap = new Map();
+    const recordLink = (it, shortLink, longLink, source) => {
+        const cleanShort = isRealAffiliateUrl(shortLink) ? String(shortLink).trim() : '';
+        const cleanLong = isRealAffiliateUrl(longLink) ? String(longLink).trim() : '';
+        const finalOffer = cleanShort || cleanLong;
+        if (!finalOffer) return false;
+        const key = it.id || (it.shop_id && it.item_id ? `offer_${it.shop_id}_${it.item_id}` : it.item_id || it.originUrl);
+        resultMap.set(key, {
+            id: it.id || key,
+            item_id: it.item_id,
+            shop_id: it.shop_id,
+            originUrl: it.originUrl,
+            short_link: cleanShort,
+            offer_link: finalOffer,
+            long_link: cleanLong,
+            source,
+        });
+        return true;
+    };
+
+    let lastError = '';
+    let needLogin = false;
+
+    // Tầng 1: Shopee Affiliate Open API chính thức (nếu người dùng đã điền App ID + Secret)
+    if (cleanAppId && cleanSecret) {
+        const subIds = cleanSubId ? [cleanSubId] : [];
+        for (const it of normalizedItems) {
+            try {
+                const bodyObj = {
+                    query: 'mutation generateShortLink($input: ShortLinkInput!) { generateShortLink(input: $input) { shortLink } }',
+                    variables: {
+                        input: subIds.length > 0 ? { originUrl: it.originUrl, subIds } : { originUrl: it.originUrl },
+                    },
+                };
+                const payloadStr = JSON.stringify(bodyObj);
+                const ts = Math.floor(Date.now() / 1000);
+                const sig = nodeCrypto
+                    .createHash('sha256')
+                    .update(`${cleanAppId}${ts}${payloadStr}${cleanSecret}`)
+                    .digest('hex');
+
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 9000);
+                const resp = await fetch('https://open-api.affiliate.shopee.vn/graphql', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `SHA256 Credential=${cleanAppId}, Timestamp=${ts}, Signature=${sig}`,
+                    },
+                    body: payloadStr,
+                    signal: controller.signal,
+                });
+                clearTimeout(timer);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const sl = data?.data?.generateShortLink?.shortLink || '';
+                    if (sl && recordLink(it, sl, '', 'open_api')) {
+                        continue;
+                    }
+                    if (Array.isArray(data?.errors) && data.errors.length > 0) {
+                        lastError = data.errors[0]?.message || 'Shopee Open API trả về lỗi.';
+                    }
+                } else {
+                    lastError = `Shopee Open API HTTP ${resp.status}`;
+                }
+            } catch (e) {
+                lastError = e?.message || 'Lỗi kết nối Shopee Open API.';
+            }
+        }
+    }
+
+    // Tầng 2: Shopee Affiliate Web Portal Internal GraphQL (batchCustomLink) bằng phiên Web Tools (persist:gemini-webview) hoặc Cookie cấu hình
+    const remainingItems = normalizedItems.filter((it) => {
+        const key = it.id || (it.shop_id && it.item_id ? `offer_${it.shop_id}_${it.item_id}` : it.item_id || it.originUrl);
+        return !resultMap.has(key);
+    });
+
+    if (remainingItems.length > 0) {
+        const sess = session.fromPartition('persist:gemini-webview');
+        let csrfToken = '';
+        let hasSessionAuthCookie = false;
+
+        if (manualCookie) {
+            const mCsrf = manualCookie.match(/(?:^|;\s*)(?:csrftoken|SPC_CSRF_TOKEN)=([^;\s]+)/i);
+            if (mCsrf && mCsrf[1]) csrfToken = mCsrf[1].trim();
+            hasSessionAuthCookie = /(?:SPC_EC|SPC_ST|SPC_U)=/i.test(manualCookie);
+        }
+
+        if (!csrfToken || !hasSessionAuthCookie) {
+            try {
+                const cookies = await sess.cookies.get({ domain: 'shopee.vn' });
+                for (const c of cookies || []) {
+                    const name = String(c?.name || '');
+                    if (!csrfToken && (name === 'csrftoken' || name === 'SPC_CSRF_TOKEN')) {
+                        csrfToken = String(c.value || '').trim();
+                    }
+                    if (name === 'SPC_EC' || name === 'SPC_ST' || name === 'SPC_U') {
+                        hasSessionAuthCookie = true;
+                    }
+                }
+            } catch (_) {}
+        }
+
+        const buildPayloads = (batch) => [
+            {
+                operationName: 'batchGetCustomLink',
+                query: 'query batchGetCustomLink($linkParams: [CustomLinkParam!], $sourceCaller: SourceCaller) { batchCustomLink(linkParams: $linkParams, sourceCaller: $sourceCaller) { shortLink longLink failCode } }',
+                variables: {
+                    linkParams: batch.map((it) => ({
+                        originalLink: it.originUrl,
+                        advancedLinkParams: cleanSubId ? { subId1: cleanSubId } : {},
+                    })),
+                    sourceCaller: 'CUSTOM_LINK_CALLER',
+                },
+            },
+            {
+                operationName: 'batchGetCustomLink',
+                query: 'query batchGetCustomLink($linkParams: [CustomLinkParam!], $sourceCaller: SourceCaller) { batchCustomLink(linkParams: $linkParams, sourceCaller: $sourceCaller) { shortLink longLink failCode } }',
+                variables: {
+                    linkParams: batch.map((it) =>
+                        cleanSubId ? { originalLink: it.originUrl, subId1: cleanSubId } : { originalLink: it.originUrl },
+                    ),
+                    sourceCaller: 'DEFAULT',
+                },
+            },
+            {
+                operationName: 'batchGetCustomLink',
+                query: 'query batchGetCustomLink($linkParams: [CustomLinkParam!], $sourceCaller: SourceCaller) { batchCustomLink(linkParams: $linkParams, sourceCaller: $sourceCaller) { shortLink longLink failCode } }',
+                variables: {
+                    linkParams: batch.map((it) =>
+                        cleanSubId ? { longLink: it.originUrl, subId1: cleanSubId } : { longLink: it.originUrl },
+                    ),
+                    sourceCaller: 'DEFAULT',
+                },
+            },
+        ];
+
+        const callPortalBatch = async (batch, useManualCookie) => {
+            const headers = {
+                'Content-Type': 'application/json; charset=UTF-8',
+                Accept: 'application/json, text/plain, */*',
+                'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8',
+                Origin: 'https://affiliate.shopee.vn',
+                Referer: 'https://affiliate.shopee.vn/offer/custom_link',
+                'affiliate-program-type': '1',
+                ...(csrfToken ? { 'csrf-token': csrfToken, 'x-csrftoken': csrfToken } : {}),
+                ...(useManualCookie && manualCookie ? { Cookie: manualCookie } : {}),
+            };
+            const variants = buildPayloads(batch);
+            for (const bodyObj of variants) {
+                try {
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), 10000);
+                    const fetcher = useManualCookie && manualCookie ? fetch : sess.fetch.bind(sess);
+                    const resp = await fetcher('https://affiliate.shopee.vn/api/v3/gql?q=batchCustomLink', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify(bodyObj),
+                        signal: controller.signal,
+                    });
+                    clearTimeout(timer);
+
+                    if (resp.status === 401 || resp.status === 403) {
+                        needLogin = true;
+                        lastError = `Phiên đăng nhập affiliate.shopee.vn chưa hợp lệ hoặc đã hết hạn (HTTP ${resp.status}).`;
+                        return false;
+                    }
+                    if (!resp.ok) {
+                        lastError = `affiliate.shopee.vn trả về HTTP ${resp.status}`;
+                        continue;
+                    }
+                    const ct = String(resp.headers.get('content-type') || '');
+                    if (!ct.includes('json')) {
+                        needLogin = true;
+                        lastError = 'Phiên đăng nhập affiliate.shopee.vn đã hết hạn (chuyển hướng đăng nhập).';
+                        return false;
+                    }
+                    const json = await resp.json();
+                    const arr = json?.data?.batchCustomLink;
+                    if (Array.isArray(arr) && arr.length > 0) {
+                        let anyOk = false;
+                        for (let i = 0; i < Math.min(batch.length, arr.length); i++) {
+                            const row = arr[i];
+                            if (row && (row.shortLink || row.longLink)) {
+                                if (recordLink(batch[i], row.shortLink, row.longLink, useManualCookie ? 'portal_cookie' : 'portal_session')) {
+                                    anyOk = true;
+                                }
+                            } else if (row && row.failCode) {
+                                lastError = `Shopee batchCustomLink failCode=${row.failCode}`;
+                            }
+                        }
+                        if (anyOk) return true;
+                    }
+                    if (Array.isArray(json?.errors) && json.errors.length > 0) {
+                        const msg = String(json.errors[0]?.message || '');
+                        lastError = msg || 'Lỗi GraphQL affiliate.shopee.vn';
+                        if (/unauth|login|forbidden|permission|not\s+affiliate|token/i.test(msg)) {
+                            needLogin = true;
+                            return false;
+                        }
+                    }
+                } catch (e) {
+                    lastError = e?.message || 'Lỗi kết nối affiliate.shopee.vn';
+                }
+            }
+            return false;
+        };
+
+        const BATCH_SIZE = 25;
+        for (let i = 0; i < remainingItems.length; i += BATCH_SIZE) {
+            const slice = remainingItems.slice(i, i + BATCH_SIZE);
+            // Ưu tiên phiên đăng nhập Web Tools (persist:gemini-webview) trước, dự phòng Cookie dán tay
+            let ok = await callPortalBatch(slice, false);
+            if (!ok && manualCookie) {
+                ok = await callPortalBatch(slice, true);
+            }
+            if (!ok && !hasSessionAuthCookie && !manualCookie) {
+                needLogin = true;
+                break;
+            }
+        }
+    }
+
+    const links = Array.from(resultMap.values());
+    return {
+        success: links.length > 0,
+        links,
+        generatedCount: links.length,
+        requestedCount: normalizedItems.length,
+        needLogin: links.length === 0 ? needLogin : false,
+        error: links.length > 0 ? '' : (lastError || 'Chưa tạo được link Affiliate Shopee (s.shopee.vn).'),
     };
 });
 

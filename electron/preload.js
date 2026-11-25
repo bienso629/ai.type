@@ -24,7 +24,7 @@ const ALLOWED_INVOKE_CHANNELS = new Set([
     'cancel-tts', 'capture-app', 'character:save', 'character:upload-glb', 'check-colab-gpu-status',
     'check-file-exists', 'check-local-file-exists', 'check-local-together', 'check-mineru-model',
     'clear-all-cookies', 'clear-all-local-chatbot-threads', 'clear-google-cookies', 'clear-webview-auth',
-    'clothing:delete', 'clothing:list', 'clothing:upload', 'compose-avatar-video', 'convert-local-wp2md',
+    'close-livestream-window', 'clothing:delete', 'clothing:list', 'clothing:upload', 'compose-avatar-video', 'convert-local-wp2md',
     'create-local-forum-topic', 'create-profile-dirs', 'crop-video-ffmpeg', 'db-all', 'db-get', 'db-run',
     'db-tiktok-clear', 'db-tiktok-list', 'db-tiktok-save', 'delete-custom-frame', 'delete-local-article',
     'delete-local-chat', 'delete-local-chatbot-thread', 'delete-local-file', 'delete-local-gologin-profile',
@@ -39,7 +39,7 @@ const ALLOWED_INVOKE_CHANNELS = new Set([
     'extract-video-frames', 'fetch-domain-metadata', 'fetch-forum-groups', 'fetch-forum-user-groups',
     'fetch-forum-users', 'fetch-shopee-product-images', 'find-latest-analyzed-video', 'fonts:delete-file', 'fonts:delete-folder',
     'fonts:get-dir', 'fonts:import-file', 'fonts:import-zip', 'fonts:list', 'fonts:open-dir',
-    'ga:report', 'get-ai-agent-context', 'get-app-version', 'get-colab-auth-status', 'get-colab-voices',
+    'ga:report', 'generate-shopee-affiliate-links', 'get-ai-agent-context', 'get-app-version', 'get-colab-auth-status', 'get-colab-voices',
     'get-local-chat-total', 'get-local-chatbot-history', 'get-local-deleted-chatbot-threads',
     'get-local-faiss-context', 'get-local-faiss-metadata', 'get-local-links-in-collection',
     'get-local-node-details', 'get-local-nodes-total', 'get-local-script', 'get-local-shopee-offer', 'get-local-shopee-offers-by-ids', 'get-local-statistics',
@@ -51,10 +51,10 @@ const ALLOWED_INVOKE_CHANNELS = new Set([
     'list-local-chats', 'list-local-collections', 'list-local-comments', 'list-local-domains',
     'list-local-facebook-posts', 'list-local-forum-categories', 'list-local-gologin-tokens',
     'list-local-link-collections', 'list-local-links', 'list-local-nodes', 'list-local-scripts',
-    'list-local-shopee-offers', 'list-local-tasks', 'list-local-wp2md', 'login-colab-google', 'mcp-call-tool', 'mcp-connect',
+    'list-local-shopee-offers', 'list-local-tasks', 'list-local-wp2md', 'livestream-window-status', 'login-colab-google', 'mcp-call-tool', 'mcp-connect',
     'mcp-disconnect', 'mcp-status', 'merge-frames-to-video', 'mocap:extract-image-3d',
     'mocap:extract-video-3d', 'mock-ai-edit-frames', 'open-external', 'open-file-path',
-    'open-url-external', 'opera:check-ffmpeg', 'opera:install-ffmpeg', 'overwrite-file-base64',
+    'open-livestream-window', 'open-url-external', 'opera:check-ffmpeg', 'opera:install-ffmpeg', 'overwrite-file-base64',
     'probe-and-extract-frame', 'profile:check-character-glb', 'profile:get', 'profile:read-glb',
     'profile:save', 'profile:save-character-glb', 'project-store:delete', 'project-store:list',
     'project-store:list-created-videos', 'project-store:load', 'project-store:migrate',
@@ -89,6 +89,7 @@ const ALLOWED_INVOKE_CHANNELS = new Set([
 const ALLOWED_ON_CHANNELS = new Set([
     'ai-agent:cli-stream', 'download-single-video-progress', 'download-video-progress',
     'dreamina:start', 'dreamina:stop', 'faiss-sync-progress', 'force-renewal', 'google-auth-synced',
+    'livestream:closed', 'livestream:command', 'livestream:state',
     'mocap:progress', 'pdf-analysis-progress', 'secondary-data', 'send-email-progress',
     'stt-caption', 'stt-message', 'tools-log', 'tools-response', 'webview-audio-chunk',
     'webview-download-complete', 'zalo-plugin:notify'
@@ -208,7 +209,30 @@ if (isInternalAppOrigin) contextBridge.exposeInMainWorld('electron', {
     extractVideoFrames: (videoPath) => ipcRenderer.invoke('extract-video-frames', videoPath),
     extractOnlineVideoStream: (payload) => ipcRenderer.invoke('extract-online-video-stream', payload),
     selectLocalFile: (filePath, customDir) => ipcRenderer.invoke('select-local-file', { filePath, customDir }),
-    resizeWindow: (width, height) => ipcRenderer.send('resize-window', { width, height }),
+    resizeWindow: (width, height, aspectRatio) => ipcRenderer.send('resize-window', { width, height, aspectRatio }),
+    openLivestreamWindow: (payload) => ipcRenderer.invoke('open-livestream-window', payload),
+    closeLivestreamWindow: () => ipcRenderer.invoke('close-livestream-window'),
+    getLivestreamWindowStatus: () => ipcRenderer.invoke('livestream-window-status'),
+    sendLivestreamCommand: (payload) => ipcRenderer.send('livestream:command', payload),
+    sendLivestreamState: (payload) => ipcRenderer.send('livestream:state', payload),
+    onLivestreamCommand: (callback) => {
+        if (typeof callback !== 'function') return () => {};
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on('livestream:command', listener);
+        return () => ipcRenderer.removeListener('livestream:command', listener);
+    },
+    onLivestreamState: (callback) => {
+        if (typeof callback !== 'function') return () => {};
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on('livestream:state', listener);
+        return () => ipcRenderer.removeListener('livestream:state', listener);
+    },
+    onLivestreamWindowClosed: (callback) => {
+        if (typeof callback !== 'function') return () => {};
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on('livestream:closed', listener);
+        return () => ipcRenderer.removeListener('livestream:closed', listener);
+    },
     onWebviewDownloadComplete: (callback) => ipcRenderer.on('webview-download-complete', (event, data) => callback(data)),
     onPdfProgress: (callback) => {
         const listener = (_event, data) => callback(data);
@@ -240,6 +264,7 @@ if (isInternalAppOrigin) contextBridge.exposeInMainWorld('electron', {
     listLocalShopeeOffers: (payload) => ipcRenderer.invoke('list-local-shopee-offers', payload),
     getLocalShopeeOffer: (payload) => ipcRenderer.invoke('get-local-shopee-offer', payload),
     getLocalShopeeOffersByIds: (payload) => ipcRenderer.invoke('get-local-shopee-offers-by-ids', payload),
+    generateShopeeAffiliateLinks: (payload) => ipcRenderer.invoke('generate-shopee-affiliate-links', payload),
     listLocalDomains: (payload) => ipcRenderer.invoke('list-local-domains', payload),
     saveLocalDomain: (payload) => ipcRenderer.invoke('save-local-domain', payload),
     fetchDomainMetadata: (payload) => ipcRenderer.invoke('fetch-domain-metadata', payload),

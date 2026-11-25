@@ -6,7 +6,7 @@ import { ShopeeOfferItem } from 'app/_services/shopee-offers.service';
 export type AffiliateLivestreamStyle = string;
 export type AffiliateLivestreamVoice = 'vi-VN-HoaiMyNeural' | 'vi-VN-NamMinhNeural' | 'none';
 export type AffiliateLivestreamAspect = '9:16' | '16:9';
-export type AffiliateReferenceRole = 'actor' | 'background' | 'product';
+export type AffiliateReferenceRole = 'actor' | 'logo' | 'background' | 'product';
 
 export interface AffiliateReferenceImage {
     id: string;
@@ -25,6 +25,9 @@ export interface AffiliateLivestreamSubtitle {
     videoUrl?: string;
     videoLocalPath?: string;
     videoName?: string;
+    heldProductImageUrl?: string;
+    heldProductImageIndex?: number;
+    heldProductLabel?: string;
 }
 
 export interface AffiliateLivestreamScene {
@@ -34,6 +37,10 @@ export interface AffiliateLivestreamScene {
     actionCue: string;
     durationSec: number;
     imageUrl: string;
+    videoUrl?: string;
+    videoLocalPath?: string;
+    videoName?: string;
+    videoDurationSec?: number;
     subtitles: AffiliateLivestreamSubtitle[];
 }
 
@@ -47,6 +54,7 @@ export interface AffiliateLivestreamDraft {
     style: AffiliateLivestreamStyle;
     styleDescription?: string;
     voice: AffiliateLivestreamVoice;
+    useTts?: boolean;
     aspectRatio: AffiliateLivestreamAspect;
     title: string;
     hookSummary: string;
@@ -57,6 +65,7 @@ export interface AffiliateLivestreamDraft {
     productVariations?: Array<{ name: string; options: string[] }>;
     productDescription?: string;
     referenceImages?: AffiliateReferenceImage[];
+    backdropCustomPrompt?: string;
     backdropImageUrl?: string;
     backdropLocalPath?: string;
     backdropAspectRatio?: AffiliateLivestreamAspect;
@@ -68,6 +77,7 @@ export interface GenerateBackdropImageParams {
     product: ShopeeOfferItem;
     selectedProductImageUrl?: string;
     brief: string;
+    backdropCustomPrompt?: string;
     style: string;
     styleDescription?: string;
     voice: AffiliateLivestreamVoice;
@@ -82,6 +92,32 @@ export interface GenerateBackdropImageResult {
     imageUrl: string;
     localPath?: string;
     dataUrl?: string;
+}
+
+export interface GenerateSceneLipSyncVideoParams {
+    scene: AffiliateLivestreamScene;
+    sceneIndex: number;
+    product: ShopeeOfferItem;
+    productImages?: string[];
+    productImageFileNames?: Record<string, string>;
+    anchorImageUrl: string;
+    anchorImageFileName?: string;
+    aspectRatio: AffiliateLivestreamAspect;
+    style: string;
+    styleDescription?: string;
+    useTts: boolean;
+    voice: AffiliateLivestreamVoice;
+    username: string;
+    uuid: string;
+    onStatus?: (message: string) => void;
+}
+
+export interface GenerateSceneLipSyncVideoResult {
+    videoUrl: string;
+    localPath: string;
+    fileName: string;
+    durationSec: number;
+    modelUsed: string;
 }
 
 export interface GenerateAffiliateScriptParams {
@@ -121,6 +157,14 @@ export class AffiliateLivestreamService {
         private _multiAccountService: MultiAccountService,
     ) {}
 
+    isMitomAiEnabled(): boolean {
+        return this._genaiService.isUModelverseEnabled();
+    }
+
+    getMitomVideoModel(): string {
+        return (this._genaiService.umodelverseVideoModel || '').trim() || 'doubao-seedance-2-5-260628-global';
+    }
+
     getOfferKey(product: ShopeeOfferItem): string {
         const raw = product?._id || product?.id || (product?.shop_id && product?.item_id ? `offer_${product.shop_id}_${product.item_id}` : product?.item_id || 'offer');
         return String(raw).replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -147,7 +191,9 @@ export class AffiliateLivestreamService {
         const hasVideo =
             hasScenes &&
             draft.scenes.some(
-                (sc) => Array.isArray(sc?.subtitles) && sc.subtitles.some((sub) => !!String(sub?.videoUrl || '').trim()),
+                (sc) =>
+                    !!String(sc?.videoUrl || '').trim() ||
+                    (Array.isArray(sc?.subtitles) && sc.subtitles.some((sub) => !!String(sub?.videoUrl || '').trim())),
             );
         return hasScenes || hasBackdrop || hasVideo || hasBrief;
     }
@@ -223,7 +269,7 @@ export class AffiliateLivestreamService {
         await this._multiAccountService.setItem(key, updated);
     }
 
-    public readonly MAX_SCENE_DURATION_SEC = 40;
+    public readonly MAX_SCENE_DURATION_SEC = 30;
 
     calculateSceneCount(durationMinutes: number): number {
         const mins = Math.max(1, Math.min(180, Number(durationMinutes) || 5));
@@ -232,8 +278,8 @@ export class AffiliateLivestreamService {
     }
 
     /**
-     * Đảm bảo TUYỆT ĐỐI mọi phân cảnh có tổng thời lượng <= maxSceneSec (mặc định 40s).
-     * Nếu 1 cảnh vượt quá 40s, tự động tách các câu thoại tràn sang phân cảnh nối tiếp mà không làm mất lời thoại hay video/audio đã gắn.
+     * Đảm bảo TUYỆT ĐỐI mọi phân cảnh có tổng thời lượng <= maxSceneSec (mặc định 30s).
+     * Nếu 1 cảnh vượt quá 30s, tự động tách các câu thoại tràn sang phân cảnh nối tiếp mà không làm mất lời thoại hay video/audio đã gắn.
      */
     enforceMaxSceneDuration(
         scenes: AffiliateLivestreamScene[],
@@ -254,6 +300,37 @@ export class AffiliateLivestreamService {
                     duration: Math.max(1, Math.min(subLimit, Math.round(Number(sub.duration) || 1))),
                 }));
             if (subs.length === 0) continue;
+
+            const hasSceneVideo = !!String(sc.videoUrl || '').trim();
+            if (hasSceneVideo && subs.length <= sceneLimit) {
+                const rawSum = subs.reduce((acc, item) => acc + item.duration, 0);
+                if (rawSum > sceneLimit) {
+                    const remaining = sceneLimit - subs.length;
+                    const weights = subs.map((item) => Math.max(1, item.duration));
+                    const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+                    const extras = weights.map((w) => (w / totalWeight) * remaining);
+                    const floors = extras.map((e) => Math.floor(e));
+                    let leftover = remaining - floors.reduce((a, b) => a + b, 0);
+                    const order = extras
+                        .map((e, idx) => ({ idx, frac: e - floors[idx] }))
+                        .sort((a, b) => b.frac - a.frac);
+                    for (let k = 0; k < leftover && k < order.length; k++) {
+                        floors[order[k].idx] += 1;
+                    }
+                    subs.forEach((item, idx) => {
+                        item.duration = 1 + floors[idx];
+                    });
+                }
+                const dur = subs.reduce((acc, item) => acc + item.duration, 0);
+                const baseTitle = String(sc.title || `Phân cảnh ${result.length + 1}`).replace(/\s*\(Phần\s+\d+\)\s*$/i, '').trim();
+                result.push({
+                    ...sc,
+                    title: baseTitle,
+                    durationSec: Math.min(sceneLimit, dur),
+                    subtitles: subs,
+                });
+                continue;
+            }
 
             const chunks: AffiliateLivestreamSubtitle[][] = [];
             let currentChunk: AffiliateLivestreamSubtitle[] = [];
@@ -281,6 +358,10 @@ export class AffiliateLivestreamService {
                     id: cIdx === 0 ? sc.id : `${sc.id}_p${cIdx + 1}_${Math.random().toString(36).slice(2, 5)}`,
                     title: chunks.length > 1 ? `${baseTitle} (Phần ${cIdx + 1})` : baseTitle,
                     durationSec: Math.min(sceneLimit, dur),
+                    videoUrl: cIdx === 0 ? sc.videoUrl : undefined,
+                    videoLocalPath: cIdx === 0 ? sc.videoLocalPath : undefined,
+                    videoName: cIdx === 0 ? sc.videoName : undefined,
+                    videoDurationSec: cIdx === 0 ? sc.videoDurationSec : undefined,
                     subtitles: chunkSubs,
                 });
             });
@@ -310,24 +391,58 @@ export class AffiliateLivestreamService {
         return `${n.toLocaleString('vi-VN')} đồng`;
     }
 
-    private estimateSpeechDurationSec(text: string, maxSubtitleSeconds = 15): number {
-        const maxSec = Math.max(1, Math.min(30, Math.round(Number(maxSubtitleSeconds) || 15)));
-        const minSec = maxSec <= 1 ? 1 : Math.min(3, maxSec);
-        const words = String(text || '')
-            .trim()
-            .split(/\s+/)
-            .filter(Boolean).length;
-        // Tốc độ dẫn livestream tiếng Việt tự nhiên: ~2.3 từ/giây
-        const raw = words <= 3 ? 1 : Math.round(words / 2.3) + (maxSec >= 5 ? 1 : 0);
+    public countSpokenVietnameseSyllables(text: string): number {
+        const cleaned = String(text || '')
+            .replace(/https?:\/\/\S+/gi, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (!cleaned) return 0;
+
+        const tokens = cleaned.split(/\s+/).filter(Boolean);
+        let syllables = 0;
+        for (const rawToken of tokens) {
+            const token = rawToken.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}%₫đ]+$/gu, '');
+            if (!token) continue;
+            // Giá tiền / số viết tắt kiểu 88.900đ, 158k, 44%, DD43 khi đọc thành tiếng dài hơn 1 âm tiết
+            if (/^\d{1,3}(?:[.,]\d{3})+(?:đ|₫|d|vnd)?$/i.test(token)) {
+                const digits = token.replace(/\D/g, '');
+                syllables += digits.length >= 6 ? 7 : digits.length >= 5 ? 6 : 4;
+            } else if (/^\d+(?:[.,]\d+)?k$/i.test(token)) {
+                const numPart = token.replace(/[^\d]/g, '');
+                syllables += numPart.length >= 3 ? 5 : numPart.length === 2 ? 3 : 2;
+            } else if (/^\d+(?:[.,]\d+)?%$/.test(token)) {
+                syllables += 4;
+            } else if (/^[a-zA-Z]{1,4}\d{1,4}$/.test(token)) {
+                syllables += Math.min(5, token.length);
+            } else if (/^\d+$/.test(token)) {
+                syllables += token.length >= 4 ? 4 : token.length >= 2 ? 2 : 1;
+            } else {
+                syllables += 1;
+            }
+        }
+        return syllables;
+    }
+
+    public estimateSpeechDurationSec(text: string, maxSubtitleSeconds = 30): number {
+        const maxSec = Math.max(1, Math.min(30, Math.round(Number(maxSubtitleSeconds) || 30)));
+        const minSec = maxSec <= 1 ? 1 : Math.min(2, maxSec);
+        const rawText = String(text || '').trim();
+        if (!rawText) return minSec;
+        const syllables = this.countSpokenVietnameseSyllables(rawText);
+        if (syllables <= 3) return minSec;
+        // Tốc độ đọc livestream tiếng Việt tự nhiên (và Veo / Seedance / Edge TTS): ~3.6 âm tiết/giây + ngắt nhịp nhẹ theo dấu câu
+        const pauseCount = (rawText.match(/[,;:.!?]/g) || []).length;
+        const pauseSec = Math.min(1.2, Math.max(0, pauseCount - 1) * 0.22);
+        const raw = Math.round(syllables / 3.6 + pauseSec);
         return Math.max(minSec, Math.min(maxSec, raw));
     }
 
     private splitTextToFitMaxSeconds(text: string, maxSec: number): string[] {
         const cleaned = String(text || '').replace(/\s+/g, ' ').trim();
         if (!cleaned) return [];
-        const maxWords = Math.max(3, Math.floor(maxSec * 2.4));
+        const maxWords = Math.max(4, Math.floor(maxSec * 3.6));
         const words = cleaned.split(' ');
-        if (words.length <= Math.ceil(maxWords * 1.2)) {
+        if (words.length <= Math.ceil(maxWords * 1.15)) {
             return [cleaned];
         }
 
@@ -402,10 +517,12 @@ export class AffiliateLivestreamService {
                     const parts = this.splitTextToFitMaxSeconds(text, maxSec);
                     parts.forEach((partText, pIdx) => {
                         const est = this.estimateSpeechDurationSec(partText, maxSec);
-                        const rawDur =
-                            parts.length === 1 && explicitDur >= 1
-                                ? Math.round(explicitDur)
-                                : est;
+                        // Khóa sát duration theo thời gian đọc thực tế (tối đa +/- 1s) để tránh tình trạng câu ngắn nhưng gán 10s gây lặp lời thoại khi tạo video AI
+                        let rawDur = est;
+                        if (parts.length === 1 && explicitDur >= 1) {
+                            const roundedExplicit = Math.round(explicitDur);
+                            rawDur = Math.max(Math.max(minSec, est - 1), Math.min(Math.min(maxSec, est + 1), roundedExplicit));
+                        }
                         subtitles.push({
                             id: `sub_${sIdx}_${lIdx}_${pIdx}_${Date.now().toString(36)}`,
                             text: partText,
@@ -445,29 +562,18 @@ export class AffiliateLivestreamService {
             return [];
         }
 
-        // Cân chỉnh thời lượng từng câu thoại theo tỷ lệ để bám sát thời lượng mục tiêu nhưng TUYỆT ĐỐI không vượt quá maxSec và mỗi cảnh tối đa 40s
-        const currentTotal = cleaned.reduce(
-            (sum, sc) => sum + sc.subtitles.reduce((t, sub) => t + (sub.duration || minSec), 0),
-            0,
-        );
-
-        if (currentTotal > 0) {
-            const ratio = targetTotalSec / currentTotal;
-            for (const sc of cleaned) {
-                let scSum = 0;
-                for (const sub of sc.subtitles) {
-                    const scaled =
-                        ratio < 0.88 || ratio > 1.12
-                            ? Math.round(sub.duration * ratio)
-                            : sub.duration;
-                    sub.duration = Math.max(minSec, Math.min(maxSec, scaled));
-                    scSum += sub.duration;
-                }
-                sc.durationSec = scSum;
+        // Giữ thời lượng từng câu thoại khớp đúng thời gian đọc thực tế (tuyệt đối không kéo giãn câu ngắn lên 10s để bù tổng thời lượng)
+        for (const sc of cleaned) {
+            let scSum = 0;
+            for (const sub of sc.subtitles) {
+                const est = this.estimateSpeechDurationSec(sub.text, maxSec);
+                sub.duration = Math.max(minSec, Math.min(maxSec, Math.min(sub.duration, est + 1)));
+                scSum += sub.duration;
             }
+            sc.durationSec = scSum;
         }
 
-        // Bắt buộc tách cảnh nếu bất kỳ phân cảnh nào vượt quá 40s
+        // Bắt buộc tách cảnh nếu bất kỳ phân cảnh nào vượt quá 30s
         return this.enforceMaxSceneDuration(cleaned, this.MAX_SCENE_DURATION_SEC, maxSec);
     }
 
@@ -604,7 +710,9 @@ export class AffiliateLivestreamService {
         const maxSceneSec = this.MAX_SCENE_DURATION_SEC;
         const maxLineSec = Math.max(1, Math.min(30, Math.round(Number(params.maxSubtitleSeconds) || 15)));
         const minLineSec = maxLineSec <= 1 ? 1 : Math.min(3, maxLineSec);
-        const maxWordsPerLine = Math.max(3, Math.floor(maxLineSec * 2.3));
+        // Tốc độ đọc livestream tiếng Việt tự nhiên ~3.5 - 3.8 từ/giây -> tính đúng số từ để lời thoại vừa khít thời lượng, không bị thừa giây trống
+        const minWordsPerLine = Math.max(3, Math.round(maxLineSec * 2.8));
+        const maxWordsPerLine = Math.max(5, Math.round(maxLineSec * 3.8));
         const totalRequiredScenes = this.calculateSceneCount(mins);
         // Giới hạn tối đa 24 phân cảnh độc lập trong 1 lượt gọi AI để tránh bị cắt cụt JSON với phiên live siêu dài (30p-180p)
         const sceneCount = Math.min(totalRequiredScenes, 24);
@@ -669,7 +777,7 @@ YÊU CẦU CÔNG VIỆC LIVESTREAM CỦA NGƯỜI DÙNG:
 THÔNG SỐ PHIÊN LIVESTREAM:
 - Tổng thời lượng mục tiêu: ${mins} phút (${targetSec} giây)
 - GIỚI HẠN THỜI LƯỢNG MỖI PHÂN CẢNH: TỔNG THỜI LƯỢNG CỦA MỖI CẢNH TUYỆT ĐỐI KHÔNG VƯỢT QUÁ ${maxSceneSec} GIÂY (durationSec <= ${maxSceneSec}, tổng trường "duration" của tất cả các câu thoại trong cùng 1 cảnh PHẢI <= ${maxSceneSec} giây).
-- GIỚI HẠN THỜI LƯỢNG MỖI CÂU THOẠI: tối đa KHÔNG VƯỢT QUÁ ${maxLineSec} giây/câu (mỗi câu tối đa khoảng ${maxWordsPerLine} từ tiếng Việt để đọc vừa khít trong ${maxLineSec} giây).
+- GIỚI HẠN THỜI LƯỢNG MỖI CÂU THOẠI: tối đa KHÔNG VƯỢT QUÁ ${maxLineSec} giây/câu. Tốc độ đọc livestream tiếng Việt tự nhiên khoảng 3.5 - 3.8 từ/giây, vì vậy để tận dụng sát khung ${maxLineSec} giây mà không bị thừa thời gian trống, hãy viết mỗi câu thoại đủ ý khoảng ${minWordsPerLine} đến ${maxWordsPerLine} từ tiếng Việt (có thể gồm 2 vế mạch lạc); nếu một câu ngắn hơn thì PHẢI gán đúng số giây đọc thực tế (~số từ / 3.6), TUYỆT ĐỐI không viết câu ngắn 15-20 từ rồi gán duration ${maxLineSec} giây.
 - Số phân cảnh cần chia: đúng ${sceneCount} phân cảnh ngắn gọn, nối tiếp mạch lạc (mỗi cảnh <= ${maxSceneSec} giây; Mở đầu hút view -> Giới thiệu & Công dụng -> Demo/Trải nghiệm/So sánh -> Giải đáp thắc mắc Q&A -> Đẩy ưu đãi & Chốt đơn giỏ hàng; nếu nhiều cảnh thì tổ chức nhiều nhịp demo/tương tác/chốt đơn tự nhiên)
 - Mỗi phân cảnh gồm khoảng ${linesPerScene} câu thoại tự nhiên, súc tích sao cho tổng thời lượng cảnh nằm khoảng ${Math.min(maxSceneSec, Math.max(10, targetPerSceneSec - 5))} đến tối đa ${maxSceneSec} giây.
 - Phong cách dẫn live: ${styleName || 'Mặc định tự nhiên'}
@@ -761,8 +869,10 @@ QUY TẮC BẮT BUỘC:
 
         const tasks: Array<{ sceneIdx: number; subIdx: number; sub: AffiliateLivestreamSubtitle }> = [];
         scenes.forEach((sc, sceneIdx) => {
+            // Nếu phân cảnh đã import video tổng thì dùng âm thanh gốc của video tổng, bỏ qua tạo TTS cho các câu thoại trong cảnh
+            if (sc?.videoUrl) return;
             (sc.subtitles || []).forEach((sub, subIdx) => {
-                // Nếu câu thoại đã import file video riêng thì ưu tiên phát âm thanh gốc của video, bỏ qua tạo TTS đè lên
+                // Tương thích bản nháp cũ: nếu câu thoại đã import file video riêng thì bỏ qua tạo TTS đè lên
                 if (sub?.text?.trim() && !sub.videoUrl) {
                     tasks.push({ sceneIdx, subIdx, sub });
                 }
@@ -825,7 +935,7 @@ QUY TẮC BẮT BUỘC:
             }
         }
 
-        // Cập nhật lại tổng thời lượng và tự tách phân cảnh tại chỗ nếu audio TTS thực tế khiến cảnh vượt quá 40s
+        // Cập nhật lại tổng thời lượng và tự tách phân cảnh tại chỗ nếu audio TTS thực tế khiến cảnh vượt quá 30s
         const normalizedScenes = this.enforceMaxSceneDuration(scenes, this.MAX_SCENE_DURATION_SEC, this.MAX_SCENE_DURATION_SEC);
         scenes.splice(0, scenes.length, ...normalizedScenes);
 
@@ -1041,10 +1151,11 @@ QUY TẮC BẮT BUỘC:
             }
         }
 
-        // 2. Gắn toàn bộ ảnh tham chiếu người dùng đính kèm (Diễn viên / Bối cảnh / Sản phẩm phụ)
+        // 2. Gắn toàn bộ ảnh tham chiếu người dùng đính kèm (Diễn viên / Logo / Bối cảnh / Sản phẩm phụ)
         const userRefs = Array.isArray(params.referenceImages) ? params.referenceImages : [];
         let hasActorRef = false;
         let hasBgRef = false;
+        let hasLogoRef = false;
 
         for (const ref of userRefs) {
             const resolved = await this.resolveImageUrlToBase64(ref.dataUrl);
@@ -1061,6 +1172,11 @@ QUY TẮC BẮT BUỘC:
                 hasActorRef = true;
                 refDescriptions.push(
                     `- Reference Image #${refIndex}: THE LIVESTREAM HOST / ACTOR (${ref.name}). Preserve this exact person's facial identity, hairstyle, skin tone, and warm expression as the main presenter${isWearable ? ' (REPLACE their original outfit from this reference with the exact featured garment from Reference Image #1, and REMOVE any green screen background)' : ' (remove any green screen background and place them naturally in the livestream studio)'}.`,
+                );
+            } else if (ref.role === 'logo') {
+                hasLogoRef = true;
+                refDescriptions.push(
+                    `- Reference Image #${refIndex}: THE BRAND / CHANNEL LOGO (${ref.name}). MANDATORY LOGO GRAPHIC: Integrate this EXACT logo graphic crisply and faithfully onto the livestream broadcast frame (for example as a sleek corner badge, header emblem, or studio brand badge as requested in the Custom Graphic Prompt), preserving its exact artwork, colors, and clean silhouette without distorting it.`,
                 );
             } else if (ref.role === 'background') {
                 hasBgRef = true;
@@ -1102,12 +1218,63 @@ QUY TẮC BẮT BUỘC:
 
         const styleSummary = [params.style, params.styleDescription].filter(Boolean).join(' - ').slice(0, 320);
         const briefSummary = String(params.brief || '').trim().slice(0, 400);
+        const customBackdropPrompt = String(params.backdropCustomPrompt || '').trim().slice(0, 1200);
+        const hasCustomGraphics = customBackdropPrompt.length > 0 || hasLogoRef;
+
+        const salePriceText =
+            Number(params.product?.price) > 0
+                ? `${Number(params.product.price).toLocaleString('vi-VN')}đ`
+                : '';
+        const origPriceText =
+            Number(params.product?.original_price) > Number(params.product?.price || 0)
+                ? `${Number(params.product.original_price).toLocaleString('vi-VN')}đ`
+                : '';
+        const discountPct =
+            Number(params.product?.original_price) > Number(params.product?.price || 0) &&
+            Number(params.product?.price) > 0
+                ? Math.round(
+                      ((Number(params.product.original_price) - Number(params.product.price)) /
+                          Number(params.product.original_price)) *
+                          100,
+                  )
+                : 0;
+        const verifiedFacts = [
+            params.product?.product_name ? `Product Name: "${params.product.product_name}"` : '',
+            params.product?.shop_name ? `Shop: "${params.product.shop_name}"` : '',
+            salePriceText ? `Sale Price: ${salePriceText}` : '',
+            origPriceText ? `Original Price: ${origPriceText}` : '',
+            discountPct > 0 ? `Discount: -${discountPct}%` : '',
+        ]
+            .filter(Boolean)
+            .join(' | ');
+
+        const customGraphicsSection = hasCustomGraphics
+            ? `\n6. CUSTOM GRAPHIC OVERLAYS, TYPOGRAPHY EFFECTS, BRAND LOGO & PROMOTION DESIGN (MANDATORY — HIGHEST VISUAL PRIORITY):
+- USER CUSTOM PROMPT INSTRUCTIONS (EXECUTE FAITHFULLY): "${customBackdropPrompt || 'Integrate the attached brand logo cleanly in the upper corner of the livestream broadcast frame with polished commercial typography.'}"
+- VERIFIED PRODUCT & DEAL FACTS (use exact figures if displaying prices/discounts): ${verifiedFacts || 'Use details specified in the user custom prompt'}
+- GRAPHIC & TYPOGRAPHY EXECUTION RULES:
+  * Render all requested Vietnamese text, brand/shop names, promotional headlines, price tags, discount badges, voucher/freeship ribbons, and 3D / metallic / neon / glossy typography effects with professional commercial e-commerce broadcast graphic design quality (sharp strokes, clean drop shadows, vibrant contrast, cohesive studio palette).
+  * VIETNAMESE SPELLING ACCURACY IS CRITICAL: Spell every Vietnamese word and diacritic (ă, â, đ, ê, ô, ơ, ư and tone marks sắc, huyền, hỏi, ngã, nặng) 100% accurately with zero garbled or misspelled characters.
+  * SAFE-ZONE PLACEMENT: Position logos, headline typography, and promotional badges neatly in the upper header area, upper corners, or lower corner ribbons so they frame the shot cleanly and NEVER obscure the host's face, eyes, or the featured hero product.${
+      hasLogoRef
+          ? '\n  * LOGO FIDELITY: Use the exact attached LOGO reference image verbatim — do not invent a different logo.'
+          : ''
+  }`
+            : '';
+
+        const textOverlayRule = hasCustomGraphics
+            ? '- Render ONLY the intentional brand logo, typography effects, product info, and promotional banners/badges requested in Section 6 (Custom Graphic Overlays) with crisp commercial Vietnamese graphic design. STRICTLY DO NOT copy unrequested shop corner logos, white square brand stickers/watermarks, messy size-chart tables, fake live chat comment lists, or split-screen collages from Reference Image #1.'
+            : '- ABSOLUTELY NO floating overlaid text, NO unrequested shop corner logos or white brand stickers from Reference Image #1, NO Shopee promo banners, NO price tags, NO size charts, NO watermarks, NO live chat UI icons, NO borders, NO split-screen collages (keep only authentic details physically belonging on the product itself).';
+
+        const selfCheckRule = hasCustomGraphics
+            ? '- CRITICAL SELF-CHECK: After generating the image, inspect it carefully against Reference Image #1 (the Shopee product), any attached Logo reference, and the User Custom Prompt. Verify BOTH that (a) the product hero color, exact cut/shape, collar/neckline/lid/accessories, and proportions faithfully match Reference Image #1, AND (b) every requested Vietnamese word/diacritic, text effect, logo graphic, and promotional banner from the Custom Prompt is rendered cleanly, accurately spelled, and does not cover the host\'s face or product; if anything noticeably differs or has spelling errors, refine and regenerate once before returning the final file path.'
+            : '- CRITICAL SELF-CHECK: After generating the image, inspect the generated image against Reference Image #1 (the Shopee product). Verify that the product\'s hero color, exact cut/shape, collar/neckline/lid/accessories, and proportions faithfully match Reference Image #1; if they noticeably differ, refine and regenerate once before returning the final file path.';
 
         const promptText = `Create ONE ultra-clean, photorealistic commercial e-commerce livestream studio master keyframe image ready for AI video production.
 
 MANDATORY COMPOSITION & ASPECT RATIO:
 - Aspect Ratio: ${aspectText}.
-- Framing: Medium-close livestream broadcast shot from waist/hip up, host centered slightly above midline with a neat presenter desk in the foreground, leaving clean breathing space near the bottom for live captions and product pin overlays.
+- Framing: Medium-close livestream broadcast shot from waist/hip up, host centered slightly above midline with a neat presenter desk in the foreground, leaving balanced studio headroom${hasCustomGraphics ? ' for the requested brand header, logo, and promotion graphics' : ' and clean breathing space near the bottom for live captions and product pin overlays'}.
 
 ATTACHED REFERENCE IMAGES (PASS ALL REFERENCE IMAGE FILES DIRECTLY TO THE IMAGE GENERATOR):
 ${refDescriptions.length > 0 ? refDescriptions.join('\n') : `- Product to showcase: "${params.product?.product_name || 'Affiliate product'}"`}
@@ -1117,12 +1284,12 @@ SUBJECTS & SCENE REQUIREMENTS:
 2. FEATURED PRODUCT (HIGHEST PRIORITY — MUST MATCH SHOPEE PRODUCT 1:1): ${productFidelityInstruction}
 3. STUDIO BACKGROUND: ${bgInstruction}
 4. MOOD & PRESENTATION STYLE: ${styleSummary || 'Energetic, trustworthy Vietnamese live-commerce broadcast'}.
-${briefSummary ? `5. LIVESTREAM BRIEF CONTEXT: ${briefSummary}` : ''}
+${briefSummary ? `5. LIVESTREAM BRIEF CONTEXT: ${briefSummary}` : ''}${customGraphicsSection}
 
 STRICT QUALITY & VERIFICATION RULES:
 - Photorealistic 4K DSLR broadcast camera look, natural skin tones, authentic hands, balanced studio key + fill lighting.
-- ABSOLUTELY NO floating overlaid text, NO Shopee promo banners, NO price tags, NO size charts, NO watermarks, NO live chat UI icons, NO borders, NO split-screen collages (keep only authentic details physically belonging on the product itself).
-- CRITICAL SELF-CHECK: After generating the image, inspect the generated image against Reference Image #1 (the Shopee product). Verify that the product's hero color, exact cut/shape, collar/neckline/lid/accessories, and proportions faithfully match Reference Image #1; if they noticeably differ, refine and regenerate once before returning the final file path.`;
+${textOverlayRule}
+${selfCheckRule}`;
 
         requestParts.unshift({ text: promptText });
 
@@ -1221,6 +1388,572 @@ STRICT QUALITY & VERIFICATION RULES:
         return { imageUrl: dataUrl, dataUrl };
     }
 
+    private getMaxSingleClipSecForModel(modelName: string): number {
+        const lower = String(modelName || '').toLowerCase();
+        if (lower.includes('seedance-2-5') || lower.includes('seedance-2.5') || lower.includes('seedance2.5')) {
+            return 30;
+        }
+        if (lower.includes('seedance-2') || lower.includes('seedance2')) {
+            return 15;
+        }
+        if (lower.includes('seedance-1-5') || lower.includes('seedance-1.5')) {
+            return 12;
+        }
+        if (lower.includes('veo')) {
+            return 8;
+        }
+        return 10;
+    }
+
+    private extractCleanFileName(rawUrlOrPath: string, fallbackName: string): string {
+        const raw = String(rawUrlOrPath || '').trim();
+        if (!raw || raw.startsWith('data:') || raw.startsWith('blob:')) return fallbackName;
+        let cleaned = raw
+            .replace(/^media:\/\//i, '')
+            .replace(/^file:\/\//i, '')
+            .split('?')[0]
+            .split('#')[0]
+            .split('@')[0];
+        try {
+            cleaned = decodeURIComponent(cleaned);
+        } catch (_) {}
+        const segs = cleaned.split(/[\\/]/).filter(Boolean);
+        let base = segs.length > 0 ? segs[segs.length - 1] : '';
+        if (!base) return fallbackName;
+        if (!/\.(?:png|jpe?g|webp|gif|avif|bmp)$/i.test(base)) {
+            base = `${base}.jpg`;
+        }
+        return base;
+    }
+
+    private buildLivestreamLipSyncBasePrompt(params: {
+        productName: string;
+        anchorFileName?: string;
+        actionCue?: string;
+        phase?: string;
+        style?: string;
+        styleDescription?: string;
+        voice: AffiliateLivestreamVoice;
+        dialogueText?: string;
+        heldProductInstruction?: string;
+        includeDirectSpeechRule: boolean;
+        partIndex?: number;
+        totalParts?: number;
+    }): string {
+        const voicePersona =
+            params.voice === 'vi-VN-NamMinhNeural'
+                ? 'a charismatic young Vietnamese male livestream host'
+                : 'a charming young Vietnamese female livestream host';
+        const actionText = String(params.actionCue || '').trim();
+        const styleText = String(params.style || '').trim().slice(0, 100);
+        const heldInstruction = String(params.heldProductInstruction || '').trim();
+        const anchorRefLabel = params.anchorFileName
+            ? `the anchor image "${params.anchorFileName}"`
+            : 'the livestream backdrop anchor image';
+        const partLabel =
+            params.totalParts && params.totalParts > 1 && typeof params.partIndex === 'number'
+                ? ` (Part ${params.partIndex + 1}/${params.totalParts})`
+                : '';
+
+        const lines: string[] = [
+            `Continuous single-take studio product showcase video${partLabel} continuing directly from ${anchorRefLabel}.`,
+            `Keep the studio backdrop, framing, all four frame corners, lighting, and existing graphics from ${anchorRefLabel} completely steady and unchanged with no camera cuts. Do not add any new corner badges, white boxes, stickers, extra text, or extra background elements onto the frame; only the featured product item held in hand is showcased.`,
+            `The presenter (${voicePersona}) looks naturally into the camera, speaking Vietnamese clearly with smooth, natural mouth movement, warm smile, and natural hand gestures showcasing "${params.productName || 'the featured product'}".`,
+        ];
+        if (heldInstruction) {
+            lines.push(heldInstruction);
+        }
+        if (actionText) {
+            lines.push(`Action & framing: ${actionText}.`);
+        }
+        if (styleText) {
+            lines.push(`Presentation mood: ${styleText}.`);
+        }
+        if (params.includeDirectSpeechRule && params.dialogueText) {
+            const safeDialogue = params.dialogueText.replace(/["“”]/g, "'").replace(/\s+/g, ' ').trim().slice(0, 1200);
+            lines.push(
+                `Spoken Vietnamese dialogue (speak this exact sentence verbatim word-for-word in clear, natural Vietnamese with synchronized lip movement; do not add, skip, repeat, or improvise any extra words): "${safeDialogue}"`,
+            );
+            lines.push(
+                'Post-speech behavior: Once the exact dialogue above finishes, if any video duration remains, the presenter stops speaking completely (keeps a cheerful, natural smile with no extra words or lip movement) and performs lively, upbeat gestures showcasing the product—turning it gently toward the camera, showing its details, nodding warmly, and gesturing enthusiastically until the clip ends.',
+            );
+        } else {
+            lines.push(
+                'Speech & post-speech behavior: Match lip movement accurately to the exact spoken audio. Whenever speaking finishes and video duration remains, stop lip movement completely, maintain a bright joyful smile, and continue lively, upbeat gestures showcasing the product toward the camera until the clip ends.',
+            );
+        }
+        lines.push(`Clean 4K studio broadcast look with natural hands holding the product. Keep all existing graphics in ${anchorRefLabel} crisp and static, ignore any corner logos or white boxes from product reference images, and do not add new subtitles, watermarks, or split screens.`);
+        return lines.join('\n');
+    }
+
+    private async saveGeneratedVideoOutput(
+        base64Video: string,
+        fallbackRemoteUrl: string | null | undefined,
+        username: string,
+        uuid: string,
+        sceneIndex: number,
+    ): Promise<{ videoUrl: string; localPath: string; fileName: string }> {
+        const fileName = `scene_${String(sceneIndex + 1).padStart(2, '0')}_lipsync_${Date.now()}.mp4`;
+        let rawB64 = String(base64Video || '').trim();
+        if (rawB64.startsWith('data:')) {
+            rawB64 = rawB64.split(',')[1] || '';
+        }
+
+        const electron = (window as any).electron;
+        if (rawB64 && electron?.saveBase64) {
+            const saveRes = await electron.saveBase64({
+                base64: rawB64,
+                fileName,
+                customDataSubDir: `tts/${username || 'admin'}/${uuid}`,
+            });
+            if (saveRes?.success && saveRes.path) {
+                return {
+                    videoUrl: this.toElectronMediaUrl(saveRes.path),
+                    localPath: saveRes.path,
+                    fileName,
+                };
+            }
+        }
+
+        if (rawB64) {
+            try {
+                const binary = atob(rawB64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                const blobUrl = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
+                return { videoUrl: blobUrl, localPath: '', fileName };
+            } catch (_) {}
+        }
+
+        if (fallbackRemoteUrl) {
+            return { videoUrl: fallbackRemoteUrl, localPath: '', fileName };
+        }
+
+        throw new Error('Không thể lưu tệp video đầu ra sau khi Mì Tôm AI hoàn tất.');
+    }
+
+    /**
+     * Dựng video nhân vật đọc toàn bộ lời thoại trong 1 phân cảnh với chuyển động khớp miệng bằng Mì Tôm AI.
+     * - Tự động khớp độ dài video theo toàn bộ số lượng câu thoại của cảnh.
+     * - Nếu bật Giọng đọc TTS: tạo audio TTS từng câu rồi điều phối Seedance AI Avatar Lip-Sync khớp 100% khẩu hình và độ dài audio.
+     * - Nếu tắt Giọng đọc TTS: yêu cầu Mì Tôm AI tạo trực tiếp giọng tiếng Việt + khẩu hình khớp miệng, tự nối chuỗi mượt qua FFmpeg khi tổng thời lượng lời thoại dài hơn giới hạn 1 lượt của model.
+     */
+    async generateSceneLipSyncVideo(
+        params: GenerateSceneLipSyncVideoParams,
+    ): Promise<GenerateSceneLipSyncVideoResult> {
+        if (!this.isMitomAiEnabled()) {
+            throw new Error('Vui lòng bật Mì Tôm AI và cấu hình URL + API Key trong mục Cài đặt trước khi dựng video.');
+        }
+
+        const activeSubs = (params.scene?.subtitles || []).filter((s) => String(s?.text || '').trim().length > 0);
+        if (activeSubs.length === 0) {
+            throw new Error('Phân cảnh chưa có lời thoại để dựng video.');
+        }
+
+        const report = (msg: string) => {
+            try {
+                params.onStatus?.(msg);
+            } catch (_) {}
+        };
+
+        // 1. Chuẩn bị ảnh neo khung hình đầu tiên (diễn viên + sản phẩm)
+        report('Đang chuẩn bị ảnh nhân vật và sản phẩm...');
+        const resolvedAnchor = await this.resolveImageUrlToBase64(params.anchorImageUrl);
+        if (!resolvedAnchor?.base64) {
+            throw new Error('Chưa có ảnh khung nền hoặc ảnh sản phẩm hợp lệ để dựng video nhân vật.');
+        }
+        const anchorDataUri = `data:${resolvedAnchor.mimeType || 'image/png'};base64,${resolvedAnchor.base64}`;
+
+        const electronApi = (window as any).electron;
+        const configuredModel = (this._genaiService.umodelverseVideoModel || '').trim();
+        const isConfiguredSeedance2 = configuredModel.toLowerCase().includes('seedance-2');
+        const fullDialogue = activeSubs
+            .map((s) => String(s.text || '').trim())
+            .filter(Boolean)
+            .join(' ');
+
+        const shouldUseTtsAudio = !!(params.useTts && params.voice && params.voice !== 'none' && electronApi?.invoke);
+
+        // Thu thập ảnh sản phẩm cụ thể nhân vật sẽ cầm lên trong cảnh (từ chọn thủ công hoặc xoay vòng thông minh theo danh sách ảnh sản phẩm)
+        const anchorFileName =
+            String(params.anchorImageFileName || '').trim() ||
+            this.extractCleanFileName(params.anchorImageUrl, `livestream_backdrop_${params.aspectRatio.replace(':', 'x')}.png`);
+        const fileNameMap = params.productImageFileNames || {};
+        const galleryImgs = (params.productImages || []).filter((u) => !!String(u || '').trim());
+        const collectHeldItemsForSubs = (subs: AffiliateLivestreamSubtitle[]) => {
+            const seenUrls = new Set<string>();
+            const items: Array<{ url: string; index: number; fileName: string; label: string }> = [];
+            for (let i = 0; i < subs.length; i++) {
+                const sub = subs[i];
+                let url = String(sub?.heldProductImageUrl || '').trim();
+                let index = Number(sub?.heldProductImageIndex) || 0;
+                if (url) {
+                    const idxInGallery = galleryImgs.indexOf(url);
+                    if (idxInGallery >= 0) index = idxInGallery + 1;
+                    else if (!index) index = 1;
+                } else if (galleryImgs.length > 0) {
+                    const autoIdx = (params.sceneIndex * 2 + i) % galleryImgs.length;
+                    url = galleryImgs[autoIdx];
+                    index = autoIdx + 1;
+                }
+                if (!url || seenUrls.has(url)) continue;
+                seenUrls.add(url);
+                const resolvedIndex = Math.max(1, index);
+                const fileName =
+                    String(fileNameMap[url] || '').trim() ||
+                    this.extractCleanFileName(url, `product_${String(resolvedIndex).padStart(2, '0')}.jpg`);
+                items.push({
+                    url,
+                    index: resolvedIndex,
+                    fileName,
+                    label: String(sub?.heldProductLabel || '').trim(),
+                });
+            }
+            return items;
+        };
+
+        const sceneHeldItems = collectHeldItemsForSubs(activeSubs);
+
+        // 2. Đường dẫn Ưu tiên A: Bật TTS -> Tạo audio từng câu thoại -> Seedance AI Avatar Lip-Sync khớp 100% khẩu hình + độ dài toàn bộ lời thoại
+        if (shouldUseTtsAudio) {
+            const audioRefs: Array<{ referenceType: string; audioUrl: string; mimeType: string }> = [];
+            let measuredTotalAudioSec = 0;
+            const subPath = `${params.username || 'admin'}/${params.uuid}`;
+
+            for (let i = 0; i < activeSubs.length; i++) {
+                const sub = activeSubs[i];
+                const cleanText = String(sub.text || '').trim();
+                const hash = `${params.voice}::${cleanText}`;
+                report(`Đang tạo giọng đọc TTS câu ${i + 1}/${activeSubs.length} để khớp miệng...`);
+
+                if (!sub.audioUrl || sub.voiceHash !== hash) {
+                    const filename = `s${String(params.sceneIndex + 1).padStart(2, '0')}_l${String(i + 1).padStart(2, '0')}_vid_${Date.now().toString(36)}`;
+                    const ttsRes = await electronApi.invoke('tts-generate', {
+                        text: cleanText,
+                        voice: params.voice,
+                        rate: 1.05,
+                        pitch: 0,
+                        filename,
+                        username: subPath,
+                    });
+                    if (ttsRes && ttsRes.success !== false && (ttsRes.url || ttsRes.filePath)) {
+                        const rawPath = String(ttsRes.url || ttsRes.filePath);
+                        sub.audioUrl =
+                            rawPath.startsWith('http://') ||
+                            rawPath.startsWith('https://') ||
+                            rawPath.startsWith('media://')
+                                ? rawPath
+                                : this.toElectronMediaUrl(rawPath);
+                        sub.voiceHash = hash;
+                        if (electronApi.getMediaDuration) {
+                            try {
+                                const durRes = await electronApi.getMediaDuration(ttsRes.filePath || rawPath);
+                                const d = typeof durRes === 'number' ? durRes : Number(durRes?.duration || 0);
+                                if (d > 0.3 && isFinite(d)) {
+                                    sub.duration = Math.max(1, Math.min(this.MAX_SCENE_DURATION_SEC, Math.round(d)));
+                                    measuredTotalAudioSec += d;
+                                }
+                            } catch (_) {}
+                        }
+                    }
+                } else {
+                    measuredTotalAudioSec += Number(sub.duration) || this.estimateSpeechDurationSec(cleanText);
+                }
+
+                if (sub.audioUrl) {
+                    audioRefs.push({
+                        referenceType: 'REFERENCE_AUDIO',
+                        audioUrl: sub.audioUrl,
+                        mimeType: 'audio/mpeg',
+                    });
+                }
+            }
+
+            if (audioRefs.length > 0) {
+                const targetModel = isConfiguredSeedance2 ? configuredModel : 'doubao-seedance-2-5-260628-global';
+                const estTotalSec =
+                    measuredTotalAudioSec > 0
+                        ? measuredTotalAudioSec
+                        : activeSubs.reduce((acc, s) => acc + (Number(s.duration) || 5), 0);
+
+                // Giải mã tối đa 2 ảnh sản phẩm cụ thể nhân vật cần cầm lên để truyền làm ảnh tham chiếu qua reference_image
+                const resolvedHeldProductRefs: Array<{ dataUri: string; index: number; fileName: string; label: string }> = [];
+                for (const item of sceneHeldItems.slice(0, 2)) {
+                    if (item.url === params.anchorImageUrl) continue;
+                    try {
+                        const resImg = await this.resolveImageUrlToBase64(item.url);
+                        if (resImg?.base64) {
+                            const dataUri = `data:${resImg.mimeType || 'image/jpeg'};base64,${resImg.base64}`;
+                            if (dataUri !== anchorDataUri) {
+                                resolvedHeldProductRefs.push({
+                                    dataUri,
+                                    index: item.index,
+                                    fileName: item.fileName,
+                                    label: item.label,
+                                });
+                            }
+                        }
+                    } catch (_) {}
+                }
+
+                let heldProductInstruction = '';
+                if (resolvedHeldProductRefs.length > 0) {
+                    const descList = resolvedHeldProductRefs
+                        .map((ref) => {
+                            const detail = ref.label ? ` (${ref.label})` : '';
+                            return `"${ref.fileName}"${detail}`;
+                        })
+                        .join(' and ');
+                    heldProductInstruction = `Product in hand: The presenter naturally picks up and holds only the physical product item from ${descList} toward the camera showing accurate colors, shape, and fabric texture, without copying any corner logos, white stickers, text overlays, or background elements from ${descList} onto the livestream frame.`;
+                }
+
+                report(
+                    `Đang dựng video khớp miệng ~${Math.round(estTotalSec)}s (${activeSubs.length} câu thoại) bằng Mì Tôm AI (${targetModel})...`,
+                );
+
+                const basePrompt = this.buildLivestreamLipSyncBasePrompt({
+                    productName: params.product?.product_name || '',
+                    anchorFileName,
+                    actionCue: params.scene.actionCue,
+                    phase: params.scene.phase,
+                    style: params.style,
+                    styleDescription: params.styleDescription,
+                    voice: params.voice,
+                    heldProductInstruction,
+                    includeDirectSpeechRule: false,
+                });
+
+                const referenceImages: any[] =
+                    resolvedHeldProductRefs.length > 0
+                        ? [
+                              {
+                                  referenceType: 'CHARACTER_REFERENCE',
+                                  image: { imageBytes: anchorDataUri },
+                              },
+                              ...resolvedHeldProductRefs.map((ref) => ({
+                                  referenceType: 'CHARACTER_REFERENCE',
+                                  image: { imageBytes: ref.dataUri },
+                              })),
+                              ...audioRefs,
+                          ]
+                        : [
+                              {
+                                  referenceType: 'START_FRAME',
+                                  image: { imageBytes: anchorDataUri },
+                              },
+                              ...audioRefs,
+                          ];
+
+                const outMeta: { url?: string | null; duration?: number; avatarDialogueText?: string } = {
+                    url: null,
+                    duration: 0,
+                    avatarDialogueText: fullDialogue,
+                };
+
+                const videoBase64 = await this._genaiService.generateVideoUModelverse(
+                    basePrompt,
+                    params.aspectRatio,
+                    referenceImages,
+                    Math.max(4, Math.ceil(estTotalSec)),
+                    undefined,
+                    targetModel,
+                    '720p',
+                    outMeta,
+                );
+
+                report('Đang lưu tệp video đã dựng...');
+                const saved = await this.saveGeneratedVideoOutput(
+                    videoBase64,
+                    outMeta.url,
+                    params.username,
+                    params.uuid,
+                    params.sceneIndex,
+                );
+
+                let finalDuration = Number(outMeta.duration) || estTotalSec;
+                if (saved.localPath && electronApi?.getMediaDuration) {
+                    try {
+                        const probe = await electronApi.getMediaDuration(saved.localPath);
+                        const d = typeof probe === 'number' ? probe : Number(probe?.duration || 0);
+                        if (d > 0.3 && isFinite(d)) finalDuration = d;
+                    } catch (_) {}
+                }
+
+                return {
+                    videoUrl: saved.videoUrl,
+                    localPath: saved.localPath,
+                    fileName: saved.fileName,
+                    durationSec: Math.max(1, Math.round(finalDuration)),
+                    modelUsed: targetModel,
+                };
+            }
+        }
+
+        // 3. Đường dẫn B (khi tắt TTS hoặc không có Electron TTS): Dựng trực tiếp giọng nói + khớp miệng bằng Mì Tôm AI với tổng thời lượng đúng bằng toàn bộ câu thoại
+        const targetModel = configuredModel || 'doubao-seedance-2-5-260628-global';
+        const maxClipSec = this.getMaxSingleClipSecForModel(targetModel);
+
+        // Gom các câu thoại nối tiếp vào các phân đoạn <= maxClipSec để tổng độ dài đúng bằng toàn bộ lời thoại của cảnh
+        const segmentGroups: Array<{ subs: AffiliateLivestreamSubtitle[]; texts: string[]; durationSec: number }> = [];
+        let curSubs: AffiliateLivestreamSubtitle[] = [];
+        let curTexts: string[] = [];
+        let curDur = 0;
+
+        for (const sub of activeSubs) {
+            const t = String(sub.text || '').trim();
+            const estSpeech = this.estimateSpeechDurationSec(t, maxClipSec);
+            const configuredDur = Math.round(Number(sub.duration) || estSpeech);
+            // Không kéo giãn đoạn clip dài hơn thời gian nói thực tế quá 1 giây để tránh AI lặp lại câu thoại
+            const d = Math.max(1, Math.min(maxClipSec, Math.min(configuredDur, estSpeech + 1)));
+            if (curTexts.length > 0 && curDur + d > maxClipSec) {
+                segmentGroups.push({ subs: curSubs, texts: curTexts, durationSec: curDur });
+                curSubs = [sub];
+                curTexts = [t];
+                curDur = Math.min(maxClipSec, d);
+            } else {
+                curSubs.push(sub);
+                curTexts.push(t);
+                curDur += d;
+            }
+        }
+        if (curTexts.length > 0) {
+            segmentGroups.push({ subs: curSubs, texts: curTexts, durationSec: curDur });
+        }
+
+        const totalPlannedSec = segmentGroups.reduce((acc, g) => acc + g.durationSec, 0);
+        let currentFrameInput = anchorDataUri;
+        const collectedSegments: Array<{ videoSource: string; trimDuration: number }> = [];
+        let singleRemoteUrl: string | null = null;
+
+        for (let gIdx = 0; gIdx < segmentGroups.length; gIdx++) {
+            const grp = segmentGroups[gIdx];
+            const reqDur = Math.max(4, Math.min(maxClipSec, Math.round(grp.durationSec)));
+            const segDialogue = grp.texts.join(' ');
+            const partSuffix =
+                segmentGroups.length > 1 ? ` (phần ${gIdx + 1}/${segmentGroups.length} · ${reqDur}s)` : ` (${reqDur}s)`;
+
+            report(
+                `Đang dựng video khớp miệng${partSuffix} cho ${activeSubs.length} câu thoại bằng Mì Tôm AI (${targetModel})...`,
+            );
+
+            const grpHeldLabels = grp.subs
+                .map((s) => String(s?.heldProductLabel || '').trim())
+                .filter(Boolean);
+            const uniqueGrpHeldLabels = Array.from(new Set(grpHeldLabels));
+            const segHeldInstruction =
+                uniqueGrpHeldLabels.length > 0
+                    ? `Product showcase in hand: The host naturally holds up and showcases the specific product variant (${uniqueGrpHeldLabels.join(', ')}) clearly toward the camera while speaking.`
+                    : '';
+
+            const segPrompt = this.buildLivestreamLipSyncBasePrompt({
+                productName: params.product?.product_name || '',
+                anchorFileName,
+                actionCue: params.scene.actionCue,
+                phase: params.scene.phase,
+                style: params.style,
+                styleDescription: params.styleDescription,
+                voice: params.voice,
+                dialogueText: segDialogue,
+                heldProductInstruction: segHeldInstruction,
+                includeDirectSpeechRule: true,
+                partIndex: gIdx,
+                totalParts: segmentGroups.length,
+            });
+
+            const outMeta: { url?: string | null; duration?: number; generateAudio?: boolean } = {
+                url: null,
+                duration: 0,
+                generateAudio: true,
+            };
+
+            const segB64 = await this._genaiService.generateVideoUModelverse(
+                segPrompt,
+                params.aspectRatio,
+                [
+                    {
+                        referenceType: 'START_FRAME',
+                        image: { imageBytes: currentFrameInput },
+                    },
+                ],
+                reqDur,
+                undefined,
+                targetModel,
+                '720p',
+                outMeta,
+            );
+
+            if (!segB64 && !outMeta.url) {
+                throw new Error(`Mì Tôm AI không trả về video ở phần ${gIdx + 1}/${segmentGroups.length}.`);
+            }
+
+            if (segmentGroups.length === 1) {
+                singleRemoteUrl = outMeta.url || null;
+            }
+
+            collectedSegments.push({
+                videoSource: segB64 || String(outMeta.url || ''),
+                trimDuration: reqDur,
+            });
+
+            // Trích khung hình cuối của đoạn vừa tạo để nối liền mạch sang đoạn kế tiếp (không bị nhảy cảnh)
+            if (gIdx < segmentGroups.length - 1 && segB64 && electronApi?.probeAndExtractFrame) {
+                try {
+                    const frameRes = await electronApi.probeAndExtractFrame({
+                        videoSource: segB64,
+                    });
+                    if (frameRes?.success && frameRes.frameDataUri) {
+                        currentFrameInput = frameRes.frameDataUri;
+                    }
+                } catch (_) {}
+            }
+        }
+
+        let finalVideoBase64 = collectedSegments[0]?.videoSource || '';
+        let finalDurationSec = totalPlannedSec;
+
+        if (collectedSegments.length > 1 && electronApi?.composeAvatarVideo) {
+            report(`Đang ghép liền mạch ${collectedSegments.length} phân đoạn video (${totalPlannedSec}s)...`);
+            const composed = await electronApi.composeAvatarVideo({
+                segments: collectedSegments,
+                audioSources: [],
+                targetDurationSec: totalPlannedSec,
+            });
+            if (composed?.success && composed.base64) {
+                finalVideoBase64 = composed.base64;
+                if (Number(composed.duration) > 0) {
+                    finalDurationSec = Number(composed.duration);
+                }
+            }
+        }
+
+        report('Đang lưu tệp video đã dựng...');
+        const saved = await this.saveGeneratedVideoOutput(
+            finalVideoBase64,
+            singleRemoteUrl,
+            params.username,
+            params.uuid,
+            params.sceneIndex,
+        );
+
+        if (saved.localPath && electronApi?.getMediaDuration) {
+            try {
+                const probe = await electronApi.getMediaDuration(saved.localPath);
+                const d = typeof probe === 'number' ? probe : Number(probe?.duration || 0);
+                if (d > 0.3 && isFinite(d)) finalDurationSec = d;
+            } catch (_) {}
+        }
+
+        return {
+            videoUrl: saved.videoUrl,
+            localPath: saved.localPath,
+            fileName: saved.fileName,
+            durationSec: Math.max(1, Math.round(finalDurationSec)),
+            modelUsed: targetModel,
+        };
+    }
+
     async prepareLivestreamStudioSession(
         draft: AffiliateLivestreamDraft,
         options: {
@@ -1233,6 +1966,7 @@ STRICT QUALITY & VERIFICATION RULES:
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${uuid}`;
         const totalDurationSec = this.computeTotalDurationSec(draft.scenes);
         const preferredImg = draft.backdropImageUrl || draft.product?.image_url || './assets/images/logo/favicon.svg';
+        const ttsEnabled = draft.useTts !== false && draft.voice !== 'none';
 
         const projectPayload = {
             uuid,
@@ -1248,6 +1982,7 @@ STRICT QUALITY & VERIFICATION RULES:
             livestreamBrief: draft.brief,
             style: draft.style,
             voice: draft.voice,
+            useTts: ttsEnabled,
             aspectRatio: draft.aspectRatio,
             hookSummary: draft.hookSummary,
             backdropImageUrl: draft.backdropImageUrl || '',
@@ -1276,14 +2011,18 @@ STRICT QUALITY & VERIFICATION RULES:
                 actionCue: sc.actionCue,
                 durationSec: sc.durationSec,
                 imageUrl: draft.backdropImageUrl || sc.imageUrl || preferredImg,
+                videoUrl: sc.videoUrl || '',
+                videoLocalPath: sc.videoLocalPath || '',
+                videoName: sc.videoName || '',
+                videoDurationSec: sc.videoDurationSec || 0,
                 subtitles: (sc.subtitles || []).map((sub) => ({
                     id: sub.id,
                     text: sub.text,
                     duration: Number(sub.duration) || 5,
-                    audioUrl: sub.videoUrl ? '' : (sub.audioUrl || ''),
-                    videoUrl: sub.videoUrl || '',
-                    videoLocalPath: sub.videoLocalPath || '',
-                    videoName: sub.videoName || '',
+                    audioUrl: !ttsEnabled || sc.videoUrl || sub.videoUrl ? '' : (sub.audioUrl || ''),
+                    videoUrl: sc.videoUrl ? '' : (sub.videoUrl || ''),
+                    videoLocalPath: sc.videoUrl ? '' : (sub.videoLocalPath || ''),
+                    videoName: sc.videoUrl ? '' : (sub.videoName || ''),
                 })),
             })),
             updatedAt: new Date().toISOString(),

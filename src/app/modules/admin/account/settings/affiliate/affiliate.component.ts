@@ -50,6 +50,7 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
     readonly offerRowHeight = 104;
     offerSource: 'server' | 'local' = 'server';
     shopeeSyncState: ShopeeOfferSyncState;
+    generatingLinkOfferId: string | null = null;
 
     get hasMoreOffers(): boolean {
         return this.shopeeOffers.length < this.offerTotalDocs;
@@ -332,9 +333,17 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
                             items = items.map((p) => {
                                 const lm = byId.get(p._id || p.id || '') || (p.item_id ? byItemId.get(p.item_id) : undefined);
                                 if (!lm) return p;
+                                const bestAffLink =
+                                    this._shopeeOffersService.getBestAffiliateLink(lm) ||
+                                    this._shopeeOffersService.getBestAffiliateLink(p);
+                                const bestShort =
+                                    (this._shopeeOffersService.isRealAffiliateLink(lm.short_link) ? lm.short_link : '') ||
+                                    (this._shopeeOffersService.isRealAffiliateLink(p.short_link) ? p.short_link : '');
                                 return {
                                     ...lm,
                                     ...p,
+                                    short_link: bestShort,
+                                    offer_link: bestAffLink,
                                     price: lm.price > 0 ? lm.price : p.price,
                                     commission_rate: lm.commission_rate > 0 ? lm.commission_rate : p.commission_rate,
                                     commission_amount: lm.commission_amount > 0 ? lm.commission_amount : p.commission_amount,
@@ -542,15 +551,63 @@ export class SettingsAffiliateComponent implements OnInit, OnDestroy {
         });
     }
 
-    copyOfferLink(item: ShopeeOfferItem): void {
-        const link = item.short_link || item.offer_link || item.product_link;
-        if (!link) return;
-        this._clipboard.copy(link);
-        this._toastr.success('Đã sao chép đường dẫn sản phẩm Shopee.');
+    isRealAffiliateLink(item: ShopeeOfferItem): boolean {
+        return !!this._shopeeOffersService.getBestAffiliateLink(item);
+    }
+
+    getOfferAffiliateLink(item: ShopeeOfferItem): string {
+        return this._shopeeOffersService.getBestAffiliateLink(item);
+    }
+
+    async copyOfferLink(item: ShopeeOfferItem): Promise<void> {
+        if (!item) return;
+        const existingAffLink = this.getOfferAffiliateLink(item);
+        if (existingAffLink) {
+            this._clipboard.copy(existingAffLink);
+            this._toastr.success(`Đã sao chép link Affiliate: ${existingAffLink}`);
+            return;
+        }
+
+        const key = this.trackByOfferId(0, item);
+        if (this.generatingLinkOfferId === key) return;
+        this.generatingLinkOfferId = key;
+        this._cdr.markForCheck();
+
+        try {
+            const res = await this._shopeeOffersService.generateAffiliateLinks([item], {
+                persist: true,
+                configOverride: this.affiliateForm?.value,
+            });
+            const generatedLink = this.getOfferAffiliateLink(item);
+            if (generatedLink) {
+                this._clipboard.copy(generatedLink);
+                this._toastr.success(`Đã tạo và sao chép link Affiliate: ${generatedLink}`, 'Link Affiliate Shopee');
+            } else if (res.needLogin) {
+                this._toastr.warning(
+                    'Chưa tạo được link Affiliate Shopee (s.shopee.vn). Hãy đăng nhập tài khoản affiliate.shopee.vn trên Web Tools (hoặc điền App ID + API Secret Shopee) rồi bấm lại.',
+                    'Cần đăng nhập Shopee Affiliate',
+                    { timeOut: 7000 },
+                );
+            } else {
+                this._toastr.warning(
+                    `Chưa tạo được link Affiliate Shopee (${res.error || 'kiểm tra đăng nhập affiliate.shopee.vn trên Web Tools hoặc App ID + Secret'}).`,
+                    'Không thể tạo link Affiliate',
+                    { timeOut: 7000 },
+                );
+            }
+        } catch (err: any) {
+            this._toastr.error(`Lỗi tạo link Affiliate Shopee: ${err?.message || 'Không xác định'}`);
+        } finally {
+            this.generatingLinkOfferId = null;
+            this._cdr.markForCheck();
+            try {
+                this._cdr.detectChanges();
+            } catch (_) {}
+        }
     }
 
     openOfferLink(item: ShopeeOfferItem): void {
-        const link = item.offer_link || item.product_link;
+        const link = this.getOfferAffiliateLink(item) || item.product_link;
         if (!link) return;
         const electron = (window as any).electron;
         if (electron?.openUrlExternal) {

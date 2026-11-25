@@ -4568,6 +4568,7 @@ export class GenaiService {
             url?: string | null;
             duration?: number;
             avatarDialogueText?: string;
+            generateAudio?: boolean;
             _isInternalAvatarSegment?: boolean;
             characterOrientation?: 'video' | 'image';
             _retriedSeedanceVideoEdit?: boolean;
@@ -5093,7 +5094,7 @@ export class GenaiService {
                     parameters: {
                         aspect_ratio: aspectRatio || '16:9',
                         resolution: veoResolution,
-                        generate_audio: false,
+                        generate_audio: Boolean(outMeta?.generateAudio),
                         duration: veoDuration
                     }
                 };
@@ -5313,6 +5314,7 @@ export class GenaiService {
                         ratio: effectiveRatio,
                         resolution: seedanceResolution,
                         duration: clampedDuration,
+                        ...(outMeta?.generateAudio ? { generate_audio: true } : {}),
                         ...(parsedSeed !== undefined ? { seed: parsedSeed } : {})
                     };
 

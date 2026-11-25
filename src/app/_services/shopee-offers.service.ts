@@ -7,6 +7,7 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
 import { MultiAccountService } from 'app/_services/multi-account.service';
+import { getSettings } from 'app/_services/user-settings.service';
 import { ToastrService } from 'ngx-toastr';
 import { BehaviorSubject, firstValueFrom, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -126,6 +127,19 @@ export const SHOPEE_OFFER_HOOK_SCRIPT = `
             if (n > 100) return Number((n / 1000).toFixed(2));
             if (n > 0 && n <= 1) return Number((n * 100).toFixed(2));
             return Number(n.toFixed(2));
+        }
+
+        function isRealAffiliateUrl(raw) {
+            var s = String(raw || '').trim().toLowerCase();
+            if (!s || !(s.startsWith('http://') || s.startsWith('https://'))) return false;
+            return (
+                s.includes('s.shopee.vn/') ||
+                s.includes('shope.ee/') ||
+                s.includes('shp.ee/') ||
+                s.includes('utm_source=an_') ||
+                s.includes('utm_medium=affiliates') ||
+                s.includes('mmp_pid=an_')
+            );
         }
 
         function buildImgUrl(img) {
@@ -251,8 +265,10 @@ export const SHOPEE_OFFER_HOOK_SCRIPT = `
             if (!productLink && shopId && itemId) {
                 productLink = 'https://shopee.vn/product/' + shopId + '/' + itemId;
             }
-            var shortLink = String(entry.short_link || entry.shortLink || '').trim();
-            var offerLink = String(entry.offer_link || entry.offerLink || shortLink || productLink || '').trim();
+            var rawShortLink = String(entry.short_link || entry.shortLink || entry.custom_link || entry.customLink || '').trim();
+            var rawOfferLink = String(entry.offer_link || entry.offerLink || entry.affiliate_link || entry.affiliateLink || entry.product_offer_link || '').trim();
+            var shortLink = isRealAffiliateUrl(rawShortLink) ? rawShortLink : (isRealAffiliateUrl(rawOfferLink) ? rawOfferLink : '');
+            var offerLink = shortLink || (isRealAffiliateUrl(rawOfferLink) ? rawOfferLink : '');
 
             var shopName = String(entry.shop_name || entry.shopName || (card && card.shop_name) || '').trim();
             var catId = String(
@@ -338,8 +354,8 @@ export const SHOPEE_OFFER_HOOK_SCRIPT = `
                 image_url: item.image_url || prev.image_url,
                 images: mergedImages.slice(0, 30),
                 product_link: item.product_link || prev.product_link,
-                offer_link: item.offer_link || prev.offer_link,
-                short_link: item.short_link || prev.short_link
+                offer_link: isRealAffiliateUrl(item.offer_link) ? item.offer_link : (isRealAffiliateUrl(prev.offer_link) ? prev.offer_link : ''),
+                short_link: isRealAffiliateUrl(item.short_link) ? item.short_link : (isRealAffiliateUrl(prev.short_link) ? prev.short_link : '')
             };
             var changed = (
                 next.price !== prev.price ||
@@ -1071,7 +1087,7 @@ const SHOPEE_EXTRACT_PAGE_SCRIPT = `
                     rating_star: 0,
                     image_url: imgUrl,
                     product_link: productLink,
-                    offer_link: productLink,
+                    offer_link: '',
                     short_link: '',
                     source_url: href
                 };
@@ -1396,6 +1412,391 @@ export class ShopeeOffersService {
         return out.slice(0, 30);
     }
 
+    isRealAffiliateLink(url?: string | null): boolean {
+        const s = String(url || '').trim().toLowerCase();
+        if (!s || !/^https?:\/\//.test(s)) return false;
+        return (
+            s.includes('s.shopee.vn/') ||
+            s.includes('shope.ee/') ||
+            s.includes('shp.ee/') ||
+            s.includes('utm_source=an_') ||
+            s.includes('utm_medium=affiliates') ||
+            s.includes('mmp_pid=an_')
+        );
+    }
+
+    getBestAffiliateLink(item?: Partial<ShopeeOfferItem> | null): string {
+        if (!item) return '';
+        if (this.isRealAffiliateLink(item.short_link)) return String(item.short_link).trim();
+        if (this.isRealAffiliateLink(item.offer_link)) return String(item.offer_link).trim();
+        return '';
+    }
+
+    private getAffiliateConfig(override?: any): {
+        shopeeAppId: string;
+        shopeeSecret: string;
+        shopeeSubId: string;
+        shopeeCookie: string;
+    } {
+        const savedSettings = getSettings() || {};
+        const stored = savedSettings?.affiliate || this.multiAccountService.getItem('affiliate_config') || {};
+        const merged = { ...(stored || {}), ...(override || {}) };
+        return {
+            shopeeAppId: String(merged.shopeeAppId || '').trim(),
+            shopeeSecret: String(merged.shopeeSecret || '').trim(),
+            shopeeSubId: String(merged.shopeeSubId || '').trim(),
+            shopeeCookie: String(merged.shopeeCookie || '').trim(),
+        };
+    }
+
+    findShopeeAffiliateWebview(): any {
+        try {
+            const container = document.getElementById('webview-container-div');
+            if (!container) return null;
+            return (
+                Array.from(container.querySelectorAll('webview')).find((wv: any) => {
+                    try {
+                        const u = (typeof wv.getURL === 'function' ? wv.getURL() : '') || wv.getAttribute('src') || '';
+                        return u.toLowerCase().includes('affiliate.shopee.vn');
+                    } catch (_) {
+                        return false;
+                    }
+                }) || null
+            );
+        } catch (_) {
+            return null;
+        }
+    }
+
+    private getOfferLookupKey(item: Partial<ShopeeOfferItem>): string {
+        if (!item) return '';
+        if (item._id) return String(item._id);
+        if (item.id) return String(item.id);
+        if (item.shop_id && item.item_id) return `offer_${item.shop_id}_${item.item_id}`;
+        if (item.item_id) return `offer_${item.item_id}`;
+        return String(item.product_link || '');
+    }
+
+    private getCanonicalOriginUrl(item: Partial<ShopeeOfferItem>): string {
+        const shopId = String(item?.shop_id || '').trim();
+        const itemId = String(item?.item_id || '').trim();
+        if (shopId && itemId) {
+            return `https://shopee.vn/product/${shopId}/${itemId}`;
+        }
+        return String(item?.product_link || '').trim();
+    }
+
+    private async generateAffiliateLinksInWebview(
+        webview: any,
+        items: ShopeeOfferItem[],
+        subId: string,
+    ): Promise<{
+        links: Array<{ id: string; item_id: string; shop_id: string; short_link: string; offer_link: string }>;
+        needLogin: boolean;
+        error: string;
+    }> {
+        if (!webview || typeof webview.executeJavaScript !== 'function' || !items.length) {
+            return { links: [], needLogin: false, error: '' };
+        }
+        const batchInput = items
+            .map((it) => ({
+                id: this.getOfferLookupKey(it),
+                item_id: String(it.item_id || ''),
+                shop_id: String(it.shop_id || ''),
+                originUrl: this.getCanonicalOriginUrl(it),
+            }))
+            .filter((x) => !!x.originUrl);
+
+        if (batchInput.length === 0) {
+            return { links: [], needLogin: false, error: '' };
+        }
+
+        const script = `
+        (async function () {
+            try {
+                var items = ${JSON.stringify(batchInput)};
+                var subId = ${JSON.stringify(String(subId || '').trim().slice(0, 64))};
+                var isAff = function (raw) {
+                    var s = String(raw || '').trim().toLowerCase();
+                    if (!s || !(s.startsWith('http://') || s.startsWith('https://'))) return false;
+                    return s.includes('s.shopee.vn/') || s.includes('shope.ee/') || s.includes('shp.ee/') || s.includes('utm_source=an_') || s.includes('utm_medium=affiliates') || s.includes('mmp_pid=an_');
+                };
+                var csrf = '';
+                try {
+                    var cm = String(document.cookie || '').match(/(?:^|;\\s*)(?:csrftoken|SPC_CSRF_TOKEN)=([^;\\s]+)/i);
+                    if (cm && cm[1]) csrf = cm[1].trim();
+                } catch (_) {}
+
+                var headers = {
+                    'Content-Type': 'application/json; charset=UTF-8',
+                    'Accept': 'application/json, text/plain, */*',
+                    'affiliate-program-type': '1'
+                };
+                if (csrf) {
+                    headers['csrf-token'] = csrf;
+                    headers['x-csrftoken'] = csrf;
+                }
+
+                var variants = [
+                    {
+                        operationName: 'batchGetCustomLink',
+                        query: 'query batchGetCustomLink($linkParams: [CustomLinkParam!], $sourceCaller: SourceCaller) { batchCustomLink(linkParams: $linkParams, sourceCaller: $sourceCaller) { shortLink longLink failCode } }',
+                        variables: {
+                            linkParams: items.map(function (x) {
+                                return { originalLink: x.originUrl, advancedLinkParams: subId ? { subId1: subId } : {} };
+                            }),
+                            sourceCaller: 'CUSTOM_LINK_CALLER'
+                        }
+                    },
+                    {
+                        operationName: 'batchGetCustomLink',
+                        query: 'query batchGetCustomLink($linkParams: [CustomLinkParam!], $sourceCaller: SourceCaller) { batchCustomLink(linkParams: $linkParams, sourceCaller: $sourceCaller) { shortLink longLink failCode } }',
+                        variables: {
+                            linkParams: items.map(function (x) {
+                                return subId ? { originalLink: x.originUrl, subId1: subId } : { originalLink: x.originUrl };
+                            }),
+                            sourceCaller: 'DEFAULT'
+                        }
+                    },
+                    {
+                        operationName: 'batchGetCustomLink',
+                        query: 'query batchGetCustomLink($linkParams: [CustomLinkParam!], $sourceCaller: SourceCaller) { batchCustomLink(linkParams: $linkParams, sourceCaller: $sourceCaller) { shortLink longLink failCode } }',
+                        variables: {
+                            linkParams: items.map(function (x) {
+                                return subId ? { longLink: x.originUrl, subId1: subId } : { longLink: x.originUrl };
+                            }),
+                            sourceCaller: 'DEFAULT'
+                        }
+                    }
+                ];
+
+                var lastErr = '';
+                var needLogin = false;
+                for (var vi = 0; vi < variants.length; vi++) {
+                    var resp = await fetch('https://affiliate.shopee.vn/api/v3/gql?q=batchCustomLink', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: headers,
+                        body: JSON.stringify(variants[vi])
+                    });
+                    if (resp.status === 401 || resp.status === 403) {
+                        needLogin = true;
+                        lastErr = 'Phiên đăng nhập affiliate.shopee.vn đã hết hạn (HTTP ' + resp.status + ').';
+                        break;
+                    }
+                    if (!resp.ok) {
+                        lastErr = 'HTTP ' + resp.status;
+                        continue;
+                    }
+                    var ct = String(resp.headers.get('content-type') || '');
+                    if (!ct.includes('json')) {
+                        needLogin = true;
+                        lastErr = 'Cần đăng nhập affiliate.shopee.vn trên Web Tools.';
+                        break;
+                    }
+                    var data = await resp.json();
+                    var arr = data && data.data && data.data.batchCustomLink;
+                    if (Array.isArray(arr) && arr.length > 0) {
+                        var out = [];
+                        for (var i = 0; i < Math.min(items.length, arr.length); i++) {
+                            var r = arr[i];
+                            if (!r) continue;
+                            var sl = isAff(r.shortLink) ? String(r.shortLink).trim() : '';
+                            var ll = isAff(r.longLink) ? String(r.longLink).trim() : '';
+                            if (sl || ll) {
+                                out.push({
+                                    id: items[i].id,
+                                    item_id: items[i].item_id,
+                                    shop_id: items[i].shop_id,
+                                    short_link: sl,
+                                    offer_link: sl || ll
+                                });
+                            } else if (r.failCode) {
+                                lastErr = 'Shopee failCode=' + r.failCode;
+                            }
+                        }
+                        if (out.length > 0) {
+                            return { links: out, needLogin: false, error: '' };
+                        }
+                    }
+                    if (data && Array.isArray(data.errors) && data.errors.length > 0) {
+                        lastErr = String(data.errors[0].message || 'Lỗi GraphQL');
+                        if (/unauth|login|forbidden|permission|token/i.test(lastErr)) {
+                            needLogin = true;
+                            break;
+                        }
+                    }
+                }
+                return { links: [], needLogin: needLogin, error: lastErr };
+            } catch (e) {
+                return { links: [], needLogin: false, error: String(e && e.message || e) };
+            }
+        })();
+        `;
+
+        try {
+            const res = await webview.executeJavaScript(script);
+            if (res && Array.isArray(res.links)) {
+                return {
+                    links: res.links,
+                    needLogin: !!res.needLogin,
+                    error: String(res.error || ''),
+                };
+            }
+        } catch (err: any) {
+            return { links: [], needLogin: false, error: err?.message || '' };
+        }
+        return { links: [], needLogin: false, error: '' };
+    }
+
+    /**
+     * Tạo link tiếp thị liên kết Shopee Affiliate thật (dạng https://s.shopee.vn/...) cho 1 hoặc nhiều sản phẩm:
+     * - Ưu tiên 1: Shopee Open API (nếu đã cấu hình App ID + Secret)
+     * - Ưu tiên 2: Gọi trực tiếp batchCustomLink trong webview affiliate.shopee.vn đang mở trên Web Tools
+     * - Ưu tiên 3: Gọi qua Electron IPC sử dụng phiên đăng nhập persist:gemini-webview hoặc Cookie đã lưu
+     */
+    async generateAffiliateLinks(
+        items: ShopeeOfferItem[],
+        options?: {
+            webview?: any;
+            persist?: boolean;
+            username?: string;
+            configOverride?: any;
+        },
+    ): Promise<{
+        generatedCount: number;
+        linksById: Map<string, { short_link: string; offer_link: string }>;
+        needLogin: boolean;
+        error: string;
+    }> {
+        const linksById = new Map<string, { short_link: string; offer_link: string }>();
+        const targetItems = (Array.isArray(items) ? items : []).filter((it) => !!it && !this.getBestAffiliateLink(it));
+        if (targetItems.length === 0) {
+            return { generatedCount: 0, linksById, needLogin: false, error: '' };
+        }
+
+        const cfg = this.getAffiliateConfig(options?.configOverride);
+        const electron = (window as any).electron;
+        const itemByKey = new Map<string, ShopeeOfferItem>();
+        const itemByItemId = new Map<string, ShopeeOfferItem>();
+        for (const it of targetItems) {
+            const k = this.getOfferLookupKey(it);
+            if (k) itemByKey.set(k, it);
+            if (it.item_id) itemByItemId.set(String(it.item_id), it);
+        }
+
+        const applyGeneratedList = (list: Array<{ id?: string; item_id?: string; short_link?: string; offer_link?: string }>) => {
+            for (const row of list || []) {
+                const sl = this.isRealAffiliateLink(row?.short_link) ? String(row.short_link).trim() : '';
+                const ol = sl || (this.isRealAffiliateLink(row?.offer_link) ? String(row.offer_link).trim() : '');
+                if (!ol) continue;
+                const matched =
+                    (row.id ? itemByKey.get(String(row.id)) : undefined) ||
+                    (row.item_id ? itemByItemId.get(String(row.item_id)) : undefined);
+                if (matched) {
+                    matched.short_link = sl || matched.short_link || '';
+                    matched.offer_link = ol;
+                    const key = this.getOfferLookupKey(matched);
+                    linksById.set(key, { short_link: matched.short_link || '', offer_link: ol });
+                }
+            }
+        };
+
+        let lastError = '';
+        let needLogin = false;
+
+        // 1. Nếu có Open API App ID + Secret -> gọi qua Electron IPC ngay lập tức
+        if (cfg.shopeeAppId && cfg.shopeeSecret && (electron?.generateShopeeAffiliateLinks || electron?.invoke)) {
+            try {
+                const payload = {
+                    items: targetItems.map((it) => ({
+                        id: this.getOfferLookupKey(it),
+                        item_id: it.item_id,
+                        shop_id: it.shop_id,
+                        product_link: this.getCanonicalOriginUrl(it),
+                    })),
+                    appId: cfg.shopeeAppId,
+                    secret: cfg.shopeeSecret,
+                    subId: cfg.shopeeSubId,
+                    cookie: cfg.shopeeCookie,
+                };
+                const res = electron.generateShopeeAffiliateLinks
+                    ? await electron.generateShopeeAffiliateLinks(payload)
+                    : await electron.invoke('generate-shopee-affiliate-links', payload);
+                if (res?.links?.length) {
+                    applyGeneratedList(res.links);
+                }
+                if (res?.error) lastError = res.error;
+                if (res?.needLogin) needLogin = true;
+            } catch (e: any) {
+                lastError = e?.message || '';
+            }
+        }
+
+        // 2. Với các sản phẩm chưa có link -> ưu tiên gọi trực tiếp trong webview affiliate.shopee.vn đang mở (đủ cookie & header gốc)
+        let pending = targetItems.filter((it) => !this.getBestAffiliateLink(it));
+        const activeWebview = options?.webview || this.findShopeeAffiliateWebview();
+        if (pending.length > 0 && activeWebview) {
+            const CHUNK = 25;
+            for (let i = 0; i < pending.length; i += CHUNK) {
+                const slice = pending.slice(i, i + CHUNK);
+                const wvRes = await this.generateAffiliateLinksInWebview(activeWebview, slice, cfg.shopeeSubId);
+                if (wvRes.links.length > 0) {
+                    applyGeneratedList(wvRes.links);
+                }
+                if (wvRes.error) lastError = wvRes.error;
+                if (wvRes.needLogin) {
+                    needLogin = true;
+                    break;
+                }
+            }
+        }
+
+        // 3. Nếu vẫn còn sản phẩm chưa tạo được -> gọi qua Electron IPC sử dụng phiên persist:gemini-webview / cookie đã lưu
+        pending = targetItems.filter((it) => !this.getBestAffiliateLink(it));
+        if (pending.length > 0 && (electron?.generateShopeeAffiliateLinks || electron?.invoke)) {
+            try {
+                const payload = {
+                    items: pending.map((it) => ({
+                        id: this.getOfferLookupKey(it),
+                        item_id: it.item_id,
+                        shop_id: it.shop_id,
+                        product_link: this.getCanonicalOriginUrl(it),
+                    })),
+                    appId: cfg.shopeeAppId,
+                    secret: cfg.shopeeSecret,
+                    subId: cfg.shopeeSubId,
+                    cookie: cfg.shopeeCookie,
+                };
+                const res = electron.generateShopeeAffiliateLinks
+                    ? await electron.generateShopeeAffiliateLinks(payload)
+                    : await electron.invoke('generate-shopee-affiliate-links', payload);
+                if (res?.links?.length) {
+                    applyGeneratedList(res.links);
+                }
+                if (res?.error) lastError = res.error;
+                if (res?.needLogin) needLogin = true;
+            } catch (e: any) {
+                lastError = e?.message || '';
+            }
+        }
+
+        // Lưu link Affiliate vừa tạo vào cả Server 3 CouchDB & SQLite cục bộ
+        const updatedOffers = targetItems.filter((it) => !!this.getBestAffiliateLink(it));
+        if (options?.persist !== false && updatedOffers.length > 0) {
+            const targetUser = options?.username || this.getUsername();
+            const sourceUrl = updatedOffers[0]?.source_url || 'https://affiliate.shopee.vn/offer/product_offer';
+            await this.persistBatch(updatedOffers, targetUser, sourceUrl);
+        }
+
+        return {
+            generatedCount: updatedOffers.length,
+            linksById,
+            needLogin: updatedOffers.length === 0 ? needLogin : false,
+            error: updatedOffers.length > 0 ? '' : lastError,
+        };
+    }
+
     private mergeServerWithLocalOffer(serverDoc: ShopeeOfferItem, localDoc?: ShopeeOfferItem): ShopeeOfferItem {
         if (!localDoc) return serverDoc;
         const mergedImages = this.mergeUniqueImageUrls(
@@ -1410,9 +1811,18 @@ export class ShopeeOffersService {
         const localVars = Array.isArray(localDoc.variations) ? localDoc.variations : [];
         const serverDesc = typeof serverDoc.description === 'string' ? serverDoc.description.trim() : '';
         const localDesc = typeof localDoc.description === 'string' ? localDoc.description.trim() : '';
+        const bestShort =
+            (this.isRealAffiliateLink(serverDoc.short_link) ? serverDoc.short_link : '') ||
+            (this.isRealAffiliateLink(localDoc.short_link) ? localDoc.short_link : '');
+        const bestOffer =
+            bestShort ||
+            (this.isRealAffiliateLink(serverDoc.offer_link) ? serverDoc.offer_link : '') ||
+            (this.isRealAffiliateLink(localDoc.offer_link) ? localDoc.offer_link : '');
 
         return {
             ...serverDoc,
+            short_link: bestShort || '',
+            offer_link: bestOffer || '',
             image_url: serverDoc.image_url || localDoc.image_url || mergedImages[0] || '',
             images: mergedImages,
             attributes: serverAttrs.length >= localAttrs.length ? serverAttrs : localAttrs,
@@ -1682,6 +2092,20 @@ export class ShopeeOffersService {
             const batchAll = Array.from(pendingQueue.values());
             for (let i = 0; i < batchAll.length; i += 100) {
                 const slice = batchAll.slice(i, i + 100);
+                // Tự động tạo link tiếp thị liên kết Shopee Affiliate thật (s.shopee.vn) cho các sản phẩm chưa có link Affiliate
+                try {
+                    const missingAffCount = slice.filter((it) => !this.getBestAffiliateLink(it)).length;
+                    if (missingAffCount > 0) {
+                        this.updateState({
+                            statusText: `Đang tạo link Affiliate Shopee (s.shopee.vn) cho ${missingAffCount} sản phẩm và lưu DB...`,
+                        });
+                        await this.generateAffiliateLinks(slice, {
+                            webview,
+                            persist: false,
+                            username,
+                        });
+                    }
+                } catch (_) {}
                 const res = await this.persistBatch(slice, username, sourceUrl);
                 if (res.serverOk || res.localSaved > 0) {
                     slice.forEach((it) => {
@@ -1728,7 +2152,10 @@ export class ShopeeOffersService {
                         sales: item.sales > 0 ? item.sales : prev.sales,
                         image_url: item.image_url || prev.image_url || mergedImages[0] || '',
                         images: mergedImages,
-                        offer_link: item.offer_link || prev.offer_link,
+                        short_link: this.isRealAffiliateLink(item.short_link)
+                            ? item.short_link
+                            : (this.isRealAffiliateLink(prev.short_link) ? prev.short_link : ''),
+                        offer_link: this.getBestAffiliateLink(item) || this.getBestAffiliateLink(prev) || '',
                     };
                     collectedMap.set(item.id, merged);
                     pendingQueue.set(item.id, merged);

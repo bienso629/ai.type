@@ -135,13 +135,13 @@
                     <div class="mt-8 pt-6 border-t">
                         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                             <div>
-                                <div class="text-base font-semibold flex items-center gap-2">
+                                <div class="text-xl font-semibold flex items-center gap-2">
                                     <span>Kho sản phẩm Shopee Offer đã đồng bộ</span>
-                                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+                                    <span class="px-2.5 py-0.5 text-base font-semibold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
                                         {{ offerTotalDocs }} sản phẩm
                                     </span>
                                 </div>
-                                <div class="text-xs text-secondary mt-0.5">
+                                <div class="text-lg text-secondary mt-0.5">
                                     Lưu trữ trong database collection <code>{{ (user?.name || 'admin') }}_shopee_offers_2023</code> (đồng bộ máy chủ và SQLite cục bộ)
                                 </div>
                             </div>
@@ -171,7 +171,7 @@
                         </div>
 
                         @if (shopeeSyncState?.isSyncing || shopeeSyncState?.statusText) {
-                            <div class="mb-4 px-3 py-2 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 text-xs text-orange-800 dark:text-orange-200 flex items-center justify-between gap-2">
+                            <div class="mb-4 px-3 py-2 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 text-lg text-orange-800 dark:text-orange-200 flex items-center justify-between gap-2">
                                 <span>{{ shopeeSyncState.statusText }}</span>
                                 <span class="font-semibold shrink-0">Đã lưu: {{ shopeeSyncState.savedServerCount || shopeeSyncState.savedLocalCount }}</span>
                             </div>
@@ -228,11 +228,11 @@
 
                         <!-- Danh sách sản phẩm Offer -->
                         @if (offerLoading && shopeeOffers.length === 0) {
-                            <div class="py-8 text-center text-sm text-secondary">
+                            <div class="py-8 text-center text-lg text-secondary">
                                 Đang tải danh sách sản phẩm Shopee Offer...
                             </div>
                         } @else if (shopeeOffers.length === 0) {
-                            <div class="py-8 px-4 text-center rounded-lg border border-dashed text-sm text-secondary">
+                            <div class="py-8 px-4 text-center rounded-lg border border-dashed text-lg text-secondary">
                                 @if (offerSortBy === 'livestream_in_progress') {
                                     Chưa có sản phẩm nào đang làm video livestream. Hãy bấm nút <strong>Livestream</strong> ở một sản phẩm để tạo kịch bản, ảnh khung nền hoặc import chuỗi video.
                                 } @else {
@@ -261,12 +261,12 @@
                                     />
                                     <div class="flex-1 min-w-0">
                                         <div
-                                            class="text-sm font-medium leading-snug line-clamp-2"
+                                            class="text-lg font-medium leading-snug line-clamp-2"
                                             [title]="item.product_name"
                                         >
                                             {{ item.product_name }}
                                         </div>
-                                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary mt-1.5">
+                                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-secondary mt-1.5">
                                             <span class="font-semibold text-red-600 dark:text-red-400">
                                                 {{ formatVnd(item.price) }}
                                             </span>
@@ -285,6 +285,15 @@
                                             }
                                             @if (item.shop_name) {
                                                 <span class="truncate max-w-[200px]" [title]="item.shop_name">{{ item.shop_name }}</span>
+                                            }
+                                            @if (isRealAffiliateLink(item)) {
+                                                <span
+                                                    class="px-1.5 py-0.5 rounded bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 font-mono truncate max-w-[220px] cursor-pointer hover:underline"
+                                                    (click)="copyOfferLink(item)"
+                                                    [matTooltip]="'Link Affiliate thật · Bấm để sao chép: ' + getOfferAffiliateLink(item)"
+                                                >
+                                                    {{ getOfferAffiliateLink(item) }}
+                                                </span>
                                             }
                                         </div>
                                     </div>
@@ -309,15 +318,27 @@
                                             type="button"
                                             mat-icon-button
                                             (click)="copyOfferLink(item)"
-                                            matTooltip="Sao chép link sản phẩm / affiliate"
+                                            [disabled]="generatingLinkOfferId === trackByOfferId(0, item)"
+                                            [matTooltip]="
+                                                generatingLinkOfferId === trackByOfferId(0, item)
+                                                    ? 'Đang tạo link Affiliate Shopee (s.shopee.vn)...'
+                                                    : isRealAffiliateLink(item)
+                                                      ? 'Sao chép link Affiliate: ' + getOfferAffiliateLink(item)
+                                                      : 'Tạo & sao chép link Affiliate Shopee (s.shopee.vn)'
+                                            "
                                         >
-                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:copy'"></mat-icon>
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [ngClass]="isRealAffiliateLink(item) ? 'text-primary' : ''"
+                                                [class.animate-spin]="generatingLinkOfferId === trackByOfferId(0, item)"
+                                                [svgIcon]="generatingLinkOfferId === trackByOfferId(0, item) ? 'feather:refresh-cw' : 'feather:copy'"
+                                            ></mat-icon>
                                         </button>
                                         <button
                                             type="button"
                                             mat-icon-button
                                             (click)="openOfferLink(item)"
-                                            matTooltip="Mở sản phẩm trên Shopee"
+                                            [matTooltip]="isRealAffiliateLink(item) ? 'Mở link Affiliate trên Shopee' : 'Mở trang sản phẩm trên Shopee'"
                                         >
                                             <mat-icon class="icon-size-4" [svgIcon]="'feather:external-link'"></mat-icon>
                                         </button>
@@ -325,7 +346,7 @@
                                 </div>
                             </cdk-virtual-scroll-viewport>
 
-                            <div class="mt-2.5 flex items-center justify-between text-xs text-secondary">
+                            <div class="mt-2.5 flex items-center justify-between text-lg text-secondary">
                                 <div>
                                     Đang hiển thị <strong>{{ shopeeOffers.length | number }}</strong> / <strong>{{ offerTotalDocs | number }}</strong> sản phẩm
                                 </div>

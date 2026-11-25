@@ -5123,8 +5123,17 @@ function registerLocalArticlesHandlers() {
                             variations = CASE WHEN excluded.variations != '' AND excluded.variations != '[]' THEN excluded.variations ELSE local_shopee_offers.variations END,
                             description = CASE WHEN length(excluded.description) > length(COALESCE(local_shopee_offers.description, '')) THEN excluded.description ELSE local_shopee_offers.description END,
                             product_link = CASE WHEN excluded.product_link != '' THEN excluded.product_link ELSE local_shopee_offers.product_link END,
-                            offer_link = CASE WHEN excluded.offer_link != '' THEN excluded.offer_link ELSE local_shopee_offers.offer_link END,
-                            short_link = CASE WHEN excluded.short_link != '' THEN excluded.short_link ELSE local_shopee_offers.short_link END,
+                            offer_link = CASE
+                                WHEN (excluded.offer_link LIKE '%s.shopee.vn/%' OR excluded.offer_link LIKE '%shope.ee/%' OR excluded.offer_link LIKE '%shp.ee/%' OR excluded.offer_link LIKE '%utm_source=an_%' OR excluded.offer_link LIKE '%utm_medium=affiliates%') THEN excluded.offer_link
+                                WHEN (local_shopee_offers.offer_link LIKE '%s.shopee.vn/%' OR local_shopee_offers.offer_link LIKE '%shope.ee/%' OR local_shopee_offers.offer_link LIKE '%shp.ee/%' OR local_shopee_offers.offer_link LIKE '%utm_source=an_%' OR local_shopee_offers.offer_link LIKE '%utm_medium=affiliates%') THEN local_shopee_offers.offer_link
+                                WHEN excluded.offer_link != '' THEN excluded.offer_link
+                                ELSE local_shopee_offers.offer_link
+                            END,
+                            short_link = CASE
+                                WHEN (excluded.short_link LIKE '%s.shopee.vn/%' OR excluded.short_link LIKE '%shope.ee/%' OR excluded.short_link LIKE '%shp.ee/%' OR excluded.short_link LIKE '%utm_source=an_%') THEN excluded.short_link
+                                WHEN excluded.short_link != '' AND COALESCE(local_shopee_offers.short_link, '') = '' THEN excluded.short_link
+                                ELSE local_shopee_offers.short_link
+                            END,
                             category_id = CASE WHEN excluded.category_id != '' THEN excluded.category_id ELSE local_shopee_offers.category_id END,
                             category_name = CASE WHEN excluded.category_name != '' THEN excluded.category_name ELSE local_shopee_offers.category_name END,
                             offer_id = CASE WHEN excluded.offer_id != '' THEN excluded.offer_id ELSE local_shopee_offers.offer_id END,
@@ -5136,6 +5145,18 @@ function registerLocalArticlesHandlers() {
                             updated_at = excluded.updated_at
                     `);
 
+                    const isRealAffiliateUrl = (u) => {
+                        const s = String(u || '').trim().toLowerCase();
+                        return /^https?:\/\//.test(s) && (
+                            s.includes('s.shopee.vn/') ||
+                            s.includes('shope.ee/') ||
+                            s.includes('shp.ee/') ||
+                            s.includes('utm_source=an_') ||
+                            s.includes('utm_medium=affiliates') ||
+                            s.includes('mmp_pid=an_')
+                        );
+                    };
+
                     let count = 0;
                     for (const raw of offers) {
                         if (!raw || typeof raw !== 'object') continue;
@@ -5144,7 +5165,10 @@ function registerLocalArticlesHandlers() {
                         const productName = String(raw.product_name || raw.productName || raw.name || '').trim();
                         const productLink = String(raw.product_link || raw.productLink || '').trim() ||
                             (shopId && itemId ? `https://shopee.vn/product/${shopId}/${itemId}` : '');
-                        const offerLink = String(raw.offer_link || raw.offerLink || raw.short_link || '').trim() || productLink;
+                        const rawShortLink = String(raw.short_link || raw.shortLink || '').trim();
+                        const rawOfferLink = String(raw.offer_link || raw.offerLink || '').trim();
+                        const cleanShortLink = isRealAffiliateUrl(rawShortLink) ? rawShortLink : '';
+                        const offerLink = cleanShortLink || (isRealAffiliateUrl(rawOfferLink) ? rawOfferLink : '');
                         if (!itemId && !productName && !productLink) continue;
 
                         const id = String(raw._id || raw.id || '').trim() ||
@@ -5190,7 +5214,7 @@ function registerLocalArticlesHandlers() {
                             mergedDesc,
                             productLink,
                             offerLink,
-                            String(raw.short_link || raw.shortLink || '').trim(),
+                            cleanShortLink,
                             String(raw.category_id || raw.categoryId || '').trim(),
                             String(raw.category_name || raw.categoryName || '').trim(),
                             String(raw.offer_id || raw.offerId || '').trim(),
